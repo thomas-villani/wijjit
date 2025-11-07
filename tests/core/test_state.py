@@ -17,39 +17,39 @@ class TestState:
 
     def test_init_with_data(self):
         """Test creating state with initial data."""
-        state = State({'name': 'Alice', 'age': 30})
+        state = State({"name": "Alice", "age": 30})
         assert len(state) == 2
-        assert state['name'] == 'Alice'
-        assert state['age'] == 30
+        assert state["name"] == "Alice"
+        assert state["age"] == 30
 
     def test_setitem(self):
         """Test setting items."""
         state = State()
-        state['name'] = 'Bob'
-        assert state['name'] == 'Bob'
+        state["name"] = "Bob"
+        assert state["name"] == "Bob"
 
     def test_getitem(self):
         """Test getting items."""
-        state = State({'name': 'Charlie'})
-        assert state['name'] == 'Charlie'
+        state = State({"name": "Charlie"})
+        assert state["name"] == "Charlie"
 
     def test_getitem_keyerror(self):
         """Test getting non-existent key raises KeyError."""
         state = State()
         with pytest.raises(KeyError):
-            _ = state['nonexistent']
+            _ = state["nonexistent"]
 
     def test_attribute_access_get(self):
         """Test getting values via attribute access."""
-        state = State({'name': 'Diana'})
-        assert state.name == 'Diana'
+        state = State({"name": "Diana"})
+        assert state.name == "Diana"
 
     def test_attribute_access_set(self):
         """Test setting values via attribute access."""
         state = State()
-        state.name = 'Eve'
-        assert state['name'] == 'Eve'
-        assert state.name == 'Eve'
+        state.name = "Eve"
+        assert state["name"] == "Eve"
+        assert state.name == "Eve"
 
     def test_attribute_access_error(self):
         """Test accessing non-existent attribute raises AttributeError."""
@@ -59,45 +59,45 @@ class TestState:
 
     def test_contains(self):
         """Test membership checking."""
-        state = State({'key': 'value'})
-        assert 'key' in state
-        assert 'other' not in state
+        state = State({"key": "value"})
+        assert "key" in state
+        assert "other" not in state
 
     def test_len(self):
         """Test length."""
         state = State()
         assert len(state) == 0
 
-        state['a'] = 1
+        state["a"] = 1
         assert len(state) == 1
 
-        state['b'] = 2
+        state["b"] = 2
         assert len(state) == 2
 
     def test_keys(self):
         """Test getting keys."""
-        state = State({'a': 1, 'b': 2})
-        assert set(state.keys()) == {'a', 'b'}
+        state = State({"a": 1, "b": 2})
+        assert set(state.keys()) == {"a", "b"}
 
     def test_values(self):
         """Test getting values."""
-        state = State({'a': 1, 'b': 2})
+        state = State({"a": 1, "b": 2})
         assert set(state.values()) == {1, 2}
 
     def test_items(self):
         """Test getting items."""
-        state = State({'a': 1, 'b': 2})
-        assert set(state.items()) == {('a', 1), ('b', 2)}
+        state = State({"a": 1, "b": 2})
+        assert set(state.items()) == {("a", 1), ("b", 2)}
 
     def test_on_change_callback(self):
         """Test global change callback."""
-        state = State({'count': 0})
+        state = State({"count": 0})
         callback = Mock()
         state.on_change(callback)
 
-        state['count'] = 1
+        state["count"] = 1
 
-        callback.assert_called_once_with('count', 0, 1)
+        callback.assert_called_once_with("count", 0, 1)
 
     def test_on_change_multiple_callbacks(self):
         """Test multiple global callbacks."""
@@ -108,18 +108,18 @@ class TestState:
         state.on_change(callback1)
         state.on_change(callback2)
 
-        state['value'] = 42
+        state["value"] = 42
 
-        callback1.assert_called_once_with('value', None, 42)
-        callback2.assert_called_once_with('value', None, 42)
+        callback1.assert_called_once_with("value", None, 42)
+        callback2.assert_called_once_with("value", None, 42)
 
     def test_on_change_no_trigger_on_same_value(self):
         """Test callback not triggered when value doesn't change."""
-        state = State({'count': 5})
+        state = State({"count": 5})
         callback = Mock()
         state.on_change(callback)
 
-        state['count'] = 5  # Same value
+        state["count"] = 5  # Same value
 
         callback.assert_not_called()
 
@@ -129,32 +129,32 @@ class TestState:
         callback = Mock()
         state.on_change(callback)
 
-        state.name = 'Test'
+        state.name = "Test"
 
-        callback.assert_called_once_with('name', None, 'Test')
+        callback.assert_called_once_with("name", None, "Test")
 
     def test_watch_specific_key(self):
         """Test watching a specific key."""
-        state = State({'a': 1, 'b': 2})
+        state = State({"a": 1, "b": 2})
         callback = Mock()
-        state.watch('a', callback)
+        state.watch("a", callback)
 
-        state['a'] = 10  # Should trigger
-        state['b'] = 20  # Should not trigger
+        state["a"] = 10  # Should trigger
+        state["b"] = 20  # Should not trigger
 
         callback.assert_called_once_with(1, 10)
 
     def test_watch_multiple_keys(self):
         """Test watching multiple keys."""
-        state = State({'x': 1, 'y': 2})
+        state = State({"x": 1, "y": 2})
         callback_x = Mock()
         callback_y = Mock()
 
-        state.watch('x', callback_x)
-        state.watch('y', callback_y)
+        state.watch("x", callback_x)
+        state.watch("y", callback_y)
 
-        state['x'] = 10
-        state['y'] = 20
+        state["x"] = 10
+        state["y"] = 20
 
         callback_x.assert_called_once_with(1, 10)
         callback_y.assert_called_once_with(2, 20)
@@ -163,40 +163,40 @@ class TestState:
         """Test watching a key that doesn't exist yet."""
         state = State()
         callback = Mock()
-        state.watch('newkey', callback)
+        state.watch("newkey", callback)
 
-        state['newkey'] = 'value'
+        state["newkey"] = "value"
 
-        callback.assert_called_once_with(None, 'value')
+        callback.assert_called_once_with(None, "value")
 
     def test_unwatch_specific_callback(self):
         """Test unwatching a specific callback."""
-        state = State({'count': 0})
+        state = State({"count": 0})
         callback1 = Mock()
         callback2 = Mock()
 
-        state.watch('count', callback1)
-        state.watch('count', callback2)
+        state.watch("count", callback1)
+        state.watch("count", callback2)
 
-        state.unwatch('count', callback1)
+        state.unwatch("count", callback1)
 
-        state['count'] = 1
+        state["count"] = 1
 
         callback1.assert_not_called()
         callback2.assert_called_once_with(0, 1)
 
     def test_unwatch_all_callbacks(self):
         """Test unwatching all callbacks for a key."""
-        state = State({'count': 0})
+        state = State({"count": 0})
         callback1 = Mock()
         callback2 = Mock()
 
-        state.watch('count', callback1)
-        state.watch('count', callback2)
+        state.watch("count", callback1)
+        state.watch("count", callback2)
 
-        state.unwatch('count')  # Remove all
+        state.unwatch("count")  # Remove all
 
-        state['count'] = 1
+        state["count"] = 1
 
         callback1.assert_not_called()
         callback2.assert_not_called()
@@ -205,36 +205,36 @@ class TestState:
         """Test unwatching a key that isn't watched."""
         state = State()
         # Should not raise an error
-        state.unwatch('nonexistent')
+        state.unwatch("nonexistent")
 
     def test_update(self):
         """Test updating multiple values."""
-        state = State({'a': 1, 'b': 2})
+        state = State({"a": 1, "b": 2})
         callback = Mock()
         state.on_change(callback)
 
-        state.update({'a': 10, 'c': 3})
+        state.update({"a": 10, "c": 3})
 
-        assert state['a'] == 10
-        assert state['b'] == 2
-        assert state['c'] == 3
+        assert state["a"] == 10
+        assert state["b"] == 2
+        assert state["c"] == 3
         assert callback.call_count == 2  # Called for 'a' and 'c'
 
     def test_reset_with_data(self):
         """Test resetting state with new data."""
-        state = State({'a': 1, 'b': 2})
+        state = State({"a": 1, "b": 2})
         callback = Mock()
         state.on_change(callback)
 
-        state.reset({'x': 10, 'y': 20})
+        state.reset({"x": 10, "y": 20})
 
-        assert dict(state) == {'x': 10, 'y': 20}
+        assert dict(state) == {"x": 10, "y": 20}
         # Should trigger changes for removed keys (a, b) and added keys (x, y)
         assert callback.call_count == 4
 
     def test_reset_empty(self):
         """Test resetting state to empty."""
-        state = State({'a': 1, 'b': 2})
+        state = State({"a": 1, "b": 2})
         callback = Mock()
         state.on_change(callback)
 
@@ -256,9 +256,9 @@ class TestState:
         state.on_change(good_callback)
 
         # Should not raise, and good_callback should still be called
-        state['value'] = 42
+        state["value"] = 42
 
-        good_callback.assert_called_once_with('value', None, 42)
+        good_callback.assert_called_once_with("value", None, 42)
 
     def test_watcher_exception_handling(self):
         """Test that exceptions in watchers don't break state updates."""
@@ -269,13 +269,13 @@ class TestState:
 
         good_watcher = Mock()
 
-        state.watch('key', bad_watcher)
-        state.watch('key', good_watcher)
+        state.watch("key", bad_watcher)
+        state.watch("key", good_watcher)
 
         # Should not raise, and good_watcher should still be called
-        state['key'] = 'value'
+        state["key"] = "value"
 
-        good_watcher.assert_called_once_with(None, 'value')
+        good_watcher.assert_called_once_with(None, "value")
 
     def test_private_attributes(self):
         """Test that private attributes work correctly."""
@@ -286,21 +286,21 @@ class TestState:
 
     def test_del_item(self):
         """Test deleting items."""
-        state = State({'a': 1, 'b': 2})
-        del state['a']
-        assert 'a' not in state
-        assert 'b' in state
+        state = State({"a": 1, "b": 2})
+        del state["a"]
+        assert "a" not in state
+        assert "b" in state
 
     def test_change_detection_with_complex_types(self):
         """Test change detection with lists and dicts."""
-        state = State({'items': [1, 2, 3]})
+        state = State({"items": [1, 2, 3]})
         callback = Mock()
         state.on_change(callback)
 
         # Modifying the list in place doesn't trigger change
-        state['items'].append(4)
+        state["items"].append(4)
         callback.assert_not_called()
 
         # Reassigning triggers change
-        state['items'] = [1, 2, 3, 4, 5]
+        state["items"] = [1, 2, 3, 4, 5]
         callback.assert_called_once()

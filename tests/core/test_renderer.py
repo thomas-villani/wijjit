@@ -165,10 +165,7 @@ class TestRenderer:
         """
 
         context = {
-            "user": {
-                "name": "Alice",
-                "shopping_list": ["apple", "banana", "cherry"]
-            }
+            "user": {"name": "Alice", "shopping_list": ["apple", "banana", "cherry"]}
         }
 
         result = renderer.render_string(template, context)

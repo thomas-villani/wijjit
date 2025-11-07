@@ -9,59 +9,59 @@ from typing import Optional
 
 
 # ANSI escape sequence pattern for stripping
-ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 
 class ANSIColor:
     """ANSI color codes for text and background."""
 
     # Foreground colors
-    BLACK = '\x1b[30m'
-    RED = '\x1b[31m'
-    GREEN = '\x1b[32m'
-    YELLOW = '\x1b[33m'
-    BLUE = '\x1b[34m'
-    MAGENTA = '\x1b[35m'
-    CYAN = '\x1b[36m'
-    WHITE = '\x1b[37m'
+    BLACK = "\x1b[30m"
+    RED = "\x1b[31m"
+    GREEN = "\x1b[32m"
+    YELLOW = "\x1b[33m"
+    BLUE = "\x1b[34m"
+    MAGENTA = "\x1b[35m"
+    CYAN = "\x1b[36m"
+    WHITE = "\x1b[37m"
 
     # Bright foreground colors
-    BRIGHT_BLACK = '\x1b[90m'
-    BRIGHT_RED = '\x1b[91m'
-    BRIGHT_GREEN = '\x1b[92m'
-    BRIGHT_YELLOW = '\x1b[93m'
-    BRIGHT_BLUE = '\x1b[94m'
-    BRIGHT_MAGENTA = '\x1b[95m'
-    BRIGHT_CYAN = '\x1b[96m'
-    BRIGHT_WHITE = '\x1b[97m'
+    BRIGHT_BLACK = "\x1b[90m"
+    BRIGHT_RED = "\x1b[91m"
+    BRIGHT_GREEN = "\x1b[92m"
+    BRIGHT_YELLOW = "\x1b[93m"
+    BRIGHT_BLUE = "\x1b[94m"
+    BRIGHT_MAGENTA = "\x1b[95m"
+    BRIGHT_CYAN = "\x1b[96m"
+    BRIGHT_WHITE = "\x1b[97m"
 
     # Background colors
-    BG_BLACK = '\x1b[40m'
-    BG_RED = '\x1b[41m'
-    BG_GREEN = '\x1b[42m'
-    BG_YELLOW = '\x1b[43m'
-    BG_BLUE = '\x1b[44m'
-    BG_MAGENTA = '\x1b[45m'
-    BG_CYAN = '\x1b[46m'
-    BG_WHITE = '\x1b[47m'
+    BG_BLACK = "\x1b[40m"
+    BG_RED = "\x1b[41m"
+    BG_GREEN = "\x1b[42m"
+    BG_YELLOW = "\x1b[43m"
+    BG_BLUE = "\x1b[44m"
+    BG_MAGENTA = "\x1b[45m"
+    BG_CYAN = "\x1b[46m"
+    BG_WHITE = "\x1b[47m"
 
     # Reset
-    RESET = '\x1b[0m'
+    RESET = "\x1b[0m"
 
 
 class ANSIStyle:
     """ANSI text styling codes."""
 
-    BOLD = '\x1b[1m'
-    DIM = '\x1b[2m'
-    ITALIC = '\x1b[3m'
-    UNDERLINE = '\x1b[4m'
-    BLINK = '\x1b[5m'
-    REVERSE = '\x1b[7m'
-    HIDDEN = '\x1b[8m'
-    STRIKETHROUGH = '\x1b[9m'
+    BOLD = "\x1b[1m"
+    DIM = "\x1b[2m"
+    ITALIC = "\x1b[3m"
+    UNDERLINE = "\x1b[4m"
+    BLINK = "\x1b[5m"
+    REVERSE = "\x1b[7m"
+    HIDDEN = "\x1b[8m"
+    STRIKETHROUGH = "\x1b[9m"
 
-    RESET = '\x1b[0m'
+    RESET = "\x1b[0m"
 
 
 class ANSICursor:
@@ -81,7 +81,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return f'\x1b[{n}A'
+        return f"\x1b[{n}A"
 
     @staticmethod
     def down(n: int = 1) -> str:
@@ -97,7 +97,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return f'\x1b[{n}B'
+        return f"\x1b[{n}B"
 
     @staticmethod
     def forward(n: int = 1) -> str:
@@ -113,7 +113,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return f'\x1b[{n}C'
+        return f"\x1b[{n}C"
 
     @staticmethod
     def back(n: int = 1) -> str:
@@ -129,7 +129,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return f'\x1b[{n}D'
+        return f"\x1b[{n}D"
 
     @staticmethod
     def position(row: int, col: int) -> str:
@@ -147,7 +147,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return f'\x1b[{row};{col}H'
+        return f"\x1b[{row};{col}H"
 
     @staticmethod
     def hide() -> str:
@@ -158,7 +158,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return '\x1b[?25l'
+        return "\x1b[?25l"
 
     @staticmethod
     def show() -> str:
@@ -169,7 +169,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return '\x1b[?25h'
+        return "\x1b[?25h"
 
     @staticmethod
     def save_position() -> str:
@@ -180,7 +180,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return '\x1b[s'
+        return "\x1b[s"
 
     @staticmethod
     def restore_position() -> str:
@@ -191,7 +191,7 @@ class ANSICursor:
         str
             ANSI escape sequence
         """
-        return '\x1b[u'
+        return "\x1b[u"
 
 
 class ANSIScreen:
@@ -206,7 +206,7 @@ class ANSIScreen:
         str
             ANSI escape sequence
         """
-        return '\x1b[2J'
+        return "\x1b[2J"
 
     @staticmethod
     def clear_line() -> str:
@@ -217,7 +217,7 @@ class ANSIScreen:
         str
             ANSI escape sequence
         """
-        return '\x1b[2K'
+        return "\x1b[2K"
 
     @staticmethod
     def clear_to_end() -> str:
@@ -228,7 +228,7 @@ class ANSIScreen:
         str
             ANSI escape sequence
         """
-        return '\x1b[0J'
+        return "\x1b[0J"
 
     @staticmethod
     def clear_to_start() -> str:
@@ -239,7 +239,7 @@ class ANSIScreen:
         str
             ANSI escape sequence
         """
-        return '\x1b[1J'
+        return "\x1b[1J"
 
     @staticmethod
     def alternate_buffer_on() -> str:
@@ -250,7 +250,7 @@ class ANSIScreen:
         str
             ANSI escape sequence
         """
-        return '\x1b[?1049h'
+        return "\x1b[?1049h"
 
     @staticmethod
     def alternate_buffer_off() -> str:
@@ -261,7 +261,7 @@ class ANSIScreen:
         str
             ANSI escape sequence
         """
-        return '\x1b[?1049l'
+        return "\x1b[?1049l"
 
 
 def strip_ansi(text: str) -> str:
@@ -277,7 +277,7 @@ def strip_ansi(text: str) -> str:
     str
         Text with ANSI codes removed
     """
-    return ANSI_ESCAPE_PATTERN.sub('', text)
+    return ANSI_ESCAPE_PATTERN.sub("", text)
 
 
 def visible_length(text: str) -> int:
@@ -296,7 +296,7 @@ def visible_length(text: str) -> int:
     return len(strip_ansi(text))
 
 
-def clip_to_width(text: str, width: int, ellipsis: str = '...') -> str:
+def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
     """Clip text to specified width, preserving ANSI codes.
 
     This clips the visible text to the specified width while preserving
@@ -317,7 +317,7 @@ def clip_to_width(text: str, width: int, ellipsis: str = '...') -> str:
         Clipped text with ANSI codes preserved
     """
     if width <= 0:
-        return ''
+        return ""
 
     current_length = visible_length(text)
     if current_length <= width:
@@ -331,10 +331,14 @@ def clip_to_width(text: str, width: int, ellipsis: str = '...') -> str:
     target_width = width - ellipsis_len if ellipsis_len <= width else width
 
     while i < len(text) and visible_count < target_width:
-        if text[i:i+2] == '\x1b[':
+        if text[i : i + 2] == "\x1b[":
             # Found ANSI escape sequence - find the end
             end = i + 2
-            while end < len(text) and text[end] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz':
+            while (
+                end < len(text)
+                and text[end]
+                not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            ):
                 end += 1
             if end < len(text):
                 end += 1
@@ -346,15 +350,20 @@ def clip_to_width(text: str, width: int, ellipsis: str = '...') -> str:
             visible_count += 1
             i += 1
 
-    output = ''.join(result)
+    output = "".join(result)
     if current_length > width and ellipsis:
         output += ellipsis
 
     return output
 
 
-def colorize(text: str, color: Optional[str] = None, bg_color: Optional[str] = None,
-             bold: bool = False, underline: bool = False) -> str:
+def colorize(
+    text: str,
+    color: Optional[str] = None,
+    bg_color: Optional[str] = None,
+    bold: bool = False,
+    underline: bool = False,
+) -> str:
     """Apply ANSI colors and styles to text.
 
     Parameters
@@ -389,5 +398,5 @@ def colorize(text: str, color: Optional[str] = None, bg_color: Optional[str] = N
     if not codes:
         return text
 
-    prefix = ''.join(codes)
-    return f'{prefix}{text}{ANSIStyle.RESET}'
+    prefix = "".join(codes)
+    return f"{prefix}{text}{ANSIStyle.RESET}"

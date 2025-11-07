@@ -17,86 +17,52 @@ app = Wijjit()
 @app.view('main', default=True)
 
 def main\_view():
-
-&nbsp;   return {
-
-&nbsp;       'template': 'main.tui',
-
-&nbsp;       'data': {
-
-&nbsp;           'files': state.files,
-
-&nbsp;           'current\_path': state.current\_path,
-
-&nbsp;       },
-
-&nbsp;       'handlers': {
-
-&nbsp;           'open\_file': lambda file: open\_file\_handler(file),
-
-&nbsp;           'show\_config': lambda: app.navigate('config'),
-
-&nbsp;           'quit': lambda: app.exit(),
-
-&nbsp;       }
-
-&nbsp;   }
+   return {
+       'template': 'main.tui',
+       'data': {
+           'files': state.files,
+           'current\_path': state.current\_path,
+       },
+       'handlers': {
+           'open\_file': lambda file: open\_file\_handler(file),
+           'show\_config': lambda: app.navigate('config'),
+           'quit': lambda: app.exit(),
+       }
+   }
 
 
 
 @app.view('config')
 
 def config\_view():
-
-&nbsp;   return {
-
-&nbsp;       'template': 'config.tui',
-
-&nbsp;       'data': {
-
-&nbsp;           'server': state.config.server,
-
-&nbsp;           'port': state.config.port,
-
-&nbsp;       },
-
-&nbsp;       'handlers': {
-
-&nbsp;           'save': save\_config,
-
-&nbsp;           'cancel': lambda: app.navigate('main'),
-
-&nbsp;       },
-
-&nbsp;       'on\_enter': lambda: state.view\_context.update({'editing': False}),
-
-&nbsp;       'on\_exit': lambda: validate\_config(),
-
-&nbsp;   }
+   return {
+       'template': 'config.tui',
+       'data': {
+           'server': state.config.server,
+           'port': state.config.port,
+       },
+       'handlers': {
+           'save': save\_config,
+           'cancel': lambda: app.navigate('main'),
+       },
+       'on\_enter': lambda: state.view\_context.update({'editing': False}),
+       'on\_exit': lambda: validate\_config(),
+   }
 
 
 
 @app.view('confirm\_delete')
 
 def confirm\_delete\_view(item):
-
-&nbsp;   """Views can take parameters"""
-
-&nbsp;   return {
-
-&nbsp;       'template': 'confirm.tui',
-
-&nbsp;       'data': {'item': item},
-
-&nbsp;       'handlers': {
-
-&nbsp;           'yes': lambda: delete\_item(item) or app.navigate('main'),
-
-&nbsp;           'no': lambda: app.navigate('main'),
-
-&nbsp;       }
-
-&nbsp;   }
+   """Views can take parameters"""
+   return {
+       'template': 'confirm.tui',
+       'data': {'item': item},
+       'handlers': {
+           'yes': lambda: delete\_item(item) or app.navigate('main'),
+           'no': lambda: app.navigate('main'),
+       }
+   }
 
 ```
 
@@ -109,22 +75,14 @@ def confirm\_delete\_view(item):
 ```jinja
 
 {% frame title="Main Menu" %}
-
-&nbsp; 
-
-&nbsp; {% menu id="main\_menu" %}
-
-&nbsp;   {% item key="f" action="browse\_files" %}Browse Files{% enditem %}
-
-&nbsp;   {% item key="c" navigate="config" %}Configuration{% enditem %}
-
-&nbsp;   {% item key="s" navigate="search" %}Search{% enditem %}
-
-&nbsp;   {% item key="q" action="quit" %}Quit{% enditem %}
-
-&nbsp; {% endmenu %}
-
-&nbsp; 
+ 
+ {% menu id="main\_menu" %}
+   {% item key="f" action="browse\_files" %}Browse Files{% enditem %}
+   {% item key="c" navigate="config" %}Configuration{% enditem %}
+   {% item key="s" navigate="search" %}Search{% enditem %}
+   {% item key="q" action="quit" %}Quit{% enditem %}
+ {% endmenu %}
+ 
 
 {% endframe %}
 
@@ -139,18 +97,12 @@ Or programmatically from handlers:
 ```python
 
 def on\_file\_select(file):
-
-&nbsp;   if file.is\_dir:
-
-&nbsp;       state.current\_path = file.path
-
-&nbsp;       # Stay on same view, triggers re-render
-
-&nbsp;   else:
-
-&nbsp;       # Navigate to editor view with parameter
-
-&nbsp;       app.navigate('editor', file=file)
+   if file.is\_dir:
+       state.current\_path = file.path
+       # Stay on same view, triggers re-render
+   else:
+       # Navigate to editor view with parameter
+       app.navigate('editor', file=file)
 
 ```
 
@@ -167,14 +119,10 @@ def on\_file\_select(file):
 \# Text input
 
 {% textinput id="username" 
-
-&nbsp;            placeholder="Enter username"
-
-&nbsp;            value=state.username
-
-&nbsp;            on\_change="update\_username"
-
-&nbsp;            validate=username\_validator %}
+            placeholder="Enter username"
+            value=state.username
+            on\_change="update\_username"
+            validate=username\_validator %}
 
 
 
@@ -187,54 +135,42 @@ def on\_file\_select(file):
 \# Number input with validation
 
 {% numberinput id="port" 
-
-&nbsp;              min=1024 
-
-&nbsp;              max=65535 
-
-&nbsp;              value=state.port %}
+              min=1024 
+              max=65535 
+              value=state.port %}
 
 
 
 \# Select/dropdown
 
 {% select id="theme" 
-
-&nbsp;         options=\["dark", "light", "auto"]
-
-&nbsp;         selected=state.theme
-
-&nbsp;         on\_select="change\_theme" %}
+         options=\["dark", "light", "auto"]
+         selected=state.theme
+         on\_select="change\_theme" %}
 
 
 
 \# Multi-select
 
 {% multiselect id="features"
-
-&nbsp;              options=available\_features
-
-&nbsp;              selected=state.enabled\_features %}
+              options=available\_features
+              selected=state.enabled\_features %}
 
 
 
 \# Checkbox
 
 {% checkbox id="remember" 
-
-&nbsp;           label="Remember me"
-
-&nbsp;           checked=state.remember %}
+           label="Remember me"
+           checked=state.remember %}
 
 
 
 \# Radio group
 
 {% radiogroup id="mode" selected=state.mode %}
-
-&nbsp; {% option value="auto" %}Automatic{% endoption %}
-
-&nbsp; {% option value="manual" %}Manual{% endoption %}
+ {% option value="auto" %}Automatic{% endoption %}
+ {% option value="manual" %}Manual{% endoption %}
 
 {% endradiogroup %}
 
@@ -249,76 +185,56 @@ def on\_file\_select(file):
 \# Progress bar
 
 {% progress id="download" 
-
-&nbsp;           value=state.progress 
-
-&nbsp;           max=100 
-
-&nbsp;           format="{percent}% \[{bar}] {current}/{total}" %}
+           value=state.progress 
+           max=100 
+           format="{percent}% \[{bar}] {current}/{total}" %}
 
 
 
 \# Spinner
 
 {% spinner id="loading" 
-
-&nbsp;          active=state.is\_loading 
-
-&nbsp;          style="dots" %}
+          active=state.is\_loading 
+          style="dots" %}
 
 
 
 \# Table with sorting/filtering
 
 {% table id="results" 
-
-&nbsp;        data=state.results
-
-&nbsp;        columns=\["Name", "Size", "Modified"]
-
-&nbsp;        sortable=true
-
-&nbsp;        selectable=true
-
-&nbsp;        on\_select="view\_details" %}
+        data=state.results
+        columns=\["Name", "Size", "Modified"]
+        sortable=true
+        selectable=true
+        on\_select="view\_details" %}
 
 
 
 \# Tree view
 
 {% tree id="file\_tree"
-
-&nbsp;       data=state.tree
-
-&nbsp;       expanded=state.expanded\_nodes
-
-&nbsp;       on\_toggle="toggle\_node"
-
-&nbsp;       on\_select="select\_node" %}
+       data=state.tree
+       expanded=state.expanded\_nodes
+       on\_toggle="toggle\_node"
+       on\_select="select\_node" %}
 
 
 
 \# Log viewer
 
 {% logview id="logs"
-
-&nbsp;          lines=state.log\_lines
-
-&nbsp;          follow=true
-
-&nbsp;          max\_lines=1000 %}
+          lines=state.log\_lines
+          follow=true
+          max\_lines=1000 %}
 
 
 
 \# Tabs
 
 {% tabs id="main\_tabs" active=state.active\_tab %}
-
-&nbsp; {% tab key="overview" %}Overview{% endtab %}
-
-&nbsp; {% tab key="details" %}Details{% endtab %}
-
-&nbsp; {% tab key="logs" %}Logs{% endtab %}
+ {% tab key="overview" %}Overview{% endtab %}
+ {% tab key="details" %}Details{% endtab %}
+ {% tab key="logs" %}Logs{% endtab %}
 
 {% endtabs %}
 
@@ -333,12 +249,9 @@ def on\_file\_select(file):
 \# Button
 
 {% button id="submit" 
-
-&nbsp;         action="submit\_form"
-
-&nbsp;         variant="primary" %}
-
-&nbsp; Submit
+         action="submit\_form"
+         variant="primary" %}
+ Submit
 
 {% endbutton %}
 
@@ -387,90 +300,57 @@ state.selected\_files = \[]
 @app.view('browser', default=True)
 
 def file\_browser():
-
-&nbsp;   return {
-
-&nbsp;       'template': 'browser.tui',
-
-&nbsp;       'data': {
-
-&nbsp;           'path': state.current\_dir,
-
-&nbsp;           'files': state.files,
-
-&nbsp;           'selected': state.selected\_files,
-
-&nbsp;       },
-
-&nbsp;       'handlers': {
-
-&nbsp;           'open': open\_file,
-
-&nbsp;           'delete': confirm\_delete,
-
-&nbsp;           'refresh': refresh\_files,
-
-&nbsp;           'settings': lambda: app.navigate('settings'),
-
-&nbsp;       }
-
-&nbsp;   }
+   return {
+       'template': 'browser.tui',
+       'data': {
+           'path': state.current\_dir,
+           'files': state.files,
+           'selected': state.selected\_files,
+       },
+       'handlers': {
+           'open': open\_file,
+           'delete': confirm\_delete,
+           'refresh': refresh\_files,
+           'settings': lambda: app.navigate('settings'),
+       }
+   }
 
 
 
 @app.view('settings')
 
 def settings():
-
-&nbsp;   return {
-
-&nbsp;       'template': 'settings.tui',
-
-&nbsp;       'data': state.config,
-
-&nbsp;       'handlers': {
-
-&nbsp;           'save': save\_and\_return,
-
-&nbsp;           'cancel': lambda: app.navigate('browser'),
-
-&nbsp;       }
-
-&nbsp;   }
+   return {
+       'template': 'settings.tui',
+       'data': state.config,
+       'handlers': {
+           'save': save\_and\_return,
+           'cancel': lambda: app.navigate('browser'),
+       }
+   }
 
 
 
 def open\_file(file):
-
-&nbsp;   if file.is\_dir():
-
-&nbsp;       state.current\_dir = file
-
-&nbsp;       state.files = list(file.iterdir())
-
-&nbsp;       # Stays on browser view
-
-&nbsp;   else:
-
-&nbsp;       app.navigate('viewer', file=file)
+   if file.is\_dir():
+       state.current\_dir = file
+       state.files = list(file.iterdir())
+       # Stays on browser view
+   else:
+       app.navigate('viewer', file=file)
 
 
 
 def confirm\_delete():
-
-&nbsp;   if state.selected\_files:
-
-&nbsp;       app.navigate('confirm', 
-
-&nbsp;                   message=f"Delete {len(state.selected\_files)} files?",
-
-&nbsp;                   on\_confirm=delete\_files)
+   if state.selected\_files:
+       app.navigate('confirm', 
+                   message=f"Delete {len(state.selected\_files)} files?",
+                   on\_confirm=delete\_files)
 
 
 
 if \_\_name\_\_ == '\_\_main\_\_':
-
-&nbsp;   app.run()
+   app.run()
 
 ```
 
@@ -481,60 +361,33 @@ if \_\_name\_\_ == '\_\_main\_\_':
 {# browser.tui #}
 
 {% frame title="File Browser - {{ path }}" border="double" width="100%" height="100%" %}
-
-&nbsp; 
-
-&nbsp; {% frame id="content" fill=true %}
-
-&nbsp;   {% table id="files" 
-
-&nbsp;            data=files
-
-&nbsp;            selectable=true
-
-&nbsp;            multi\_select=true
-
-&nbsp;            selected=selected
-
-&nbsp;            on\_enter="open" %}
-
-&nbsp;     {% column key="name" %}Name{% endcolumn %}
-
-&nbsp;     {% column key="size" format="humanize" %}Size{% endcolumn %}
-
-&nbsp;     {% column key="modified" format="timeago" %}Modified{% endcolumn %}
-
-&nbsp;   {% endtable %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
-
-&nbsp; {% frame id="actions" height=3 %}
-
-&nbsp;   {% hstack spacing=2 %}
-
-&nbsp;     {% button action="open" %}{% hint key="Enter" %}Open{% endbutton %}
-
-&nbsp;     {% button action="delete" %}{% hint key="Del" %}Delete{% endbutton %}
-
-&nbsp;     {% button action="refresh" %}{% hint key="F5" %}Refresh{% endbutton %}
-
-&nbsp;     {% button navigate="settings" %}{% hint key="," %}Settings{% endbutton %}
-
-&nbsp;   {% endhstack %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
-
-&nbsp; {% frame id="status" height=1 %}
-
-&nbsp;   {{ files|length }} items | {{ selected|length }} selected
-
-&nbsp; {% endframe %}
-
-&nbsp; 
+ 
+ {% frame id="content" fill=true %}
+   {% table id="files" 
+            data=files
+            selectable=true
+            multi\_select=true
+            selected=selected
+            on\_enter="open" %}
+     {% column key="name" %}Name{% endcolumn %}
+     {% column key="size" format="humanize" %}Size{% endcolumn %}
+     {% column key="modified" format="timeago" %}Modified{% endcolumn %}
+   {% endtable %}
+ {% endframe %}
+ 
+ {% frame id="actions" height=3 %}
+   {% hstack spacing=2 %}
+     {% button action="open" %}{% hint key="Enter" %}Open{% endbutton %}
+     {% button action="delete" %}{% hint key="Del" %}Delete{% endbutton %}
+     {% button action="refresh" %}{% hint key="F5" %}Refresh{% endbutton %}
+     {% button navigate="settings" %}{% hint key="," %}Settings{% endbutton %}
+   {% endhstack %}
+ {% endframe %}
+ 
+ {% frame id="status" height=1 %}
+   {{ files|length }} items | {{ selected|length }} selected
+ {% endframe %}
+ 
 
 {% endframe %}
 
@@ -553,10 +406,8 @@ if \_\_name\_\_ == '\_\_main\_\_':
 @app.on\_state\_change('current\_dir')
 
 def reload\_files():
-
-&nbsp;   state.files = list(state.current\_dir.iterdir())
-
-&nbsp;   state.selected\_files = \[]
+   state.files = list(state.current\_dir.iterdir())
+   state.selected\_files = \[]
 
 
 
@@ -565,8 +416,7 @@ def reload\_files():
 @app.before\_navigate
 
 def log\_navigation(from\_view, to\_view):
-
-&nbsp;   logger.info(f"Navigating from {from\_view} to {to\_view}")
+   logger.info(f"Navigating from {from\_view} to {to\_view}")
 
 
 
@@ -575,8 +425,7 @@ def log\_navigation(from\_view, to\_view):
 @app.on\_error
 
 def handle\_error(error):
-
-&nbsp;   app.navigate('error', error=error)
+   app.navigate('error', error=error)
 
 ```
 

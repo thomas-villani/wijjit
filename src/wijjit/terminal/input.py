@@ -90,7 +90,7 @@ class Key:
         bool
             True if Ctrl+C
         """
-        return self.name == 'ctrl+c' or (self.char == '\x03')
+        return self.name == "ctrl+c" or (self.char == "\x03")
 
     @property
     def modifiers(self) -> list:
@@ -102,12 +102,12 @@ class Key:
             List of modifier names (e.g., ['ctrl'], ['alt'], etc.)
         """
         mods = []
-        if self.key_type == KeyType.CONTROL or 'ctrl+' in self.name:
-            mods.append('ctrl')
-        if 'alt+' in self.name:
-            mods.append('alt')
-        if 'shift+' in self.name:
-            mods.append('shift')
+        if self.key_type == KeyType.CONTROL or "ctrl+" in self.name:
+            mods.append("ctrl")
+        if "alt+" in self.name:
+            mods.append("alt")
+        if "shift+" in self.name:
+            mods.append("shift")
         return mods
 
 
@@ -116,62 +116,62 @@ class Keys:
     """Common keyboard key definitions."""
 
     # Special keys
-    ENTER = Key('enter', KeyType.SPECIAL, '\r')
-    TAB = Key('tab', KeyType.SPECIAL, '\t')
-    BACKTAB = Key('shift+tab', KeyType.SPECIAL)
-    ESCAPE = Key('escape', KeyType.SPECIAL, '\x1b')
-    BACKSPACE = Key('backspace', KeyType.SPECIAL, '\x7f')
-    DELETE = Key('delete', KeyType.SPECIAL)
-    SPACE = Key('space', KeyType.CHARACTER, ' ')
+    ENTER = Key("enter", KeyType.SPECIAL, "\r")
+    TAB = Key("tab", KeyType.SPECIAL, "\t")
+    BACKTAB = Key("shift+tab", KeyType.SPECIAL)
+    ESCAPE = Key("escape", KeyType.SPECIAL, "\x1b")
+    BACKSPACE = Key("backspace", KeyType.SPECIAL, "\x7f")
+    DELETE = Key("delete", KeyType.SPECIAL)
+    SPACE = Key("space", KeyType.CHARACTER, " ")
 
     # Arrow keys
-    UP = Key('up', KeyType.SPECIAL)
-    DOWN = Key('down', KeyType.SPECIAL)
-    LEFT = Key('left', KeyType.SPECIAL)
-    RIGHT = Key('right', KeyType.SPECIAL)
+    UP = Key("up", KeyType.SPECIAL)
+    DOWN = Key("down", KeyType.SPECIAL)
+    LEFT = Key("left", KeyType.SPECIAL)
+    RIGHT = Key("right", KeyType.SPECIAL)
 
     # Control keys
-    CTRL_C = Key('ctrl+c', KeyType.CONTROL, '\x03')
+    CTRL_C = Key("ctrl+c", KeyType.CONTROL, "\x03")
 
     # Navigation keys
-    HOME = Key('home', KeyType.SPECIAL)
-    END = Key('end', KeyType.SPECIAL)
-    PAGE_UP = Key('pageup', KeyType.SPECIAL)
-    PAGE_DOWN = Key('pagedown', KeyType.SPECIAL)
+    HOME = Key("home", KeyType.SPECIAL)
+    END = Key("end", KeyType.SPECIAL)
+    PAGE_UP = Key("pageup", KeyType.SPECIAL)
+    PAGE_DOWN = Key("pagedown", KeyType.SPECIAL)
 
     # Control keys
-    CTRL_C = Key('ctrl+c', KeyType.CONTROL, '\x03')
-    CTRL_D = Key('ctrl+d', KeyType.CONTROL, '\x04')
-    CTRL_Z = Key('ctrl+z', KeyType.CONTROL, '\x1a')
+    CTRL_C = Key("ctrl+c", KeyType.CONTROL, "\x03")
+    CTRL_D = Key("ctrl+d", KeyType.CONTROL, "\x04")
+    CTRL_Z = Key("ctrl+z", KeyType.CONTROL, "\x1a")
 
 
 # Escape sequence mappings for special keys
 ESCAPE_SEQUENCES = {
-    '\x1b[A': Keys.UP,
-    '\x1b[B': Keys.DOWN,
-    '\x1b[C': Keys.RIGHT,
-    '\x1b[D': Keys.LEFT,
-    '\x1b[H': Keys.HOME,
-    '\x1b[F': Keys.END,
-    '\x1b[5~': Keys.PAGE_UP,
-    '\x1b[6~': Keys.PAGE_DOWN,
-    '\x1b[3~': Keys.DELETE,
-    '\x1bOH': Keys.HOME,  # Alternative home
-    '\x1bOF': Keys.END,   # Alternative end
+    "\x1b[A": Keys.UP,
+    "\x1b[B": Keys.DOWN,
+    "\x1b[C": Keys.RIGHT,
+    "\x1b[D": Keys.LEFT,
+    "\x1b[H": Keys.HOME,
+    "\x1b[F": Keys.END,
+    "\x1b[5~": Keys.PAGE_UP,
+    "\x1b[6~": Keys.PAGE_DOWN,
+    "\x1b[3~": Keys.DELETE,
+    "\x1bOH": Keys.HOME,  # Alternative home
+    "\x1bOF": Keys.END,  # Alternative end
 }
 
 # Single character mappings
 SINGLE_CHAR_KEYS = {
-    '\r': Keys.ENTER,
-    '\n': Keys.ENTER,
-    '\t': Keys.TAB,
-    '\x1b': Keys.ESCAPE,
-    '\x7f': Keys.BACKSPACE,
-    '\x08': Keys.BACKSPACE,  # Alternative backspace
-    ' ': Keys.SPACE,
-    '\x03': Keys.CTRL_C,
-    '\x04': Keys.CTRL_D,
-    '\x1a': Keys.CTRL_Z,
+    "\r": Keys.ENTER,
+    "\n": Keys.ENTER,
+    "\t": Keys.TAB,
+    "\x1b": Keys.ESCAPE,
+    "\x7f": Keys.BACKSPACE,
+    "\x08": Keys.BACKSPACE,  # Alternative backspace
+    " ": Keys.SPACE,
+    "\x03": Keys.CTRL_C,
+    "\x04": Keys.CTRL_D,
+    "\x1a": Keys.CTRL_Z,
 }
 
 
@@ -242,15 +242,15 @@ class InputHandler:
                 return PROMPT_TOOLKIT_KEY_MAP[key_press.key]
 
             # Check for control characters
-            if key_press.key.startswith('c-') and len(key_press.key) == 3:
+            if key_press.key.startswith("c-") and len(key_press.key) == 3:
                 ctrl_letter = key_press.key[2]
-                char = chr(ord(ctrl_letter) - ord('a') + 1)
-                return Key(f'ctrl+{ctrl_letter}', KeyType.CONTROL, char)
+                char = chr(ord(ctrl_letter) - ord("a") + 1)
+                return Key(f"ctrl+{ctrl_letter}", KeyType.CONTROL, char)
 
             # Regular character
             if key_press.data:
                 char = key_press.data
-                if char == ' ':
+                if char == " ":
                     return Keys.SPACE
                 return Key(char, KeyType.CHARACTER, char)
 
@@ -265,7 +265,7 @@ class InputHandler:
         if self._raw_mode is not None:
             try:
                 self._raw_mode.__exit__(None, None, None)
-            except:
+            except Exception:
                 pass
             self._raw_mode = None
 

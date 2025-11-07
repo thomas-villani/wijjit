@@ -30,19 +30,42 @@ class FocusManager:
     def set_elements(self, elements: List[Element]) -> None:
         """Set the list of focusable elements.
 
+        Preserves focus on the same element (by ID or index) if possible.
+
         Parameters
         ----------
         elements : list
             List of focusable elements
         """
+        # Remember which element was focused (by ID if available)
+        focused_id = None
+        old_index = self.current_index
+        if self.current_index is not None and 0 <= self.current_index < len(
+            self.elements
+        ):
+            old_elem = self.elements[self.current_index]
+            if hasattr(old_elem, "id") and old_elem.id:
+                focused_id = old_elem.id
+
+        # Update elements list
         self.elements = [elem for elem in elements if elem.focusable]
 
-        # Reset focus
-        self.current_index = None
+        # Try to restore focus
+        if focused_id:
+            # Try to find element with same ID
+            for i, elem in enumerate(self.elements):
+                if hasattr(elem, "id") and elem.id == focused_id:
+                    self._set_focus(i)
+                    return
 
-        # Focus first element if available
-        if self.elements:
+        # If we had a focused index, try to focus the same index
+        if old_index is not None and old_index < len(self.elements):
+            self._set_focus(old_index)
+        elif self.elements:
+            # Otherwise focus first element
             self.focus_first()
+        else:
+            self.current_index = None
 
     def get_focused_element(self) -> Optional[Element]:
         """Get the currently focused element.
@@ -52,7 +75,9 @@ class FocusManager:
         Element or None
             Currently focused element, or None if no element has focus
         """
-        if self.current_index is not None and 0 <= self.current_index < len(self.elements):
+        if self.current_index is not None and 0 <= self.current_index < len(
+            self.elements
+        ):
             return self.elements[self.current_index]
         return None
 
@@ -133,7 +158,9 @@ class FocusManager:
             Index of element to focus
         """
         # Blur currently focused element
-        if self.current_index is not None and 0 <= self.current_index < len(self.elements):
+        if self.current_index is not None and 0 <= self.current_index < len(
+            self.elements
+        ):
             self.elements[self.current_index].on_blur()
 
         # Focus new element
@@ -143,7 +170,9 @@ class FocusManager:
 
     def clear(self) -> None:
         """Clear all elements and focus."""
-        if self.current_index is not None and 0 <= self.current_index < len(self.elements):
+        if self.current_index is not None and 0 <= self.current_index < len(
+            self.elements
+        ):
             self.elements[self.current_index].on_blur()
 
         self.elements = []

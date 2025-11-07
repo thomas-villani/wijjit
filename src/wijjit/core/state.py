@@ -5,7 +5,7 @@ when state values are modified, enabling automatic re-rendering of the UI.
 """
 
 from collections import UserDict
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 class State(UserDict):
@@ -40,8 +40,8 @@ class State(UserDict):
 
     def __init__(self, data: Optional[Dict[str, Any]] = None):
         # Initialize internal attributes first, before UserDict.__init__
-        object.__setattr__(self, '_change_callbacks', [])
-        object.__setattr__(self, '_watchers', {})
+        object.__setattr__(self, "_change_callbacks", [])
+        object.__setattr__(self, "_watchers", {})
         super().__init__(data or {})
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -79,7 +79,7 @@ class State(UserDict):
         AttributeError
             If the key doesn't exist
         """
-        if name.startswith('_'):
+        if name.startswith("_"):
             # Access to private attributes
             return super().__getattribute__(name)
 
@@ -98,7 +98,7 @@ class State(UserDict):
         value : Any
             The new value
         """
-        if name.startswith('_') or name == 'data':
+        if name.startswith("_") or name == "data":
             # Set private attributes and 'data' (UserDict attribute) normally
             object.__setattr__(self, name, value)
         else:

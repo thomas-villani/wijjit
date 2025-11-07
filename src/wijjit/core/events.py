@@ -86,6 +86,8 @@ class KeyEvent(Event):
         The key that was pressed
     modifiers : List[str]
         Modifier keys (ctrl, alt, shift)
+    key_obj : Optional[Any]
+        The original Key object from InputHandler
 
     Attributes
     ----------
@@ -93,10 +95,13 @@ class KeyEvent(Event):
         The key that was pressed
     modifiers : List[str]
         Modifier keys (ctrl, alt, shift)
+    key_obj : Optional[Any]
+        The original Key object from InputHandler
     """
 
     key: str = ""
     modifiers: List[str] = field(default_factory=list)
+    key_obj: Optional[Any] = None
 
     def __post_init__(self):
         """Initialize event type."""
@@ -333,7 +338,8 @@ class HandlerRegistry:
             Name of the view whose handlers should be cleared
         """
         self.handlers = [
-            h for h in self.handlers
+            h
+            for h in self.handlers
             if not (h.scope == HandlerScope.VIEW and h.view_name == view_name)
         ]
 
@@ -353,7 +359,10 @@ class HandlerRegistry:
 
         for handler in self.handlers:
             # Check event type match
-            if handler.event_type is not None and handler.event_type != event.event_type:
+            if (
+                handler.event_type is not None
+                and handler.event_type != event.event_type
+            ):
                 continue
 
             # Check scope-specific matching

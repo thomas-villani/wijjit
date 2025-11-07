@@ -1,7 +1,6 @@
 """Tests for input elements."""
 
 from unittest.mock import Mock
-import pytest
 
 from wijjit.elements.input import TextInput, Button
 from wijjit.elements.base import ElementType
@@ -170,8 +169,9 @@ class TestTextInput:
 
     def test_width_padding(self):
         """Test that short text is padded to width."""
+        # Create input and verify it was created with correct width
         input_field = TextInput(value="hi", width=10)
-        # The render should pad the content
+        assert input_field.width == 10
 
 
 class TestButton:

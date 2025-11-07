@@ -57,6 +57,16 @@ class TextInput(Element):
         self.width = width
         self.max_length = max_length
 
+        # Callbacks for value changes and actions
+        self.on_change: Optional[Callable[[str, str], None]] = (
+            None  # (old_value, new_value)
+        )
+        self.on_action: Optional[Callable[[], None]] = None  # Called on Enter
+
+        # Action ID and bind settings (set by template extension)
+        self.action: Optional[str] = None
+        self.bind: bool = True
+
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
 
@@ -70,6 +80,14 @@ class TextInput(Element):
         bool
             True if key was handled
         """
+        old_value = self.value
+
+        # Enter key - trigger action
+        if key == Keys.ENTER:
+            if self.on_action:
+                self.on_action()
+            return True
+
         # Character input
         if key.is_char and key.char:
             if self.max_length is None or len(self.value) < self.max_length:
@@ -80,6 +98,7 @@ class TextInput(Element):
                     + self.value[self.cursor_pos :]
                 )
                 self.cursor_pos += 1
+                self._emit_change(old_value, self.value)
                 return True
 
         # Backspace
@@ -89,6 +108,7 @@ class TextInput(Element):
                     self.value[: self.cursor_pos - 1] + self.value[self.cursor_pos :]
                 )
                 self.cursor_pos -= 1
+                self._emit_change(old_value, self.value)
                 return True
 
         # Delete
@@ -97,6 +117,7 @@ class TextInput(Element):
                 self.value = (
                     self.value[: self.cursor_pos] + self.value[self.cursor_pos + 1 :]
                 )
+                self._emit_change(old_value, self.value)
                 return True
 
         # Left arrow
@@ -123,6 +144,19 @@ class TextInput(Element):
 
         return False
 
+    def _emit_change(self, old_value: str, new_value: str) -> None:
+        """Emit change event.
+
+        Parameters
+        ----------
+        old_value : str
+            Previous value
+        new_value : str
+            New value
+        """
+        if self.on_change and old_value != new_value:
+            self.on_change(old_value, new_value)
+
     def render(self) -> str:
         """Render the text input.
 
@@ -145,10 +179,12 @@ class TextInput(Element):
 
         # Style based on focus
         if self.focused:
-            # Focused: show cursor
-            result = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}[{display_text}]{ANSIStyle.RESET}"
+            # Focused: show cursor with proper ANSI isolation
+            # Reset at start to clear any previous styling, and at end to prevent bleeding
+            result = f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.CYAN}[{display_text}]{ANSIStyle.RESET}"
         else:
-            result = f"[{display_text}]"
+            # Not focused: plain style with explicit reset to prevent inheriting styles
+            result = f"{ANSIStyle.RESET}[{display_text}]{ANSIStyle.RESET}"
 
         return result
 
@@ -185,6 +221,12 @@ class Button(Element):
         self.label = label
         self.on_click = on_click
 
+        # Action callback (called when button is activated)
+        self.on_activate: Optional[Callable[[], None]] = None
+
+        # Action ID (set by template extension)
+        self.action: Optional[str] = None
+
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
 
@@ -206,9 +248,12 @@ class Button(Element):
         return False
 
     def activate(self) -> None:
-        """Activate the button (trigger click callback)."""
+        """Activate the button (trigger click callback and action callback)."""
         if self.on_click:
             self.on_click()
+
+        if self.on_activate:
+            self.on_activate()
 
     def render(self) -> str:
         """Render the button.
@@ -219,7 +264,9 @@ class Button(Element):
             Rendered button
         """
         if self.focused:
-            # Focused: bold and highlighted
-            return f"{ANSIStyle.BOLD}{ANSIColor.BG_BLUE}{ANSIColor.WHITE}< {self.label} >{ANSIStyle.RESET}"
+            # Focused: bold and highlighted with proper ANSI isolation
+            # Reset at start to clear any previous styling, and at end to prevent bleeding
+            return f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.BG_BLUE}{ANSIColor.WHITE}< {self.label} >{ANSIStyle.RESET}"
         else:
-            return f"< {self.label} >"
+            # Not focused: plain style with explicit reset to prevent inheriting styles
+            return f"{ANSIStyle.RESET}< {self.label} >{ANSIStyle.RESET}"

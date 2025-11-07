@@ -9,7 +9,6 @@ Tests cover:
 - Priority-based execution
 """
 
-import pytest
 from datetime import datetime
 from wijjit.core.events import (
     Event,
@@ -70,9 +69,7 @@ class TestActionEvent:
     def test_action_event_creation(self):
         """Test creating an action event."""
         event = ActionEvent(
-            action_id="submit",
-            source_element_id="btn_submit",
-            data={"form": "login"}
+            action_id="submit", source_element_id="btn_submit", data={"form": "login"}
         )
 
         assert event.event_type == EventType.ACTION
@@ -94,11 +91,7 @@ class TestChangeEvent:
 
     def test_change_event_creation(self):
         """Test creating a change event."""
-        event = ChangeEvent(
-            element_id="username",
-            old_value="alice",
-            new_value="bob"
-        )
+        event = ChangeEvent(element_id="username", old_value="alice", new_value="bob")
 
         assert event.event_type == EventType.CHANGE
         assert event.element_id == "username"
@@ -131,6 +124,7 @@ class TestHandler:
 
     def test_handler_creation(self):
         """Test creating a handler."""
+
         def callback(event):
             pass
 
@@ -138,7 +132,7 @@ class TestHandler:
             callback=callback,
             scope=HandlerScope.GLOBAL,
             event_type=EventType.KEY,
-            priority=10
+            priority=10,
         )
 
         assert handler.callback == callback
@@ -166,9 +160,7 @@ class TestHandlerRegistry:
             called.append(event)
 
         h = registry.register(
-            callback=handler,
-            scope=HandlerScope.GLOBAL,
-            event_type=EventType.KEY
+            callback=handler, scope=HandlerScope.GLOBAL, event_type=EventType.KEY
         )
 
         assert len(registry.handlers) == 1
@@ -187,7 +179,7 @@ class TestHandlerRegistry:
             callback=handler,
             scope=HandlerScope.VIEW,
             view_name="main",
-            event_type=EventType.ACTION
+            event_type=EventType.ACTION,
         )
 
         assert h.scope == HandlerScope.VIEW
@@ -204,7 +196,7 @@ class TestHandlerRegistry:
             callback=handler,
             scope=HandlerScope.ELEMENT,
             element_id="btn1",
-            event_type=EventType.ACTION
+            event_type=EventType.ACTION,
         )
 
         assert h.scope == HandlerScope.ELEMENT
@@ -233,14 +225,10 @@ class TestHandlerRegistry:
         # Register handlers for different scopes
         h1 = registry.register(callback=handler, scope=HandlerScope.GLOBAL)
         h2 = registry.register(
-            callback=handler,
-            scope=HandlerScope.VIEW,
-            view_name="view1"
+            callback=handler, scope=HandlerScope.VIEW, view_name="view1"
         )
         h3 = registry.register(
-            callback=handler,
-            scope=HandlerScope.VIEW,
-            view_name="view2"
+            callback=handler, scope=HandlerScope.VIEW, view_name="view2"
         )
 
         assert len(registry.handlers) == 3
@@ -262,9 +250,7 @@ class TestHandlerRegistry:
             called.append(event)
 
         registry.register(
-            callback=handler,
-            scope=HandlerScope.GLOBAL,
-            event_type=EventType.KEY
+            callback=handler, scope=HandlerScope.GLOBAL, event_type=EventType.KEY
         )
 
         event = KeyEvent(key="a")
@@ -285,14 +271,8 @@ class TestHandlerRegistry:
         def action_handler(event):
             action_called.append(event)
 
-        registry.register(
-            callback=key_handler,
-            event_type=EventType.KEY
-        )
-        registry.register(
-            callback=action_handler,
-            event_type=EventType.ACTION
-        )
+        registry.register(callback=key_handler, event_type=EventType.KEY)
+        registry.register(callback=action_handler, event_type=EventType.ACTION)
 
         # Dispatch key event
         key_event = KeyEvent(key="a")
@@ -335,7 +315,7 @@ class TestHandlerRegistry:
             callback=handler,
             scope=HandlerScope.VIEW,
             view_name="view1",
-            event_type=EventType.KEY
+            event_type=EventType.KEY,
         )
 
         # No current view set - handler shouldn't fire
@@ -365,7 +345,7 @@ class TestHandlerRegistry:
             callback=handler,
             scope=HandlerScope.ELEMENT,
             element_id="btn1",
-            event_type=EventType.ACTION
+            event_type=EventType.ACTION,
         )
 
         # Event with different element - shouldn't fire
@@ -395,7 +375,7 @@ class TestHandlerRegistry:
         # Register in random order with different priorities
         registry.register(callback=handler2, priority=5)
         registry.register(callback=handler3, priority=10)  # Highest
-        registry.register(callback=handler1, priority=1)   # Lowest
+        registry.register(callback=handler1, priority=1)  # Lowest
 
         event = KeyEvent(key="a")
         registry.dispatch(event)
@@ -437,7 +417,7 @@ class TestHandlerRegistry:
             callback=handler,
             scope=HandlerScope.ELEMENT,
             element_id="input1",
-            event_type=EventType.CHANGE
+            event_type=EventType.CHANGE,
         )
 
         # Event with matching element_id

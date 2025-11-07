@@ -15,10 +15,10 @@ from ..layout.bounds import Bounds
 class ElementType(Enum):
     """Type of UI element."""
 
-    DISPLAY = auto()      # Non-interactive display element
-    INPUT = auto()        # Text input element
-    BUTTON = auto()       # Button element
-    SELECTABLE = auto()   # Selectable list/menu element
+    DISPLAY = auto()  # Non-interactive display element
+    INPUT = auto()  # Text input element
+    BUTTON = auto()  # Button element
+    SELECTABLE = auto()  # Selectable list/menu element
 
 
 class Element(ABC):
@@ -160,3 +160,39 @@ class Container(Element):
         """
         # Default implementation: render children in order
         return "\n".join(child.render() for child in self.children)
+
+
+class TextElement(Element):
+    """Simple text display element.
+
+    This element displays static text content. It is non-interactive
+    and cannot receive focus.
+
+    Parameters
+    ----------
+    text : str
+        Text content to display
+    id : str, optional
+        Unique identifier for this element
+
+    Attributes
+    ----------
+    text : str
+        Text content
+    """
+
+    def __init__(self, text: str, id: Optional[str] = None):
+        super().__init__(id)
+        self.text = text
+        self.element_type = ElementType.DISPLAY
+        self.focusable = False
+
+    def render(self) -> str:
+        """Render the text element.
+
+        Returns
+        -------
+        str
+            The text content
+        """
+        return self.text

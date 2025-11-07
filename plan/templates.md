@@ -6,39 +6,22 @@ The templates become semantic rather than presentational:
 
 {% frame id="main" title="Editor" border="double" width="100%" height="100%" %}
 
-&nbsp; 
+{% frame id="header" height=3 %}
+  File: {{ state.current\_file }}
+  Modified: {{ state.modified\_time }}
+{% endframe %}
 
-&nbsp; {% frame id="header" height=3 %}
+{% frame id="content" fill=true padding=1 %}
+  {% textbox id="editor" focusable=true %}
+    {{ state.editor\_buffer }}
+  {% endtextbox %}
+{% endframe %}
 
-&nbsp;   File: {{ state.current\_file }}
+{% frame id="footer" height=1 %}
+  {% button id="save" %}Save{% endbutton %}
+  {% button id="quit" %}Quit{% endbutton %}
+{% endframe %}
 
-&nbsp;   Modified: {{ state.modified\_time }}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
-
-&nbsp; {% frame id="content" fill=true padding=1 %}
-
-&nbsp;   {% textbox id="editor" focusable=true %}
-
-&nbsp;     {{ state.editor\_buffer }}
-
-&nbsp;   {% endtextbox %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
-
-&nbsp; {% frame id="footer" height=1 %}
-
-&nbsp;   {% button id="save" %}Save{% endbutton %}
-
-&nbsp;   {% button id="quit" %}Quit{% endbutton %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
 
 {% endframe %}
 
@@ -53,25 +36,15 @@ The pre-renderer translates this to actual box-drawing characters and calculates
 ```
 
 ╔══ Editor ══════════════════╗
-
 ║ File: config.py            ║
-
 ║ Modified: 2m ago           ║
-
 ╟────────────────────────────╢
-
 ║                            ║
-
-║  def main():              ║
-
-║      print("hello")       ║
-
+║  def main():               ║
+║      print("hello")        ║
 ║                            ║
-
 ╟────────────────────────────╢
-
-║ \[Save] \[Quit]              ║
-
+║ \[Save] \[Quit]            ║
 ╚════════════════════════════╝
 
 ```
@@ -105,40 +78,29 @@ The pre-renderer translates this to actual box-drawing characters and calculates
 ```jinja
 
 {% hstack spacing=2 %}
-
-&nbsp; {{ button("OK") }}
-
-&nbsp; {{ button("Cancel") }}
+{{ button("OK") }}
+{{ button("Cancel") }}
 
 {% endhstack %}
 
 
 
 {% vstack fill=true %}
-
-&nbsp; {% for item in items %}
-
-&nbsp;   {{ list\_item(item) }}
-
-&nbsp; {% endfor %}
+{% for item in items %}
+  {{ list\_item(item) }}
+{% endfor %}
 
 {% endvstack %}
 
 
 
 {% split direction="horizontal" ratio="30:70" %}
-
-&nbsp; {% left %}
-
-&nbsp;   {# Sidebar #}
-
-&nbsp; {% endleft %}
-
-&nbsp; {% right %}
-
-&nbsp;   {# Main content #}
-
-&nbsp; {% endright %}
+{% left %}
+  {# Sidebar #}
+{% endleft %}
+{% right %}
+  {# Main content #}
+{% endright %}
 
 {% endsplit %}
 
@@ -151,36 +113,24 @@ The pre-renderer translates this to actual box-drawing characters and calculates
 ```jinja
 
 {% table id="results" headers=\["Name", "Size", "Modified"] %}
-
-&nbsp; {% for file in files %}
-
-&nbsp;   {% row focusable=true data=file %}
-
-&nbsp;     {{ file.name }}
-
-&nbsp;     {{ file.size | humanize }}
-
-&nbsp;     {{ file.modified | timeago }}
-
-&nbsp;   {% endrow %}
-
-&nbsp; {% endfor %}
+{% for file in files %}
+  {% row focusable=true data=file %}
+    {{ file.name }}
+    {{ file.size | humanize }}
+    {{ file.modified | timeago }}
+  {% endrow %}
+{% endfor %}
 
 {% endtable %}
 
 
 
 {% menu id="actions" %}
-
-&nbsp; {% item key="o" %}Open{% enditem %}
-
-&nbsp; {% item key="d" %}Delete{% enditem %}
-
-&nbsp; {% item key="r" %}Rename{% enditem %}
-
-&nbsp; {% separator %}
-
-&nbsp; {% item key="q" %}Quit{% enditem %}
+{% item key="o" %}Open{% enditem %}
+{% item key="d" %}Delete{% enditem %}
+{% item key="r" %}Rename{% enditem %}
+{% separator %}
+{% item key="q" %}Quit{% enditem %}
 
 {% endmenu %}
 
@@ -199,50 +149,28 @@ The frame macro handles sizing logic:
 ```python
 
 class Frame:
-
-&nbsp;   def calculate\_dimensions(self, available\_width, available\_height):
-
-&nbsp;       # Explicit dimensions
-
-&nbsp;       if self.width == "100%" or self.width == "fill":
-
-&nbsp;           self.actual\_width = available\_width
-
-&nbsp;       elif isinstance(self.width, int):
-
-&nbsp;           self.actual\_width = self.width
-
-&nbsp;       else:  # "auto"
-
-&nbsp;           # Calculate based on content
-
-&nbsp;           self.actual\_width = max(child.min\_width for child in children) + padding
-
-&nbsp;       
-
-&nbsp;       # Border takes 2 chars from width
-
-&nbsp;       if self.border != "none":
-
-&nbsp;           self.actual\_width += 2
-
-&nbsp;           self.actual\_height += 2
-
-&nbsp;       
-
-&nbsp;       # Distribute remaining space to fill children
-
-&nbsp;       fill\_children = \[c for c in self.children if c.fill]
-
-&nbsp;       if fill\_children:
-
-&nbsp;           remaining = self.actual\_height - sum(c.height for c in fixed\_children)
-
-&nbsp;           per\_child = remaining // len(fill\_children)
-
-&nbsp;           for child in fill\_children:
-
-&nbsp;               child.height = per\_child
+  def calculate\_dimensions(self, available\_width, available\_height):
+      # Explicit dimensions
+      if self.width == "100%" or self.width == "fill":
+          self.actual\_width = available\_width
+      elif isinstance(self.width, int):
+          self.actual\_width = self.width
+      else:  # "auto"
+          # Calculate based on content
+          self.actual\_width = max(child.min\_width for child in children) + padding
+      
+      # Border takes 2 chars from width
+      if self.border != "none":
+          self.actual\_width += 2
+          self.actual\_height += 2
+      
+      # Distribute remaining space to fill children
+      fill\_children = \[c for c in self.children if c.fill]
+      if fill\_children:
+          remaining = self.actual\_height - sum(c.height for c in fixed\_children)
+          per\_child = remaining // len(fill\_children)
+          for child in fill\_children:
+              child.height = per\_child
 
 ```
 
@@ -260,83 +188,44 @@ A complete file manager TUI:
 
 {% frame title="File Manager" border="double" width="100%" height="100%" %}
 
-&nbsp; 
+{% split direction="horizontal" ratio="25:75" %}
+  
+  {% left %}
+    {% frame title="Folders" border="single" fill=true %}
+      {% tree id="folders" focusable=true %}
+        {{ folder\_tree }}
+      {% endtree %}
+    {% endframe %}
+  {% endleft %}
+  
+  {% right %}
+    {% vstack fill=true %}
+      
+      {% frame id="breadcrumb" height=3 %}
+        Path: {{ current\_path }}
+      {% endframe %}
+      
+      {% frame title="Files" fill=true %}
+        {% table id="files" focusable=true selectable=true %}
+          {% for file in files %}
+            {% row data=file %}
+              {{ file.icon }} {{ file.name }}
+              {{ file.size | humanize }}
+              {{ file.modified | timeago }}
+            {% endrow %}
+          {% endfor %}
+        {% endtable %}
+      {% endframe %}
+      
+      {% frame id="statusbar" height=1 %}
+        {{ files|length }} items | {{ selected|length }} selected
+      {% endframe %}
+      
+    {% endvstack %}
+  {% endright %}
+  
+{% endsplit %}
 
-&nbsp; {% split direction="horizontal" ratio="25:75" %}
-
-&nbsp;   
-
-&nbsp;   {% left %}
-
-&nbsp;     {% frame title="Folders" border="single" fill=true %}
-
-&nbsp;       {% tree id="folders" focusable=true %}
-
-&nbsp;         {{ folder\_tree }}
-
-&nbsp;       {% endtree %}
-
-&nbsp;     {% endframe %}
-
-&nbsp;   {% endleft %}
-
-&nbsp;   
-
-&nbsp;   {% right %}
-
-&nbsp;     {% vstack fill=true %}
-
-&nbsp;       
-
-&nbsp;       {% frame id="breadcrumb" height=3 %}
-
-&nbsp;         Path: {{ current\_path }}
-
-&nbsp;       {% endframe %}
-
-&nbsp;       
-
-&nbsp;       {% frame title="Files" fill=true %}
-
-&nbsp;         {% table id="files" focusable=true selectable=true %}
-
-&nbsp;           {% for file in files %}
-
-&nbsp;             {% row data=file %}
-
-&nbsp;               {{ file.icon }} {{ file.name }}
-
-&nbsp;               {{ file.size | humanize }}
-
-&nbsp;               {{ file.modified | timeago }}
-
-&nbsp;             {% endrow %}
-
-&nbsp;           {% endfor %}
-
-&nbsp;         {% endtable %}
-
-&nbsp;       {% endframe %}
-
-&nbsp;       
-
-&nbsp;       {% frame id="statusbar" height=1 %}
-
-&nbsp;         {{ files|length }} items | {{ selected|length }} selected
-
-&nbsp;       {% endframe %}
-
-&nbsp;       
-
-&nbsp;     {% endvstack %}
-
-&nbsp;   {% endright %}
-
-&nbsp;   
-
-&nbsp; {% endsplit %}
-
-&nbsp; 
 
 {% endframe %}
 
@@ -355,40 +244,23 @@ The pre-renderer walks the AST:
 ```python
 
 class LayoutEngine:
-
-&nbsp;   def prepare(self, template\_ast, width, height):
-
-&nbsp;       # Parse custom tags
-
-&nbsp;       root = self.parse\_frames(template\_ast)
-
-&nbsp;       
-
-&nbsp;       # Calculate dimensions bottom-up
-
-&nbsp;       root.calculate\_dimensions(width, height)
-
-&nbsp;       
-
-&nbsp;       # Assign absolute positions top-down
-
-&nbsp;       root.assign\_positions(0, 0)
-
-&nbsp;       
-
-&nbsp;       # Generate box-drawing characters
-
-&nbsp;       rendered = root.render\_borders()
-
-&nbsp;       
-
-&nbsp;       # Create coordinate map for focusable elements
-
-&nbsp;       self.focus\_map = root.collect\_focusable()
-
-&nbsp;       
-
-&nbsp;       return rendered
+  def prepare(self, template\_ast, width, height):
+      # Parse custom tags
+      root = self.parse\_frames(template\_ast)
+      
+      # Calculate dimensions bottom-up
+      root.calculate\_dimensions(width, height)
+      
+      # Assign absolute positions top-down
+      root.assign\_positions(0, 0)
+      
+      # Generate box-drawing characters
+      rendered = root.render\_borders()
+      
+      # Create coordinate map for focusable elements
+      self.focus\_map = root.collect\_focusable()
+      
+      return rendered
 
 ```
 

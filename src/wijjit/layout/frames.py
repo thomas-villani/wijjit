@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional, Tuple
 
-from ..terminal.ansi import strip_ansi, visible_length, clip_to_width
+from ..terminal.ansi import visible_length, clip_to_width
 
 
 class BorderStyle(Enum):
@@ -26,8 +26,8 @@ BORDER_CHARS = {
         "tr": "┐",  # top-right
         "bl": "└",  # bottom-left
         "br": "┘",  # bottom-right
-        "h": "─",   # horizontal
-        "v": "│",   # vertical
+        "h": "─",  # horizontal
+        "v": "│",  # vertical
     },
     BorderStyle.DOUBLE: {
         "tl": "╔",
@@ -120,15 +120,21 @@ class Frame:
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
-        inner_width = self.width - 2 - padding_left - padding_right  # Subtract borders and padding
-        inner_height = self.height - 2 - padding_top - padding_bottom  # Subtract borders and padding
+        inner_width = (
+            self.width - 2 - padding_left - padding_right
+        )  # Subtract borders and padding
+        inner_height = (
+            self.height - 2 - padding_top - padding_bottom
+        )  # Subtract borders and padding
 
         # Top border
         lines.append(self._render_top_border(chars))
 
         # Top padding
         for _ in range(padding_top):
-            lines.append(self._render_empty_line(chars, padding_left, inner_width, padding_right))
+            lines.append(
+                self._render_empty_line(chars, padding_left, inner_width, padding_right)
+            )
 
         # Content lines
         for i in range(inner_height):
@@ -137,13 +143,17 @@ class Frame:
             else:
                 line = ""
 
-            lines.append(self._render_content_line(
-                line, chars, padding_left, inner_width, padding_right
-            ))
+            lines.append(
+                self._render_content_line(
+                    line, chars, padding_left, inner_width, padding_right
+                )
+            )
 
         # Bottom padding
         for _ in range(padding_bottom):
-            lines.append(self._render_empty_line(chars, padding_left, inner_width, padding_right))
+            lines.append(
+                self._render_empty_line(chars, padding_left, inner_width, padding_right)
+            )
 
         # Bottom border
         lines.append(self._render_bottom_border(chars))
@@ -202,7 +212,9 @@ class Frame:
         """
         return chars["bl"] + chars["h"] * (self.width - 2) + chars["br"]
 
-    def _render_empty_line(self, chars: dict, padding_left: int, inner_width: int, padding_right: int) -> str:
+    def _render_empty_line(
+        self, chars: dict, padding_left: int, inner_width: int, padding_right: int
+    ) -> str:
         """Render an empty line (for padding).
 
         Parameters
@@ -225,7 +237,12 @@ class Frame:
         return chars["v"] + " " * total_inner + chars["v"]
 
     def _render_content_line(
-        self, content: str, chars: dict, padding_left: int, inner_width: int, padding_right: int
+        self,
+        content: str,
+        chars: dict,
+        padding_left: int,
+        inner_width: int,
+        padding_right: int,
     ) -> str:
         """Render a content line with borders and padding.
 
@@ -257,9 +274,5 @@ class Frame:
             content = content + " " * (inner_width - content_len)
 
         return (
-            chars["v"]
-            + " " * padding_left
-            + content
-            + " " * padding_right
-            + chars["v"]
+            chars["v"] + " " * padding_left + content + " " * padding_right + chars["v"]
         )

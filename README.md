@@ -1,25 +1,19 @@
 # Wijjit Project Plan
 
 
-
 **Wijjit is just Jinja in Terminal**
-
 
 
 *Flask for the Console: A declarative TUI framework for Python*
 
 
-
 ---
-
 
 
 ## Executive Summary
 
 
-
 Wijjit is a new Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns. By combining Jinja2 templating with ANSI rendering, Wijjit enables developers to create rich, interactive console applications using declarative templates and a Flask-like API.
-
 
 
 **Key Value Propositions:**
@@ -35,15 +29,12 @@ Wijjit is a new Python framework for building Terminal User Interfaces (TUIs) us
 - **Fills a gap**: No existing Python TUI framework offers this level of abstraction
 
 
-
 **Target Timeline:** 8-10 weeks to MVP
 
 **Target Audience:** CLI tool developers, DevOps engineers, data scientists, systems administrators
 
 
-
 ---
-
 
 
 ## Getting Started
@@ -148,13 +139,10 @@ app.run()
 For more examples, check out the `examples/` directory.
 
 
-
 ---
 
 
-
 ## Project Goals
-
 
 
 ### Primary Goals
@@ -170,7 +158,6 @@ For more examples, check out the `examples/` directory.
 5. Achieve feature parity with basic web forms for data collection/display
 
 
-
 ### Success Metrics
 
 - Build 3+ demo applications showcasing different use cases
@@ -182,17 +169,13 @@ For more examples, check out the `examples/` directory.
 - Developer adoption: 100+ GitHub stars within 3 months of release
 
 
-
 ---
-
 
 
 ## Technical Architecture
 
 
-
 ### High-Level Design
-
 
 
 ```
@@ -204,8 +187,7 @@ For more examples, check out the `examples/` directory.
 │  (View functions, state management, handlers)   │
 
 └────────────────┬────────────────────────────────┘
-
-&nbsp;                │
+                │
 
 ┌────────────────▼────────────────────────────────┐
 
@@ -218,12 +200,9 @@ For more examples, check out the `examples/` directory.
 │  - Global state management                      │
 
 └────────────┬────────────────────────────────────┘
-
-&nbsp;            │
-
-&nbsp;   ┌────────┼────────┐
-
-&nbsp;   │        │        │
+            │
+   ┌────────┼────────┐
+   │        │        │
 
 ┌───▼───┐ ┌──▼──┐ ┌──▼────────┐
 
@@ -232,8 +211,7 @@ For more examples, check out the `examples/` directory.
 │ Engine │ │Engine│ │  I/O      │
 
 └───┬───┘ └──┬──┘ └──┬────────┘
-
-&nbsp;   │        │        │
+   │        │        │
 
 ┌───▼────────▼────────▼──────────────────────────┐
 
@@ -252,9 +230,7 @@ For more examples, check out the `examples/` directory.
 ```
 
 
-
 ### Core Components
-
 
 
 #### 1. Application Layer (`wijjit/core/`)
@@ -266,7 +242,6 @@ For more examples, check out the `examples/` directory.
 - **`renderer.py`**: Orchestrates rendering pipeline
 
 
-
 #### 2. Template Layer (`wijjit/template/`)
 
 - **`tags.py`**: Custom Jinja extensions (frame, textinput, button, etc.)
@@ -274,7 +249,6 @@ For more examples, check out the `examples/` directory.
 - **`filters.py`**: Custom filters (humanize, timeago, etc.)
 
 - **`loader.py`**: Template file loading and caching
-
 
 
 #### 3. Layout Layer (`wijjit/layout/`)
@@ -288,7 +262,6 @@ For more examples, check out the `examples/` directory.
 - **`scroll.py`**: Scroll state management
 
 
-
 #### 4. Elements Layer (`wijjit/elements/`)
 
 - **`base.py`**: Base Element and Container classes
@@ -300,7 +273,6 @@ For more examples, check out the `examples/` directory.
 - **`interactive.py`**: Button, Menu, Link, Tabs
 
 
-
 #### 5. Terminal Layer (`wijjit/terminal/`)
 
 - **`input.py`**: Keyboard/mouse event handling
@@ -310,41 +282,30 @@ For more examples, check out the `examples/` directory.
 - **`ansi.py`**: ANSI escape code utilities
 
 
-
 ### Data Flow
-
 
 
 ```
 
 User Input → InputHandler → FocusManager → Element.handle\_key()
-
-&nbsp;                                             ↓
-
-&nbsp;                                        State Change
-
-&nbsp;                                             ↓
-
-&nbsp;                                     Trigger Re-render
-
-&nbsp;                                             ↓
+                                             ↓
+                                        State Change
+                                             ↓
+                                     Trigger Re-render
+                                             ↓
 
 Template + State → Pre-render (Layout) → Render → Terminal
 
 ```
 
 
-
 ---
-
 
 
 ## Feature Breakdown
 
 
-
 ### Phase 1: Core Foundation (Weeks 1-2)
-
 
 
 **Deliverables:**
@@ -364,7 +325,6 @@ Template + State → Pre-render (Layout) → Render → Terminal
 - [ ] Basic demo: Hello World with navigation
 
 
-
 **Technical Tasks:**
 
 - Implement `Wijjit` class with `run()` method
@@ -380,9 +340,7 @@ Template + State → Pre-render (Layout) → Render → Terminal
 - ANSI escape codes for screen control
 
 
-
 ### Phase 2: Layout Engine (Weeks 3-4)
-
 
 
 **Deliverables:**
@@ -400,7 +358,6 @@ Template + State → Pre-render (Layout) → Render → Terminal
 - [ ] Demo: Multi-frame layout
 
 
-
 **Technical Tasks:**
 
 - Create `LayoutNode` tree structure
@@ -416,7 +373,6 @@ Template + State → Pre-render (Layout) → Render → Terminal
 - Handle percentage widths/heights
 
 - Create `LayoutEngine` class
-
 
 
 **Frame Attributes:**
@@ -444,9 +400,7 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 ```
 
 
-
 ### Phase 3: Input Elements (Weeks 5-6)
-
 
 
 **Deliverables:**
@@ -464,7 +418,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - [ ] Checkbox and RadioGroup
 
 - [ ] Demo: User registration form
-
 
 
 **Input Elements:**
@@ -488,7 +441,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 ```
 
 
-
 **Technical Tasks:**
 
 - Implement `Element` base class with focus support
@@ -504,9 +456,7 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Add input validation framework
 
 
-
 ### Phase 4: Display Elements (Weeks 6-7)
-
 
 
 **Deliverables:**
@@ -524,7 +474,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - [ ] Demo: File browser
 
 
-
 **Display Elements:**
 
 ```python
@@ -538,13 +487,11 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 {% logview lines=logs follow=true %}
 
 {% tabs active="overview" %}
-
-&nbsp; {% tab key="overview" %}...{% endtab %}
+ {% tab key="overview" %}...{% endtab %}
 
 {% endtabs %}
 
 ```
-
 
 
 **Technical Tasks:**
@@ -560,9 +507,7 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Create tabs with keyboard switching
 
 
-
 ### Phase 5: Advanced Features (Weeks 7-8)
-
 
 
 **Deliverables:**
@@ -580,39 +525,30 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - [ ] Demo: Dashboard with multiple panes
 
 
-
 **Layout Macros:**
 
 ```jinja
 
 {% hstack spacing=2 %}
-
-&nbsp; {{ button("OK") }}
-
-&nbsp; {{ button("Cancel") }}
+ {{ button("OK") }}
+ {{ button("Cancel") }}
 
 {% endhstack %}
 
 
-
 {% vstack fill=true %}
-
-&nbsp; {% for item in items %}...{% endfor %}
+ {% for item in items %}...{% endfor %}
 
 {% endvstack %}
 
 
-
 {% split direction="horizontal" ratio="30:70" %}
-
-&nbsp; {% left %}Sidebar{% endleft %}
-
-&nbsp; {% right %}Content{% endright %}
+ {% left %}Sidebar{% endleft %}
+ {% right %}Content{% endright %}
 
 {% endsplit %}
 
 ```
-
 
 
 **Technical Tasks:**
@@ -630,9 +566,7 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Create hook system for lifecycle events
 
 
-
 ### Phase 6: Polish \& Documentation (Weeks 8-10)
-
 
 
 **Deliverables:**
@@ -650,7 +584,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - [ ] GitHub repository with CI/CD
 
 
-
 **Documentation Sections:**
 
 - Quick start guide
@@ -666,7 +599,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Migration guide (from other TUI libs)
 
 
-
 **Example Applications:**
 
 - Todo list manager
@@ -680,17 +612,13 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Database query interface
 
 
-
 ---
-
 
 
 ## Technical Considerations
 
 
-
 ### Performance
-
 
 
 **Optimization Strategies:**
@@ -706,7 +634,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 5. **Lazy template compilation**: Compile templates once
 
 
-
 **Performance Targets:**
 
 - Initial render: <100ms for complex layouts
@@ -716,9 +643,7 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Memory: <50MB for typical applications
 
 
-
 ### Overflow and Scrolling
-
 
 
 **Clip Mode** (`overflow="clip"`):
@@ -728,7 +653,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - No scrollbar shown
 
 - Simplest, fastest rendering
-
 
 
 **Scroll Mode** (`overflow="scroll"`):
@@ -742,7 +666,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Home/End for top/bottom
 
 
-
 **Auto Mode** (`overflow="auto"`):
 
 - Show scrollbar only when needed
@@ -750,7 +673,6 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Dynamically calculate content height
 
 - Automatically hide when all content visible
-
 
 
 **Wrap Mode** (`overflow="wrap"`):
@@ -762,13 +684,10 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 - Increases content height dynamically
 
 
-
 ### Text Handling with ANSI
 
 
-
 **Challenge**: ANSI escape codes (colors, formatting) don't count toward visible length
-
 
 
 **Solutions:**
@@ -780,61 +699,37 @@ overflow\_y: "clip" | "scroll" | "auto" | "wrap"
 3. **Slice-with-codes**: When scrolling, maintain ANSI state across slices
 
 
-
 ```python
 
 def clip\_to\_width(text: str, width: int) -> str:
-
-&nbsp;   """Clip text preserving ANSI codes"""
-
-&nbsp;   ansi\_pattern = re.compile(r'\\x1b\\\[\[0-9;]*m')
-
-&nbsp;   parts = ansi\_pattern.split(text)
-
-&nbsp;   
-
-&nbsp;   result = \[]
-
-&nbsp;   visible\_count = 0
-
-&nbsp;   
-
-&nbsp;   for i, part in enumerate(parts):
-
-&nbsp;       if i % 2 == 1:  # ANSI code
-
-&nbsp;           result.append(part)
-
-&nbsp;       else:  # Regular text
-
-&nbsp;           remaining = width - visible\_count
-
-&nbsp;           if len(part) <= remaining:
-
-&nbsp;               result.append(part)
-
-&nbsp;               visible\_count += len(part)
-
-&nbsp;           else:
-
-&nbsp;               result.append(part\[:remaining])
-
-&nbsp;               break
-
-&nbsp;   
-
-&nbsp;   return ''.join(result)
+   """Clip text preserving ANSI codes"""
+   ansi\_pattern = re.compile(r'\\x1b\\\[\[0-9;]*m')
+   parts = ansi\_pattern.split(text)
+   
+   result = \[]
+   visible\_count = 0
+   
+   for i, part in enumerate(parts):
+       if i % 2 == 1:  # ANSI code
+           result.append(part)
+       else:  # Regular text
+           remaining = width - visible\_count
+           if len(part) <= remaining:
+               result.append(part)
+               visible\_count += len(part)
+           else:
+               result.append(part\[:remaining])
+               break
+   
+   return ''.join(result)
 
 ```
-
 
 
 ### State Management
 
 
-
 **Philosophy**: Single source of truth
-
 
 
 ```python
@@ -848,19 +743,15 @@ state.editor\_buffer = "def main():\\n    pass"
 state.unsaved\_changes = True
 
 
-
 # View-specific ephemeral state
 
 state.view\_context\['editor'] = {
-
-&nbsp;   'cursor\_pos': (10, 5),
-
-&nbsp;   'scroll\_offset': 0
+   'cursor\_pos': (10, 5),
+   'scroll\_offset': 0
 
 }
 
 ```
-
 
 
 **Change Detection**:
@@ -872,7 +763,6 @@ state.view\_context\['editor'] = {
 - Automatically trigger re-render
 
 
-
 **Best Practices**:
 
 - Keep state flat when possible
@@ -882,9 +772,7 @@ state.view\_context\['editor'] = {
 - Avoid nested mutations (use immutable updates)
 
 
-
 ### Cross-Platform Compatibility
-
 
 
 **Challenges:**
@@ -894,7 +782,6 @@ state.view\_context\['editor'] = {
 - macOS vs Linux terminal escape sequences
 
 - UTF-8 support for box-drawing characters
-
 
 
 **Solutions:**
@@ -908,9 +795,7 @@ state.view\_context\['editor'] = {
 4. Test on Windows Terminal, iTerm2, GNOME Terminal
 
 
-
 ### Error Handling
-
 
 
 **Graceful Degradation:**
@@ -924,7 +809,6 @@ state.view\_context\['editor'] = {
 - Unhandled exception: Exit alternate screen before crash
 
 
-
 **Debugging:**
 
 - Log mode: Write render output to file
@@ -934,13 +818,10 @@ state.view\_context\['editor'] = {
 - State inspector: View current state tree
 
 
-
 ---
 
 
-
 ## Dependencies
-
 
 
 ### Core Dependencies
@@ -956,7 +837,6 @@ rich>=13.0           # ANSI rendering, tables
 ```
 
 
-
 ### Optional Dependencies
 
 ```python
@@ -968,7 +848,6 @@ pyperclip>=1.8      # Clipboard integration
 pygments>=2.0       # Syntax highlighting
 
 ```
-
 
 
 ### Development Dependencies
@@ -988,13 +867,10 @@ sphinx>=5.0         # Documentation
 ```
 
 
-
 ---
 
 
-
 ## Development Workflow
-
 
 
 ### Repository Structure
@@ -1048,9 +924,7 @@ wijjit/
 ```
 
 
-
 ### Testing Strategy
-
 
 
 **Unit Tests:**
@@ -1064,7 +938,6 @@ wijjit/
 - Focus navigation
 
 
-
 **Integration Tests:**
 
 - Full render pipeline
@@ -1076,7 +949,6 @@ wijjit/
 - Resize behavior
 
 
-
 **Manual Tests:**
 
 - Visual regression (screenshot comparison)
@@ -1086,9 +958,7 @@ wijjit/
 - Performance benchmarks
 
 
-
 ### CI/CD Pipeline
-
 
 
 ```yaml
@@ -1108,13 +978,10 @@ wijjit/
 ```
 
 
-
 ---
 
 
-
 ## Risk Assessment
-
 
 
 | Risk | Impact | Likelihood | Mitigation |
@@ -1132,13 +999,10 @@ wijjit/
 | Scope creep | Medium | High | Strict MVP definition, save features for v2 |
 
 
-
 ---
 
 
-
 ## Success Criteria
-
 
 
 ### MVP Completion (Week 8)
@@ -1150,7 +1014,6 @@ wijjit/
 - \[ ] Basic documentation published
 
 - \[ ] Core API stable
-
 
 
 ### v1.0 Release (Week 10)
@@ -1166,7 +1029,6 @@ wijjit/
 - \[ ] GitHub repository public
 
 
-
 ### Post-Launch (3 months)
 
 - \[ ] 100+ GitHub stars
@@ -1178,13 +1040,10 @@ wijjit/
 - \[ ] 3+ real-world applications built
 
 
-
 ---
 
 
-
 ## Future Roadmap (Post-MVP)
-
 
 
 ### v1.1 - Enhanced Interactions
@@ -1200,7 +1059,6 @@ wijjit/
 - Sound effects (terminal bell)
 
 
-
 ### v1.2 - Advanced Components
 
 - Data grid with sorting/filtering
@@ -1212,7 +1070,6 @@ wijjit/
 - Code editor with syntax highlighting
 
 - File picker dialog
-
 
 
 ### v1.3 - Developer Experience
@@ -1228,7 +1085,6 @@ wijjit/
 - IDE extensions (VS Code)
 
 
-
 ### v2.0 - Async and Streaming
 
 - Async/await support
@@ -1236,7 +1092,6 @@ wijjit/
 - Streaming data updates
 - Background tasks
 - Real-time collaboration
-
 
 
 ### Community Extensions
@@ -1250,13 +1105,10 @@ wijjit/
 - Integrations (Django, FastAPI)
 
 
-
 ---
 
 
-
 ## Team Roles \& Responsibilities
-
 
 
 ### Core Development
@@ -1270,7 +1122,6 @@ wijjit/
 - **Terminal Expert**: Cross-platform compatibility, ANSI handling
 
 
-
 ### Supporting Roles
 
 - **Technical Writer**: Documentation, tutorials, API reference
@@ -1282,13 +1133,10 @@ wijjit/
 - **Community Manager**: GitHub issues, discussions, examples
 
 
-
 ---
 
 
-
 ## Communication Plan
-
 
 
 ### Internal
@@ -1302,7 +1150,6 @@ wijjit/
 - **Shared document** for design decisions
 
 
-
 ### External
 
 - **GitHub Discussions** for community questions
@@ -1314,13 +1161,10 @@ wijjit/
 - **Twitter** for announcements
 
 
-
 ---
 
 
-
 ## Budget \& Resources
-
 
 
 ### Development Time
@@ -1328,7 +1172,6 @@ wijjit/
 - **8 weeks × 4 developers** = 32 person-weeks
 
 - Average 30 hours/week = 960 hours total
-
 
 
 ### Infrastructure
@@ -1342,7 +1185,6 @@ wijjit/
 - CI/CD (GitHub Actions, free tier)
 
 
-
 ### Estimated Cost
 
 - Developer time: $960 hours × $75/hr = $72,000
@@ -1352,21 +1194,16 @@ wijjit/
 - **Total**: $72,000
 
 
-
 ---
-
 
 
 ## Conclusion
 
 
-
 Wijjit addresses a clear gap in the Python ecosystem: there's no Flask-equivalent for building TUIs. By combining familiar web patterns (Jinja templates, view decorators) with modern terminal capabilities, we can dramatically reduce the friction of building rich console applications.
 
 
-
 The 8-10 week timeline to MVP is aggressive but achievable given the modular architecture and clear phase boundaries. The framework's value proposition—"Flask for the console"—should resonate immediately with Python web developers looking to build CLI tools.
-
 
 
 **Next Steps:**
@@ -1380,7 +1217,6 @@ The 8-10 week timeline to MVP is aggressive but achievable given the modular arc
 4. Schedule weekly check-ins
 
 
-
 **Questions for Discussion:**
 
 - Resource allocation: Do we have 4 developers available?
@@ -1392,9 +1228,7 @@ The 8-10 week timeline to MVP is aggressive but achievable given the modular arc
 - Naming: Final approval on "wijjit" branding?
 
 
-
 ---
-
 
 
 *Document Version: 1.0*  

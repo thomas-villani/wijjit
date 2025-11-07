@@ -1,7 +1,6 @@
 """Tests for terminal screen management."""
 
 from io import StringIO
-import pytest
 
 from wijjit.terminal.screen import ScreenManager, alternate_screen
 from wijjit.terminal.ansi import ANSIScreen, ANSICursor
@@ -69,7 +68,7 @@ class TestScreenManager:
         manager.exit_alternate_buffer()
 
         # Should not write anything
-        assert output.getvalue() == ''
+        assert output.getvalue() == ""
 
     def test_clear(self):
         """Test clearing the screen."""
@@ -144,16 +143,16 @@ class TestScreenManager:
         manager.show_cursor()
 
         # Should not write anything
-        assert output.getvalue() == ''
+        assert output.getvalue() == ""
 
     def test_write(self):
         """Test writing text."""
         output = StringIO()
         manager = ScreenManager(output)
 
-        manager.write('Hello, World!')
+        manager.write("Hello, World!")
 
-        assert output.getvalue() == 'Hello, World!'
+        assert output.getvalue() == "Hello, World!"
 
     def test_cleanup_exits_alternate_buffer(self):
         """Test cleanup exits alternate buffer."""
@@ -251,7 +250,7 @@ class TestAlternateScreenContext:
         """Test context manager writes correct ANSI codes."""
         output = StringIO()
 
-        with alternate_screen(output) as screen:
+        with alternate_screen(output):
             pass
 
         result = output.getvalue()

@@ -12,7 +12,7 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from wijjit.core.app import Wijjit, ViewConfig
 from wijjit.core.events import EventType, HandlerScope, KeyEvent
 from wijjit.core.state import State
@@ -23,6 +23,7 @@ class TestViewConfig:
 
     def test_view_config_creation(self):
         """Test creating a ViewConfig."""
+
         def data_func():
             return {"name": "World"}
 
@@ -290,7 +291,8 @@ class TestNavigation:
         # View1 handlers should be cleared
         # Check that no handlers are for view1
         view1_handlers = [
-            h for h in app.handler_registry.handlers
+            h
+            for h in app.handler_registry.handlers
             if h.scope == HandlerScope.VIEW and h.view_name == "view1"
         ]
         assert len(view1_handlers) == 0
@@ -493,7 +495,9 @@ class TestErrorHandling:
         def main():
             return {"template": "{{ undefined_var }}"}
 
-        with patch.object(app.renderer, "render_string", side_effect=Exception("Template error")):
+        with patch.object(
+            app.renderer, "render_string", side_effect=Exception("Template error")
+        ):
             with patch.object(app, "_handle_error") as mock_error:
                 app._render()
 
@@ -592,11 +596,13 @@ class TestRun:
 
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer") as mock_exit:
-                with patch.object(app.input_handler, "read_key", side_effect=Exception("Error")):
+                with patch.object(
+                    app.input_handler, "read_key", side_effect=Exception("Error")
+                ):
                     with patch.object(app, "_render"):
                         try:
                             app.run()
-                        except:
+                        except Exception:
                             pass
 
                         # Should still exit screen

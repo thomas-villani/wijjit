@@ -21,212 +21,111 @@ from ..terminal.input import InputHandler
 @dataclass
 
 class ViewConfig:
-
-&nbsp;   template: str
-
-&nbsp;   data: Dict\[str, Any]
-
-&nbsp;   handlers: Dict\[str, Callable]
-
-&nbsp;   on\_enter: Optional\[Callable] = None
-
-&nbsp;   on\_exit: Optional\[Callable] = None
+   template: str
+   data: Dict\[str, Any]
+   handlers: Dict\[str, Callable]
+   on\_enter: Optional\[Callable] = None
+   on\_exit: Optional\[Callable] = None
 
 
 
 class Wijjit:
-
-&nbsp;   def \_\_init\_\_(self, template\_dir: str = 'templates'):
-
-&nbsp;       self.views: Dict\[str, Callable] = {}
-
-&nbsp;       self.default\_view: Optional\[str] = None
-
-&nbsp;       self.current\_view: Optional\[str] = None
-
-&nbsp;       self.template\_dir = template\_dir
-
-&nbsp;       
-
-&nbsp;       # Core systems
-
-&nbsp;       self.state = State()
-
-&nbsp;       self.renderer = Renderer(self)
-
-&nbsp;       self.input\_handler = InputHandler(self)
-
-&nbsp;       
-
-&nbsp;       # Hooks
-
-&nbsp;       self.\_before\_navigate\_hooks = \[]
-
-&nbsp;       self.\_after\_navigate\_hooks = \[]
-
-&nbsp;       self.\_state\_watchers = {}
-
-&nbsp;       self.\_running = False
-
-&nbsp;   
-
-&nbsp;   def view(self, name: str, default: bool = False):
-
-&nbsp;       """Decorator to register a view"""
-
-&nbsp;       def decorator(func: Callable):
-
-&nbsp;           self.views\[name] = func
-
-&nbsp;           if default:
-
-&nbsp;               self.default\_view = name
-
-&nbsp;           return func
-
-&nbsp;       return decorator
-
-&nbsp;   
-
-&nbsp;   def navigate(self, view\_name: str, \*\*params):
-
-&nbsp;       """Navigate to a different view"""
-
-&nbsp;       if view\_name not in self.views:
-
-&nbsp;           raise ValueError(f"View '{view\_name}' not found")
-
-&nbsp;       
-
-&nbsp;       # Call hooks
-
-&nbsp;       for hook in self.\_before\_navigate\_hooks:
-
-&nbsp;           hook(self.current\_view, view\_name)
-
-&nbsp;       
-
-&nbsp;       # Exit current view
-
-&nbsp;       if self.current\_view:
-
-&nbsp;           current = self.views\[self.current\_view]()
-
-&nbsp;           if isinstance(current, ViewConfig) and current.on\_exit:
-
-&nbsp;               current.on\_exit()
-
-&nbsp;       
-
-&nbsp;       # Enter new view
-
-&nbsp;       self.current\_view = view\_name
-
-&nbsp;       self.view\_params = params
-
-&nbsp;       view\_config = self.views\[view\_name](\*\*params)
-
-&nbsp;       
-
-&nbsp;       if isinstance(view\_config, ViewConfig) and view\_config.on\_enter:
-
-&nbsp;           view\_config.on\_enter()
-
-&nbsp;       
-
-&nbsp;       # Trigger re-render
-
-&nbsp;       self.renderer.render()
-
-&nbsp;       
-
-&nbsp;       # Call after hooks
-
-&nbsp;       for hook in self.\_after\_navigate\_hooks:
-
-&nbsp;           hook(view\_name)
-
-&nbsp;   
-
-&nbsp;   def run(self):
-
-&nbsp;       """Start the app"""
-
-&nbsp;       self.\_running = True
-
-&nbsp;       
-
-&nbsp;       # Navigate to default view
-
-&nbsp;       if self.default\_view:
-
-&nbsp;           self.navigate(self.default\_view)
-
-&nbsp;       
-
-&nbsp;       # Enter alternate screen
-
-&nbsp;       self.renderer.enter\_alternate\_screen()
-
-&nbsp;       
-
-&nbsp;       try:
-
-&nbsp;           # Main event loop
-
-&nbsp;           while self.\_running:
-
-&nbsp;               self.input\_handler.process\_input()
-
-&nbsp;       finally:
-
-&nbsp;           # Cleanup
-
-&nbsp;           self.renderer.exit\_alternate\_screen()
-
-&nbsp;   
-
-&nbsp;   def exit(self):
-
-&nbsp;       """Exit the app"""
-
-&nbsp;       self.\_running = False
-
-&nbsp;   
-
-&nbsp;   # Hook registration
-
-&nbsp;   def before\_navigate(self, func: Callable):
-
-&nbsp;       self.\_before\_navigate\_hooks.append(func)
-
-&nbsp;       return func
-
-&nbsp;   
-
-&nbsp;   def after\_navigate(self, func: Callable):
-
-&nbsp;       self.\_after\_navigate\_hooks.append(func)
-
-&nbsp;       return func
-
-&nbsp;   
-
-&nbsp;   def watch(self, key: str):
-
-&nbsp;       """Watch for state changes"""
-
-&nbsp;       def decorator(func: Callable):
-
-&nbsp;           if key not in self.\_state\_watchers:
-
-&nbsp;               self.\_state\_watchers\[key] = \[]
-
-&nbsp;           self.\_state\_watchers\[key].append(func)
-
-&nbsp;           return func
-
-&nbsp;       return decorator
+   def \_\_init\_\_(self, template\_dir: str = 'templates'):
+       self.views: Dict\[str, Callable] = {}
+       self.default\_view: Optional\[str] = None
+       self.current\_view: Optional\[str] = None
+       self.template\_dir = template\_dir
+       
+       # Core systems
+       self.state = State()
+       self.renderer = Renderer(self)
+       self.input\_handler = InputHandler(self)
+       
+       # Hooks
+       self.\_before\_navigate\_hooks = \[]
+       self.\_after\_navigate\_hooks = \[]
+       self.\_state\_watchers = {}
+       self.\_running = False
+   
+   def view(self, name: str, default: bool = False):
+       """Decorator to register a view"""
+       def decorator(func: Callable):
+           self.views\[name] = func
+           if default:
+               self.default\_view = name
+           return func
+       return decorator
+   
+   def navigate(self, view\_name: str, \*\*params):
+       """Navigate to a different view"""
+       if view\_name not in self.views:
+           raise ValueError(f"View '{view\_name}' not found")
+       
+       # Call hooks
+       for hook in self.\_before\_navigate\_hooks:
+           hook(self.current\_view, view\_name)
+       
+       # Exit current view
+       if self.current\_view:
+           current = self.views\[self.current\_view]()
+           if isinstance(current, ViewConfig) and current.on\_exit:
+               current.on\_exit()
+       
+       # Enter new view
+       self.current\_view = view\_name
+       self.view\_params = params
+       view\_config = self.views\[view\_name](\*\*params)
+       
+       if isinstance(view\_config, ViewConfig) and view\_config.on\_enter:
+           view\_config.on\_enter()
+       
+       # Trigger re-render
+       self.renderer.render()
+       
+       # Call after hooks
+       for hook in self.\_after\_navigate\_hooks:
+           hook(view\_name)
+   
+   def run(self):
+       """Start the app"""
+       self.\_running = True
+       
+       # Navigate to default view
+       if self.default\_view:
+           self.navigate(self.default\_view)
+       
+       # Enter alternate screen
+       self.renderer.enter\_alternate\_screen()
+       
+       try:
+           # Main event loop
+           while self.\_running:
+               self.input\_handler.process\_input()
+       finally:
+           # Cleanup
+           self.renderer.exit\_alternate\_screen()
+   
+   def exit(self):
+       """Exit the app"""
+       self.\_running = False
+   
+   # Hook registration
+   def before\_navigate(self, func: Callable):
+       self.\_before\_navigate\_hooks.append(func)
+       return func
+   
+   def after\_navigate(self, func: Callable):
+       self.\_after\_navigate\_hooks.append(func)
+       return func
+   
+   def watch(self, key: str):
+       """Watch for state changes"""
+       def decorator(func: Callable):
+           if key not in self.\_state\_watchers:
+               self.\_state\_watchers\[key] = \[]
+           self.\_state\_watchers\[key].append(func)
+           return func
+       return decorator
 
 ```
 
@@ -247,80 +146,43 @@ from collections import UserDict
 
 
 class State(UserDict):
-
-&nbsp;   """Global application state with change detection"""
-
-&nbsp;   
-
-&nbsp;   def \_\_init\_\_(self):
-
-&nbsp;       super().\_\_init\_\_()
-
-&nbsp;       self.data\['view\_context'] = {}
-
-&nbsp;       self.\_watchers = {}
-
-&nbsp;       self.\_app = None  # Set by Wijjit
-
-&nbsp;   
-
-&nbsp;   def \_\_setitem\_\_(self, key: str, value: Any):
-
-&nbsp;       old\_value = self.data.get(key)
-
-&nbsp;       super().\_\_setitem\_\_(key, value)
-
-&nbsp;       
-
-&nbsp;       # Notify watchers
-
-&nbsp;       if key in self.\_watchers:
-
-&nbsp;           for callback in self.\_watchers\[key]:
-
-&nbsp;               callback(old\_value, value)
-
-&nbsp;       
-
-&nbsp;       # Trigger re-render if app is running
-
-&nbsp;       if self.\_app and self.\_app.\_running:
-
-&nbsp;           self.\_app.renderer.render()
-
-&nbsp;   
-
-&nbsp;   def \_\_getattr\_\_(self, key: str):
-
-&nbsp;       """Allow state.key syntax"""
-
-&nbsp;       try:
-
-&nbsp;           return self.data\[key]
-
-&nbsp;       except KeyError:
-
-&nbsp;           raise AttributeError(f"State has no attribute '{key}'")
-
-&nbsp;   
-
-&nbsp;   def \_\_setattr\_\_(self, key: str, value: Any):
-
-&nbsp;       if key in ('data', '\_watchers', '\_app'):
-
-&nbsp;           super().\_\_setattr\_\_(key, value)
-
-&nbsp;       else:
-
-&nbsp;           self\[key] = value
-
-&nbsp;   
-
-&nbsp;   def update\_context(self, \*\*kwargs):
-
-&nbsp;       """Update view-specific context"""
-
-&nbsp;       self.data\['view\_context'].update(kwargs)
+   """Global application state with change detection"""
+   
+   def \_\_init\_\_(self):
+       super().\_\_init\_\_()
+       self.data\['view\_context'] = {}
+       self.\_watchers = {}
+       self.\_app = None  # Set by Wijjit
+   
+   def \_\_setitem\_\_(self, key: str, value: Any):
+       old\_value = self.data.get(key)
+       super().\_\_setitem\_\_(key, value)
+       
+       # Notify watchers
+       if key in self.\_watchers:
+           for callback in self.\_watchers\[key]:
+               callback(old\_value, value)
+       
+       # Trigger re-render if app is running
+       if self.\_app and self.\_app.\_running:
+           self.\_app.renderer.render()
+   
+   def \_\_getattr\_\_(self, key: str):
+       """Allow state.key syntax"""
+       try:
+           return self.data\[key]
+       except KeyError:
+           raise AttributeError(f"State has no attribute '{key}'")
+   
+   def \_\_setattr\_\_(self, key: str, value: Any):
+       if key in ('data', '\_watchers', '\_app'):
+           super().\_\_setattr\_\_(key, value)
+       else:
+           self\[key] = value
+   
+   def update\_context(self, \*\*kwargs):
+       """Update view-specific context"""
+       self.data\['view\_context'].update(kwargs)
 
 
 
@@ -349,152 +211,86 @@ from enum import Enum
 
 
 class ElementType(Enum):
-
-&nbsp;   DISPLAY = "display"      # Non-interactive (text, table, etc.)
-
-&nbsp;   INPUT = "input"          # Accepts text input
-
-&nbsp;   BUTTON = "button"        # Clickable
-
-&nbsp;   SELECTABLE = "selectable" # Keyboard navigation (list, menu, etc.)
+   DISPLAY = "display"      # Non-interactive (text, table, etc.)
+   INPUT = "input"          # Accepts text input
+   BUTTON = "button"        # Clickable
+   SELECTABLE = "selectable" # Keyboard navigation (list, menu, etc.)
 
 
 
 @dataclass
 
 class Bounds:
-
-&nbsp;   x: int
-
-&nbsp;   y: int
-
-&nbsp;   width: int
-
-&nbsp;   height: int
-
-&nbsp;   
-
-&nbsp;   def contains(self, x: int, y: int) -> bool:
-
-&nbsp;       return (self.x <= x < self.x + self.width and 
-
-&nbsp;               self.y <= y < self.y + self.height)
+   x: int
+   y: int
+   width: int
+   height: int
+   
+   def contains(self, x: int, y: int) -> bool:
+       return (self.x <= x < self.x + self.width and 
+               self.y <= y < self.y + self.height)
 
 
 
 class Element:
-
-&nbsp;   """Base class for all UI elements"""
-
-&nbsp;   
-
-&nbsp;   def \_\_init\_\_(self, 
-
-&nbsp;                id: str,
-
-&nbsp;                element\_type: ElementType,
-
-&nbsp;                focusable: bool = False):
-
-&nbsp;       self.id = id
-
-&nbsp;       self.element\_type = element\_type
-
-&nbsp;       self.focusable = focusable
-
-&nbsp;       self.focused = False
-
-&nbsp;       self.bounds: Optional\[Bounds] = None
-
-&nbsp;       self.parent = None
-
-&nbsp;   
-
-&nbsp;   def set\_bounds(self, x: int, y: int, width: int, height: int):
-
-&nbsp;       """Set element position and size"""
-
-&nbsp;       self.bounds = Bounds(x, y, width, height)
-
-&nbsp;   
-
-&nbsp;   def handle\_key(self, key: str, state: Any) -> bool:
-
-&nbsp;       """
-
-&nbsp;       Handle keyboard input
-
-&nbsp;       Returns True if event was handled (stop propagation)
-
-&nbsp;       """
-
-&nbsp;       return False
-
-&nbsp;   
-
-&nbsp;   def handle\_mouse(self, x: int, y: int, button: str) -> bool:
-
-&nbsp;       """Handle mouse input"""
-
-&nbsp;       return False
-
-&nbsp;   
-
-&nbsp;   def render(self, state: Any) -> str:
-
-&nbsp;       """Render element to string"""
-
-&nbsp;       raise NotImplementedError
-
-&nbsp;   
-
-&nbsp;   def calculate\_min\_size(self) -> Tuple\[int, int]:
-
-&nbsp;       """Calculate minimum width and height"""
-
-&nbsp;       return (1, 1)
+   """Base class for all UI elements"""
+   
+   def \_\_init\_\_(self, 
+                id: str,
+                element\_type: ElementType,
+                focusable: bool = False):
+       self.id = id
+       self.element\_type = element\_type
+       self.focusable = focusable
+       self.focused = False
+       self.bounds: Optional\[Bounds] = None
+       self.parent = None
+   
+   def set\_bounds(self, x: int, y: int, width: int, height: int):
+       """Set element position and size"""
+       self.bounds = Bounds(x, y, width, height)
+   
+   def handle\_key(self, key: str, state: Any) -> bool:
+       """
+       Handle keyboard input
+       Returns True if event was handled (stop propagation)
+       """
+       return False
+   
+   def handle\_mouse(self, x: int, y: int, button: str) -> bool:
+       """Handle mouse input"""
+       return False
+   
+   def render(self, state: Any) -> str:
+       """Render element to string"""
+       raise NotImplementedError
+   
+   def calculate\_min\_size(self) -> Tuple\[int, int]:
+       """Calculate minimum width and height"""
+       return (1, 1)
 
 
 
 class Container(Element):
-
-&nbsp;   """Base class for elements that contain other elements"""
-
-&nbsp;   
-
-&nbsp;   def \_\_init\_\_(self, id: str):
-
-&nbsp;       super().\_\_init\_\_(id, ElementType.DISPLAY, focusable=False)
-
-&nbsp;       self.children = \[]
-
-&nbsp;   
-
-&nbsp;   def add\_child(self, child: Element):
-
-&nbsp;       child.parent = self
-
-&nbsp;       self.children.append(child)
-
-&nbsp;   
-
-&nbsp;   def get\_focusable\_children(self):
-
-&nbsp;       """Get all focusable descendants in order"""
-
-&nbsp;       focusable = \[]
-
-&nbsp;       for child in self.children:
-
-&nbsp;           if child.focusable:
-
-&nbsp;               focusable.append(child)
-
-&nbsp;           if isinstance(child, Container):
-
-&nbsp;               focusable.extend(child.get\_focusable\_children())
-
-&nbsp;       return focusable
+   """Base class for elements that contain other elements"""
+   
+   def \_\_init\_\_(self, id: str):
+       super().\_\_init\_\_(id, ElementType.DISPLAY, focusable=False)
+       self.children = \[]
+   
+   def add\_child(self, child: Element):
+       child.parent = self
+       self.children.append(child)
+   
+   def get\_focusable\_children(self):
+       """Get all focusable descendants in order"""
+       focusable = \[]
+       for child in self.children:
+           if child.focusable:
+               focusable.append(child)
+           if isinstance(child, Container):
+               focusable.extend(child.get\_focusable\_children())
+       return focusable
 
 ```
 
@@ -513,172 +309,91 @@ from .base import Element, ElementType
 
 
 class TextInput(Element):
-
-&nbsp;   def \_\_init\_\_(self, 
-
-&nbsp;                id: str,
-
-&nbsp;                placeholder: str = "",
-
-&nbsp;                value: str = "",
-
-&nbsp;                password: bool = False,
-
-&nbsp;                on\_change: Optional\[Callable] = None,
-
-&nbsp;                on\_enter: Optional\[Callable] = None):
-
-&nbsp;       super().\_\_init\_\_(id, ElementType.INPUT, focusable=True)
-
-&nbsp;       self.placeholder = placeholder
-
-&nbsp;       self.value = value
-
-&nbsp;       self.password = password
-
-&nbsp;       self.on\_change = on\_change
-
-&nbsp;       self.on\_enter = on\_enter
-
-&nbsp;       self.cursor\_pos = len(value)
-
-&nbsp;   
-
-&nbsp;   def handle\_key(self, key: str, state: Any) -> bool:
-
-&nbsp;       if key == 'enter':
-
-&nbsp;           if self.on\_enter:
-
-&nbsp;               self.on\_enter(self.value)
-
-&nbsp;           return True
-
-&nbsp;       elif key == 'backspace':
-
-&nbsp;           if self.cursor\_pos > 0:
-
-&nbsp;               self.value = (self.value\[:self.cursor\_pos-1] + 
-
-&nbsp;                            self.value\[self.cursor\_pos:])
-
-&nbsp;               self.cursor\_pos -= 1
-
-&nbsp;               if self.on\_change:
-
-&nbsp;                   self.on\_change(self.value)
-
-&nbsp;           return True
-
-&nbsp;       elif key == 'left':
-
-&nbsp;           self.cursor\_pos = max(0, self.cursor\_pos - 1)
-
-&nbsp;           return True
-
-&nbsp;       elif key == 'right':
-
-&nbsp;           self.cursor\_pos = min(len(self.value), self.cursor\_pos + 1)
-
-&nbsp;           return True
-
-&nbsp;       elif len(key) == 1:  # Regular character
-
-&nbsp;           self.value = (self.value\[:self.cursor\_pos] + 
-
-&nbsp;                        key + 
-
-&nbsp;                        self.value\[self.cursor\_pos:])
-
-&nbsp;           self.cursor\_pos += 1
-
-&nbsp;           if self.on\_change:
-
-&nbsp;               self.on\_change(self.value)
-
-&nbsp;           return True
-
-&nbsp;       return False
-
-&nbsp;   
-
-&nbsp;   def render(self, state: Any) -> str:
-
-&nbsp;       display = self.value if not self.password else '\*' \* len(self.value)
-
-&nbsp;       if not display and self.placeholder:
-
-&nbsp;           display = f"\\033\[2m{self.placeholder}\\033\[0m"  # Dim
-
-&nbsp;       
-
-&nbsp;       if self.focused:
-
-&nbsp;           # Show cursor
-
-&nbsp;           before = display\[:self.cursor\_pos]
-
-&nbsp;           after = display\[self.cursor\_pos:]
-
-&nbsp;           return f"{before}█{after}"
-
-&nbsp;       return display
+   def \_\_init\_\_(self, 
+                id: str,
+                placeholder: str = "",
+                value: str = "",
+                password: bool = False,
+                on\_change: Optional\[Callable] = None,
+                on\_enter: Optional\[Callable] = None):
+       super().\_\_init\_\_(id, ElementType.INPUT, focusable=True)
+       self.placeholder = placeholder
+       self.value = value
+       self.password = password
+       self.on\_change = on\_change
+       self.on\_enter = on\_enter
+       self.cursor\_pos = len(value)
+   
+   def handle\_key(self, key: str, state: Any) -> bool:
+       if key == 'enter':
+           if self.on\_enter:
+               self.on\_enter(self.value)
+           return True
+       elif key == 'backspace':
+           if self.cursor\_pos > 0:
+               self.value = (self.value\[:self.cursor\_pos-1] + 
+                            self.value\[self.cursor\_pos:])
+               self.cursor\_pos -= 1
+               if self.on\_change:
+                   self.on\_change(self.value)
+           return True
+       elif key == 'left':
+           self.cursor\_pos = max(0, self.cursor\_pos - 1)
+           return True
+       elif key == 'right':
+           self.cursor\_pos = min(len(self.value), self.cursor\_pos + 1)
+           return True
+       elif len(key) == 1:  # Regular character
+           self.value = (self.value\[:self.cursor\_pos] + 
+                        key + 
+                        self.value\[self.cursor\_pos:])
+           self.cursor\_pos += 1
+           if self.on\_change:
+               self.on\_change(self.value)
+           return True
+       return False
+   
+   def render(self, state: Any) -> str:
+       display = self.value if not self.password else '\*' \* len(self.value)
+       if not display and self.placeholder:
+           display = f"\\033\[2m{self.placeholder}\\033\[0m"  # Dim
+       
+       if self.focused:
+           # Show cursor
+           before = display\[:self.cursor\_pos]
+           after = display\[self.cursor\_pos:]
+           return f"{before}█{after}"
+       return display
 
 
 
 class Button(Element):
-
-&nbsp;   def \_\_init\_\_(self,
-
-&nbsp;                id: str,
-
-&nbsp;                label: str,
-
-&nbsp;                action: Optional\[Callable] = None,
-
-&nbsp;                variant: str = "default"):
-
-&nbsp;       super().\_\_init\_\_(id, ElementType.BUTTON, focusable=True)
-
-&nbsp;       self.label = label
-
-&nbsp;       self.action = action
-
-&nbsp;       self.variant = variant
-
-&nbsp;   
-
-&nbsp;   def handle\_key(self, key: str, state: Any) -> bool:
-
-&nbsp;       if key in ('enter', ' '):
-
-&nbsp;           if self.action:
-
-&nbsp;               self.action()
-
-&nbsp;           return True
-
-&nbsp;       return False
-
-&nbsp;   
-
-&nbsp;   def render(self, state: Any) -> str:
-
-&nbsp;       # Simple button rendering
-
-&nbsp;       style = ""
-
-&nbsp;       if self.variant == "primary":
-
-&nbsp;           style = "\\033\[1;44m"  # Bold blue background
-
-&nbsp;       elif self.focused:
-
-&nbsp;           style = "\\033\[7m"  # Inverse
-
-&nbsp;       
-
-&nbsp;       return f"{style}\[ {self.label} ]\\033\[0m"
+   def \_\_init\_\_(self,
+                id: str,
+                label: str,
+                action: Optional\[Callable] = None,
+                variant: str = "default"):
+       super().\_\_init\_\_(id, ElementType.BUTTON, focusable=True)
+       self.label = label
+       self.action = action
+       self.variant = variant
+   
+   def handle\_key(self, key: str, state: Any) -> bool:
+       if key in ('enter', ' '):
+           if self.action:
+               self.action()
+           return True
+       return False
+   
+   def render(self, state: Any) -> str:
+       # Simple button rendering
+       style = ""
+       if self.variant == "primary":
+           style = "\\033\[1;44m"  # Bold blue background
+       elif self.focused:
+           style = "\\033\[7m"  # Inverse
+       
+       return f"{style}\[ {self.label} ]\\033\[0m"
 
 ```
 
@@ -699,150 +414,80 @@ from jinja2.ext import Extension
 
 
 class FrameExtension(Extension):
-
-&nbsp;   tags = {'frame'}
-
-&nbsp;   
-
-&nbsp;   def parse(self, parser):
-
-&nbsp;       lineno = next(parser.stream).lineno
-
-&nbsp;       
-
-&nbsp;       # Parse arguments
-
-&nbsp;       args = \[]
-
-&nbsp;       kwargs = \[]
-
-&nbsp;       
-
-&nbsp;       while parser.stream.current.test\_any('name', 'assign'):
-
-&nbsp;           if parser.stream.current.test('assign'):
-
-&nbsp;               key = parser.stream.current.value
-
-&nbsp;               parser.stream.skip()
-
-&nbsp;               parser.stream.expect('assign')
-
-&nbsp;               value = parser.parse\_expression()
-
-&nbsp;               kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-
-&nbsp;           else:
-
-&nbsp;               args.append(parser.parse\_expression())
-
-&nbsp;       
-
-&nbsp;       # Parse body
-
-&nbsp;       body = parser.parse\_statements(\['name:endframe'], drop\_needle=True)
-
-&nbsp;       
-
-&nbsp;       # Create call node
-
-&nbsp;       call = self.call\_method('\_render\_frame', 
-
-&nbsp;                               args + \[nodes.List(kwargs, lineno=lineno)],
-
-&nbsp;                               lineno=lineno)
-
-&nbsp;       
-
-&nbsp;       return nodes.CallBlock(call, \[], \[], body).set\_lineno(lineno)
-
-&nbsp;   
-
-&nbsp;   def \_render\_frame(self, kwargs, caller):
-
-&nbsp;       # This gets called during template rendering
-
-&nbsp;       # Register frame with layout engine and return placeholder
-
-&nbsp;       frame\_id = kwargs.get('id', f'frame\_{id(caller)}')
-
-&nbsp;       content = caller()
-
-&nbsp;       
-
-&nbsp;       # Store in context for layout engine
-
-&nbsp;       context = self.environment.wijjit\_context
-
-&nbsp;       context.register\_frame(frame\_id, kwargs, content)
-
-&nbsp;       
-
-&nbsp;       return f"{{{{FRAME:{frame\_id}}}}}"
+   tags = {'frame'}
+   
+   def parse(self, parser):
+       lineno = next(parser.stream).lineno
+       
+       # Parse arguments
+       args = \[]
+       kwargs = \[]
+       
+       while parser.stream.current.test\_any('name', 'assign'):
+           if parser.stream.current.test('assign'):
+               key = parser.stream.current.value
+               parser.stream.skip()
+               parser.stream.expect('assign')
+               value = parser.parse\_expression()
+               kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+           else:
+               args.append(parser.parse\_expression())
+       
+       # Parse body
+       body = parser.parse\_statements(\['name:endframe'], drop\_needle=True)
+       
+       # Create call node
+       call = self.call\_method('\_render\_frame', 
+                               args + \[nodes.List(kwargs, lineno=lineno)],
+                               lineno=lineno)
+       
+       return nodes.CallBlock(call, \[], \[], body).set\_lineno(lineno)
+   
+   def \_render\_frame(self, kwargs, caller):
+       # This gets called during template rendering
+       # Register frame with layout engine and return placeholder
+       frame\_id = kwargs.get('id', f'frame\_{id(caller)}')
+       content = caller()
+       
+       # Store in context for layout engine
+       context = self.environment.wijjit\_context
+       context.register\_frame(frame\_id, kwargs, content)
+       
+       return f"{{{{FRAME:{frame\_id}}}}}"
 
 
 
 class TextInputExtension(Extension):
-
-&nbsp;   tags = {'textinput'}
-
-&nbsp;   
-
-&nbsp;   def parse(self, parser):
-
-&nbsp;       lineno = next(parser.stream).lineno
-
-&nbsp;       kwargs = self.\_parse\_kwargs(parser)
-
-&nbsp;       
-
-&nbsp;       call = self.call\_method('\_render\_textinput',
-
-&nbsp;                              \[nodes.List(kwargs, lineno=lineno)],
-
-&nbsp;                              lineno=lineno)
-
-&nbsp;       return nodes.Output(\[call], lineno=lineno)
-
-&nbsp;   
-
-&nbsp;   def \_render\_textinput(self, kwargs):
-
-&nbsp;       element\_id = kwargs.get('id', f'input\_{id(kwargs)}')
-
-&nbsp;       
-
-&nbsp;       # Register with context
-
-&nbsp;       context = self.environment.wijjit\_context
-
-&nbsp;       context.register\_element(element\_id, 'textinput', kwargs)
-
-&nbsp;       
-
-&nbsp;       return f"{{{{INPUT:{element\_id}}}}}"
-
-&nbsp;   
-
-&nbsp;   def \_parse\_kwargs(self, parser):
-
-&nbsp;       kwargs = \[]
-
-&nbsp;       while not parser.stream.current.test('block\_end'):
-
-&nbsp;           if parser.stream.current.test('name'):
-
-&nbsp;               key = parser.stream.current.value
-
-&nbsp;               parser.stream.skip()
-
-&nbsp;               parser.stream.expect('assign')
-
-&nbsp;               value = parser.parse\_expression()
-
-&nbsp;               kwargs.append(nodes.Keyword(key, value, lineno=parser.stream.current.lineno))
-
-&nbsp;       return kwargs
+   tags = {'textinput'}
+   
+   def parse(self, parser):
+       lineno = next(parser.stream).lineno
+       kwargs = self.\_parse\_kwargs(parser)
+       
+       call = self.call\_method('\_render\_textinput',
+                              \[nodes.List(kwargs, lineno=lineno)],
+                              lineno=lineno)
+       return nodes.Output(\[call], lineno=lineno)
+   
+   def \_render\_textinput(self, kwargs):
+       element\_id = kwargs.get('id', f'input\_{id(kwargs)}')
+       
+       # Register with context
+       context = self.environment.wijjit\_context
+       context.register\_element(element\_id, 'textinput', kwargs)
+       
+       return f"{{{{INPUT:{element\_id}}}}}"
+   
+   def \_parse\_kwargs(self, parser):
+       kwargs = \[]
+       while not parser.stream.current.test('block\_end'):
+           if parser.stream.current.test('name'):
+               key = parser.stream.current.value
+               parser.stream.skip()
+               parser.stream.expect('assign')
+               value = parser.parse\_expression()
+               kwargs.append(nodes.Keyword(key, value, lineno=parser.stream.current.lineno))
+       return kwargs
 
 
 
@@ -867,242 +512,126 @@ from ..elements.base import Element, Container, Bounds
 
 
 class LayoutNode:
-
-&nbsp;   def \_\_init\_\_(self, 
-
-&nbsp;                element: Element,
-
-&nbsp;                width: str | int = "auto",
-
-&nbsp;                height: str | int = "auto",
-
-&nbsp;                fill: bool = False):
-
-&nbsp;       self.element = element
-
-&nbsp;       self.width = width
-
-&nbsp;       self.height = height
-
-&nbsp;       self.fill = fill
-
-&nbsp;       self.children: List\[LayoutNode] = \[]
-
-&nbsp;       self.calculated\_width = 0
-
-&nbsp;       self.calculated\_height = 0
-
-&nbsp;       self.x = 0
-
-&nbsp;       self.y = 0
-
-&nbsp;   
-
-&nbsp;   def add\_child(self, node: 'LayoutNode'):
-
-&nbsp;       self.children.append(node)
+   def \_\_init\_\_(self, 
+                element: Element,
+                width: str | int = "auto",
+                height: str | int = "auto",
+                fill: bool = False):
+       self.element = element
+       self.width = width
+       self.height = height
+       self.fill = fill
+       self.children: List\[LayoutNode] = \[]
+       self.calculated\_width = 0
+       self.calculated\_height = 0
+       self.x = 0
+       self.y = 0
+   
+   def add\_child(self, node: 'LayoutNode'):
+       self.children.append(node)
 
 
 
 class LayoutEngine:
-
-&nbsp;   def \_\_init\_\_(self, terminal\_width: int, terminal\_height: int):
-
-&nbsp;       self.terminal\_width = terminal\_width
-
-&nbsp;       self.terminal\_height = terminal\_height
-
-&nbsp;       self.root: Optional\[LayoutNode] = None
-
-&nbsp;       self.element\_registry: Dict\[str, Element] = {}
-
-&nbsp;   
-
-&nbsp;   def calculate\_layout(self, root: LayoutNode):
-
-&nbsp;       """Calculate positions and sizes for all elements"""
-
-&nbsp;       self.root = root
-
-&nbsp;       
-
-&nbsp;       # Phase 1: Calculate sizes bottom-up
-
-&nbsp;       self.\_calculate\_sizes(root, self.terminal\_width, self.terminal\_height)
-
-&nbsp;       
-
-&nbsp;       # Phase 2: Assign positions top-down
-
-&nbsp;       self.\_assign\_positions(root, 0, 0)
-
-&nbsp;       
-
-&nbsp;       # Phase 3: Set bounds on actual elements
-
-&nbsp;       self.\_apply\_bounds(root)
-
-&nbsp;   
-
-&nbsp;   def \_calculate\_sizes(self, 
-
-&nbsp;                       node: LayoutNode, 
-
-&nbsp;                       available\_width: int, 
-
-&nbsp;                       available\_height: int):
-
-&nbsp;       """Calculate node sizes based on constraints"""
-
-&nbsp;       
-
-&nbsp;       # Handle explicit sizes
-
-&nbsp;       if isinstance(node.width, int):
-
-&nbsp;           node.calculated\_width = node.width
-
-&nbsp;       elif node.width == "100%" or node.width == "fill":
-
-&nbsp;           node.calculated\_width = available\_width
-
-&nbsp;       else:  # "auto"
-
-&nbsp;           # Calculate based on content
-
-&nbsp;           if node.children:
-
-&nbsp;               # For now, simple sum of children
-
-&nbsp;               node.calculated\_width = sum(
-
-&nbsp;                   self.\_calculate\_sizes(child, available\_width, available\_height)\[0]
-
-&nbsp;                   for child in node.children
-
-&nbsp;               )
-
-&nbsp;           else:
-
-&nbsp;               min\_w, \_ = node.element.calculate\_min\_size()
-
-&nbsp;               node.calculated\_width = min\_w
-
-&nbsp;       
-
-&nbsp;       # Similar for height
-
-&nbsp;       if isinstance(node.height, int):
-
-&nbsp;           node.calculated\_height = node.height
-
-&nbsp;       elif node.height == "100%" or node.height == "fill":
-
-&nbsp;           node.calculated\_height = available\_height
-
-&nbsp;       else:
-
-&nbsp;           if node.children:
-
-&nbsp;               node.calculated\_height = sum(
-
-&nbsp;                   self.\_calculate\_sizes(child, available\_width, available\_height)\[1]
-
-&nbsp;                   for child in node.children
-
-&nbsp;               )
-
-&nbsp;           else:
-
-&nbsp;               \_, min\_h = node.element.calculate\_min\_size()
-
-&nbsp;               node.calculated\_height = min\_h
-
-&nbsp;       
-
-&nbsp;       return (node.calculated\_width, node.calculated\_height)
-
-&nbsp;   
-
-&nbsp;   def \_assign\_positions(self, node: LayoutNode, x: int, y: int):
-
-&nbsp;       """Assign absolute positions to nodes"""
-
-&nbsp;       node.x = x
-
-&nbsp;       node.y = y
-
-&nbsp;       
-
-&nbsp;       # Layout children (for now, simple vertical stack)
-
-&nbsp;       current\_y = y
-
-&nbsp;       for child in node.children:
-
-&nbsp;           self.\_assign\_positions(child, x, current\_y)
-
-&nbsp;           current\_y += child.calculated\_height
-
-&nbsp;   
-
-&nbsp;   def \_apply\_bounds(self, node: LayoutNode):
-
-&nbsp;       """Apply calculated bounds to elements"""
-
-&nbsp;       node.element.set\_bounds(
-
-&nbsp;           node.x, 
-
-&nbsp;           node.y, 
-
-&nbsp;           node.calculated\_width, 
-
-&nbsp;           node.calculated\_height
-
-&nbsp;       )
-
-&nbsp;       
-
-&nbsp;       for child in node.children:
-
-&nbsp;           self.\_apply\_bounds(child)
-
-&nbsp;   
-
-&nbsp;   def register\_element(self, element: Element):
-
-&nbsp;       """Register an element for focus management"""
-
-&nbsp;       self.element\_registry\[element.id] = element
-
-&nbsp;   
-
-&nbsp;   def get\_focusable\_elements(self) -> List\[Element]:
-
-&nbsp;       """Get all focusable elements in render order"""
-
-&nbsp;       if not self.root:
-
-&nbsp;           return \[]
-
-&nbsp;       return self.\_collect\_focusable(self.root)
-
-&nbsp;   
-
-&nbsp;   def \_collect\_focusable(self, node: LayoutNode) -> List\[Element]:
-
-&nbsp;       focusable = \[]
-
-&nbsp;       if node.element.focusable:
-
-&nbsp;           focusable.append(node.element)
-
-&nbsp;       for child in node.children:
-
-&nbsp;           focusable.extend(self.\_collect\_focusable(child))
-
-&nbsp;       return focusable
+   def \_\_init\_\_(self, terminal\_width: int, terminal\_height: int):
+       self.terminal\_width = terminal\_width
+       self.terminal\_height = terminal\_height
+       self.root: Optional\[LayoutNode] = None
+       self.element\_registry: Dict\[str, Element] = {}
+   
+   def calculate\_layout(self, root: LayoutNode):
+       """Calculate positions and sizes for all elements"""
+       self.root = root
+       
+       # Phase 1: Calculate sizes bottom-up
+       self.\_calculate\_sizes(root, self.terminal\_width, self.terminal\_height)
+       
+       # Phase 2: Assign positions top-down
+       self.\_assign\_positions(root, 0, 0)
+       
+       # Phase 3: Set bounds on actual elements
+       self.\_apply\_bounds(root)
+   
+   def \_calculate\_sizes(self, 
+                       node: LayoutNode, 
+                       available\_width: int, 
+                       available\_height: int):
+       """Calculate node sizes based on constraints"""
+       
+       # Handle explicit sizes
+       if isinstance(node.width, int):
+           node.calculated\_width = node.width
+       elif node.width == "100%" or node.width == "fill":
+           node.calculated\_width = available\_width
+       else:  # "auto"
+           # Calculate based on content
+           if node.children:
+               # For now, simple sum of children
+               node.calculated\_width = sum(
+                   self.\_calculate\_sizes(child, available\_width, available\_height)\[0]
+                   for child in node.children
+               )
+           else:
+               min\_w, \_ = node.element.calculate\_min\_size()
+               node.calculated\_width = min\_w
+       
+       # Similar for height
+       if isinstance(node.height, int):
+           node.calculated\_height = node.height
+       elif node.height == "100%" or node.height == "fill":
+           node.calculated\_height = available\_height
+       else:
+           if node.children:
+               node.calculated\_height = sum(
+                   self.\_calculate\_sizes(child, available\_width, available\_height)\[1]
+                   for child in node.children
+               )
+           else:
+               \_, min\_h = node.element.calculate\_min\_size()
+               node.calculated\_height = min\_h
+       
+       return (node.calculated\_width, node.calculated\_height)
+   
+   def \_assign\_positions(self, node: LayoutNode, x: int, y: int):
+       """Assign absolute positions to nodes"""
+       node.x = x
+       node.y = y
+       
+       # Layout children (for now, simple vertical stack)
+       current\_y = y
+       for child in node.children:
+           self.\_assign\_positions(child, x, current\_y)
+           current\_y += child.calculated\_height
+   
+   def \_apply\_bounds(self, node: LayoutNode):
+       """Apply calculated bounds to elements"""
+       node.element.set\_bounds(
+           node.x, 
+           node.y, 
+           node.calculated\_width, 
+           node.calculated\_height
+       )
+       
+       for child in node.children:
+           self.\_apply\_bounds(child)
+   
+   def register\_element(self, element: Element):
+       """Register an element for focus management"""
+       self.element\_registry\[element.id] = element
+   
+   def get\_focusable\_elements(self) -> List\[Element]:
+       """Get all focusable elements in render order"""
+       if not self.root:
+           return \[]
+       return self.\_collect\_focusable(self.root)
+   
+   def \_collect\_focusable(self, node: LayoutNode) -> List\[Element]:
+       focusable = \[]
+       if node.element.focusable:
+           focusable.append(node.element)
+       for child in node.children:
+           focusable.extend(self.\_collect\_focusable(child))
+       return focusable
 
 ```
 
@@ -1127,158 +656,82 @@ from ..layout.engine import LayoutEngine
 
 
 class Renderer:
-
-&nbsp;   def \_\_init\_\_(self, app):
-
-&nbsp;       self.app = app
-
-&nbsp;       
-
-&nbsp;       # Setup Jinja environment
-
-&nbsp;       self.jinja\_env = Environment(
-
-&nbsp;           loader=FileSystemLoader(app.template\_dir),
-
-&nbsp;           extensions=\[FrameExtension, TextInputExtension]
-
-&nbsp;       )
-
-&nbsp;       
-
-&nbsp;       # Add custom filters
-
-&nbsp;       self.jinja\_env.filters\['humanize'] = self.\_humanize
-
-&nbsp;       self.jinja\_env.filters\['timeago'] = self.\_timeago
-
-&nbsp;       
-
-&nbsp;       # Terminal state
-
-&nbsp;       self.in\_alternate\_screen = False
-
-&nbsp;       self.last\_render = ""
-
-&nbsp;   
-
-&nbsp;   def render(self):
-
-&nbsp;       """Render the current view"""
-
-&nbsp;       if not self.app.current\_view:
-
-&nbsp;           return
-
-&nbsp;       
-
-&nbsp;       # Get view config
-
-&nbsp;       view\_func = self.app.views\[self.app.current\_view]
-
-&nbsp;       view\_config = view\_func(\*\*self.app.view\_params)
-
-&nbsp;       
-
-&nbsp;       # Get terminal size
-
-&nbsp;       width, height = os.get\_terminal\_size()
-
-&nbsp;       
-
-&nbsp;       # Setup layout engine
-
-&nbsp;       layout = LayoutEngine(width, height)
-
-&nbsp;       
-
-&nbsp;       # Attach to jinja context
-
-&nbsp;       self.jinja\_env.wijjit\_context = layout
-
-&nbsp;       
-
-&nbsp;       # Render template
-
-&nbsp;       if view\_config.template.endswith('.tui'):
-
-&nbsp;           template = self.jinja\_env.get\_template(view\_config.template)
-
-&nbsp;       else:
-
-&nbsp;           template = self.jinja\_env.from\_string(view\_config.template)
-
-&nbsp;       
-
-&nbsp;       output = template.render(\*\*view\_config.data, state=self.app.state)
-
-&nbsp;       
-
-&nbsp;       # Clear screen and render
-
-&nbsp;       self.\_clear\_screen()
-
-&nbsp;       print(output, end='', flush=True)
-
-&nbsp;       
-
-&nbsp;       self.last\_render = output
-
-&nbsp;   
-
-&nbsp;   def enter\_alternate\_screen(self):
-
-&nbsp;       """Switch to alternate screen buffer"""
-
-&nbsp;       print("\\033\[?1049h", end='', flush=True)  # Enter alternate screen
-
-&nbsp;       print("\\033\[?25l", end='', flush=True)    # Hide cursor
-
-&nbsp;       self.in\_alternate\_screen = True
-
-&nbsp;   
-
-&nbsp;   def exit\_alternate\_screen(self):
-
-&nbsp;       """Return to main screen buffer"""
-
-&nbsp;       print("\\033\[?25h", end='', flush=True)    # Show cursor
-
-&nbsp;       print("\\033\[?1049l", end='', flush=True)  # Exit alternate screen
-
-&nbsp;       self.in\_alternate\_screen = False
-
-&nbsp;   
-
-&nbsp;   def \_clear\_screen(self):
-
-&nbsp;       print("\\033\[2J\\033\[H", end='', flush=True)
-
-&nbsp;   
-
-&nbsp;   def \_humanize(self, size: int) -> str:
-
-&nbsp;       """Convert bytes to human readable"""
-
-&nbsp;       for unit in \['B', 'KB', 'MB', 'GB']:
-
-&nbsp;           if size < 1024:
-
-&nbsp;               return f"{size:.1f}{unit}"
-
-&nbsp;           size /= 1024
-
-&nbsp;       return f"{size:.1f}TB"
-
-&nbsp;   
-
-&nbsp;   def \_timeago(self, dt) -> str:
-
-&nbsp;       """Convert datetime to relative time"""
-
-&nbsp;       # Simplified implementation
-
-&nbsp;       return "2m ago"
+   def \_\_init\_\_(self, app):
+       self.app = app
+       
+       # Setup Jinja environment
+       self.jinja\_env = Environment(
+           loader=FileSystemLoader(app.template\_dir),
+           extensions=\[FrameExtension, TextInputExtension]
+       )
+       
+       # Add custom filters
+       self.jinja\_env.filters\['humanize'] = self.\_humanize
+       self.jinja\_env.filters\['timeago'] = self.\_timeago
+       
+       # Terminal state
+       self.in\_alternate\_screen = False
+       self.last\_render = ""
+   
+   def render(self):
+       """Render the current view"""
+       if not self.app.current\_view:
+           return
+       
+       # Get view config
+       view\_func = self.app.views\[self.app.current\_view]
+       view\_config = view\_func(\*\*self.app.view\_params)
+       
+       # Get terminal size
+       width, height = os.get\_terminal\_size()
+       
+       # Setup layout engine
+       layout = LayoutEngine(width, height)
+       
+       # Attach to jinja context
+       self.jinja\_env.wijjit\_context = layout
+       
+       # Render template
+       if view\_config.template.endswith('.tui'):
+           template = self.jinja\_env.get\_template(view\_config.template)
+       else:
+           template = self.jinja\_env.from\_string(view\_config.template)
+       
+       output = template.render(\*\*view\_config.data, state=self.app.state)
+       
+       # Clear screen and render
+       self.\_clear\_screen()
+       print(output, end='', flush=True)
+       
+       self.last\_render = output
+   
+   def enter\_alternate\_screen(self):
+       """Switch to alternate screen buffer"""
+       print("\\033\[?1049h", end='', flush=True)  # Enter alternate screen
+       print("\\033\[?25l", end='', flush=True)    # Hide cursor
+       self.in\_alternate\_screen = True
+   
+   def exit\_alternate\_screen(self):
+       """Return to main screen buffer"""
+       print("\\033\[?25h", end='', flush=True)    # Show cursor
+       print("\\033\[?1049l", end='', flush=True)  # Exit alternate screen
+       self.in\_alternate\_screen = False
+   
+   def \_clear\_screen(self):
+       print("\\033\[2J\\033\[H", end='', flush=True)
+   
+   def \_humanize(self, size: int) -> str:
+       """Convert bytes to human readable"""
+       for unit in \['B', 'KB', 'MB', 'GB']:
+           if size < 1024:
+               return f"{size:.1f}{unit}"
+           size /= 1024
+       return f"{size:.1f}TB"
+   
+   def \_timeago(self, dt) -> str:
+       """Convert datetime to relative time"""
+       # Simplified implementation
+       return "2m ago"
 
 ```
 
@@ -1303,150 +756,78 @@ from typing import Optional
 
 
 class InputHandler:
-
-&nbsp;   def \_\_init\_\_(self, app):
-
-&nbsp;       self.app = app
-
-&nbsp;       self.focused\_index = 0
-
-&nbsp;       self.focusable\_elements = \[]
-
-&nbsp;   
-
-&nbsp;   def process\_input(self):
-
-&nbsp;       """Read and process one input event"""
-
-&nbsp;       key = self.\_read\_key()
-
-&nbsp;       
-
-&nbsp;       if key == 'tab':
-
-&nbsp;           self.\_handle\_tab()
-
-&nbsp;       elif key == 'shift+tab':
-
-&nbsp;           self.\_handle\_shift\_tab()
-
-&nbsp;       elif key == 'ctrl+c':
-
-&nbsp;           self.app.exit()
-
-&nbsp;       else:
-
-&nbsp;           # Send to focused element
-
-&nbsp;           if self.focusable\_elements:
-
-&nbsp;               focused = self.focusable\_elements\[self.focused\_index]
-
-&nbsp;               handled = focused.handle\_key(key, self.app.state)
-
-&nbsp;               
-
-&nbsp;               if handled:
-
-&nbsp;                   self.app.renderer.render()
-
-&nbsp;   
-
-&nbsp;   def \_handle\_tab(self):
-
-&nbsp;       """Move focus to next element"""
-
-&nbsp;       if not self.focusable\_elements:
-
-&nbsp;           return
-
-&nbsp;       
-
-&nbsp;       self.focusable\_elements\[self.focused\_index].focused = False
-
-&nbsp;       self.focused\_index = (self.focused\_index + 1) % len(self.focusable\_elements)
-
-&nbsp;       self.focusable\_elements\[self.focused\_index].focused = True
-
-&nbsp;       self.app.renderer.render()
-
-&nbsp;   
-
-&nbsp;   def \_handle\_shift\_tab(self):
-
-&nbsp;       """Move focus to previous element"""
-
-&nbsp;       if not self.focusable\_elements:
-
-&nbsp;           return
-
-&nbsp;       
-
-&nbsp;       self.focusable\_elements\[self.focused\_index].focused = False
-
-&nbsp;       self.focused\_index = (self.focused\_index - 1) % len(self.focusable\_elements)
-
-&nbsp;       self.focusable\_elements\[self.focused\_index].focused = True
-
-&nbsp;       self.app.renderer.render()
-
-&nbsp;   
-
-&nbsp;   def \_read\_key(self) -> str:
-
-&nbsp;       """Read a single keypress (blocking)"""
-
-&nbsp;       # Save terminal settings
-
-&nbsp;       fd = sys.stdin.fileno()
-
-&nbsp;       old\_settings = termios.tcgetattr(fd)
-
-&nbsp;       
-
-&nbsp;       try:
-
-&nbsp;           tty.setraw(fd)
-
-&nbsp;           ch = sys.stdin.read(1)
-
-&nbsp;           
-
-&nbsp;           # Handle escape sequences
-
-&nbsp;           if ch == '\\x1b':
-
-&nbsp;               ch2 = sys.stdin.read(1)
-
-&nbsp;               if ch2 == '\[':
-
-&nbsp;                   ch3 = sys.stdin.read(1)
-
-&nbsp;                   if ch3 == 'A': return 'up'
-
-&nbsp;                   elif ch3 == 'B': return 'down'
-
-&nbsp;                   elif ch3 == 'C': return 'right'
-
-&nbsp;                   elif ch3 == 'D': return 'left'
-
-&nbsp;                   elif ch3 == 'Z': return 'shift+tab'
-
-&nbsp;           elif ch == '\\t': return 'tab'
-
-&nbsp;           elif ch == '\\r': return 'enter'
-
-&nbsp;           elif ch == '\\x7f': return 'backspace'
-
-&nbsp;           elif ch == '\\x03': return 'ctrl+c'
-
-&nbsp;           
-
-&nbsp;           return ch
-
-&nbsp;       finally:
-
-&nbsp;           termios.tcsetattr(fd, termios.TCSADRAIN, old\_settings)
+   def \_\_init\_\_(self, app):
+       self.app = app
+       self.focused\_index = 0
+       self.focusable\_elements = \[]
+   
+   def process\_input(self):
+       """Read and process one input event"""
+       key = self.\_read\_key()
+       
+       if key == 'tab':
+           self.\_handle\_tab()
+       elif key == 'shift+tab':
+           self.\_handle\_shift\_tab()
+       elif key == 'ctrl+c':
+           self.app.exit()
+       else:
+           # Send to focused element
+           if self.focusable\_elements:
+               focused = self.focusable\_elements\[self.focused\_index]
+               handled = focused.handle\_key(key, self.app.state)
+               
+               if handled:
+                   self.app.renderer.render()
+   
+   def \_handle\_tab(self):
+       """Move focus to next element"""
+       if not self.focusable\_elements:
+           return
+       
+       self.focusable\_elements\[self.focused\_index].focused = False
+       self.focused\_index = (self.focused\_index + 1) % len(self.focusable\_elements)
+       self.focusable\_elements\[self.focused\_index].focused = True
+       self.app.renderer.render()
+   
+   def \_handle\_shift\_tab(self):
+       """Move focus to previous element"""
+       if not self.focusable\_elements:
+           return
+       
+       self.focusable\_elements\[self.focused\_index].focused = False
+       self.focused\_index = (self.focused\_index - 1) % len(self.focusable\_elements)
+       self.focusable\_elements\[self.focused\_index].focused = True
+       self.app.renderer.render()
+   
+   def \_read\_key(self) -> str:
+       """Read a single keypress (blocking)"""
+       # Save terminal settings
+       fd = sys.stdin.fileno()
+       old\_settings = termios.tcgetattr(fd)
+       
+       try:
+           tty.setraw(fd)
+           ch = sys.stdin.read(1)
+           
+           # Handle escape sequences
+           if ch == '\\x1b':
+               ch2 = sys.stdin.read(1)
+               if ch2 == '\[':
+                   ch3 = sys.stdin.read(1)
+                   if ch3 == 'A': return 'up'
+                   elif ch3 == 'B': return 'down'
+                   elif ch3 == 'C': return 'right'
+                   elif ch3 == 'D': return 'left'
+                   elif ch3 == 'Z': return 'shift+tab'
+           elif ch == '\\t': return 'tab'
+           elif ch == '\\r': return 'enter'
+           elif ch == '\\x7f': return 'backspace'
+           elif ch == '\\x03': return 'ctrl+c'
+           
+           return ch
+       finally:
+           termios.tcsetattr(fd, termios.TCSADRAIN, old\_settings)
 
 ```
 
@@ -1479,78 +860,48 @@ state.new\_item = ""
 @app.view('main', default=True)
 
 def main\_view():
-
-&nbsp;   return {
-
-&nbsp;       'template': '''
+   return {
+       'template': '''
 
 {% frame title="Todo List" border="double" width="100%" height="100%" %}
-
-&nbsp; 
-
-&nbsp; {% frame id="list" fill=true %}
-
-&nbsp;   {% for item in items %}
-
-&nbsp;     {{ item }}
-
-&nbsp;   {% endfor %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
-
-&nbsp; {% frame id="input" height=3 %}
-
-&nbsp;   New: {% textinput id="new" value=state.new\_item on\_enter="add\_item" %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
-
-&nbsp; {% frame id="actions" height=3 %}
-
-&nbsp;   {% button id="quit" action="quit" %}Quit{% endbutton %}
-
-&nbsp; {% endframe %}
-
-&nbsp; 
+ 
+ {% frame id="list" fill=true %}
+   {% for item in items %}
+     {{ item }}
+   {% endfor %}
+ {% endframe %}
+ 
+ {% frame id="input" height=3 %}
+   New: {% textinput id="new" value=state.new\_item on\_enter="add\_item" %}
+ {% endframe %}
+ 
+ {% frame id="actions" height=3 %}
+   {% button id="quit" action="quit" %}Quit{% endbutton %}
+ {% endframe %}
+ 
 
 {% endframe %}
-
-&nbsp;       ''',
-
-&nbsp;       'data': {
-
-&nbsp;           'items': state.items
-
-&nbsp;       },
-
-&nbsp;       'handlers': {
-
-&nbsp;           'add\_item': add\_item,
-
-&nbsp;           'quit': app.exit
-
-&nbsp;       }
-
-&nbsp;   }
+       ''',
+       'data': {
+           'items': state.items
+       },
+       'handlers': {
+           'add\_item': add\_item,
+           'quit': app.exit
+       }
+   }
 
 
 
 def add\_item(text):
-
-&nbsp;   if text.strip():
-
-&nbsp;       state.items.append(text)
-
-&nbsp;       state.new\_item = ""
+   if text.strip():
+       state.items.append(text)
+       state.new\_item = ""
 
 
 
 if \_\_name\_\_ == '\_\_main\_\_':
-
-&nbsp;   app.run()
+   app.run()
 
 ```
 

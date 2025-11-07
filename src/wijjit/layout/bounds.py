@@ -88,12 +88,9 @@ class Bounds:
         bool
             True if the point is within bounds
         """
-        return (
-            self.x <= x < self.right
-            and self.y <= y < self.bottom
-        )
+        return self.x <= x < self.right and self.y <= y < self.bottom
 
-    def overlaps(self, other: 'Bounds') -> bool:
+    def overlaps(self, other: "Bounds") -> bool:
         """Check if these bounds overlap with another bounds.
 
         Parameters
@@ -121,7 +118,9 @@ class Bounds:
         str
             String representation
         """
-        return f"Bounds(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
+        return (
+            f"Bounds(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
+        )
 
 
 @dataclass

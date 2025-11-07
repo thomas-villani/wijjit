@@ -24,8 +24,6 @@ from wijjit import (
     HandlerScope,
     TextInput,
     Button,
-    FocusManager,
-    Keys,
 )
 
 
@@ -65,9 +63,23 @@ def create_app():
         id="submit_btn",
     )
 
-    # Create focus manager and register elements
-    focus_manager = FocusManager()
-    focus_manager.set_elements([name_input, email_input, submit_button])
+    # Set up state synchronization - sync element values to app state on change
+    def sync_name(old_value, new_value):
+        """Sync name input to app state."""
+        app.state["name"] = new_value
+        app.refresh()
+
+    def sync_email(old_value, new_value):
+        """Sync email input to app state."""
+        app.state["email"] = new_value
+        app.refresh()
+
+    name_input.on_change = sync_name
+    email_input.on_change = sync_email
+
+    # Register elements with the app's built-in focus manager
+    # The app will automatically handle Tab/Shift+Tab and route keys to focused elements
+    app.focus_manager.set_elements([name_input, email_input, submit_button])
 
     # Button click handler
     def on_submit():
@@ -88,7 +100,7 @@ def create_app():
             term_width = term_size.columns
 
             # Build form content with simple ASCII borders
-            border = "=" * 60
+            border = "=" * term_width
             content_lines = [
                 border,
                 "  FORM INPUT DEMO",
@@ -143,64 +155,14 @@ def create_app():
         """Set up keyboard handlers for the form view."""
 
         def on_key(event):
-            """Route keyboard events to appropriate handlers."""
-            # Handle Tab navigation
-            if event.key == "tab":
-                focus_manager.focus_next()
-                app.refresh()
-                return
-            elif event.key == "shift+tab":
-                focus_manager.focus_previous()
-                app.refresh()
-                return
-
+            """Handle custom keyboard events."""
             # Handle quit
             if event.key == "q":
                 app.quit()
                 return
 
-            # Route other keys to the focused element
-            focused = focus_manager.get_focused_element()
-            if focused:
-                # Convert event key to Key object for element handling
-                from wijjit.terminal.input import Key, KeyType
-
-                # Create a Key object from the event
-                if event.key == "backspace":
-                    key_obj = Keys.BACKSPACE
-                elif event.key == "delete":
-                    key_obj = Keys.DELETE
-                elif event.key == "left":
-                    key_obj = Keys.LEFT
-                elif event.key == "right":
-                    key_obj = Keys.RIGHT
-                elif event.key == "home":
-                    key_obj = Keys.HOME
-                elif event.key == "end":
-                    key_obj = Keys.END
-                elif event.key == "enter":
-                    key_obj = Keys.ENTER
-                elif event.key == "space":
-                    key_obj = Keys.SPACE
-                elif len(event.key) == 1:
-                    # Regular character
-                    key_obj = Key(event.key, KeyType.CHARACTER, event.key)
-                else:
-                    # Unknown key, ignore
-                    return
-
-                # Let the element handle the key
-                handled = focused.handle_key(key_obj)
-
-                if handled:
-                    # Sync element state back to app state
-                    if focused == name_input:
-                        app.state["name"] = name_input.value
-                    elif focused == email_input:
-                        app.state["email"] = email_input.value
-
-                    # Refresh the display
-                    app.refresh()
+            # Note: Tab/Shift+Tab navigation is handled automatically by the app
+            # Note: Key routing to focused elements is handled automatically by the app
 
         # Register key handler
         app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")

@@ -5,9 +5,21 @@ custom extensions and filters for terminal UI rendering.
 """
 
 import os
-from typing import Any, Dict, Optional
+import shutil
+from typing import Any, Dict, Optional, Tuple, List
 
 from jinja2 import Environment, FileSystemLoader, DictLoader, Template
+
+from ..template.tags import (
+    FrameExtension,
+    VStackExtension,
+    HStackExtension,
+    TextInputExtension,
+    ButtonExtension,
+    LayoutContext,
+)
+from ..layout.engine import LayoutEngine, LayoutNode
+from ..elements.base import Element
 
 
 class Renderer:
@@ -39,12 +51,19 @@ class Renderer:
             # Use DictLoader for string templates
             loader = DictLoader({})
 
-        # Create Jinja2 environment
+        # Create Jinja2 environment with custom extensions
         self.env = Environment(
             loader=loader,
             autoescape=autoescape,
             trim_blocks=True,
             lstrip_blocks=True,
+            extensions=[
+                FrameExtension,
+                VStackExtension,
+                HStackExtension,
+                TextInputExtension,
+                ButtonExtension,
+            ],
         )
 
         # Cache for string templates
@@ -56,11 +75,13 @@ class Renderer:
     def _setup_filters(self) -> None:
         """Set up custom Jinja2 filters for terminal rendering."""
         # Add common filters
-        self.env.filters['upper'] = str.upper
-        self.env.filters['lower'] = str.lower
-        self.env.filters['title'] = str.title
+        self.env.filters["upper"] = str.upper
+        self.env.filters["lower"] = str.lower
+        self.env.filters["title"] = str.title
 
-    def render_string(self, template_string: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def render_string(
+        self, template_string: str, context: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Render a template from a string.
 
         Parameters
@@ -87,7 +108,9 @@ class Renderer:
 
         return template.render(**context)
 
-    def render_file(self, template_name: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def render_file(
+        self, template_name: str, context: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Render a template from a file.
 
         Parameters
@@ -134,6 +157,312 @@ class Renderer:
             Value of the global variable
         """
         self.env.globals[name] = value
+
+    def render_with_layout(
+        self,
+        template_string: str,
+        context: Optional[Dict[str, Any]] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> Tuple[str, List[Element]]:
+        """Render a template with layout engine support.
+
+        This method handles the full pipeline for layout-based templates:
+        1. Create layout context
+        2. Render template (building layout tree)
+        3. Run layout engine to calculate positions
+        4. Compose final output from positioned elements
+
+        Parameters
+        ----------
+        template_string : str
+            The template string to render
+        context : dict, optional
+            Context variables for template rendering
+        width : int, optional
+            Available width (default: terminal width)
+        height : int, optional
+            Available height (default: terminal height)
+
+        Returns
+        -------
+        tuple of (str, list of Element)
+            Rendered output and list of elements with bounds
+        """
+        context = context or {}
+
+        # Get terminal size if not provided
+        if width is None or height is None:
+            term_size = shutil.get_terminal_size()
+            width = width or term_size.columns
+            height = height or term_size.height
+
+        # Create layout context
+        layout_ctx = LayoutContext()
+
+        # Store layout context in Jinja environment globals (so all tags can access it)
+        self.env.globals["_wijjit_layout_context"] = layout_ctx
+
+        # Also add to template context for CallBlock tags
+        context["_wijjit_layout_context"] = layout_ctx
+
+        # Compile template
+        if template_string in self._string_templates:
+            template = self._string_templates[template_string]
+        else:
+            template = self.env.from_string(template_string)
+            self._string_templates[template_string] = template
+
+        # Render template (this builds the layout tree)
+        template.render(**context)
+
+        # Clean up globals
+        self.env.globals.pop("_wijjit_layout_context", None)
+
+        # Check if we have a layout tree
+        if layout_ctx.root is None:
+            # No layout tags used, fall back to simple rendering
+            output = template.render(**context)
+            return output, []
+
+        # Run layout engine
+        engine = LayoutEngine(layout_ctx.root, width, height)
+        elements = engine.layout()
+
+        # Compose output from positioned elements
+        output = self._compose_output(elements, width, height, layout_ctx.root)
+
+        return output, elements
+
+    def _compose_output(
+        self,
+        elements: List[Element],
+        width: int,
+        height: int,
+        root: Optional["LayoutNode"] = None,
+    ) -> str:
+        """Compose final output from positioned elements.
+
+        Parameters
+        ----------
+        elements : list of Element
+            Elements with assigned bounds
+        width : int
+            Output width
+        height : int
+            Output height
+        root : LayoutNode, optional
+            Root of layout tree (for frame rendering)
+
+        Returns
+        -------
+        str
+            Composed output
+        """
+        from ..terminal.ansi import clip_to_width
+
+        # Create output buffer - now stores strings per cell to handle ANSI
+        # Each cell can contain a character with ANSI codes
+        buffer = [["" for _ in range(width)] for _ in range(height)]
+
+        # First pass: Render frame borders if we have a layout tree
+        if root is not None:
+            self._render_frames(root, buffer, width, height)
+
+        # Second pass: Render elements into the buffer
+        for element in elements:
+            if element.bounds is None:
+                continue
+
+            # Render element
+            content = element.render()
+            lines = content.split("\n")
+
+            # Write to buffer at element's position
+            for i, line in enumerate(lines):
+                y = element.bounds.y + i
+                if y >= height:
+                    break
+
+                # Calculate remaining width from element position
+                x_start = element.bounds.x
+                if x_start >= width:
+                    continue
+
+                remaining_width = width - x_start
+
+                # Clip line to fit remaining width, preserving ANSI codes
+                clipped_line = clip_to_width(line, remaining_width, ellipsis="")
+
+                # For ANSI-aware positioning, we need to track visible position
+                # while writing the entire string including ANSI codes
+                visible_pos = 0
+                i_char = 0
+                pending_ansi = ""  # Accumulate consecutive ANSI sequences
+                last_visible_pos = -1  # Track last written position for trailing ANSI
+
+                while i_char < len(clipped_line) and visible_pos < remaining_width:
+                    # Check if we're at the start of an ANSI sequence
+                    if clipped_line[i_char : i_char + 2] == "\x1b[":
+                        # Find the end of the ANSI sequence
+                        ansi_end = i_char + 2
+                        while (
+                            ansi_end < len(clipped_line)
+                            and not clipped_line[ansi_end].isalpha()
+                        ):
+                            ansi_end += 1
+                        if ansi_end < len(clipped_line):
+                            ansi_end += 1  # Include the letter
+                        # Accumulate this ANSI sequence (don't overwrite previous ones!)
+                        pending_ansi += clipped_line[i_char:ansi_end]
+                        i_char = ansi_end
+                    else:
+                        # Regular character - write it with any pending ANSI codes
+                        if visible_pos < remaining_width:
+                            buffer[y][x_start + visible_pos] = (
+                                pending_ansi + clipped_line[i_char]
+                            )
+                            last_visible_pos = visible_pos
+                            pending_ansi = (
+                                ""  # Clear pending after writing to first char
+                            )
+                        visible_pos += 1
+                        i_char += 1
+
+                # If there are trailing ANSI codes (like RESET), append them to the last character
+                if pending_ansi and last_visible_pos >= 0:
+                    buffer[y][x_start + last_visible_pos] += pending_ansi
+
+        # Convert buffer to string
+        return "\n".join(
+            "".join(cell if cell else " " for cell in row) for row in buffer
+        )
+
+    def _render_frames(
+        self, node: "LayoutNode", buffer: List[List[str]], width: int, height: int
+    ) -> None:
+        """Recursively render frame borders for containers with _frame_style.
+
+        Parameters
+        ----------
+        node : LayoutNode
+            Current node in the layout tree
+        buffer : list of list of str
+            Output buffer
+        width : int
+            Buffer width
+        height : int
+            Buffer height
+        """
+        from ..layout.frames import BorderStyle
+        from ..layout.engine import Container
+
+        # Check if this node is a container with frame styling
+        if isinstance(node, Container) and hasattr(node, "_frame_style"):
+            # Render the frame
+            frame_info = node._frame_style
+            if node.bounds is not None:
+                # Map border string to BorderStyle enum
+                border_map = {
+                    "single": BorderStyle.SINGLE,
+                    "double": BorderStyle.DOUBLE,
+                    "rounded": BorderStyle.ROUNDED,
+                }
+                border_style = border_map.get(
+                    frame_info.get("border", "single"), BorderStyle.SINGLE
+                )
+
+                # Create and render frame (just borders, no content)
+                # The child elements will render on top in their positioned locations
+                # Render just the border lines (top, bottom, and sides)
+                chars = {
+                    BorderStyle.SINGLE: {
+                        "tl": "┌",
+                        "tr": "┐",
+                        "bl": "└",
+                        "br": "┘",
+                        "h": "─",
+                        "v": "│",
+                    },
+                    BorderStyle.DOUBLE: {
+                        "tl": "╔",
+                        "tr": "╗",
+                        "bl": "╚",
+                        "br": "╝",
+                        "h": "═",
+                        "v": "║",
+                    },
+                    BorderStyle.ROUNDED: {
+                        "tl": "╭",
+                        "tr": "╮",
+                        "bl": "╰",
+                        "br": "╯",
+                        "h": "─",
+                        "v": "│",
+                    },
+                }[border_style]
+
+                # Draw top border with title
+                y = node.bounds.y
+                if y < height:
+                    x = node.bounds.x
+                    if frame_info.get("title"):
+                        title_text = f" {frame_info['title']} "
+                        title_len = len(title_text)
+                        # Top-left corner
+                        if x < width:
+                            buffer[y][x] = chars["tl"]
+                        # Horizontal line before title
+                        if x + 1 < width:
+                            buffer[y][x + 1] = chars["h"]
+                        # Title
+                        for i, ch in enumerate(title_text):
+                            if x + 2 + i < width:
+                                buffer[y][x + 2 + i] = ch
+                        # Horizontal line after title to right edge
+                        for i in range(2 + title_len, node.bounds.width - 1):
+                            if x + i < width:
+                                buffer[y][x + i] = chars["h"]
+                        # Top-right corner
+                        if x + node.bounds.width - 1 < width:
+                            buffer[y][x + node.bounds.width - 1] = chars["tr"]
+                    else:
+                        # No title - just horizontal line
+                        if x < width:
+                            buffer[y][x] = chars["tl"]
+                        for i in range(1, node.bounds.width - 1):
+                            if x + i < width:
+                                buffer[y][x + i] = chars["h"]
+                        if x + node.bounds.width - 1 < width:
+                            buffer[y][x + node.bounds.width - 1] = chars["tr"]
+
+                # Draw side borders
+                for row in range(1, node.bounds.height - 1):
+                    y = node.bounds.y + row
+                    if y < height:
+                        x_left = node.bounds.x
+                        x_right = node.bounds.x + node.bounds.width - 1
+                        if x_left < width:
+                            buffer[y][x_left] = chars["v"]
+                        if x_right < width:
+                            buffer[y][x_right] = chars["v"]
+
+                # Draw bottom border
+                y = node.bounds.y + node.bounds.height - 1
+                if y < height:
+                    x = node.bounds.x
+                    if x < width:
+                        buffer[y][x] = chars["bl"]
+                    for i in range(1, node.bounds.width - 1):
+                        if x + i < width:
+                            buffer[y][x + i] = chars["h"]
+                    if x + node.bounds.width - 1 < width:
+                        buffer[y][x + node.bounds.width - 1] = chars["br"]
+
+        # Recursively process children (for nested frames)
+        if isinstance(node, Container):
+            for child in node.children:
+                self._render_frames(child, buffer, width, height)
 
     def clear_cache(self) -> None:
         """Clear the template cache."""

@@ -1,6 +1,5 @@
 """Tests for focus management."""
 
-import pytest
 from wijjit.core.focus import FocusManager
 from wijjit.elements.base import Element
 

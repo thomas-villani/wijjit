@@ -1,7 +1,6 @@
 """Tests for base element classes."""
 
-import pytest
-from wijjit.elements.base import Element, Container, ElementType
+from wijjit.elements.base import Element, Container
 from wijjit.layout.bounds import Bounds
 
 

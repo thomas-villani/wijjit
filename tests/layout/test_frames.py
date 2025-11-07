@@ -1,6 +1,5 @@
 """Tests for frame rendering."""
 
-import pytest
 from wijjit.layout.frames import Frame, FrameStyle, BorderStyle
 
 
@@ -119,7 +118,6 @@ class TestFrame:
         frame.set_content("Line 1\nLine 2\nLine 3")
         result = frame.render()
 
-        lines = result.split("\n")
         assert "Line 1" in result
         assert "Line 2" in result
         assert "Line 3" in result
@@ -140,5 +138,6 @@ class TestFrame:
 
         # Check width (accounting for potential ANSI codes)
         from wijjit.terminal.ansi import visible_length
+
         for line in lines:
             assert visible_length(line) == 20

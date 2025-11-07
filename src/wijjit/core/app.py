@@ -15,8 +15,8 @@ declarative UI patterns.
 
 from dataclasses import dataclass
 from typing import Callable, Optional, Dict, Any
-from pathlib import Path
 import sys
+import shutil
 import traceback
 
 from .state import State
@@ -31,7 +31,7 @@ from .events import (
     HandlerScope,
 )
 from ..terminal.screen import ScreenManager
-from ..terminal.input import InputHandler, Key
+from ..terminal.input import InputHandler
 from ..terminal.ansi import ANSIColor, colorize
 
 
@@ -167,8 +167,25 @@ class Wijjit:
         self.running = False
         self.needs_render = True
 
+        # Layout system
+        self.positioned_elements = []  # Elements with bounds from layout engine
+
+        # Focus navigation configuration
+        self.focus_navigation_enabled = True  # Auto-enabled, can be customized
+
+        # Action handlers
+        self._action_handlers: Dict[str, Callable] = {}
+
         # Hook state changes to trigger re-render
         self.state.on_change(self._on_state_change)
+
+        # Register built-in Tab navigation handlers
+        self.on(
+            EventType.KEY,
+            self._handle_tab_key,
+            scope=HandlerScope.GLOBAL,
+            priority=100,  # High priority so it runs early
+        )
 
     def view(
         self,
@@ -204,15 +221,16 @@ class Wijjit:
         ...         "data": {"name": "World"},
         ...     }
         """
+
         def decorator(func: Callable) -> Callable:
             # Store the function and create a lazy ViewConfig
             # We'll extract the actual config when the view is first accessed
             view_config = ViewConfig(
                 name=name,
                 template="",  # Will be set lazily
-                data=None,    # Will be set lazily
+                data=None,  # Will be set lazily
                 on_enter=None,  # Will be set lazily
-                on_exit=None,   # Will be set lazily
+                on_exit=None,  # Will be set lazily
                 is_default=default,
             )
 
@@ -292,7 +310,9 @@ class Wijjit:
                 try:
                     current.on_exit()
                 except Exception as e:
-                    self._handle_error(f"Error in on_exit for view '{self.current_view}'", e)
+                    self._handle_error(
+                        f"Error in on_exit for view '{self.current_view}'", e
+                    )
 
             # Clear view-scoped handlers
             self.handler_registry.clear_view(self.current_view)
@@ -348,6 +368,53 @@ class Wijjit:
             priority=priority,
         )
 
+    def on_action(self, action_id: str) -> Callable:
+        """Decorator to register an action handler.
+
+        Use this to handle actions from buttons and other interactive elements
+        that have an 'action' attribute in templates.
+
+        Parameters
+        ----------
+        action_id : str
+            The action ID to handle
+
+        Returns
+        -------
+        Callable
+            Decorator function
+
+        Examples
+        --------
+        >>> @app.on_action("submit")
+        ... def handle_submit(event):
+        ...     print("Form submitted!")
+        """
+
+        def decorator(func: Callable) -> Callable:
+            self._action_handlers[action_id] = func
+            return func
+
+        return decorator
+
+    def configure_focus(self, enabled: bool = True) -> None:
+        """Configure focus navigation behavior.
+
+        By default, Tab/Shift+Tab navigation is automatically enabled when
+        template contains focusable elements. Use this method to disable
+        or re-enable focus navigation.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether to enable Tab/Shift+Tab navigation (default: True)
+
+        Examples
+        --------
+        >>> app.configure_focus(enabled=False)  # Disable Tab navigation
+        """
+        self.focus_navigation_enabled = enabled
+
     def quit(self) -> None:
         """Quit the application.
 
@@ -381,7 +448,9 @@ class Wijjit:
             self.current_view = next(iter(self.views.keys()))
 
         if self.current_view is None:
-            raise RuntimeError("No views registered. Use @app.view() to register a view.")
+            raise RuntimeError(
+                "No views registered. Use @app.view() to register a view."
+            )
 
         # Initialize and call on_enter for initial view
         initial_view = self.views[self.current_view]
@@ -394,7 +463,9 @@ class Wijjit:
             try:
                 initial_view.on_enter()
             except Exception as e:
-                self._handle_error(f"Error in on_enter for view '{self.current_view}'", e)
+                self._handle_error(
+                    f"Error in on_enter for view '{self.current_view}'", e
+                )
 
         self.running = True
 
@@ -424,8 +495,12 @@ class Wijjit:
                     event = KeyEvent(
                         key=key.name,
                         modifiers=key.modifiers,
+                        key_obj=key,  # Store original Key object
                     )
                     self.handler_registry.dispatch(event)
+
+                    # Route key to focused element if not handled by other handlers
+                    self._route_key_to_focused_element(event)
 
                     # Re-render if needed
                     if self.needs_render:
@@ -464,13 +539,80 @@ class Wijjit:
             # Add state to template context
             data["state"] = self.state
 
-            # Render template (always use render_string for now)
-            output = self.renderer.render_string(view.template, context=data)
+            # Check if template has layout tags
+            has_layout = self._has_layout_tags(view.template)
+
+            if has_layout:
+                # Get the currently focused element ID (if any) from FocusManager
+                focused_id = None
+                focused_elem = self.focus_manager.get_focused_element()
+                if focused_elem and hasattr(focused_elem, "id"):
+                    focused_id = focused_elem.id
+
+                # Check if this is the first render (no focused element yet)
+                first_render = focused_id is None
+
+                # Pass focused ID and context to renderer so template extensions
+                # can create elements with correct focus state from the start
+                self.renderer.add_global("_wijjit_current_context", data)
+                self.renderer.add_global("_wijjit_focused_id", focused_id)
+
+                # Render with layout (elements will be created with correct focus state)
+                term_size = shutil.get_terminal_size()
+                output, elements = self.renderer.render_with_layout(
+                    view.template,
+                    context=data,
+                    width=term_size.columns,
+                    height=term_size.lines,
+                )
+
+                # Store elements and update focus manager
+                self.positioned_elements = elements
+                self._update_focus_manager(elements)
+
+                # If this was the first render, re-render with focus now set
+                if (
+                    first_render
+                    and self.focus_manager.get_focused_element() is not None
+                ):
+                    # Get newly focused element ID
+                    focused_elem = self.focus_manager.get_focused_element()
+                    if focused_elem and hasattr(focused_elem, "id"):
+                        focused_id = focused_elem.id
+
+                    # Render again with focused element
+                    self.renderer.add_global("_wijjit_focused_id", focused_id)
+                    output, elements = self.renderer.render_with_layout(
+                        view.template,
+                        context=data,
+                        width=term_size.columns,
+                        height=term_size.lines,
+                    )
+                    self.positioned_elements = elements
+
+                # Clean up globals
+                self.renderer.add_global("_wijjit_current_context", None)
+                self.renderer.add_global("_wijjit_focused_id", None)
+
+                # Wire up element callbacks for actions and state binding
+                self._wire_element_callbacks(self.positioned_elements)
+            else:
+                # Use simple string rendering for non-layout templates
+                output = self.renderer.render_string(view.template, context=data)
+                self.positioned_elements = []
 
             # Clear screen and display output
             self.screen_manager.clear()
             self.screen_manager.move_cursor(0, 0)
-            print(output, end="", flush=True)
+            # Handle encoding for Windows console
+            try:
+                print(output, end="", flush=True)
+            except UnicodeEncodeError:
+                # Fall back to encoding with error handling
+                import sys
+
+                sys.stdout.buffer.write(output.encode("utf-8", errors="replace"))
+                sys.stdout.flush()
 
             self.needs_render = False
 
@@ -492,6 +634,163 @@ class Wijjit:
             New value
         """
         self.needs_render = True
+
+    def _has_layout_tags(self, template: str) -> bool:
+        """Check if template contains layout tags.
+
+        Parameters
+        ----------
+        template : str
+            Template string to check
+
+        Returns
+        -------
+        bool
+            True if template has layout tags
+        """
+        layout_tags = ["{% vstack", "{% hstack", "{% frame"]
+        return any(tag in template for tag in layout_tags)
+
+    def _update_focus_manager(self, elements: list) -> None:
+        """Update focus manager with positioned elements.
+
+        Parameters
+        ----------
+        elements : list
+            List of elements with bounds
+        """
+        # Collect focusable elements
+        focusable_elements = [
+            elem
+            for elem in elements
+            if hasattr(elem, "focusable") and elem.focusable and elem.bounds
+        ]
+
+        # Update focus manager with all focusable elements
+        self.focus_manager.set_elements(focusable_elements)
+
+    def _wire_element_callbacks(self, elements: list) -> None:
+        """Wire up element callbacks for actions and state binding.
+
+        Parameters
+        ----------
+        elements : list
+            List of positioned elements
+        """
+        from ..elements.input import TextInput, Button
+
+        for elem in elements:
+            # Wire up action callbacks for buttons
+            if isinstance(elem, Button) and hasattr(elem, "action") and elem.action:
+                action_id = elem.action
+                elem.on_activate = lambda aid=action_id: self._dispatch_action(aid)
+
+            # Wire up TextInput callbacks
+            if isinstance(elem, TextInput):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
+
+                # Wire up state binding if enabled
+                if hasattr(elem, "bind") and elem.bind and elem.id:
+                    # Initialize element value from state if key exists
+                    if elem.id in self.state:
+                        elem.value = str(self.state[elem.id])
+                        elem.cursor_pos = len(elem.value)
+
+                    # Set up two-way binding
+                    elem_id = elem.id
+
+                    def on_change_handler(old_val, new_val, eid=elem_id):
+                        # Update state when element changes
+                        self.state[eid] = new_val
+
+                    elem.on_change = on_change_handler
+
+    def _handle_tab_key(self, event: KeyEvent) -> None:
+        """Handle Tab/Shift+Tab for focus navigation.
+
+        This is a built-in handler registered at high priority to provide
+        automatic Tab navigation between focusable elements.
+
+        Parameters
+        ----------
+        event : KeyEvent
+            Key event to handle
+        """
+        if not self.focus_navigation_enabled:
+            return
+
+        # Handle Tab and Shift+Tab
+        if event.key == "tab":
+            self.focus_manager.focus_next()
+            event.cancel()
+            self.needs_render = True
+        elif event.key == "shift+tab":
+            self.focus_manager.focus_previous()
+            event.cancel()
+            self.needs_render = True
+
+    def _route_key_to_focused_element(self, event: KeyEvent) -> None:
+        """Route key events to the currently focused element.
+
+        This allows focused elements to handle keyboard input.
+        Called after other handlers have had a chance to process the event.
+
+        Parameters
+        ----------
+        event : KeyEvent
+            Key event to route
+        """
+        try:
+            # Skip if event was cancelled by another handler
+            if event.cancelled:
+                return
+
+            # Get the focused element
+            focused_elem = self.focus_manager.get_focused_element()
+            if focused_elem is None:
+                return
+
+            # Use the original Key object from the event
+            # This ensures we use the exact same Key constants that InputHandler created
+            if event.key_obj is None:
+                return
+
+            key = event.key_obj
+
+            # Let the element handle the key
+            handled = focused_elem.handle_key(key)
+
+            if handled:
+                # Mark event as handled and trigger re-render
+                event.cancel()
+                self.needs_render = True
+
+        except Exception as e:
+            self._handle_error("Error routing key to focused element", e)
+
+    def _dispatch_action(self, action_id: str) -> None:
+        """Dispatch an action event to registered action handlers.
+
+        Parameters
+        ----------
+        action_id : str
+            The action ID to dispatch
+        """
+        if action_id in self._action_handlers:
+            # Create action event
+            action_event = ActionEvent(action_id=action_id)
+
+            # Call the handler
+            try:
+                self._action_handlers[action_id](action_event)
+            except Exception as e:
+                self._handle_error(f"Error in action handler '{action_id}'", e)
+
+            # Trigger re-render if needed
+            self.needs_render = True
 
     def _handle_error(self, message: str, exception: Exception) -> None:
         """Handle errors during app execution.
