@@ -11,7 +11,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 
 from ..elements.base import TextElement
-from ..elements.input import Button, TextInput
+from ..elements.input import Button, Select, TextInput
 from ..layout.engine import ElementNode, HStack, LayoutNode, VStack
 
 
@@ -239,11 +239,16 @@ class VStackExtension(Extension):
         # Render body
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement
+        # If body contains non-whitespace text, create TextElement and INSERT at beginning
+        # (This is because child elements add themselves during caller(), so text appears after them)
         if body_output and body_output.strip():
             text_elem = TextElement(body_output.strip())
             text_node = ElementNode(text_elem, width="auto", height="auto")
-            context.add_element(text_node)
+            # Insert at beginning of children list instead of appending
+            if vstack.children:
+                vstack.children.insert(0, text_node)
+            else:
+                vstack.children.append(text_node)
 
         # Pop from stack
         context.pop()
@@ -385,11 +390,16 @@ class HStackExtension(Extension):
         # Render body
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement
+        # If body contains non-whitespace text, create TextElement and INSERT at beginning
+        # (This is because child elements add themselves during caller(), so text appears after them)
         if body_output and body_output.strip():
             text_elem = TextElement(body_output.strip())
             text_node = ElementNode(text_elem, width="auto", height="auto")
-            context.add_element(text_node)
+            # Insert at beginning of children list instead of appending
+            if hstack.children:
+                hstack.children.insert(0, text_node)
+            else:
+                hstack.children.append(text_node)
 
         # Pop from stack
         context.pop()
@@ -551,11 +561,16 @@ class FrameExtension(Extension):
         # Render body
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement
+        # If body contains non-whitespace text, create TextElement and INSERT at beginning
+        # (This is because child elements add themselves during caller(), so text appears after them)
         if body_output and body_output.strip():
             text_elem = TextElement(body_output.strip())
             text_node = ElementNode(text_elem, width="auto", height="auto")
-            context.add_element(text_node)
+            # Insert at beginning of children list instead of appending
+            if frame_container.children:
+                frame_container.children.insert(0, text_node)
+            else:
+                frame_container.children.append(text_node)
 
         # Pop from stack
         context.pop()
@@ -788,3 +803,230 @@ class ButtonExtension(Extension):
 
         # Return empty string (layout will be processed later)
         return ""
+
+
+class SelectExtension(Extension):
+    """Jinja2 extension for {% select %} tag.
+
+    Syntax:
+        {% select id="color" width=30 %}
+            Red
+            Green
+            Blue
+        {% endselect %}
+
+        Or with options attribute:
+        {% select id="fruit" options=["Apple", "Banana", "Orange"] %}{% endselect %}
+
+        Or with value/label pairs:
+        {% select id="size" %}
+            {"value": "s", "label": "Small"}
+            {"value": "m", "label": "Medium"}
+            {"value": "l", "label": "Large"}
+        {% endselect %}
+
+        Disabled options:
+        {% select id="priority" %}
+            Low
+            Medium
+            High (disabled)
+        {% endselect %}
+    """
+
+    tags = {"select"}
+
+    def parse(self, parser):
+        """Parse the select tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endselect"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (options list)
+        node = nodes.CallBlock(
+            self.call_method("_render_select", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endselect"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_select(
+        self,
+        caller,
+        id=None,
+        options=None,
+        value=None,
+        width=20,
+        visible_rows=5,
+        action=None,
+        bind=True,
+    ) -> str:
+        """Render the select tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content (options list)
+        id : str, optional
+            Element identifier
+        options : list, optional
+            List of options (if not provided in body)
+        value : str, optional
+            Initial selected value
+        width : int
+            Select width (default: 20)
+        visible_rows : int
+            Number of visible rows in the list (default: 5)
+        action : str, optional
+            Action ID to dispatch when value changes
+        bind : bool
+            Whether to auto-bind value to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            # No layout context available, skip
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        visible_rows = int(visible_rows)
+
+        # Parse options from body if not provided as attribute
+        if options is None:
+            body = caller().strip()
+            if body:
+                options = self._parse_options_from_body(body)
+            else:
+                options = []
+        else:
+            # Options provided as attribute, consume body anyway
+            caller()
+
+        # Extract disabled values
+        disabled_values = []
+        cleaned_options = []
+        for opt in options:
+            if isinstance(opt, str):
+                # Check for " (disabled)" suffix
+                if opt.endswith(" (disabled)"):
+                    opt_value = opt[:-11].strip()  # Remove " (disabled)"
+                    cleaned_options.append(opt_value)
+                    disabled_values.append(opt_value)
+                else:
+                    cleaned_options.append(opt)
+            elif isinstance(opt, dict):
+                # Check for disabled key
+                if opt.get("disabled", False):
+                    disabled_values.append(opt["value"])
+                cleaned_options.append(opt)
+            else:
+                cleaned_options.append(opt)
+
+        # If binding is enabled and id is provided, try to get initial value from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        value = str(state[id]) if state[id] is not None else None
+            except Exception:
+                pass
+
+        # Create Select element
+        select = Select(
+            id=id,
+            options=cleaned_options,
+            value=value,
+            width=width,
+            visible_rows=visible_rows,
+            disabled_values=disabled_values,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            select.focused = True
+
+        # Store action ID on select if provided
+        if action:
+            select.action = action
+
+        # Store bind setting
+        select.bind = bind
+
+        # Create ElementNode
+        # Height is fixed at visible_rows since it's always displaying that many rows
+        node = ElementNode(select, width=width, height=visible_rows)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Return empty string (layout will be processed later)
+        return ""
+
+    def _parse_options_from_body(self, body: str) -> list:
+        """Parse options from template body content.
+
+        Parameters
+        ----------
+        body : str
+            Body content with options (one per line or JSON)
+
+        Returns
+        -------
+        list
+            List of option strings or dicts
+        """
+        options = []
+        lines = body.split("\n")
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Try to parse as JSON dict (for value/label pairs)
+            if line.startswith("{") and line.endswith("}"):
+                try:
+                    import json
+
+                    opt_dict = json.loads(line)
+                    options.append(opt_dict)
+                    continue
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+            # Otherwise treat as plain string option
+            options.append(line)
+
+        return options

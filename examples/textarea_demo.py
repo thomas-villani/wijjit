@@ -74,7 +74,7 @@ LINE WRAPPING MODES (F1/F2/F3):
 
 Try typing a very long line to see how wrapping works! For example: This is a deliberately long line that will demonstrate the wrapping behavior when it exceeds the width of the text area, showing how the different wrap modes handle text that is too wide to fit.
 
-Press 'q' to quit. Happy editing!"""
+Press 'q' to quit. Happy editing!""" #  # noqa: E501
 
     # Initialize app
     app = Wijjit(initial_state={

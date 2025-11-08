@@ -425,16 +425,16 @@ class TextArea(Element):
 ```
 
 **Tasks:**
-- [ ] Basic multiline text input
-- [ ] Cursor movement (arrows, Home, End, Page Up/Down)
-- [ ] Insert/delete characters and lines
-- [ ] Enter key creates new line
-- [ ] Backspace/Delete across line boundaries
-- [ ] Vertical scrolling for large content
-- [ ] Line wrapping support
-- [ ] Min/max height constraints
-- [ ] Two-way state binding
-- [ ] Ctrl+left and ctrl+right skip to word boundary
+- [x] Basic multiline text input
+- [x] Cursor movement (arrows, Home, End, Page Up/Down)
+- [x] Insert/delete characters and lines
+- [x] Enter key creates new line
+- [x] Backspace/Delete across line boundaries
+- [x] Vertical scrolling for large content
+- [x] Line wrapping support
+- [x] Min/max height constraints
+- [x] Two-way state binding
+- [x] Ctrl+left and ctrl+right skip to word boundary
 - [ ] Possibly syntax coloring?? (later)
 
 **Acceptance Criteria:**

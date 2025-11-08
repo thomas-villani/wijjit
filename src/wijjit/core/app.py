@@ -708,7 +708,7 @@ class Wijjit:
         elements : list
             List of positioned elements
         """
-        from ..elements.input import Button, TextInput
+        from ..elements.input import Button, Select, TextInput
 
         for elem in elements:
             # Wire up action callbacks for buttons
@@ -729,6 +729,31 @@ class Wijjit:
                     if elem.id in self.state:
                         elem.value = str(self.state[elem.id])
                         elem.cursor_pos = len(elem.value)
+
+                    # Set up two-way binding
+                    elem_id = elem.id
+
+                    def on_change_handler(old_val, new_val, eid=elem_id):
+                        # Update state when element changes
+                        self.state[eid] = new_val
+
+                    elem.on_change = on_change_handler
+
+            # Wire up Select callbacks
+            if isinstance(elem, Select):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
+
+                # Wire up state binding if enabled
+                if hasattr(elem, "bind") and elem.bind and elem.id:
+                    # Initialize element value from state if key exists
+                    if elem.id in self.state:
+                        elem.value = self.state[elem.id]
+                        # Update selected_index to match the value
+                        elem.selected_index = elem._find_option_index(elem.value)
+                        elem.highlighted_index = max(0, elem.selected_index)
 
                     # Set up two-way binding
                     elem_id = elem.id
