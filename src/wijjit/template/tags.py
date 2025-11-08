@@ -24,11 +24,14 @@ class LayoutContext:
         Root of the layout tree
     stack : list of LayoutNode
         Stack of container nodes being processed
+    element_counters : dict
+        Counter for auto-generating element IDs by type
     """
 
     def __init__(self):
         self.root: LayoutNode | None = None
         self.stack: list[LayoutNode] = []
+        self.element_counters: dict[str, int] = {}
 
     def push(self, node: LayoutNode) -> None:
         """Push a container node onto the stack.
@@ -77,6 +80,26 @@ class LayoutContext:
             parent = self.stack[-1]
             if hasattr(parent, "add_child"):
                 parent.add_child(node)
+
+    def generate_id(self, element_type: str) -> str:
+        """Generate a unique ID for an element.
+
+        Parameters
+        ----------
+        element_type : str
+            Type of element (e.g., 'button', 'textinput')
+
+        Returns
+        -------
+        str
+            Generated ID in format 'element_type_N'
+        """
+        if element_type not in self.element_counters:
+            self.element_counters[element_type] = 0
+
+        id_value = f"{element_type}_{self.element_counters[element_type]}"
+        self.element_counters[element_type] += 1
+        return id_value
 
 
 def parse_size_attr(value: Any) -> Any:
@@ -669,6 +692,10 @@ class TextInputExtension(Extension):
         # Convert width to int
         width = int(width)
 
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("textinput")
+
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:
             # Try to get state from the template context
@@ -780,6 +807,10 @@ class ButtonExtension(Extension):
 
         # Get button label from body
         label = caller().strip()
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("button")
 
         # Create Button element
         button = Button(label=label, id=id)
@@ -950,6 +981,10 @@ class SelectExtension(Extension):
                 cleaned_options.append(opt)
             else:
                 cleaned_options.append(opt)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("select")
 
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:

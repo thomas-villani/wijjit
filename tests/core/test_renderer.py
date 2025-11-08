@@ -202,3 +202,149 @@ class TestRenderer:
         assert result1 == "Count: 1"
         assert result2 == "Count: 2"
         assert result3 == "Count: 3"
+
+    def test_button_auto_id_generation(self):
+        """Test that buttons without IDs get auto-generated IDs."""
+        renderer = Renderer()
+        template = """
+{% frame title="Test" width=40 height=10 %}
+  {% button %}Button 1{% endbutton %}
+  {% button %}Button 2{% endbutton %}
+  {% button id="custom_btn" %}Button 3{% endbutton %}
+{% endframe %}
+        """
+
+        output, elements = renderer.render_with_layout(template, width=80, height=24)
+
+        # Should have 3 button elements
+        buttons = [
+            e
+            for e in elements
+            if hasattr(e, "element_type") and e.element_type.name == "BUTTON"
+        ]
+        assert len(buttons) == 3
+
+        # First button should have auto-generated ID
+        assert buttons[0].id == "button_0"
+
+        # Second button should have auto-generated ID
+        assert buttons[1].id == "button_1"
+
+        # Third button should have custom ID
+        assert buttons[2].id == "custom_btn"
+
+    def test_textinput_auto_id_generation(self):
+        """Test that text inputs without IDs get auto-generated IDs."""
+        renderer = Renderer()
+        template = """
+{% frame title="Test" width=40 height=10 %}
+  {% textinput %}{% endtextinput %}
+  {% textinput %}{% endtextinput %}
+  {% textinput id="username" %}{% endtextinput %}
+{% endframe %}
+        """
+
+        output, elements = renderer.render_with_layout(template, width=80, height=24)
+
+        # Should have 3 text input elements
+        text_inputs = [
+            e
+            for e in elements
+            if hasattr(e, "element_type") and e.element_type.name == "INPUT"
+        ]
+        assert len(text_inputs) == 3
+
+        # First input should have auto-generated ID
+        assert text_inputs[0].id == "textinput_0"
+
+        # Second input should have auto-generated ID
+        assert text_inputs[1].id == "textinput_1"
+
+        # Third input should have custom ID
+        assert text_inputs[2].id == "username"
+
+    def test_select_auto_id_generation(self):
+        """Test that selects without IDs get auto-generated IDs."""
+        renderer = Renderer()
+        template = """
+{% frame title="Test" width=40 height=10 %}
+  {% select %}
+    Option 1
+    Option 2
+  {% endselect %}
+  {% select %}
+    Option A
+    Option B
+  {% endselect %}
+  {% select id="color" %}
+    Red
+    Green
+  {% endselect %}
+{% endframe %}
+        """
+
+        output, elements = renderer.render_with_layout(template, width=80, height=24)
+
+        # Should have 3 select elements
+        selects = [
+            e
+            for e in elements
+            if hasattr(e, "element_type") and e.element_type.name == "SELECTABLE"
+        ]
+        assert len(selects) == 3
+
+        # First select should have auto-generated ID
+        assert selects[0].id == "select_0"
+
+        # Second select should have auto-generated ID
+        assert selects[1].id == "select_1"
+
+        # Third select should have custom ID
+        assert selects[2].id == "color"
+
+    def test_mixed_elements_auto_id_generation(self):
+        """Test auto-generated IDs with mixed element types."""
+        renderer = Renderer()
+        template = """
+{% frame title="Test" width=40 height=15 %}
+  {% button %}Button 1{% endbutton %}
+  {% textinput %}{% endtextinput %}
+  {% button %}Button 2{% endbutton %}
+  {% select %}
+    Option 1
+    Option 2
+  {% endselect %}
+  {% textinput %}{% endtextinput %}
+{% endframe %}
+        """
+
+        output, elements = renderer.render_with_layout(template, width=80, height=24)
+
+        # Find each element type
+        buttons = [
+            e
+            for e in elements
+            if hasattr(e, "element_type") and e.element_type.name == "BUTTON"
+        ]
+        text_inputs = [
+            e
+            for e in elements
+            if hasattr(e, "element_type") and e.element_type.name == "INPUT"
+        ]
+        selects = [
+            e
+            for e in elements
+            if hasattr(e, "element_type") and e.element_type.name == "SELECTABLE"
+        ]
+
+        # Verify counts
+        assert len(buttons) == 2
+        assert len(text_inputs) == 2
+        assert len(selects) == 1
+
+        # Verify IDs are type-specific counters
+        assert buttons[0].id == "button_0"
+        assert buttons[1].id == "button_1"
+        assert text_inputs[0].id == "textinput_0"
+        assert text_inputs[1].id == "textinput_1"
+        assert selects[0].id == "select_0"

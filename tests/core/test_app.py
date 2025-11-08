@@ -286,7 +286,13 @@ class TestNavigation:
             view_name="view1",
         )
 
-        assert len(app.handler_registry.handlers) == 1
+        # Verify the view-scoped handler was registered
+        view1_handlers_before = [
+            h
+            for h in app.handler_registry.handlers
+            if h.scope == HandlerScope.VIEW and h.view_name == "view1"
+        ]
+        assert len(view1_handlers_before) == 1
 
         # Navigate to view2
         app.navigate("view2")
@@ -342,7 +348,11 @@ class TestEventHandlers:
 
         app.on(EventType.KEY, handler)
 
-        assert len(app.handler_registry.handlers) == 1
+        # Verify the handler was registered (may have other global handlers like Tab)
+        test_handlers = [
+            h for h in app.handler_registry.handlers if h.callback == handler
+        ]
+        assert len(test_handlers) == 1
 
         # Dispatch an event
         event = KeyEvent(key="a")
