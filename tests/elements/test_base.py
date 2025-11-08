@@ -1,6 +1,6 @@
 """Tests for base element classes."""
 
-from wijjit.elements.base import Element, Container
+from wijjit.elements.base import Container, Element
 from wijjit.layout.bounds import Bounds
 
 
@@ -67,6 +67,43 @@ class TestElementBase:
         elem = TestElement()
         # Default implementation returns False
         assert not elem.handle_key(Keys.ENTER)
+
+    def test_on_hover_enter(self):
+        """Test hover enter lifecycle method."""
+        elem = TestElement()
+        assert not elem.hovered
+
+        elem.on_hover_enter()
+        assert elem.hovered
+
+    def test_on_hover_exit(self):
+        """Test hover exit lifecycle method."""
+        elem = TestElement()
+        elem.on_hover_enter()
+        assert elem.hovered
+
+        elem.on_hover_exit()
+        assert not elem.hovered
+
+    def test_handle_mouse_default(self):
+        """Test default mouse event handling."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        elem = TestElement()
+        event = MouseEvent(
+            type=MouseEventType.CLICK,
+            button=MouseButton.LEFT,
+            x=10,
+            y=5
+        )
+
+        # Default implementation returns False
+        assert not elem.handle_mouse(event)
+
+    def test_element_starts_not_hovered(self):
+        """Test that elements start with hovered = False."""
+        elem = TestElement()
+        assert not elem.hovered
 
 
 class TestContainer:

@@ -10,16 +10,17 @@ Tests cover:
 """
 
 from datetime import datetime
+
 from wijjit.core.events import (
-    Event,
-    EventType,
-    KeyEvent,
     ActionEvent,
     ChangeEvent,
+    Event,
+    EventType,
     FocusEvent,
     Handler,
     HandlerRegistry,
     HandlerScope,
+    KeyEvent,
 )
 
 

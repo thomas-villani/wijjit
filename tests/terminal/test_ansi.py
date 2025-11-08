@@ -2,13 +2,13 @@
 
 from wijjit.terminal.ansi import (
     ANSIColor,
-    ANSIStyle,
     ANSICursor,
     ANSIScreen,
-    strip_ansi,
-    visible_length,
+    ANSIStyle,
     clip_to_width,
     colorize,
+    strip_ansi,
+    visible_length,
 )
 
 

@@ -7,43 +7,43 @@ terminal user interfaces with familiar web development patterns.
 __version__ = "0.1.0"
 
 # Core components
-from .core.state import State
-from .core.renderer import Renderer
-from .core.focus import FocusManager
-from .core.app import Wijjit, ViewConfig
+from .core.app import ViewConfig, Wijjit
 from .core.events import (
-    Event,
-    EventType,
-    KeyEvent,
     ActionEvent,
     ChangeEvent,
+    Event,
+    EventType,
     FocusEvent,
     Handler,
     HandlerRegistry,
     HandlerScope,
+    KeyEvent,
 )
+from .core.focus import FocusManager
+from .core.renderer import Renderer
+from .core.state import State
+
+# Elements
+from .elements.base import Container, Element, ElementType
+from .elements.input import Button, TextArea, TextInput
+
+# Layout components
+from .layout.bounds import Bounds, Size, parse_size
+from .layout.frames import BorderStyle, Frame, FrameStyle
 
 # Terminal utilities
 from .terminal.ansi import (
     ANSIColor,
-    ANSIStyle,
     ANSICursor,
     ANSIScreen,
-    strip_ansi,
-    visible_length,
+    ANSIStyle,
     clip_to_width,
     colorize,
+    strip_ansi,
+    visible_length,
 )
-from .terminal.screen import ScreenManager, alternate_screen
 from .terminal.input import InputHandler, Key, Keys, KeyType
-
-# Layout components
-from .layout.bounds import Bounds, Size, parse_size
-from .layout.frames import Frame, FrameStyle, BorderStyle
-
-# Elements
-from .elements.base import Element, Container, ElementType
-from .elements.input import TextInput, Button
+from .terminal.screen import ScreenManager, alternate_screen
 
 __all__ = [
     # Version
@@ -94,4 +94,5 @@ __all__ = [
     "ElementType",
     "TextInput",
     "Button",
+    "TextArea",
 ]

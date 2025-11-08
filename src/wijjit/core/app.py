@@ -13,26 +13,31 @@ The Wijjit class provides a Flask-like API with view decorators and
 declarative UI patterns.
 """
 
-from dataclasses import dataclass
-from typing import Callable, Optional, Dict, Any
-import sys
 import shutil
+import sys
 import traceback
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
-from .state import State
-from .renderer import Renderer
-from .focus import FocusManager
-from .events import (
-    HandlerRegistry,
-    Event,
-    KeyEvent,
-    ActionEvent,
-    EventType,
-    HandlerScope,
-)
-from ..terminal.screen import ScreenManager
-from ..terminal.input import InputHandler
 from ..terminal.ansi import ANSIColor, colorize
+from ..terminal.input import InputHandler, Key
+from ..terminal.mouse import MouseEvent as TerminalMouseEvent
+from ..terminal.mouse import MouseEventType
+from ..terminal.screen import ScreenManager
+from .events import (
+    ActionEvent,
+    Event,
+    EventType,
+    HandlerRegistry,
+    HandlerScope,
+    KeyEvent,
+    MouseEvent,
+)
+from .focus import FocusManager
+from .hover import HoverManager
+from .renderer import Renderer
+from .state import State
 
 
 @dataclass
@@ -72,9 +77,9 @@ class ViewConfig:
 
     name: str
     template: str
-    data: Optional[Callable[..., Dict[str, Any]]] = None
-    on_enter: Optional[Callable[[], None]] = None
-    on_exit: Optional[Callable[[], None]] = None
+    data: Callable[..., dict[str, Any]] | None = None
+    on_enter: Callable[[], None] | None = None
+    on_exit: Callable[[], None] | None = None
     is_default: bool = False
 
 
@@ -100,12 +105,14 @@ class Wijjit:
         Jinja2 template renderer
     focus_manager : FocusManager
         Focus management for interactive elements
+    hover_manager : HoverManager
+        Hover state management for mouse interaction
     handler_registry : HandlerRegistry
         Event handler registry and dispatcher
     screen_manager : ScreenManager
         Terminal screen management
     input_handler : InputHandler
-        Keyboard input handling
+        Keyboard and mouse input handling
     views : Dict[str, ViewConfig]
         Registered views
     current_view : Optional[str]
@@ -130,8 +137,8 @@ class Wijjit:
 
     def __init__(
         self,
-        template_dir: Optional[str] = None,
-        initial_state: Optional[Dict[str, Any]] = None,
+        template_dir: str | None = None,
+        initial_state: dict[str, Any] | None = None,
     ):
         """Initialize Wijjit application.
 
@@ -151,6 +158,9 @@ class Wijjit:
         # Initialize focus manager
         self.focus_manager = FocusManager()
 
+        # Initialize hover manager
+        self.hover_manager = HoverManager()
+
         # Initialize event system
         self.handler_registry = HandlerRegistry()
 
@@ -159,9 +169,9 @@ class Wijjit:
         self.input_handler = InputHandler()
 
         # View registry
-        self.views: Dict[str, ViewConfig] = {}
-        self.current_view: Optional[str] = None
-        self.current_view_params: Dict[str, Any] = {}
+        self.views: dict[str, ViewConfig] = {}
+        self.current_view: str | None = None
+        self.current_view_params: dict[str, Any] = {}
 
         # Application state
         self.running = False
@@ -174,7 +184,7 @@ class Wijjit:
         self.focus_navigation_enabled = True  # Auto-enabled, can be customized
 
         # Action handlers
-        self._action_handlers: Dict[str, Callable] = {}
+        self._action_handlers: dict[str, Callable] = {}
 
         # Hook state changes to trigger re-render
         self.state.on_change(self._on_state_change)
@@ -338,8 +348,8 @@ class Wijjit:
         event_type: EventType,
         callback: Callable[[Event], None],
         scope: HandlerScope = HandlerScope.GLOBAL,
-        view_name: Optional[str] = None,
-        element_id: Optional[str] = None,
+        view_name: str | None = None,
+        element_id: str | None = None,
         priority: int = 0,
     ) -> None:
         """Register an event handler.
@@ -473,34 +483,48 @@ class Wijjit:
             # Enter alternate screen
             self.screen_manager.enter_alternate_buffer()
 
+            # Enable mouse tracking
+            self.input_handler.enable_mouse_tracking()
+
             # Render initial view
             self._render()
 
             # Main event loop
             while self.running:
                 try:
-                    # Read input (blocking)
-                    key = self.input_handler.read_key()
+                    # Read input (blocking) - keyboard or mouse
+                    input_event = self.input_handler.read_input()
 
-                    if key is None:
-                        # Error reading key, continue
+                    if input_event is None:
+                        # Error reading input, continue
                         continue
 
-                    # Handle Ctrl+C
-                    if key.is_ctrl_c:
-                        self.running = False
-                        break
+                    # Check if it's a keyboard event
+                    if isinstance(input_event, Key):
+                        # Handle Ctrl+C
+                        if input_event.is_ctrl_c:
+                            self.running = False
+                            break
 
-                    # Create and dispatch key event
-                    event = KeyEvent(
-                        key=key.name,
-                        modifiers=key.modifiers,
-                        key_obj=key,  # Store original Key object
-                    )
-                    self.handler_registry.dispatch(event)
+                        # Create and dispatch key event
+                        event = KeyEvent(
+                            key=input_event.name,
+                            modifiers=input_event.modifiers,
+                            key_obj=input_event,  # Store original Key object
+                        )
+                        self.handler_registry.dispatch(event)
 
-                    # Route key to focused element if not handled by other handlers
-                    self._route_key_to_focused_element(event)
+                        # Route key to focused element if not handled by other handlers
+                        self._route_key_to_focused_element(event)
+
+                    # Check if it's a mouse event
+                    elif isinstance(input_event, TerminalMouseEvent):
+                        # Handle mouse event
+                        hover_changed = self._handle_mouse_event(input_event)
+
+                        # Only re-render if hover changed or event was handled
+                        if hover_changed:
+                            self.needs_render = True
 
                     # Re-render if needed
                     if self.needs_render:
@@ -511,6 +535,9 @@ class Wijjit:
                     break
                 except Exception as e:
                     self._handle_error("Error in event loop", e)
+                    # Critical error - exit the loop
+                    self.running = False
+                    break
 
         finally:
             # Always exit alternate screen on cleanup
@@ -677,7 +704,7 @@ class Wijjit:
         elements : list
             List of positioned elements
         """
-        from ..elements.input import TextInput, Button
+        from ..elements.input import Button, TextInput
 
         for elem in elements:
             # Wire up action callbacks for buttons
@@ -770,6 +797,93 @@ class Wijjit:
 
         except Exception as e:
             self._handle_error("Error routing key to focused element", e)
+
+    def _handle_mouse_event(self, terminal_event: TerminalMouseEvent) -> bool:
+        """Handle a mouse event.
+
+        Finds the element at mouse coordinates, updates hover state,
+        and dispatches the event to the element and handler registry.
+
+        Parameters
+        ----------
+        terminal_event : TerminalMouseEvent
+            The mouse event from terminal layer
+
+        Returns
+        -------
+        bool
+            True if hover state changed (indicating need for re-render)
+        """
+        try:
+            # Find element at mouse coordinates
+            target_element = self._find_element_at(terminal_event.x, terminal_event.y)
+
+            # Track whether hover changed
+            hover_changed = False
+
+            # Update hover state (only on move/click, not on scroll)
+            if terminal_event.type in (MouseEventType.MOVE, MouseEventType.CLICK,
+                                       MouseEventType.DOUBLE_CLICK, MouseEventType.PRESS,
+                                       MouseEventType.RELEASE, MouseEventType.DRAG):
+                # Set hovered element (returns True if changed)
+                hover_changed = self.hover_manager.set_hovered(target_element)
+
+            # Focus element on click if it's focusable
+            if terminal_event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+                if target_element and hasattr(target_element, 'focusable') and target_element.focusable:
+                    focus_changed = self.focus_manager.focus_element(target_element)
+                    if focus_changed:
+                        self.needs_render = True
+
+            # Create core MouseEvent for handler registry
+            mouse_event = MouseEvent(
+                mouse_event=terminal_event,
+                element_id=target_element.id if target_element and hasattr(target_element, 'id') else None
+            )
+
+            # Dispatch through handler registry
+            self.handler_registry.dispatch(mouse_event)
+
+            # If event was cancelled, we're done
+            if mouse_event.cancelled:
+                return hover_changed
+
+            # Dispatch to target element if it exists
+            if target_element and hasattr(target_element, 'handle_mouse'):
+                handled = target_element.handle_mouse(terminal_event)
+                if handled:
+                    # Element handled the event, trigger re-render
+                    self.needs_render = True
+
+            return hover_changed
+
+        except Exception as e:
+            self._handle_error("Error handling mouse event", e)
+            return False
+
+    def _find_element_at(self, x: int, y: int):
+        """Find the element at the given coordinates.
+
+        Searches positioned elements in reverse order (top-to-bottom in
+        render order) to find the topmost element at the coordinates.
+
+        Parameters
+        ----------
+        x : int
+            Column position (0-based)
+        y : int
+            Row position (0-based)
+
+        Returns
+        -------
+        Element or None
+            Element at coordinates, or None if no element found
+        """
+        # Search in reverse order (top-to-bottom)
+        for elem in reversed(self.positioned_elements):
+            if elem.bounds and elem.bounds.contains_point(x, y):
+                return elem
+        return None
 
     def _dispatch_action(self, action_id: str) -> None:
         """Dispatch an action event to registered action handlers.

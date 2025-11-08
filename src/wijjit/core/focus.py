@@ -4,7 +4,6 @@ This module handles focus navigation between focusable elements,
 typically using Tab and Shift+Tab keys.
 """
 
-from typing import List, Optional
 
 from ..elements.base import Element
 
@@ -24,10 +23,10 @@ class FocusManager:
     """
 
     def __init__(self):
-        self.elements: List[Element] = []
-        self.current_index: Optional[int] = None
+        self.elements: list[Element] = []
+        self.current_index: int | None = None
 
-    def set_elements(self, elements: List[Element]) -> None:
+    def set_elements(self, elements: list[Element]) -> None:
         """Set the list of focusable elements.
 
         Preserves focus on the same element (by ID or index) if possible.
@@ -67,7 +66,7 @@ class FocusManager:
         else:
             self.current_index = None
 
-    def get_focused_element(self) -> Optional[Element]:
+    def get_focused_element(self) -> Element | None:
         """Get the currently focused element.
 
         Returns

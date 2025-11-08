@@ -7,15 +7,15 @@ This module tests the layout calculation system including:
 - Various sizing modes (fixed, fill, percentage, auto)
 """
 
+from wijjit.elements.base import Element
+from wijjit.layout.bounds import Bounds
 from wijjit.layout.engine import (
     ElementNode,
-    VStack,
     HStack,
     LayoutEngine,
     SizeConstraints,
+    VStack,
 )
-from wijjit.elements.base import Element
-from wijjit.layout.bounds import Bounds
 
 
 class MockElement(Element):

@@ -18,12 +18,13 @@ Controls:
 """
 
 import shutil
+
 from wijjit import (
-    Wijjit,
+    Button,
     EventType,
     HandlerScope,
     TextInput,
-    Button,
+    Wijjit,
 )
 
 

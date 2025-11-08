@@ -6,20 +6,20 @@ custom extensions and filters for terminal UI rendering.
 
 import os
 import shutil
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Optional
 
-from jinja2 import Environment, FileSystemLoader, DictLoader, Template
+from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
-from ..template.tags import (
-    FrameExtension,
-    VStackExtension,
-    HStackExtension,
-    TextInputExtension,
-    ButtonExtension,
-    LayoutContext,
-)
-from ..layout.engine import LayoutEngine, LayoutNode
 from ..elements.base import Element
+from ..layout.engine import LayoutEngine, LayoutNode
+from ..template.tags import (
+    ButtonExtension,
+    FrameExtension,
+    HStackExtension,
+    LayoutContext,
+    TextInputExtension,
+    VStackExtension,
+)
 
 
 class Renderer:
@@ -43,7 +43,7 @@ class Renderer:
         Cache of string templates
     """
 
-    def __init__(self, template_dir: Optional[str] = None, autoescape: bool = False):
+    def __init__(self, template_dir: str | None = None, autoescape: bool = False):
         # Create loader based on template_dir
         if template_dir and os.path.isdir(template_dir):
             loader = FileSystemLoader(template_dir)
@@ -67,7 +67,7 @@ class Renderer:
         )
 
         # Cache for string templates
-        self._string_templates: Dict[str, Template] = {}
+        self._string_templates: dict[str, Template] = {}
 
         # Add custom filters
         self._setup_filters()
@@ -80,7 +80,7 @@ class Renderer:
         self.env.filters["title"] = str.title
 
     def render_string(
-        self, template_string: str, context: Optional[Dict[str, Any]] = None
+        self, template_string: str, context: dict[str, Any] | None = None
     ) -> str:
         """Render a template from a string.
 
@@ -109,7 +109,7 @@ class Renderer:
         return template.render(**context)
 
     def render_file(
-        self, template_name: str, context: Optional[Dict[str, Any]] = None
+        self, template_name: str, context: dict[str, Any] | None = None
     ) -> str:
         """Render a template from a file.
 
@@ -161,10 +161,10 @@ class Renderer:
     def render_with_layout(
         self,
         template_string: str,
-        context: Optional[Dict[str, Any]] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
-    ) -> Tuple[str, List[Element]]:
+        context: dict[str, Any] | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> tuple[str, list[Element]]:
         """Render a template with layout engine support.
 
         This method handles the full pipeline for layout-based templates:
@@ -236,7 +236,7 @@ class Renderer:
 
     def _compose_output(
         self,
-        elements: List[Element],
+        elements: list[Element],
         width: int,
         height: int,
         root: Optional["LayoutNode"] = None,
@@ -339,7 +339,7 @@ class Renderer:
         )
 
     def _render_frames(
-        self, node: "LayoutNode", buffer: List[List[str]], width: int, height: int
+        self, node: "LayoutNode", buffer: list[list[str]], width: int, height: int
     ) -> None:
         """Recursively render frame borders for containers with _frame_style.
 
@@ -354,8 +354,8 @@ class Renderer:
         height : int
             Buffer height
         """
-        from ..layout.frames import BorderStyle
         from ..layout.engine import Container
+        from ..layout.frames import BorderStyle
 
         # Check if this node is a container with frame styling
         if isinstance(node, Container) and hasattr(node, "_frame_style"):

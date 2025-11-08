@@ -5,8 +5,6 @@ colors, cursor control, and text styling.
 """
 
 import re
-from typing import Optional
-
 
 # ANSI escape sequence pattern for stripping
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
@@ -359,8 +357,8 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
 
 def colorize(
     text: str,
-    color: Optional[str] = None,
-    bg_color: Optional[str] = None,
+    color: str | None = None,
+    bg_color: str | None = None,
     bold: bool = False,
     underline: bool = False,
 ) -> str:

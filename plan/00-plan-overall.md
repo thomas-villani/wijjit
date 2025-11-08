@@ -435,7 +435,7 @@ class TextArea(Element):
 - [ ] Min/max height constraints
 - [ ] Two-way state binding
 - [ ] Ctrl+left and ctrl+right skip to word boundary
-- [ ] Possibly syntax coloring??
+- [ ] Possibly syntax coloring?? (later)
 
 **Acceptance Criteria:**
 - Smooth multiline editing experience
@@ -457,9 +457,9 @@ class Button(Element):
 **Tasks:**
 - [x] Basic button
 - [x] Keyboard activation
-- [ ] Mouse click support
+- [x] Mouse click support
 - [x] Focus styling
-- [ ] Hover state
+- [x] Hover state
 
 **Acceptance Criteria:**
 - Clear visual states

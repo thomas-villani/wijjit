@@ -1,6 +1,7 @@
 """Tests for state management."""
 
 from unittest.mock import Mock
+
 import pytest
 
 from wijjit.core.state import State

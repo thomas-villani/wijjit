@@ -15,7 +15,6 @@ Run with: python examples/todo_app.py
 from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
 
-
 # Create app with initial state
 app = Wijjit(initial_state={
     "todos": [

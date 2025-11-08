@@ -1,15 +1,26 @@
-"""Keyboard input handling for terminal applications.
+"""Keyboard and mouse input handling for terminal applications.
 
-This module provides utilities for reading and parsing keyboard input in raw mode,
-including support for special keys, escape sequences, and modifiers.
+This module provides utilities for reading and parsing keyboard and mouse input
+in raw mode, including support for special keys, escape sequences, modifiers,
+and ANSI mouse events.
 """
 
+import sys
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Union
 
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys as PTKeys
+
+# Import mouse event handling
+try:
+    from .mouse import MouseEvent, MouseEventParser, MouseTrackingMode
+except ImportError:
+    # For when running tests that might not have mouse module yet
+    MouseEvent = None
+    MouseEventParser = None
+    MouseTrackingMode = None
 
 
 class KeyType(Enum):
@@ -36,7 +47,7 @@ class Key:
 
     name: str
     key_type: KeyType
-    char: Optional[str] = None
+    char: str | None = None
 
     def __str__(self) -> str:
         """String representation of the key.
@@ -198,31 +209,59 @@ PROMPT_TOOLKIT_KEY_MAP = {
 
 
 class InputHandler:
-    """Handles reading and parsing keyboard input using prompt_toolkit.
+    """Handles reading and parsing keyboard and mouse input using prompt_toolkit.
 
     This provides cross-platform keyboard input handling with support
-    for special keys, escape sequences, and modifiers.
+    for special keys, escape sequences, modifiers, and ANSI mouse events.
+
+    Parameters
+    ----------
+    enable_mouse : bool, optional
+        Whether to enable mouse event tracking (default: False)
+    mouse_tracking_mode : MouseTrackingMode, optional
+        Mouse tracking mode to use if enabled (default: BUTTON_EVENT)
 
     Attributes
     ----------
     _input : prompt_toolkit.input.Input
         The prompt_toolkit input object
+    mouse_enabled : bool
+        Whether mouse tracking is currently enabled
+    mouse_parser : MouseEventParser or None
+        Parser for ANSI mouse event sequences
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        enable_mouse: bool = False,
+        mouse_tracking_mode: Optional["MouseTrackingMode"] = None,
+    ):
         self._input = create_input()
         self._raw_mode = None
 
-    def read_key(self) -> Optional[Key]:
-        """Read a single key press.
+        # Mouse support
+        self.mouse_enabled = enable_mouse
+        self._mouse_tracking_mode = (
+            mouse_tracking_mode
+            if mouse_tracking_mode is not None
+            else (MouseTrackingMode.BUTTON_EVENT if MouseTrackingMode else None)
+        )
+        self.mouse_parser = MouseEventParser() if MouseEventParser else None
 
-        This method blocks until a key is pressed and returns a Key object
-        representing the pressed key.
+        # Input buffer for handling ANSI sequences
+        self._input_buffer = bytearray()
+
+    def read_input(self) -> Union[Key, "MouseEvent", None]:
+        """Read a single input event (keyboard or mouse).
+
+        This method blocks until an input event occurs and returns either
+        a Key object (for keyboard input) or a MouseEvent object (for mouse
+        input).
 
         Returns
         -------
-        Key or None
-            Key object representing the key press, or None on error
+        Key, MouseEvent, or None
+            Input event, or None on error
         """
         try:
             # Enter raw mode if not already in it
@@ -230,13 +269,60 @@ class InputHandler:
                 self._raw_mode = self._input.raw_mode()
                 self._raw_mode.__enter__()
 
-            # Read one key event from prompt_toolkit
+            # Read one event from prompt_toolkit
             keys = self._input.read_keys()
             if not keys:
                 return None
 
             key_press = keys[0]
 
+            # Check if this might be a mouse sequence
+            # Mouse sequences start with ESC [ < (SGR format)
+            # or ESC [ M (normal format)
+            if self.mouse_enabled and self.mouse_parser and key_press.data:
+                data_bytes = key_press.data.encode('utf-8') if isinstance(key_press.data, str) else key_press.data
+
+                # Try to parse as SGR mouse event
+                if data_bytes.startswith(b'\x1b[<'):
+                    # We have the start of an SGR sequence, but need more data
+                    # Read until we get M or m (press or release)
+                    buffer = bytearray(data_bytes)
+                    while buffer and buffer[-1] not in (ord('M'), ord('m')):
+                        more_keys = self._input.read_keys()
+                        if more_keys and more_keys[0].data:
+                            more_data = more_keys[0].data
+                            if isinstance(more_data, str):
+                                buffer.extend(more_data.encode('utf-8'))
+                            else:
+                                buffer.extend(more_data)
+                        else:
+                            break
+
+                    mouse_event = self.mouse_parser.parse_sgr(bytes(buffer))
+                    if mouse_event:
+                        return mouse_event
+
+                # Try to parse as normal format mouse event
+                elif data_bytes.startswith(b'\x1b[M'):
+                    # Need 6 bytes total for normal format
+                    buffer = bytearray(data_bytes)
+                    while len(buffer) < 6:
+                        more_keys = self._input.read_keys()
+                        if more_keys and more_keys[0].data:
+                            more_data = more_keys[0].data
+                            if isinstance(more_data, str):
+                                buffer.extend(more_data.encode('utf-8'))
+                            else:
+                                buffer.extend(more_data)
+                        else:
+                            break
+
+                    if len(buffer) >= 6:
+                        mouse_event = self.mouse_parser.parse_normal(bytes(buffer))
+                        if mouse_event:
+                            return mouse_event
+
+            # Not a mouse event, process as keyboard input
             # Check if it's a mapped special key
             if key_press.key in PROMPT_TOOLKIT_KEY_MAP:
                 return PROMPT_TOOLKIT_KEY_MAP[key_press.key]
@@ -259,8 +345,76 @@ class InputHandler:
         except (EOFError, KeyboardInterrupt, IndexError):
             return None
 
+    def read_key(self) -> Key | None:
+        """Read a single key press.
+
+        This method blocks until a key is pressed and returns a Key object
+        representing the pressed key. Mouse events are ignored.
+
+        Returns
+        -------
+        Key or None
+            Key object representing the key press, or None on error
+        """
+        # Use read_input() and filter for keyboard only
+        while True:
+            event = self.read_input()
+            if event is None:
+                return None
+            if isinstance(event, Key):
+                return event
+            # Skip mouse events and keep reading
+
+    def enable_mouse_tracking(
+        self, mode: Optional["MouseTrackingMode"] = None
+    ) -> None:
+        """Enable mouse event tracking.
+
+        Sends ANSI escape sequences to enable mouse tracking in the terminal.
+
+        Parameters
+        ----------
+        mode : MouseTrackingMode, optional
+            Tracking mode to use (default: uses mode from constructor)
+        """
+        if not MouseTrackingMode:
+            return  # Mouse module not available
+
+        if mode is not None:
+            self._mouse_tracking_mode = mode
+
+        if self._mouse_tracking_mode is None:
+            return
+
+        # Enable mouse tracking mode
+        sys.stdout.write(f"\033[?{self._mouse_tracking_mode}h")
+        # Enable SGR extended mouse mode (better coordinate handling)
+        sys.stdout.write("\033[?1006h")
+        sys.stdout.flush()
+
+        self.mouse_enabled = True
+
+    def disable_mouse_tracking(self) -> None:
+        """Disable mouse event tracking.
+
+        Sends ANSI escape sequences to disable mouse tracking in the terminal.
+        """
+        if not self.mouse_enabled or self._mouse_tracking_mode is None:
+            return
+
+        # Disable mouse tracking mode
+        sys.stdout.write(f"\033[?{self._mouse_tracking_mode}l")
+        # Disable SGR extended mouse mode
+        sys.stdout.write("\033[?1006l")
+        sys.stdout.flush()
+
+        self.mouse_enabled = False
+
     def close(self) -> None:
         """Close the input handler and clean up resources."""
+        # Disable mouse tracking if enabled
+        self.disable_mouse_tracking()
+
         # Exit raw mode if we entered it
         if self._raw_mode is not None:
             try:

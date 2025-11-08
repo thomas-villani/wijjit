@@ -5,13 +5,14 @@ during template rendering. The layout tree is built up in a context variable
 and then processed by the layout engine after rendering.
 """
 
+from typing import Any
+
 from jinja2 import nodes
 from jinja2.ext import Extension
-from typing import Any, Optional
 
-from ..layout.engine import VStack, HStack, ElementNode, LayoutNode
 from ..elements.base import TextElement
-from ..elements.input import TextInput, Button
+from ..elements.input import Button, TextInput
+from ..layout.engine import ElementNode, HStack, LayoutNode, VStack
 
 
 class LayoutContext:
@@ -26,7 +27,7 @@ class LayoutContext:
     """
 
     def __init__(self):
-        self.root: Optional[LayoutNode] = None
+        self.root: LayoutNode | None = None
         self.stack: list[LayoutNode] = []
 
     def push(self, node: LayoutNode) -> None:
@@ -48,7 +49,7 @@ class LayoutContext:
 
         self.stack.append(node)
 
-    def pop(self) -> Optional[LayoutNode]:
+    def pop(self) -> LayoutNode | None:
         """Pop a container node from the stack.
 
         Returns

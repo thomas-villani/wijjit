@@ -5,7 +5,6 @@ and size of UI elements in the terminal.
 """
 
 from dataclasses import dataclass
-from typing import Union, Tuple
 
 
 @dataclass
@@ -141,7 +140,7 @@ class Size:
         The size specification
     """
 
-    value: Union[int, str]
+    value: int | str
 
     @property
     def is_fixed(self) -> bool:
@@ -228,7 +227,7 @@ class Size:
         return f"Size({self.value})"
 
 
-def parse_size(value: Union[int, str, Size]) -> Size:
+def parse_size(value: int | str | Size) -> Size:
     """Parse a size value into a Size object.
 
     Parameters
@@ -246,7 +245,7 @@ def parse_size(value: Union[int, str, Size]) -> Size:
     return Size(value)
 
 
-def parse_margin(value: Union[int, Tuple[int, int, int, int]]) -> Tuple[int, int, int, int]:
+def parse_margin(value: int | tuple[int, int, int, int]) -> tuple[int, int, int, int]:
     """Parse a margin value into a normalized 4-tuple.
 
     Parameters

@@ -1,6 +1,8 @@
 """Tests for frame rendering."""
 
-from wijjit.layout.frames import Frame, FrameStyle, BorderStyle
+from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.terminal.input import Key, KeyType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 
 class TestFrame:
@@ -403,6 +405,249 @@ class TestContentAlignmentWithBorders:
         assert "╚" in lines[-1]
         # Content should be at bottom and right-aligned
         assert "Test" in lines[-2]
+
+
+class TestFrameScrolling:
+    """Tests for frame scrolling functionality."""
+
+    def test_create_scrollable_frame(self):
+        """Test creating a scrollable frame."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+        assert frame.style.scrollable
+        assert frame.scroll_manager is None  # Created when content is set
+
+    def test_scroll_manager_created_on_content(self):
+        """Test that scroll manager is created when setting content."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("Line 1\nLine 2\nLine 3")
+        assert frame.scroll_manager is not None
+
+    def test_no_scroll_manager_when_not_scrollable(self):
+        """Test that scroll manager is not created for non-scrollable frames."""
+        style = FrameStyle(scrollable=False)
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("Line 1\nLine 2\nLine 3")
+        assert frame.scroll_manager is None
+
+    def test_scroll_manager_updates_on_content_change(self):
+        """Test that scroll manager updates when content changes."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("Line 1\nLine 2\nLine 3")
+        initial_content_size = frame.scroll_manager.state.content_size
+
+        frame.set_content("Line 1\nLine 2\nLine 3\nLine 4\nLine 5")
+        updated_content_size = frame.scroll_manager.state.content_size
+
+        assert updated_content_size > initial_content_size
+
+    def test_scrollable_frame_renders_with_scrollbar(self):
+        """Test that scrollable frame renders with scrollbar when content exceeds height."""
+        style = FrameStyle(scrollable=True, show_scrollbar=True)
+        frame = Frame(width=20, height=8, style=style)
+
+        # Create content with many lines
+        content_lines = [f"Line {i}" for i in range(1, 21)]
+        frame.set_content("\n".join(content_lines))
+
+        result = frame.render()
+        lines = result.split("\n")
+
+        # Should render with scrollbar characters
+        assert any("█" in line or "│" in line for line in lines[1:-1])
+
+    def test_scrollable_frame_shows_only_visible_content(self):
+        """Test that scrollable frame shows only visible portion of content."""
+        style = FrameStyle(scrollable=True, padding=(0, 1, 0, 1))
+        frame = Frame(width=20, height=8, style=style)
+
+        # Create numbered content lines
+        content_lines = [f"Line {i:02d}" for i in range(1, 51)]
+        frame.set_content("\n".join(content_lines))
+
+        # Initially at top
+        result = frame.render()
+        assert "Line 01" in result
+        assert "Line 50" not in result  # Should not see bottom content
+
+        # Scroll to bottom
+        frame.scroll_manager.scroll_to_bottom()
+        result = frame.render()
+        assert "Line 01" not in result  # Should not see top content
+        assert "Line 50" in result
+
+    def test_handle_key_up_down(self):
+        """Test handling up/down arrow keys for scrolling."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=8, style=style)
+        content_lines = [f"Line {i}" for i in range(1, 51)]
+        frame.set_content("\n".join(content_lines))
+
+        # Initial position
+        initial_pos = frame.scroll_manager.state.scroll_position
+
+        # Scroll down
+        down_key = Key("down", KeyType.SPECIAL)
+        handled = frame.handle_key(down_key)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == initial_pos + 1
+
+        # Scroll up
+        up_key = Key("up", KeyType.SPECIAL)
+        handled = frame.handle_key(up_key)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == initial_pos
+
+    def test_handle_key_pageup_pagedown(self):
+        """Test handling Page Up/Down keys for scrolling."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=8, style=style)
+        content_lines = [f"Line {i}" for i in range(1, 101)]
+        frame.set_content("\n".join(content_lines))
+
+        viewport_size = frame.scroll_manager.state.viewport_size
+
+        # Page down
+        pagedown_key = Key("pagedown", KeyType.SPECIAL)
+        handled = frame.handle_key(pagedown_key)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == viewport_size
+
+        # Page up
+        pageup_key = Key("pageup", KeyType.SPECIAL)
+        handled = frame.handle_key(pageup_key)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == 0
+
+    def test_handle_key_home_end(self):
+        """Test handling Home/End keys for scrolling."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=8, style=style)
+        content_lines = [f"Line {i}" for i in range(1, 101)]
+        frame.set_content("\n".join(content_lines))
+
+        # End key - scroll to bottom
+        end_key = Key("end", KeyType.SPECIAL)
+        handled = frame.handle_key(end_key)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == frame.scroll_manager.state.max_scroll
+
+        # Home key - scroll to top
+        home_key = Key("home", KeyType.SPECIAL)
+        handled = frame.handle_key(home_key)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == 0
+
+    def test_handle_key_non_scrollable_frame(self):
+        """Test that non-scrollable frame doesn't handle scroll keys."""
+        style = FrameStyle(scrollable=False)
+        frame = Frame(width=20, height=8, style=style)
+        frame.set_content("Line 1\nLine 2")
+
+        down_key = Key("down", KeyType.SPECIAL)
+        handled = frame.handle_key(down_key)
+        assert not handled
+
+    def test_handle_scroll_mouse_wheel(self):
+        """Test handling mouse wheel scrolling."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=8, style=style)
+        content_lines = [f"Line {i}" for i in range(1, 101)]
+        frame.set_content("\n".join(content_lines))
+
+        initial_pos = frame.scroll_manager.state.scroll_position
+
+        # Scroll down with mouse wheel
+        handled = frame.handle_scroll(1)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position > initial_pos
+
+        # Scroll up with mouse wheel
+        handled = frame.handle_scroll(-1)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position == initial_pos
+
+    def test_handle_mouse_scroll_events(self):
+        """Test handling mouse scroll events."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=8, style=style)
+        content_lines = [f"Line {i}" for i in range(1, 101)]
+        frame.set_content("\n".join(content_lines))
+
+        initial_pos = frame.scroll_manager.state.scroll_position
+
+        # Scroll down event
+        scroll_down = MouseEvent(
+            type=MouseEventType.SCROLL,
+            button=MouseButton.SCROLL_DOWN,
+            x=10,
+            y=5
+        )
+        handled = frame.handle_mouse(scroll_down)
+        assert handled
+        assert frame.scroll_manager.state.scroll_position > initial_pos
+
+        # Scroll up event
+        scroll_up = MouseEvent(
+            type=MouseEventType.SCROLL,
+            button=MouseButton.SCROLL_UP,
+            x=10,
+            y=5
+        )
+        handled = frame.handle_mouse(scroll_up)
+        assert handled
+
+    def test_scrollbar_not_shown_when_content_fits(self):
+        """Test that scrollbar is not shown when content fits in frame."""
+        style = FrameStyle(scrollable=True, show_scrollbar=True)
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("Line 1\nLine 2\nLine 3")
+
+        # Content fits, so scrolling not needed
+        assert frame._needs_scroll is False
+
+        # Should render without scrollbar (uses static rendering)
+        result = frame.render()
+        # Frame should render normally
+        assert len(result.split("\n")) == 10
+
+    def test_scrollbar_shown_when_content_exceeds(self):
+        """Test that scrollbar is shown when content exceeds frame height."""
+        style = FrameStyle(scrollable=True, show_scrollbar=True)
+        frame = Frame(width=20, height=6, style=style)
+
+        # Create content that exceeds frame height
+        content_lines = [f"Line {i}" for i in range(1, 21)]
+        frame.set_content("\n".join(content_lines))
+
+        # Content exceeds viewport
+        assert frame._needs_scroll is True
+
+        # Should render with scrollbar
+        result = frame.render()
+        # Check for scrollbar characters
+        assert "█" in result or "│" in result
+
+    def test_scroll_position_preserved_across_renders(self):
+        """Test that scroll position is preserved across multiple renders."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=8, style=style)
+        content_lines = [f"Line {i}" for i in range(1, 101)]
+        frame.set_content("\n".join(content_lines))
+
+        # Scroll to a position
+        frame.scroll_manager.scroll_to(25)
+        render1 = frame.render()
+
+        # Render again without changing scroll position
+        render2 = frame.render()
+
+        # Scroll position should be same
+        assert frame.scroll_manager.state.scroll_position == 25
+        # Renders should be identical
+        assert render1 == render2
 
     def test_content_align_with_rounded_border(self):
         """Test content alignment with rounded border style."""

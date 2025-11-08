@@ -1,16 +1,23 @@
 """Layout system for Wijjit terminal UIs."""
 
 from .bounds import Bounds, Size, parse_size
-from .frames import Frame, FrameStyle, BorderStyle
 from .engine import (
-    LayoutNode,
-    ElementNode,
     Container,
-    VStack,
+    Direction,
+    ElementNode,
     HStack,
     LayoutEngine,
+    LayoutNode,
     SizeConstraints,
-    Direction,
+    VStack,
+)
+from .frames import BorderStyle, Frame, FrameStyle
+from .scroll import (
+    ScrollManager,
+    ScrollState,
+    calculate_scrollbar_thumb,
+    render_horizontal_scrollbar,
+    render_vertical_scrollbar,
 )
 
 __all__ = [
@@ -28,4 +35,9 @@ __all__ = [
     "LayoutEngine",
     "SizeConstraints",
     "Direction",
+    "ScrollState",
+    "ScrollManager",
+    "calculate_scrollbar_thumb",
+    "render_vertical_scrollbar",
+    "render_horizontal_scrollbar",
 ]

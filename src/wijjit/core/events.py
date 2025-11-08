@@ -7,10 +7,21 @@ interactions in Wijjit applications. It includes:
 - Handler scoping (global, view, element) for flexible event handling
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Any, List
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
+from wijjit.terminal.mouse import (
+    MouseButton,
+    MouseEventType,
+)
+
+# Import mouse event types from terminal layer
+from wijjit.terminal.mouse import (
+    MouseEvent as TerminalMouseEvent,
+)
 
 
 class EventType(Enum):
@@ -24,6 +35,7 @@ class EventType(Enum):
     CHANGE = "change"
     FOCUS = "focus"
     BLUR = "blur"
+    MOUSE = "mouse"
 
 
 class HandlerScope(Enum):
@@ -62,7 +74,7 @@ class Event:
         Whether the event has been cancelled
     """
 
-    event_type: Optional[EventType] = None
+    event_type: EventType | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     cancelled: bool = False
 
@@ -100,8 +112,8 @@ class KeyEvent(Event):
     """
 
     key: str = ""
-    modifiers: List[str] = field(default_factory=list)
-    key_obj: Optional[Any] = None
+    modifiers: list[str] = field(default_factory=list)
+    key_obj: Any | None = None
 
     def __post_init__(self):
         """Initialize event type."""
@@ -134,7 +146,7 @@ class ActionEvent(Event):
     """
 
     action_id: str = ""
-    source_element_id: Optional[str] = None
+    source_element_id: str | None = None
     data: Any = None
 
     def __post_init__(self):
@@ -209,6 +221,93 @@ class FocusEvent(Event):
 
 
 @dataclass
+class MouseEvent(Event):
+    """Mouse input event.
+
+    Fired when a mouse event occurs (click, move, scroll, etc.).
+    Wraps the terminal layer's MouseEvent to integrate with the
+    core event system.
+
+    Parameters
+    ----------
+    mouse_event : TerminalMouseEvent
+        The underlying terminal mouse event
+    element_id : Optional[str]
+        ID of the element at the mouse position (if any)
+
+    Attributes
+    ----------
+    mouse_event : TerminalMouseEvent
+        The underlying terminal mouse event
+    element_id : Optional[str]
+        ID of the element at the mouse position
+    x : int
+        Column position (0-based)
+    y : int
+        Row position (0-based)
+    button : MouseButton
+        Button that triggered the event
+    mouse_type : MouseEventType
+        Type of mouse event (CLICK, PRESS, MOVE, etc.)
+    shift : bool
+        Whether Shift key was pressed
+    alt : bool
+        Whether Alt key was pressed
+    ctrl : bool
+        Whether Ctrl key was pressed
+    click_count : int
+        Number of clicks (1=single, 2=double)
+    """
+
+    mouse_event: TerminalMouseEvent | None = None
+    element_id: str | None = None
+
+    def __post_init__(self):
+        """Initialize event type and convenience attributes."""
+        self.event_type = EventType.MOUSE
+
+    @property
+    def x(self) -> int:
+        """Get x coordinate from mouse event."""
+        return self.mouse_event.x if self.mouse_event else 0
+
+    @property
+    def y(self) -> int:
+        """Get y coordinate from mouse event."""
+        return self.mouse_event.y if self.mouse_event else 0
+
+    @property
+    def button(self) -> MouseButton:
+        """Get button from mouse event."""
+        return self.mouse_event.button if self.mouse_event else MouseButton.NONE
+
+    @property
+    def mouse_type(self) -> MouseEventType:
+        """Get mouse event type."""
+        return self.mouse_event.type if self.mouse_event else MouseEventType.MOVE
+
+    @property
+    def shift(self) -> bool:
+        """Get shift modifier state."""
+        return self.mouse_event.shift if self.mouse_event else False
+
+    @property
+    def alt(self) -> bool:
+        """Get alt modifier state."""
+        return self.mouse_event.alt if self.mouse_event else False
+
+    @property
+    def ctrl(self) -> bool:
+        """Get ctrl modifier state."""
+        return self.mouse_event.ctrl if self.mouse_event else False
+
+    @property
+    def click_count(self) -> int:
+        """Get click count."""
+        return self.mouse_event.click_count if self.mouse_event else 0
+
+
+@dataclass
 class Handler:
     """Event handler registration.
 
@@ -247,9 +346,9 @@ class Handler:
 
     callback: Callable[[Event], None]
     scope: HandlerScope
-    event_type: Optional[EventType] = None
-    view_name: Optional[str] = None
-    element_id: Optional[str] = None
+    event_type: EventType | None = None
+    view_name: str | None = None
+    element_id: str | None = None
     priority: int = 0
 
 
@@ -270,16 +369,16 @@ class HandlerRegistry:
 
     def __init__(self):
         """Initialize handler registry."""
-        self.handlers: List[Handler] = []
-        self.current_view: Optional[str] = None
+        self.handlers: list[Handler] = []
+        self.current_view: str | None = None
 
     def register(
         self,
         callback: Callable[[Event], None],
         scope: HandlerScope = HandlerScope.GLOBAL,
-        event_type: Optional[EventType] = None,
-        view_name: Optional[str] = None,
-        element_id: Optional[str] = None,
+        event_type: EventType | None = None,
+        view_name: str | None = None,
+        element_id: str | None = None,
         priority: int = 0,
     ) -> Handler:
         """Register an event handler.

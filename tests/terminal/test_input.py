@@ -1,20 +1,37 @@
 """Tests for keyboard input handling."""
 
-from unittest.mock import Mock, patch
-import pytest
+from unittest.mock import MagicMock, Mock, patch
 
-from prompt_toolkit.keys import Keys as PTKeys
+import pytest
 from prompt_toolkit.key_binding.key_processor import KeyPress
+from prompt_toolkit.keys import Keys as PTKeys
 
 from wijjit.terminal.input import (
-    Key,
-    KeyType,
-    Keys,
-    InputHandler,
     ESCAPE_SEQUENCES,
-    SINGLE_CHAR_KEYS,
     PROMPT_TOOLKIT_KEY_MAP,
+    SINGLE_CHAR_KEYS,
+    InputHandler,
+    Key,
+    Keys,
+    KeyType,
 )
+
+
+def create_mock_input():
+    """Create a properly mocked input object with raw_mode context manager.
+
+    Returns
+    -------
+    Mock
+        Mock input object with raw_mode configured as a context manager
+    """
+    mock_input = Mock()
+    # Mock raw_mode() to return a context manager
+    mock_raw_mode = MagicMock()
+    mock_raw_mode.__enter__ = Mock(return_value=None)
+    mock_raw_mode.__exit__ = Mock(return_value=None)
+    mock_input.raw_mode.return_value = mock_raw_mode
+    return mock_input
 
 
 class TestKey:
@@ -182,7 +199,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_init(self, mock_create_input):
         """Test InputHandler initialization."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_create_input.return_value = mock_input
 
         handler = InputHandler()
@@ -193,7 +210,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_regular_char(self, mock_create_input):
         """Test reading a regular character."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.return_value = [KeyPress("a", "a")]
         mock_create_input.return_value = mock_input
 
@@ -208,7 +225,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_space(self, mock_create_input):
         """Test reading space key."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.return_value = [KeyPress(" ", " ")]
         mock_create_input.return_value = mock_input
 
@@ -221,7 +238,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_arrow_up(self, mock_create_input):
         """Test reading up arrow key."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.return_value = [KeyPress(PTKeys.Up, "")]
         mock_create_input.return_value = mock_input
 
@@ -235,7 +252,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_enter(self, mock_create_input):
         """Test reading enter key."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.return_value = [KeyPress(PTKeys.Enter, "")]
         mock_create_input.return_value = mock_input
 
@@ -249,7 +266,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_ctrl_c(self, mock_create_input):
         """Test reading Ctrl+C."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.return_value = [KeyPress(PTKeys.ControlC, "")]
         mock_create_input.return_value = mock_input
 
@@ -263,7 +280,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_control_letter(self, mock_create_input):
         """Test reading Ctrl+letter combination."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         # Create a mock KeyPress with the proper structure
         key_press = Mock()
         key_press.key = "c-a"
@@ -281,7 +298,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_eof(self, mock_create_input):
         """Test reading on EOF."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.side_effect = EOFError()
         mock_create_input.return_value = mock_input
 
@@ -293,7 +310,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_read_key_keyboard_interrupt(self, mock_create_input):
         """Test reading on keyboard interrupt."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_input.read_keys.side_effect = KeyboardInterrupt()
         mock_create_input.return_value = mock_input
 
@@ -305,7 +322,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_close(self, mock_create_input):
         """Test closing input handler."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_create_input.return_value = mock_input
 
         handler = InputHandler()
@@ -316,7 +333,7 @@ class TestInputHandler:
     @patch("wijjit.terminal.input.create_input")
     def test_cleanup(self, mock_create_input):
         """Test cleanup method."""
-        mock_input = Mock()
+        mock_input = create_mock_input()
         mock_create_input.return_value = mock_input
 
         handler = InputHandler()

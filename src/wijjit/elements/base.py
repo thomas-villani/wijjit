@@ -6,10 +6,10 @@ in Wijjit applications.
 
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Optional, List
 
-from ..terminal.input import Key
 from ..layout.bounds import Bounds
+from ..terminal.input import Key
+from ..terminal.mouse import MouseEvent
 
 
 class ElementType(Enum):
@@ -37,17 +37,20 @@ class Element(ABC):
         Whether this element can receive focus
     focused : bool
         Whether this element currently has focus
+    hovered : bool
+        Whether the mouse is currently over this element
     bounds : Bounds or None
         Screen position and size
     element_type : ElementType
         Type of this element
     """
 
-    def __init__(self, id: Optional[str] = None):
+    def __init__(self, id: str | None = None):
         self.id = id
         self.focusable = False
         self.focused = False
-        self.bounds: Optional[Bounds] = None
+        self.hovered = False
+        self.bounds: Bounds | None = None
         self.element_type = ElementType.DISPLAY
 
     @abstractmethod
@@ -76,6 +79,21 @@ class Element(ABC):
         """
         return False
 
+    def handle_mouse(self, event: MouseEvent) -> bool:
+        """Handle a mouse event.
+
+        Parameters
+        ----------
+        event : MouseEvent
+            The mouse event that occurred
+
+        Returns
+        -------
+        bool
+            True if the event was handled, False otherwise
+        """
+        return False
+
     def on_focus(self) -> None:
         """Called when element gains focus."""
         self.focused = True
@@ -83,6 +101,14 @@ class Element(ABC):
     def on_blur(self) -> None:
         """Called when element loses focus."""
         self.focused = False
+
+    def on_hover_enter(self) -> None:
+        """Called when mouse enters element."""
+        self.hovered = True
+
+    def on_hover_exit(self) -> None:
+        """Called when mouse exits element."""
+        self.hovered = False
 
     def set_bounds(self, bounds: Bounds) -> None:
         """Set the element's screen bounds.
@@ -109,9 +135,9 @@ class Container(Element):
         Child elements
     """
 
-    def __init__(self, id: Optional[str] = None):
+    def __init__(self, id: str | None = None):
         super().__init__(id)
-        self.children: List[Element] = []
+        self.children: list[Element] = []
 
     def add_child(self, element: Element) -> None:
         """Add a child element.
@@ -134,7 +160,7 @@ class Container(Element):
         if element in self.children:
             self.children.remove(element)
 
-    def get_focusable_children(self) -> List[Element]:
+    def get_focusable_children(self) -> list[Element]:
         """Get all focusable child elements.
 
         Returns
@@ -181,7 +207,7 @@ class TextElement(Element):
         Text content
     """
 
-    def __init__(self, text: str, id: Optional[str] = None):
+    def __init__(self, text: str, id: str | None = None):
         super().__init__(id)
         self.text = text
         self.element_type = ElementType.DISPLAY

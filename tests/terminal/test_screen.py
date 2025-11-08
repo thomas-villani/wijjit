@@ -2,8 +2,8 @@
 
 from io import StringIO
 
+from wijjit.terminal.ansi import ANSICursor, ANSIScreen
 from wijjit.terminal.screen import ScreenManager, alternate_screen
-from wijjit.terminal.ansi import ANSIScreen, ANSICursor
 
 
 class TestScreenManager:

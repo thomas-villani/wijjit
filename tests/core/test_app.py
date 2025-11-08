@@ -11,11 +11,14 @@ Tests cover:
 - Error handling
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import Mock, patch
-from wijjit.core.app import Wijjit, ViewConfig
+
+from wijjit.core.app import ViewConfig, Wijjit
 from wijjit.core.events import EventType, HandlerScope, KeyEvent
 from wijjit.core.state import State
+from wijjit.terminal.input import Keys
 
 
 class TestViewConfig:
@@ -526,11 +529,9 @@ class TestRun:
         # Mock components to avoid actual terminal operations
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer"):
-                with patch.object(app.input_handler, "read_key") as mock_read:
+                with patch.object(app.input_handler, "read_input") as mock_read:
                     # Return Ctrl+C to exit immediately
-                    mock_key = Mock()
-                    mock_key.is_ctrl_c = True
-                    mock_read.return_value = mock_key
+                    mock_read.return_value = Keys.CTRL_C
 
                     with patch.object(app, "_render"):
                         app.run()
@@ -555,10 +556,8 @@ class TestRun:
 
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer"):
-                with patch.object(app.input_handler, "read_key") as mock_read:
-                    mock_key = Mock()
-                    mock_key.is_ctrl_c = True
-                    mock_read.return_value = mock_key
+                with patch.object(app.input_handler, "read_input") as mock_read:
+                    mock_read.return_value = Keys.CTRL_C
 
                     with patch.object(app, "_render"):
                         app.run()
@@ -575,10 +574,8 @@ class TestRun:
 
         with patch.object(app.screen_manager, "enter_alternate_buffer") as mock_enter:
             with patch.object(app.screen_manager, "exit_alternate_buffer") as mock_exit:
-                with patch.object(app.input_handler, "read_key") as mock_read:
-                    mock_key = Mock()
-                    mock_key.is_ctrl_c = True
-                    mock_read.return_value = mock_key
+                with patch.object(app.input_handler, "read_input") as mock_read:
+                    mock_read.return_value = Keys.CTRL_C
 
                     with patch.object(app, "_render"):
                         app.run()
@@ -597,7 +594,7 @@ class TestRun:
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer") as mock_exit:
                 with patch.object(
-                    app.input_handler, "read_key", side_effect=Exception("Error")
+                    app.input_handler, "read_input", side_effect=Exception("Error")
                 ):
                     with patch.object(app, "_render"):
                         try:

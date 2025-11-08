@@ -1,6 +1,7 @@
 """Tests for bounds and size utilities."""
 
 import pytest
+
 from wijjit.layout.bounds import Bounds, Size, parse_size
 
 

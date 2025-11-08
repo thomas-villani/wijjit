@@ -5,11 +5,11 @@ template syntax.
 """
 
 from .tags import (
+    ButtonExtension,
     FrameExtension,
-    VStackExtension,
     HStackExtension,
     TextInputExtension,
-    ButtonExtension,
+    VStackExtension,
 )
 
 __all__ = [

@@ -2,9 +2,9 @@
 
 from unittest.mock import Mock
 
-from wijjit.elements.input import TextInput, Button
 from wijjit.elements.base import ElementType
-from wijjit.terminal.input import Keys, Key, KeyType
+from wijjit.elements.input import Button, TextInput
+from wijjit.terminal.input import Key, Keys, KeyType
 
 
 class TestTextInput:
@@ -249,3 +249,76 @@ class TestButton:
         button = Button(label="Click me")
         # Should not raise an error
         button.activate()
+
+    def test_activate_with_mouse_click(self):
+        """Test activating button with mouse click."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        callback = Mock()
+        button = Button(label="Submit", on_click=callback)
+
+        event = MouseEvent(
+            type=MouseEventType.CLICK,
+            button=MouseButton.LEFT,
+            x=10,
+            y=5
+        )
+
+        result = button.handle_mouse(event)
+        assert result
+        callback.assert_called_once()
+
+    def test_activate_with_mouse_double_click(self):
+        """Test activating button with mouse double-click."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        callback = Mock()
+        button = Button(label="Submit", on_click=callback)
+
+        event = MouseEvent(
+            type=MouseEventType.DOUBLE_CLICK,
+            button=MouseButton.LEFT,
+            x=10,
+            y=5,
+            click_count=2
+        )
+
+        result = button.handle_mouse(event)
+        assert result
+        callback.assert_called_once()
+
+    def test_mouse_press_doesnt_activate(self):
+        """Test that mouse press alone doesn't activate button."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        callback = Mock()
+        button = Button(label="Submit", on_click=callback)
+
+        event = MouseEvent(
+            type=MouseEventType.PRESS,
+            button=MouseButton.LEFT,
+            x=10,
+            y=5
+        )
+
+        result = button.handle_mouse(event)
+        assert not result
+        callback.assert_not_called()
+
+    def test_mouse_move_doesnt_activate(self):
+        """Test that mouse move doesn't activate button."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        callback = Mock()
+        button = Button(label="Submit", on_click=callback)
+
+        event = MouseEvent(
+            type=MouseEventType.MOVE,
+            button=MouseButton.NONE,
+            x=10,
+            y=5
+        )
+
+        result = button.handle_mouse(event)
+        assert not result
+        callback.assert_not_called()

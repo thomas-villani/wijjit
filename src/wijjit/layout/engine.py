@@ -14,11 +14,11 @@ The layout system supports:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Union, Tuple, Literal
 from enum import Enum
+from typing import Literal
 
-from .bounds import Bounds, Size, parse_size, parse_margin
 from ..elements.base import Element
+from .bounds import Bounds, Size, parse_margin, parse_size
 
 
 class Direction(Enum):
@@ -62,8 +62,8 @@ class SizeConstraints:
 
     min_width: int
     min_height: int
-    preferred_width: Optional[int] = None
-    preferred_height: Optional[int] = None
+    preferred_width: int | None = None
+    preferred_height: int | None = None
 
     def __post_init__(self):
         """Set preferred sizes to min sizes if not specified."""
@@ -104,15 +104,15 @@ class LayoutNode(ABC):
 
     def __init__(
         self,
-        width: Union[int, str, Size] = "auto",
-        height: Union[int, str, Size] = "auto",
-        id: Optional[str] = None,
+        width: int | str | Size = "auto",
+        height: int | str | Size = "auto",
+        id: str | None = None,
     ):
         self.width_spec = parse_size(width)
         self.height_spec = parse_size(height)
         self.id = id
-        self.constraints: Optional[SizeConstraints] = None
-        self.bounds: Optional[Bounds] = None
+        self.constraints: SizeConstraints | None = None
+        self.bounds: Bounds | None = None
 
     @abstractmethod
     def calculate_constraints(self) -> SizeConstraints:
@@ -143,7 +143,7 @@ class LayoutNode(ABC):
         pass
 
     @abstractmethod
-    def collect_elements(self) -> List[Element]:
+    def collect_elements(self) -> list[Element]:
         """Collect all Element objects in this subtree.
 
         Returns
@@ -175,8 +175,8 @@ class ElementNode(LayoutNode):
     def __init__(
         self,
         element: Element,
-        width: Union[int, str, Size] = "auto",
-        height: Union[int, str, Size] = "auto",
+        width: int | str | Size = "auto",
+        height: int | str | Size = "auto",
     ):
         super().__init__(width, height, id=element.id)
         self.element = element
@@ -243,7 +243,7 @@ class ElementNode(LayoutNode):
         self.bounds = Bounds(x=x, y=y, width=width, height=height)
         self.element.set_bounds(self.bounds)
 
-    def collect_elements(self) -> List[Element]:
+    def collect_elements(self) -> list[Element]:
         """Return the wrapped element.
 
         Returns
@@ -297,15 +297,15 @@ class Container(LayoutNode):
 
     def __init__(
         self,
-        children: Optional[List[LayoutNode]] = None,
-        width: Union[int, str, Size] = "auto",
-        height: Union[int, str, Size] = "auto",
+        children: list[LayoutNode] | None = None,
+        width: int | str | Size = "auto",
+        height: int | str | Size = "auto",
         spacing: int = 0,
         padding: int = 0,
-        margin: Union[int, Tuple[int, int, int, int]] = 0,
+        margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
-        id: Optional[str] = None,
+        id: str | None = None,
     ):
         super().__init__(width, height, id)
         self.children = children or []
@@ -325,7 +325,7 @@ class Container(LayoutNode):
         """
         self.children.append(child)
 
-    def collect_elements(self) -> List[Element]:
+    def collect_elements(self) -> list[Element]:
         """Collect all elements from children.
 
         Returns
@@ -368,15 +368,15 @@ class VStack(Container):
 
     def __init__(
         self,
-        children: Optional[List[LayoutNode]] = None,
-        width: Union[int, str, Size] = "fill",
-        height: Union[int, str, Size] = "auto",
+        children: list[LayoutNode] | None = None,
+        width: int | str | Size = "fill",
+        height: int | str | Size = "auto",
         spacing: int = 0,
         padding: int = 0,
-        margin: Union[int, Tuple[int, int, int, int]] = 0,
+        margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
-        id: Optional[str] = None,
+        id: str | None = None,
     ):
         super().__init__(children, width, height, spacing, padding, margin, align_h, align_v, id)
 
@@ -582,15 +582,15 @@ class HStack(Container):
 
     def __init__(
         self,
-        children: Optional[List[LayoutNode]] = None,
-        width: Union[int, str, Size] = "auto",
-        height: Union[int, str, Size] = "fill",
+        children: list[LayoutNode] | None = None,
+        width: int | str | Size = "auto",
+        height: int | str | Size = "fill",
         spacing: int = 0,
         padding: int = 0,
-        margin: Union[int, Tuple[int, int, int, int]] = 0,
+        margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
-        id: Optional[str] = None,
+        id: str | None = None,
     ):
         super().__init__(children, width, height, spacing, padding, margin, align_h, align_v, id)
 
@@ -794,7 +794,7 @@ class LayoutEngine:
         self.width = width
         self.height = height
 
-    def layout(self) -> List[Element]:
+    def layout(self) -> list[Element]:
         """Perform layout calculation.
 
         Returns

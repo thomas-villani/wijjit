@@ -5,7 +5,8 @@ when state values are modified, enabling automatic re-rendering of the UI.
 """
 
 from collections import UserDict
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 
 class State(UserDict):
@@ -38,7 +39,7 @@ class State(UserDict):
     2
     """
 
-    def __init__(self, data: Optional[Dict[str, Any]] = None):
+    def __init__(self, data: dict[str, Any] | None = None):
         # Initialize internal attributes first, before UserDict.__init__
         object.__setattr__(self, "_change_callbacks", [])
         object.__setattr__(self, "_watchers", {})
@@ -134,7 +135,7 @@ class State(UserDict):
         if callback not in self._watchers[key]:
             self._watchers[key].append(callback)
 
-    def unwatch(self, key: str, callback: Optional[Callable] = None) -> None:
+    def unwatch(self, key: str, callback: Callable | None = None) -> None:
         """Stop watching a state key.
 
         Parameters
@@ -182,7 +183,7 @@ class State(UserDict):
                 except Exception as e:
                     print(f"Error in state watcher for '{key}': {e}")
 
-    def update(self, other: Dict[str, Any]) -> None:
+    def update(self, other: dict[str, Any]) -> None:
         """Update multiple state values at once.
 
         Parameters
@@ -193,7 +194,7 @@ class State(UserDict):
         for key, value in other.items():
             self[key] = value
 
-    def reset(self, data: Optional[Dict[str, Any]] = None) -> None:
+    def reset(self, data: dict[str, Any] | None = None) -> None:
         """Reset state to new data.
 
         Parameters

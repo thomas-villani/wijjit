@@ -1,7 +1,8 @@
 """Tests for template renderer."""
 
-import tempfile
 import os
+import tempfile
+
 import pytest
 
 from wijjit.core.renderer import Renderer

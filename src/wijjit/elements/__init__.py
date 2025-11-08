@@ -1,6 +1,6 @@
 """UI elements for Wijjit applications."""
 
-from .base import Element, Container, TextElement, ElementType
-from .input import TextInput, Button
+from .base import Container, Element, ElementType, TextElement
+from .input import Button, TextArea, TextInput
 
-__all__ = ["Element", "Container", "TextElement", "ElementType", "TextInput", "Button"]
+__all__ = ["Element", "Container", "TextElement", "ElementType", "TextInput", "Button", "TextArea"]
