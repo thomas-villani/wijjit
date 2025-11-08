@@ -84,7 +84,7 @@ class TestKey:
         """Test that Key is immutable (frozen dataclass)."""
         key = Key("a", KeyType.CHARACTER, "a")
 
-        with pytest.raises(Exception):  # FrozenInstanceError in Python 3.10+
+        with pytest.raises(AttributeError):
             key.name = "b"
 
 

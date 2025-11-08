@@ -128,15 +128,12 @@ class ScrollManager:
     """
 
     def __init__(
-        self,
-        content_size: int,
-        viewport_size: int,
-        initial_position: int = 0
+        self, content_size: int, viewport_size: int, initial_position: int = 0
     ):
         self.state = ScrollState(
             content_size=content_size,
             viewport_size=viewport_size,
-            scroll_position=initial_position
+            scroll_position=initial_position,
         )
 
     def scroll_by(self, delta: int) -> int:
@@ -228,8 +225,7 @@ class ScrollManager:
         self.state.content_size = max(0, size)
         # Clamp scroll position to new bounds
         self.state.scroll_position = min(
-            self.state.scroll_position,
-            self.state.max_scroll
+            self.state.scroll_position, self.state.max_scroll
         )
 
     def update_viewport_size(self, size: int) -> None:
@@ -248,8 +244,7 @@ class ScrollManager:
         self.state.viewport_size = max(0, size)
         # Clamp scroll position to new bounds
         self.state.scroll_position = min(
-            self.state.scroll_position,
-            self.state.max_scroll
+            self.state.scroll_position, self.state.max_scroll
         )
 
     def get_visible_range(self) -> tuple[int, int]:
@@ -270,16 +265,12 @@ class ScrollManager:
         (20, 30)
         """
         start = self.state.scroll_position
-        end = min(
-            start + self.state.viewport_size,
-            self.state.content_size
-        )
+        end = min(start + self.state.viewport_size, self.state.content_size)
         return (start, end)
 
 
 def calculate_scrollbar_thumb(
-    scroll_state: ScrollState,
-    bar_height: int
+    scroll_state: ScrollState, bar_height: int
 ) -> tuple[int, int]:
     """Calculate scrollbar thumb position and size.
 
@@ -316,7 +307,9 @@ def calculate_scrollbar_thumb(
 
     # Calculate thumb size proportional to viewport/content ratio
     # Minimum size is 1 character
-    thumb_size = max(1, int((scroll_state.viewport_size / scroll_state.content_size) * bar_height))
+    thumb_size = max(
+        1, int((scroll_state.viewport_size / scroll_state.content_size) * bar_height)
+    )
 
     # Calculate thumb position based on scroll percentage
     # Available space for thumb movement
@@ -331,9 +324,7 @@ def calculate_scrollbar_thumb(
 
 
 def render_vertical_scrollbar(
-    scroll_state: ScrollState,
-    height: int,
-    style: Literal["simple", "fancy"] = "simple"
+    scroll_state: ScrollState, height: int, style: Literal["simple", "fancy"] = "simple"
 ) -> list[str]:
     """Render a vertical scrollbar as a list of characters.
 
@@ -397,9 +388,7 @@ def render_vertical_scrollbar(
 
 
 def render_horizontal_scrollbar(
-    scroll_state: ScrollState,
-    width: int,
-    style: Literal["simple", "fancy"] = "simple"
+    scroll_state: ScrollState, width: int, style: Literal["simple", "fancy"] = "simple"
 ) -> str:
     """Render a horizontal scrollbar as a string.
 
@@ -442,4 +431,4 @@ def render_horizontal_scrollbar(
         else:
             scrollbar.append(track_char)
 
-    return ''.join(scrollbar)
+    return "".join(scrollbar)

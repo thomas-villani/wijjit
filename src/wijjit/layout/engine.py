@@ -378,7 +378,9 @@ class VStack(Container):
         align_v: VAlign = "stretch",
         id: str | None = None,
     ):
-        super().__init__(children, width, height, spacing, padding, margin, align_h, align_v, id)
+        super().__init__(
+            children, width, height, spacing, padding, margin, align_h, align_v, id
+        )
 
     def calculate_constraints(self) -> SizeConstraints:
         """Calculate constraints for vertical stack.
@@ -490,7 +492,9 @@ class VStack(Container):
         if self.align_v != "stretch" and not fill_children:
             # Calculate total height of all children
             total_children_height = fixed_height
-            total_with_spacing = total_children_height + self.spacing * (len(self.children) - 1)
+            total_with_spacing = total_children_height + self.spacing * (
+                len(self.children) - 1
+            )
 
             # Calculate empty space and offset (use original_content_height, not reduced one)
             if total_with_spacing < original_content_height:
@@ -523,7 +527,11 @@ class VStack(Container):
                 )
 
             # Width handling based on alignment
-            if self.align_h == "stretch" or child.width_spec.is_fill or child.width_spec.is_percentage:
+            if (
+                self.align_h == "stretch"
+                or child.width_spec.is_fill
+                or child.width_spec.is_percentage
+            ):
                 child_width = content_width
                 child_x = current_x
             elif child.width_spec.is_fixed:
@@ -592,7 +600,9 @@ class HStack(Container):
         align_v: VAlign = "stretch",
         id: str | None = None,
     ):
-        super().__init__(children, width, height, spacing, padding, margin, align_h, align_v, id)
+        super().__init__(
+            children, width, height, spacing, padding, margin, align_h, align_v, id
+        )
 
     def calculate_constraints(self) -> SizeConstraints:
         """Calculate constraints for horizontal stack.
@@ -699,11 +709,17 @@ class HStack(Container):
         if self.align_h != "stretch" and not fill_children:
             # Calculate total width of all children
             total_children_width = fixed_width
-            total_with_spacing = total_children_width + self.spacing * (len(self.children) - 1)
+            total_with_spacing = total_children_width + self.spacing * (
+                len(self.children) - 1
+            )
 
             # Calculate empty space and offset
-            if total_with_spacing < content_width + self.spacing * (len(self.children) - 1):
-                actual_content_width = content_width + self.spacing * (len(self.children) - 1)
+            if total_with_spacing < content_width + self.spacing * (
+                len(self.children) - 1
+            ):
+                actual_content_width = content_width + self.spacing * (
+                    len(self.children) - 1
+                )
                 empty_space = actual_content_width - total_with_spacing
                 if self.align_h == "center":
                     horizontal_offset = empty_space // 2
@@ -733,7 +749,11 @@ class HStack(Container):
                 )
 
             # Height handling based on alignment
-            if self.align_v == "stretch" or child.height_spec.is_fill or child.height_spec.is_percentage:
+            if (
+                self.align_v == "stretch"
+                or child.height_spec.is_fill
+                or child.height_spec.is_percentage
+            ):
                 child_height = content_height
                 child_y = current_y
             elif child.height_spec.is_fixed:

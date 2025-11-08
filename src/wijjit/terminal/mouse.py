@@ -26,10 +26,10 @@ class MouseTrackingMode(IntEnum):
     """
 
     DISABLED = 0
-    X10 = 9              # Only button press, limited coordinates
-    NORMAL = 1000        # Press and release
+    X10 = 9  # Only button press, limited coordinates
+    NORMAL = 1000  # Press and release
     BUTTON_EVENT = 1002  # Press, release, and drag
-    ANY_EVENT = 1003     # All mouse motion (including hover)
+    ANY_EVENT = 1003  # All mouse motion (including hover)
 
 
 class MouseButton(IntEnum):
@@ -53,12 +53,12 @@ class MouseEventType(Enum):
     from ANSI mouse sequences.
     """
 
-    PRESS = "press"           # Button pressed
-    RELEASE = "release"       # Button released
-    DRAG = "drag"             # Movement with button pressed
-    MOVE = "move"             # Movement without button
-    SCROLL = "scroll"         # Mouse wheel scrolling
-    CLICK = "click"           # Synthesized from press+release
+    PRESS = "press"  # Button pressed
+    RELEASE = "release"  # Button released
+    DRAG = "drag"  # Movement with button pressed
+    MOVE = "move"  # Movement without button
+    SCROLL = "scroll"  # Mouse wheel scrolling
+    CLICK = "click"  # Synthesized from press+release
     DOUBLE_CLICK = "double_click"  # Synthesized from two clicks
 
 
@@ -158,16 +158,14 @@ class MouseEventParser:
 
     # SGR mouse format: ESC [ < button ; x ; y M/m
     # M = press, m = release
-    SGR_PATTERN = re.compile(rb'\x1b\[<(\d+);(\d+);(\d+)([Mm])')
+    SGR_PATTERN = re.compile(rb"\x1b\[<(\d+);(\d+);(\d+)([Mm])")
 
     # Normal mouse format: ESC [ M bxy
     # b, x, y are encoded as bytes (value + 32)
-    NORMAL_PREFIX = b'\x1b[M'
+    NORMAL_PREFIX = b"\x1b[M"
 
     def __init__(
-        self,
-        double_click_threshold: float = 0.5,
-        double_click_distance: int = 2
+        self, double_click_threshold: float = 0.5, double_click_distance: int = 2
     ):
         self.double_click_threshold = double_click_threshold
         self.double_click_distance = double_click_distance
@@ -204,7 +202,7 @@ class MouseEventParser:
         button_code = int(match.group(1))
         x = int(match.group(2)) - 1  # Convert to 0-based
         y = int(match.group(3)) - 1  # Convert to 0-based
-        is_release = match.group(4) == b'm'
+        is_release = match.group(4) == b"m"
 
         return self._decode_event(button_code, x, y, is_release)
 
@@ -240,11 +238,7 @@ class MouseEventParser:
         return self._decode_event(button_code, x, y, is_release)
 
     def _decode_event(
-        self,
-        button_code: int,
-        x: int,
-        y: int,
-        is_release: bool
+        self, button_code: int, x: int, y: int, is_release: bool
     ) -> MouseEvent:
         """Decode button code into mouse event.
 
@@ -286,7 +280,9 @@ class MouseEventParser:
         # Check for scroll events (bit 6 set)
         if button_code & 64:
             # Scroll events use base_button to indicate direction
-            button = MouseButton.SCROLL_UP if base_button == 0 else MouseButton.SCROLL_DOWN
+            button = (
+                MouseButton.SCROLL_UP if base_button == 0 else MouseButton.SCROLL_DOWN
+            )
             event_type = MouseEventType.SCROLL
         else:
             # Regular button events
@@ -297,7 +293,11 @@ class MouseEventParser:
 
             # Determine event type
             if motion:
-                event_type = MouseEventType.DRAG if button != MouseButton.NONE else MouseEventType.MOVE
+                event_type = (
+                    MouseEventType.DRAG
+                    if button != MouseButton.NONE
+                    else MouseEventType.MOVE
+                )
             elif is_release:
                 event_type = MouseEventType.RELEASE
             else:
@@ -305,13 +305,7 @@ class MouseEventParser:
 
         # Create base event
         event = MouseEvent(
-            type=event_type,
-            button=button,
-            x=x,
-            y=y,
-            shift=shift,
-            alt=alt,
-            ctrl=ctrl
+            type=event_type, button=button, x=x, y=y, shift=shift, alt=alt, ctrl=ctrl
         )
 
         # Synthesize click events from press/release pairs
@@ -357,20 +351,24 @@ class MouseEventParser:
                     shift=event.shift,
                     alt=event.alt,
                     ctrl=event.ctrl,
-                    click_count=1
+                    click_count=1,
                 )
 
                 # Check for double-click
-                if (self._last_click_time is not None and
-                    self._last_click_pos is not None and
-                    self._last_click_button == event.button):
+                if (
+                    self._last_click_time is not None
+                    and self._last_click_pos is not None
+                    and self._last_click_button == event.button
+                ):
 
                     time_diff = current_time - self._last_click_time
                     last_x, last_y = self._last_click_pos
                     last_distance = abs(event.x - last_x) + abs(event.y - last_y)
 
-                    if (time_diff < self.double_click_threshold and
-                        last_distance <= self.double_click_distance):
+                    if (
+                        time_diff < self.double_click_threshold
+                        and last_distance <= self.double_click_distance
+                    ):
                         # This is a double-click!
                         event = MouseEvent(
                             type=MouseEventType.DOUBLE_CLICK,
@@ -380,7 +378,7 @@ class MouseEventParser:
                             shift=event.shift,
                             alt=event.alt,
                             ctrl=event.ctrl,
-                            click_count=2
+                            click_count=2,
                         )
                         # Reset double-click tracking
                         self._last_click_time = None

@@ -258,10 +258,7 @@ class TestButton:
         button = Button(label="Submit", on_click=callback)
 
         event = MouseEvent(
-            type=MouseEventType.CLICK,
-            button=MouseButton.LEFT,
-            x=10,
-            y=5
+            type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=5
         )
 
         result = button.handle_mouse(event)
@@ -280,7 +277,7 @@ class TestButton:
             button=MouseButton.LEFT,
             x=10,
             y=5,
-            click_count=2
+            click_count=2,
         )
 
         result = button.handle_mouse(event)
@@ -295,10 +292,7 @@ class TestButton:
         button = Button(label="Submit", on_click=callback)
 
         event = MouseEvent(
-            type=MouseEventType.PRESS,
-            button=MouseButton.LEFT,
-            x=10,
-            y=5
+            type=MouseEventType.PRESS, button=MouseButton.LEFT, x=10, y=5
         )
 
         result = button.handle_mouse(event)
@@ -312,12 +306,7 @@ class TestButton:
         callback = Mock()
         button = Button(label="Submit", on_click=callback)
 
-        event = MouseEvent(
-            type=MouseEventType.MOVE,
-            button=MouseButton.NONE,
-            x=10,
-            y=5
-        )
+        event = MouseEvent(type=MouseEventType.MOVE, button=MouseButton.NONE, x=10, y=5)
 
         result = button.handle_mouse(event)
         assert not result

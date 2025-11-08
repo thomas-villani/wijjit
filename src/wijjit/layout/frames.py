@@ -141,7 +141,9 @@ class Frame:
         # Create or update scroll manager if frame is scrollable
         if self.style.scrollable:
             # Calculate viewport height (inner height after borders and padding)
-            padding_top, padding_right, padding_bottom, padding_left = self.style.padding
+            padding_top, padding_right, padding_bottom, padding_left = (
+                self.style.padding
+            )
             viewport_height = self.height - 2 - padding_top - padding_bottom
 
             if self.scroll_manager is None:
@@ -149,7 +151,7 @@ class Frame:
                 self.scroll_manager = ScrollManager(
                     content_size=self._content_height,
                     viewport_size=viewport_height,
-                    initial_position=0
+                    initial_position=0,
                 )
             else:
                 # Update existing scroll manager
@@ -277,12 +279,8 @@ class Frame:
 
         # Reserve space for scrollbar if showing
         scrollbar_width = 1 if self.style.show_scrollbar else 0
-        inner_width = (
-            self.width - 2 - padding_left - padding_right - scrollbar_width
-        )
-        inner_height = (
-            self.height - 2 - padding_top - padding_bottom
-        )
+        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width
+        inner_height = self.height - 2 - padding_top - padding_bottom
 
         # Get visible content range from scroll manager
         start_line, end_line = self.scroll_manager.get_visible_range()
@@ -291,9 +289,7 @@ class Frame:
         scrollbar_chars = []
         if self.style.show_scrollbar:
             scrollbar_chars = render_vertical_scrollbar(
-                self.scroll_manager.state,
-                inner_height,
-                style="simple"
+                self.scroll_manager.state, inner_height, style="simple"
             )
 
         # Top border
@@ -302,7 +298,9 @@ class Frame:
         # Top padding
         for _ in range(padding_top):
             lines.append(
-                self._render_empty_line(chars, padding_left, inner_width, padding_right, scrollbar_width)
+                self._render_empty_line(
+                    chars, padding_left, inner_width, padding_right, scrollbar_width
+                )
             )
 
         # Render visible content lines
@@ -318,15 +316,21 @@ class Frame:
 
             lines.append(
                 self._render_scrollable_content_line(
-                    line, chars, padding_left, inner_width, padding_right,
-                    scrollbar_char if self.style.show_scrollbar else None
+                    line,
+                    chars,
+                    padding_left,
+                    inner_width,
+                    padding_right,
+                    scrollbar_char if self.style.show_scrollbar else None,
                 )
             )
 
         # Bottom padding
         for _ in range(padding_bottom):
             lines.append(
-                self._render_empty_line(chars, padding_left, inner_width, padding_right, scrollbar_width)
+                self._render_empty_line(
+                    chars, padding_left, inner_width, padding_right, scrollbar_width
+                )
             )
 
         # Bottom border
@@ -387,8 +391,12 @@ class Frame:
         return chars["bl"] + chars["h"] * (self.width - 2) + chars["br"]
 
     def _render_empty_line(
-        self, chars: dict, padding_left: int, inner_width: int, padding_right: int,
-        scrollbar_width: int = 0
+        self,
+        chars: dict,
+        padding_left: int,
+        inner_width: int,
+        padding_right: int,
+        scrollbar_width: int = 0,
     ) -> str:
         """Render an empty line (for padding).
 
@@ -475,7 +483,7 @@ class Frame:
         padding_left: int,
         inner_width: int,
         padding_right: int,
-        scrollbar_char: str | None = None
+        scrollbar_char: str | None = None,
     ) -> str:
         """Render a content line with scrollbar in scrollable mode.
 
@@ -604,6 +612,7 @@ class Frame:
         # Handle scroll wheel
         if event.type == MouseEventType.SCROLL:
             from ..terminal.mouse import MouseButton
+
             if event.button == MouseButton.SCROLL_UP:
                 return self.handle_scroll(-1)
             elif event.button == MouseButton.SCROLL_DOWN:

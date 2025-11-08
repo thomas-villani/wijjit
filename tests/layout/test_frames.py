@@ -378,7 +378,9 @@ class TestContentAlignmentWithBorders:
     def test_content_align_with_single_border(self):
         """Test content alignment with single border style."""
         style = FrameStyle(
-            border=BorderStyle.SINGLE, content_align_h="center", content_align_v="middle"
+            border=BorderStyle.SINGLE,
+            content_align_h="center",
+            content_align_v="middle",
         )
         frame = Frame(width=20, height=8, style=style)
         frame.set_content("Test")
@@ -532,7 +534,10 @@ class TestFrameScrolling:
         end_key = Key("end", KeyType.SPECIAL)
         handled = frame.handle_key(end_key)
         assert handled
-        assert frame.scroll_manager.state.scroll_position == frame.scroll_manager.state.max_scroll
+        assert (
+            frame.scroll_manager.state.scroll_position
+            == frame.scroll_manager.state.max_scroll
+        )
 
         # Home key - scroll to top
         home_key = Key("home", KeyType.SPECIAL)
@@ -580,10 +585,7 @@ class TestFrameScrolling:
 
         # Scroll down event
         scroll_down = MouseEvent(
-            type=MouseEventType.SCROLL,
-            button=MouseButton.SCROLL_DOWN,
-            x=10,
-            y=5
+            type=MouseEventType.SCROLL, button=MouseButton.SCROLL_DOWN, x=10, y=5
         )
         handled = frame.handle_mouse(scroll_down)
         assert handled
@@ -591,10 +593,7 @@ class TestFrameScrolling:
 
         # Scroll up event
         scroll_up = MouseEvent(
-            type=MouseEventType.SCROLL,
-            button=MouseButton.SCROLL_UP,
-            x=10,
-            y=5
+            type=MouseEventType.SCROLL, button=MouseButton.SCROLL_UP, x=10, y=5
         )
         handled = frame.handle_mouse(scroll_up)
         assert handled

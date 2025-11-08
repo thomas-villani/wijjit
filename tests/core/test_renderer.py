@@ -4,6 +4,7 @@ import os
 import tempfile
 
 import pytest
+from jinja2 import TemplateNotFound
 
 from wijjit.core.renderer import Renderer
 
@@ -85,7 +86,7 @@ class TestRenderer:
         with tempfile.TemporaryDirectory() as tmpdir:
             renderer = Renderer(template_dir=tmpdir)
 
-            with pytest.raises(Exception):  # jinja2.TemplateNotFound
+            with pytest.raises(TemplateNotFound):
                 renderer.render_file("nonexistent.tui")
 
     def test_add_filter(self):

@@ -4,7 +4,6 @@ This module handles focus navigation between focusable elements,
 typically using Tab and Shift+Tab keys.
 """
 
-
 from ..elements.base import Element
 
 

@@ -157,8 +157,16 @@ class VStackExtension(Extension):
         return node
 
     def _render_vstack(
-        self, caller, width="fill", height="auto", spacing=0, padding=0,
-        margin=0, align_h="stretch", align_v="stretch", id=None
+        self,
+        caller,
+        width="fill",
+        height="auto",
+        spacing=0,
+        padding=0,
+        margin=0,
+        align_h="stretch",
+        align_v="stretch",
+        id=None,
     ) -> str:
         """Render the vstack tag.
 
@@ -204,12 +212,12 @@ class VStackExtension(Extension):
         if isinstance(margin, str) and margin.startswith("("):
             try:
                 margin = eval(margin)
-            except:
+            except (ValueError, SyntaxError, NameError):
                 margin = 0
         elif isinstance(margin, str):
             try:
                 margin = int(margin)
-            except:
+            except ValueError:
                 margin = 0
 
         # Create VStack node
@@ -295,8 +303,16 @@ class HStackExtension(Extension):
         return node
 
     def _render_hstack(
-        self, caller, width="auto", height="fill", spacing=0, padding=0,
-        margin=0, align_h="stretch", align_v="stretch", id=None
+        self,
+        caller,
+        width="auto",
+        height="fill",
+        spacing=0,
+        padding=0,
+        margin=0,
+        align_h="stretch",
+        align_v="stretch",
+        id=None,
     ) -> str:
         """Render the hstack tag.
 
@@ -342,12 +358,12 @@ class HStackExtension(Extension):
         if isinstance(margin, str) and margin.startswith("("):
             try:
                 margin = eval(margin)
-            except:
+            except (ValueError, SyntaxError, NameError):
                 margin = 0
         elif isinstance(margin, str):
             try:
                 margin = int(margin)
-            except:
+            except ValueError:
                 margin = 0
 
         # Create HStack node
@@ -494,12 +510,12 @@ class FrameExtension(Extension):
             # Parse tuple string
             try:
                 margin = eval(margin)
-            except:
+            except (ValueError, SyntaxError, NameError):
                 margin = 0
         elif isinstance(margin, str):
             try:
                 margin = int(margin)
-            except:
+            except ValueError:
                 margin = 0
 
         # Create VStack to hold frame content

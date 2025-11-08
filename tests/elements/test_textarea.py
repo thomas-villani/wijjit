@@ -167,7 +167,7 @@ class TestTextAreaScrolling:
         """Test adding lines updates scroll manager."""
         textarea = TextArea(height=5)
         # Add 10 lines
-        for i in range(10):
+        for _i in range(10):
             textarea.handle_key(Keys.ENTER)
         assert textarea.scroll_manager.state.content_size == 11
 
@@ -186,10 +186,7 @@ class TestTextAreaMouse:
 
         # Mouse wheel up
         event = MouseEvent(
-            type=MouseEventType.SCROLL,
-            button=MouseButton.SCROLL_UP,
-            x=0,
-            y=0
+            type=MouseEventType.SCROLL, button=MouseButton.SCROLL_UP, x=0, y=0
         )
         result = textarea.handle_mouse(event)
         assert result
@@ -201,10 +198,7 @@ class TestTextAreaMouse:
         textarea = TextArea(value=content, height=5)
 
         event = MouseEvent(
-            type=MouseEventType.SCROLL,
-            button=MouseButton.SCROLL_DOWN,
-            x=0,
-            y=0
+            type=MouseEventType.SCROLL, button=MouseButton.SCROLL_DOWN, x=0, y=0
         )
         result = textarea.handle_mouse(event)
         assert result
@@ -214,12 +208,7 @@ class TestTextAreaMouse:
         """Test clicking positions cursor."""
         textarea = TextArea(value="Line1\nLine2\nLine3", height=5)
 
-        event = MouseEvent(
-            type=MouseEventType.CLICK,
-            button=MouseButton.LEFT,
-            x=3,
-            y=1
-        )
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=3, y=1)
         textarea.handle_mouse(event)
         assert textarea.cursor_row == 1
         assert textarea.cursor_col == 3

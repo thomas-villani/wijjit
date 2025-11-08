@@ -205,6 +205,11 @@ PROMPT_TOOLKIT_KEY_MAP = {
     PTKeys.ControlC: Keys.CTRL_C,
     PTKeys.ControlD: Keys.CTRL_D,
     PTKeys.ControlZ: Keys.CTRL_Z,
+    # Control+navigation keys
+    PTKeys.ControlHome: Key("ctrl+home", KeyType.SPECIAL),
+    PTKeys.ControlEnd: Key("ctrl+end", KeyType.SPECIAL),
+    PTKeys.ControlLeft: Key("ctrl+left", KeyType.SPECIAL),
+    PTKeys.ControlRight: Key("ctrl+right", KeyType.SPECIAL),
 }
 
 
@@ -280,19 +285,23 @@ class InputHandler:
             # Mouse sequences start with ESC [ < (SGR format)
             # or ESC [ M (normal format)
             if self.mouse_enabled and self.mouse_parser and key_press.data:
-                data_bytes = key_press.data.encode('utf-8') if isinstance(key_press.data, str) else key_press.data
+                data_bytes = (
+                    key_press.data.encode("utf-8")
+                    if isinstance(key_press.data, str)
+                    else key_press.data
+                )
 
                 # Try to parse as SGR mouse event
-                if data_bytes.startswith(b'\x1b[<'):
+                if data_bytes.startswith(b"\x1b[<"):
                     # We have the start of an SGR sequence, but need more data
                     # Read until we get M or m (press or release)
                     buffer = bytearray(data_bytes)
-                    while buffer and buffer[-1] not in (ord('M'), ord('m')):
+                    while buffer and buffer[-1] not in (ord("M"), ord("m")):
                         more_keys = self._input.read_keys()
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):
-                                buffer.extend(more_data.encode('utf-8'))
+                                buffer.extend(more_data.encode("utf-8"))
                             else:
                                 buffer.extend(more_data)
                         else:
@@ -303,7 +312,7 @@ class InputHandler:
                         return mouse_event
 
                 # Try to parse as normal format mouse event
-                elif data_bytes.startswith(b'\x1b[M'):
+                elif data_bytes.startswith(b"\x1b[M"):
                     # Need 6 bytes total for normal format
                     buffer = bytearray(data_bytes)
                     while len(buffer) < 6:
@@ -311,7 +320,7 @@ class InputHandler:
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):
-                                buffer.extend(more_data.encode('utf-8'))
+                                buffer.extend(more_data.encode("utf-8"))
                             else:
                                 buffer.extend(more_data)
                         else:
@@ -365,9 +374,7 @@ class InputHandler:
                 return event
             # Skip mouse events and keep reading
 
-    def enable_mouse_tracking(
-        self, mode: Optional["MouseTrackingMode"] = None
-    ) -> None:
+    def enable_mouse_tracking(self, mode: Optional["MouseTrackingMode"] = None) -> None:
         """Enable mouse event tracking.
 
         Sends ANSI escape sequences to enable mouse tracking in the terminal.

@@ -4,12 +4,17 @@ This module provides the foundational classes for all interactive UI elements
 in Wijjit applications.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum, auto
+from typing import TYPE_CHECKING
 
-from ..layout.bounds import Bounds
 from ..terminal.input import Key
 from ..terminal.mouse import MouseEvent
+
+if TYPE_CHECKING:
+    from ..layout.bounds import Bounds
 
 
 class ElementType(Enum):

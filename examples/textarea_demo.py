@@ -29,6 +29,7 @@ from wijjit import (
     TextArea,
     Wijjit,
 )
+from wijjit.layout.bounds import Bounds
 
 
 def create_app():
@@ -108,6 +109,20 @@ Press 'q' to quit. Happy editing!"""
             term_size = shutil.get_terminal_size()
             term_width = term_size.columns
 
+            # Set bounds for the textarea so mouse events can find it
+            # The textarea top border renders at row 2 (after header border, title, header border)
+            # Content starts at row 3, so bounds.y points to the top border at row 2
+            textarea.set_bounds(Bounds(
+                x=0,
+                y=2,
+                width=textarea_width,
+                height=textarea_height + 2
+            ))
+
+            # Add textarea to positioned_elements so _find_element_at can find it
+            # Must do this on every render since app clears positioned_elements
+            app.positioned_elements = [textarea]
+
             # Get scroll info
             scroll_pos = textarea.scroll_manager.state.scroll_position
             scroll_max = textarea.scroll_manager.state.max_scroll
@@ -123,9 +138,10 @@ Press 'q' to quit. Happy editing!"""
                 textarea.render(),
                 "",
                 border,
-                f"  Cursor: {app.state['cursor_pos']}  |  Lines: {app.state['lines']}  |  Chars: {app.state['chars']}  |  Scroll: {scroll_pos}/{scroll_max} ({scroll_pct}%)",
+                f"  Cursor: {app.state['cursor_pos']}  |  Lines: {app.state['lines']}  "
+                f"|  Chars: {app.state['chars']}  |  Scroll: {scroll_pos}/{scroll_max} ({scroll_pct}%)",
                 border,
-                "  [Arrows] Navigate  [Home/End] Line  [Ctrl+Home/End] Document  [PgUp/PgDn] Scroll  [q] Quit",
+                "  [Arrows] Navigate  [Home/End] Line  [Ctrl+Home/End] Document  [PgUp/PgDn] Scroll  [Esc/Ctrl+Q] Quit",
                 border,
             ]
 
@@ -143,18 +159,18 @@ Press 'q' to quit. Happy editing!"""
 
     def setup_handlers():
         """Set up keyboard handlers."""
-
         def on_key(event):
             """Handle keyboard events."""
-            # Handle quit
-            if event.key == "q" and not textarea.focused:
+            # Handle quit with Escape or Ctrl+Q
+            if event.key == "escape" or (event.key == "q" and event.ctrl):
                 app.quit()
+                event.cancel()  # Prevent further handling
                 return
 
             # Focus manager and textarea handle other keys automatically
 
-        # Register key handler
-        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
+        # Register key handler with high priority to intercept before TextArea
+        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
 
     return app
 

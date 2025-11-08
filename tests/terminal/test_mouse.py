@@ -21,7 +21,7 @@ class TestMouseEventParser:
     def test_parse_sgr_left_press(self):
         """Test parsing SGR format left button press."""
         parser = MouseEventParser()
-        data = b'\x1b[<0;10;5M'  # Left button press at column 10, row 5
+        data = b"\x1b[<0;10;5M"  # Left button press at column 10, row 5
 
         event = parser.parse_sgr(data)
 
@@ -37,7 +37,7 @@ class TestMouseEventParser:
     def test_parse_sgr_left_release(self):
         """Test parsing SGR format left button release."""
         parser = MouseEventParser()
-        data = b'\x1b[<0;10;5m'  # Left button release (lowercase 'm')
+        data = b"\x1b[<0;10;5m"  # Left button release (lowercase 'm')
 
         event = parser.parse_sgr(data)
 
@@ -50,7 +50,7 @@ class TestMouseEventParser:
     def test_parse_sgr_middle_button(self):
         """Test parsing SGR format middle button."""
         parser = MouseEventParser()
-        data = b'\x1b[<1;20;10M'  # Middle button
+        data = b"\x1b[<1;20;10M"  # Middle button
 
         event = parser.parse_sgr(data)
 
@@ -63,7 +63,7 @@ class TestMouseEventParser:
     def test_parse_sgr_right_button(self):
         """Test parsing SGR format right button."""
         parser = MouseEventParser()
-        data = b'\x1b[<2;15;8M'  # Right button
+        data = b"\x1b[<2;15;8M"  # Right button
 
         event = parser.parse_sgr(data)
 
@@ -76,7 +76,7 @@ class TestMouseEventParser:
     def test_parse_sgr_with_shift_modifier(self):
         """Test parsing SGR format with Shift modifier."""
         parser = MouseEventParser()
-        data = b'\x1b[<4;10;5M'  # Button code 4 = Shift modifier
+        data = b"\x1b[<4;10;5M"  # Button code 4 = Shift modifier
 
         event = parser.parse_sgr(data)
 
@@ -88,7 +88,7 @@ class TestMouseEventParser:
     def test_parse_sgr_with_alt_modifier(self):
         """Test parsing SGR format with Alt modifier."""
         parser = MouseEventParser()
-        data = b'\x1b[<8;10;5M'  # Button code 8 = Alt modifier
+        data = b"\x1b[<8;10;5M"  # Button code 8 = Alt modifier
 
         event = parser.parse_sgr(data)
 
@@ -100,7 +100,7 @@ class TestMouseEventParser:
     def test_parse_sgr_with_ctrl_modifier(self):
         """Test parsing SGR format with Ctrl modifier."""
         parser = MouseEventParser()
-        data = b'\x1b[<16;10;5M'  # Button code 16 = Ctrl modifier
+        data = b"\x1b[<16;10;5M"  # Button code 16 = Ctrl modifier
 
         event = parser.parse_sgr(data)
 
@@ -113,7 +113,7 @@ class TestMouseEventParser:
         """Test parsing SGR format with multiple modifiers."""
         parser = MouseEventParser()
         # Button code: 0 (left) + 4 (shift) + 8 (alt) + 16 (ctrl) = 28
-        data = b'\x1b[<28;10;5M'
+        data = b"\x1b[<28;10;5M"
 
         event = parser.parse_sgr(data)
 
@@ -126,7 +126,7 @@ class TestMouseEventParser:
     def test_parse_sgr_scroll_up(self):
         """Test parsing SGR format scroll up event."""
         parser = MouseEventParser()
-        data = b'\x1b[<64;10;5M'  # Scroll up
+        data = b"\x1b[<64;10;5M"  # Scroll up
 
         event = parser.parse_sgr(data)
 
@@ -139,7 +139,7 @@ class TestMouseEventParser:
     def test_parse_sgr_scroll_down(self):
         """Test parsing SGR format scroll down event."""
         parser = MouseEventParser()
-        data = b'\x1b[<65;10;5M'  # Scroll down
+        data = b"\x1b[<65;10;5M"  # Scroll down
 
         event = parser.parse_sgr(data)
 
@@ -151,7 +151,7 @@ class TestMouseEventParser:
         """Test parsing SGR format drag event."""
         parser = MouseEventParser()
         # Button code: 0 (left) + 32 (motion) = 32
-        data = b'\x1b[<32;15;10M'
+        data = b"\x1b[<32;15;10M"
 
         event = parser.parse_sgr(data)
 
@@ -163,7 +163,7 @@ class TestMouseEventParser:
         """Test parsing SGR format move event (no button)."""
         parser = MouseEventParser()
         # Button code: 3 (no button) + 32 (motion) = 35
-        data = b'\x1b[<35;15;10M'
+        data = b"\x1b[<35;15;10M"
 
         event = parser.parse_sgr(data)
 
@@ -174,7 +174,7 @@ class TestMouseEventParser:
     def test_parse_sgr_invalid_sequence(self):
         """Test that invalid SGR sequences return None."""
         parser = MouseEventParser()
-        data = b'\x1b[invalid'
+        data = b"\x1b[invalid"
 
         event = parser.parse_sgr(data)
 
@@ -183,7 +183,7 @@ class TestMouseEventParser:
     def test_parse_sgr_extended_coordinates(self):
         """Test SGR format with extended coordinates (>255)."""
         parser = MouseEventParser()
-        data = b'\x1b[<0;300;200M'  # Coordinates beyond legacy limit
+        data = b"\x1b[<0;300;200M"  # Coordinates beyond legacy limit
 
         event = parser.parse_sgr(data)
 
@@ -196,7 +196,7 @@ class TestMouseEventParser:
         parser = MouseEventParser()
         # Format: ESC [ M bxy where b=32+button, x=33+col, y=33+row
         # Left press at (9, 4): b=32+0=32(' '), x=33+9=42('*'), y=33+4=37('%')
-        data = b'\x1b[M *%'
+        data = b"\x1b[M *%"
 
         event = parser.parse_normal(data)
 
@@ -210,7 +210,7 @@ class TestMouseEventParser:
         """Test parsing normal format button release."""
         parser = MouseEventParser()
         # Release: button code 3, x=42, y=37
-        data = b'\x1b[M#*%'  # 35 = 32+3
+        data = b"\x1b[M#*%"  # 35 = 32+3
 
         event = parser.parse_normal(data)
 
@@ -220,7 +220,7 @@ class TestMouseEventParser:
     def test_parse_normal_too_short(self):
         """Test that too-short sequences return None."""
         parser = MouseEventParser()
-        data = b'\x1b[M'  # Incomplete
+        data = b"\x1b[M"  # Incomplete
 
         event = parser.parse_normal(data)
 
@@ -229,7 +229,7 @@ class TestMouseEventParser:
     def test_parse_normal_wrong_prefix(self):
         """Test that wrong prefix returns None."""
         parser = MouseEventParser()
-        data = b'\x1b[X abc'  # Wrong prefix
+        data = b"\x1b[X abc"  # Wrong prefix
 
         event = parser.parse_normal(data)
 
@@ -240,12 +240,12 @@ class TestMouseEventParser:
         parser = MouseEventParser()
 
         # Press at (10, 5)
-        press_data = b'\x1b[<0;11;6M'
+        press_data = b"\x1b[<0;11;6M"
         press_event = parser.parse_sgr(press_data)
         assert press_event.type == MouseEventType.PRESS
 
         # Release at same position
-        release_data = b'\x1b[<0;11;6m'
+        release_data = b"\x1b[<0;11;6m"
         release_event = parser.parse_sgr(release_data)
 
         # Should synthesize CLICK
@@ -260,11 +260,11 @@ class TestMouseEventParser:
         parser = MouseEventParser()
 
         # Press at (10, 5)
-        press_data = b'\x1b[<0;11;6M'
+        press_data = b"\x1b[<0;11;6M"
         parser.parse_sgr(press_data)
 
         # Release at (20, 15) - far away
-        release_data = b'\x1b[<0;21;16m'
+        release_data = b"\x1b[<0;21;16m"
         release_event = parser.parse_sgr(release_data)
 
         # Should NOT synthesize CLICK (too far)
@@ -275,11 +275,11 @@ class TestMouseEventParser:
         parser = MouseEventParser(double_click_distance=2)
 
         # Press at (10, 5)
-        press_data = b'\x1b[<0;11;6M'
+        press_data = b"\x1b[<0;11;6M"
         parser.parse_sgr(press_data)
 
         # Release at (11, 6) - within threshold
-        release_data = b'\x1b[<0;12;7m'
+        release_data = b"\x1b[<0;12;7m"
         release_event = parser.parse_sgr(release_data)
 
         # Should synthesize CLICK
@@ -290,14 +290,14 @@ class TestMouseEventParser:
         parser = MouseEventParser(double_click_threshold=1.0)
 
         # First click
-        parser.parse_sgr(b'\x1b[<0;11;6M')  # Press
-        click1 = parser.parse_sgr(b'\x1b[<0;11;6m')  # Release
+        parser.parse_sgr(b"\x1b[<0;11;6M")  # Press
+        click1 = parser.parse_sgr(b"\x1b[<0;11;6m")  # Release
         assert click1.type == MouseEventType.CLICK
         assert click1.click_count == 1
 
         # Second click (within time threshold)
-        parser.parse_sgr(b'\x1b[<0;11;6M')  # Press
-        click2 = parser.parse_sgr(b'\x1b[<0;11;6m')  # Release
+        parser.parse_sgr(b"\x1b[<0;11;6M")  # Press
+        click2 = parser.parse_sgr(b"\x1b[<0;11;6m")  # Release
 
         # Should synthesize DOUBLE_CLICK
         assert click2.type == MouseEventType.DOUBLE_CLICK
@@ -308,13 +308,13 @@ class TestMouseEventParser:
         parser = MouseEventParser(double_click_threshold=1.0, double_click_distance=2)
 
         # First click at (10, 5)
-        parser.parse_sgr(b'\x1b[<0;11;6M')
-        click1 = parser.parse_sgr(b'\x1b[<0;11;6m')
+        parser.parse_sgr(b"\x1b[<0;11;6M")
+        click1 = parser.parse_sgr(b"\x1b[<0;11;6m")
         assert click1.type == MouseEventType.CLICK
 
         # Second click at (20, 15) - far away
-        parser.parse_sgr(b'\x1b[<0;21;16M')
-        click2 = parser.parse_sgr(b'\x1b[<0;21;16m')
+        parser.parse_sgr(b"\x1b[<0;21;16M")
+        click2 = parser.parse_sgr(b"\x1b[<0;21;16m")
 
         # Should NOT synthesize DOUBLE_CLICK
         assert click2.type == MouseEventType.CLICK
@@ -325,16 +325,16 @@ class TestMouseEventParser:
         parser = MouseEventParser(double_click_threshold=0.1)
 
         # First click
-        parser.parse_sgr(b'\x1b[<0;11;6M')
-        click1 = parser.parse_sgr(b'\x1b[<0;11;6m')
+        parser.parse_sgr(b"\x1b[<0;11;6M")
+        click1 = parser.parse_sgr(b"\x1b[<0;11;6m")
         assert click1.type == MouseEventType.CLICK
 
         # Wait longer than threshold
         time.sleep(0.15)
 
         # Second click
-        parser.parse_sgr(b'\x1b[<0;11;6M')
-        click2 = parser.parse_sgr(b'\x1b[<0;11;6m')
+        parser.parse_sgr(b"\x1b[<0;11;6M")
+        click2 = parser.parse_sgr(b"\x1b[<0;11;6m")
 
         # Should NOT synthesize DOUBLE_CLICK (timed out)
         assert click2.type == MouseEventType.CLICK
@@ -345,13 +345,13 @@ class TestMouseEventParser:
         parser = MouseEventParser(double_click_threshold=1.0)
 
         # First click with left button
-        parser.parse_sgr(b'\x1b[<0;11;6M')
-        click1 = parser.parse_sgr(b'\x1b[<0;11;6m')
+        parser.parse_sgr(b"\x1b[<0;11;6M")
+        click1 = parser.parse_sgr(b"\x1b[<0;11;6m")
         assert click1.type == MouseEventType.CLICK
 
         # Second click with right button
-        parser.parse_sgr(b'\x1b[<2;11;6M')
-        click2 = parser.parse_sgr(b'\x1b[<2;11;6m')
+        parser.parse_sgr(b"\x1b[<2;11;6M")
+        click2 = parser.parse_sgr(b"\x1b[<2;11;6m")
 
         # Should NOT synthesize DOUBLE_CLICK (different button)
         assert click2.type == MouseEventType.CLICK
@@ -360,7 +360,7 @@ class TestMouseEventParser:
     def test_get_sgr_match_length(self):
         """Test getting SGR sequence length."""
         parser = MouseEventParser()
-        data = b'\x1b[<0;10;5M'
+        data = b"\x1b[<0;10;5M"
 
         length = parser.get_sgr_match_length(data)
 
@@ -369,7 +369,7 @@ class TestMouseEventParser:
     def test_get_sgr_match_length_no_match(self):
         """Test getting SGR sequence length with no match."""
         parser = MouseEventParser()
-        data = b'invalid'
+        data = b"invalid"
 
         length = parser.get_sgr_match_length(data)
 
@@ -378,7 +378,7 @@ class TestMouseEventParser:
     def test_get_sgr_match_length_partial(self):
         """Test getting SGR sequence length with extra data."""
         parser = MouseEventParser()
-        data = b'\x1b[<0;10;5Mextra'
+        data = b"\x1b[<0;10;5Mextra"
 
         length = parser.get_sgr_match_length(data)
 
@@ -399,7 +399,7 @@ class TestMouseEvent:
             shift=True,
             alt=False,
             ctrl=False,
-            click_count=1
+            click_count=1,
         )
 
         assert event.type == MouseEventType.CLICK
@@ -414,10 +414,7 @@ class TestMouseEvent:
     def test_mouse_event_str(self):
         """Test string representation of mouse event."""
         event = MouseEvent(
-            type=MouseEventType.CLICK,
-            button=MouseButton.LEFT,
-            x=10,
-            y=5
+            type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=5
         )
 
         s = str(event)
@@ -434,7 +431,7 @@ class TestMouseEvent:
             x=10,
             y=5,
             shift=True,
-            ctrl=True
+            ctrl=True,
         )
 
         s = str(event)

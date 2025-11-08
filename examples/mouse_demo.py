@@ -13,6 +13,7 @@ Try:
 """
 
 from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
 
 # Create app with click counters
 app = Wijjit(initial_state={
@@ -91,16 +92,14 @@ def handle_quit(event):
     app.quit()
 
 
-# Handle 'q' key for quick exit
-from wijjit.core.events import EventType
-
-
-@app.on(EventType.KEY)
 def handle_key(event):
     """Handle keyboard shortcuts."""
     if event.key == 'q':
         app.quit()
+        event.cancel()
 
+# Register key handler with high priority to intercept before TextArea
+app.on(EventType.KEY, handle_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
 
 if __name__ == "__main__":
     app.run()

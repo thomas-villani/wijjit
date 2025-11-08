@@ -626,7 +626,11 @@ class Wijjit:
             else:
                 # Use simple string rendering for non-layout templates
                 output = self.renderer.render_string(view.template, context=data)
-                self.positioned_elements = []
+                # Note: positioned_elements may have been set by the view for manual
+                # element positioning. Don't clear it - preserve what the view set.
+                # Wire up element callbacks if elements were positioned
+                if self.positioned_elements:
+                    self._wire_element_callbacks(self.positioned_elements)
 
             # Clear screen and display output
             self.screen_manager.clear()
@@ -822,15 +826,27 @@ class Wijjit:
             hover_changed = False
 
             # Update hover state (only on move/click, not on scroll)
-            if terminal_event.type in (MouseEventType.MOVE, MouseEventType.CLICK,
-                                       MouseEventType.DOUBLE_CLICK, MouseEventType.PRESS,
-                                       MouseEventType.RELEASE, MouseEventType.DRAG):
+            if terminal_event.type in (
+                MouseEventType.MOVE,
+                MouseEventType.CLICK,
+                MouseEventType.DOUBLE_CLICK,
+                MouseEventType.PRESS,
+                MouseEventType.RELEASE,
+                MouseEventType.DRAG,
+            ):
                 # Set hovered element (returns True if changed)
                 hover_changed = self.hover_manager.set_hovered(target_element)
 
             # Focus element on click if it's focusable
-            if terminal_event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
-                if target_element and hasattr(target_element, 'focusable') and target_element.focusable:
+            if terminal_event.type in (
+                MouseEventType.CLICK,
+                MouseEventType.DOUBLE_CLICK,
+            ):
+                if (
+                    target_element
+                    and hasattr(target_element, "focusable")
+                    and target_element.focusable
+                ):
                     focus_changed = self.focus_manager.focus_element(target_element)
                     if focus_changed:
                         self.needs_render = True
@@ -838,7 +854,11 @@ class Wijjit:
             # Create core MouseEvent for handler registry
             mouse_event = MouseEvent(
                 mouse_event=terminal_event,
-                element_id=target_element.id if target_element and hasattr(target_element, 'id') else None
+                element_id=(
+                    target_element.id
+                    if target_element and hasattr(target_element, "id")
+                    else None
+                ),
             )
 
             # Dispatch through handler registry
@@ -849,7 +869,7 @@ class Wijjit:
                 return hover_changed
 
             # Dispatch to target element if it exists
-            if target_element and hasattr(target_element, 'handle_mouse'):
+            if target_element and hasattr(target_element, "handle_mouse"):
                 handled = target_element.handle_mouse(terminal_event)
                 if handled:
                     # Element handled the event, trigger re-render

@@ -86,8 +86,8 @@ class State(UserDict):
 
         try:
             return self.data[name]
-        except KeyError:
-            raise AttributeError(f"State has no attribute '{name}'")
+        except KeyError as e:
+            raise AttributeError(f"State has no attribute '{name}'") from e
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set state value via attribute access.

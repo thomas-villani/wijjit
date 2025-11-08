@@ -91,10 +91,7 @@ class TestElementBase:
 
         elem = TestElement()
         event = MouseEvent(
-            type=MouseEventType.CLICK,
-            button=MouseButton.LEFT,
-            x=10,
-            y=5
+            type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=5
         )
 
         # Default implementation returns False

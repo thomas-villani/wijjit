@@ -470,7 +470,9 @@ class TestMarginSupport:
     def test_tuple_margin_in_constraints(self):
         """Test per-side margins are added to size constraints."""
         child = ElementNode(MockElement(width=20, height=3))
-        vstack = VStack(children=[child], margin=(1, 2, 3, 4))  # top, right, bottom, left
+        vstack = VStack(
+            children=[child], margin=(1, 2, 3, 4)
+        )  # top, right, bottom, left
 
         constraints = vstack.calculate_constraints()
 
@@ -482,7 +484,9 @@ class TestMarginSupport:
     def test_margin_offset_in_assign_bounds(self):
         """Test margins offset children positioning."""
         child = ElementNode(MockElement(width=10, height=2))
-        vstack = VStack(children=[child], margin=(1, 2, 3, 4))  # top, right, bottom, left
+        vstack = VStack(
+            children=[child], margin=(1, 2, 3, 4)
+        )  # top, right, bottom, left
 
         vstack.calculate_constraints()
         vstack.assign_bounds(0, 0, 20, 10)
@@ -859,7 +863,9 @@ class TestMarginAndAlignmentIntegration:
         elem2 = ElementNode(MockElement(width=5, height=2, id="e2"))
         inner_hstack = HStack(children=[elem1, elem2], spacing=2, height="auto")
 
-        outer_vstack = VStack(children=[inner_hstack], align_h="center", align_v="middle")
+        outer_vstack = VStack(
+            children=[inner_hstack], align_h="center", align_v="middle"
+        )
 
         outer_vstack.calculate_constraints()
         outer_vstack.assign_bounds(0, 0, 40, 20)

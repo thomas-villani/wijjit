@@ -67,7 +67,7 @@ class TestHoverManager:
         result = manager.set_hovered(elem2)
         assert result is True
         assert elem1.hovered is False  # on_hover_exit called
-        assert elem2.hovered is True   # on_hover_enter called
+        assert elem2.hovered is True  # on_hover_enter called
         assert manager.get_hovered_element() is elem2
 
     def test_clear_hovered(self):
@@ -153,7 +153,7 @@ class TestHoverManager:
 
         # Hover second element
         manager.set_hovered(elem2)
-        assert elem1.exit_called is True   # First element exit called
+        assert elem1.exit_called is True  # First element exit called
         assert elem2.enter_called is True  # Second element enter called
         assert elem2.exit_called is False
 
