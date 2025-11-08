@@ -109,7 +109,8 @@ class VStackExtension(Extension):
     """Jinja2 extension for {% vstack %} tag.
 
     Syntax:
-        {% vstack width="fill" height="auto" spacing=0 padding=0 %}
+        {% vstack width="fill" height="auto" spacing=0 padding=0
+                  margin=0 align_h="stretch" align_v="stretch" %}
             ... children ...
         {% endvstack %}
     """
@@ -155,7 +156,8 @@ class VStackExtension(Extension):
         return node
 
     def _render_vstack(
-        self, caller, width="fill", height="auto", spacing=0, padding=0, id=None
+        self, caller, width="fill", height="auto", spacing=0, padding=0,
+        margin=0, align_h="stretch", align_v="stretch", id=None
     ) -> str:
         """Render the vstack tag.
 
@@ -171,6 +173,12 @@ class VStackExtension(Extension):
             Spacing between children
         padding : int
             Padding around children
+        margin : int or tuple
+            Margin around container
+        align_h : str
+            Horizontal alignment of children
+        align_v : str
+            Vertical alignment of children
         id : str, optional
             Node identifier
 
@@ -191,6 +199,18 @@ class VStackExtension(Extension):
         spacing = int(spacing)
         padding = int(padding)
 
+        # Parse margin
+        if isinstance(margin, str) and margin.startswith("("):
+            try:
+                margin = eval(margin)
+            except:
+                margin = 0
+        elif isinstance(margin, str):
+            try:
+                margin = int(margin)
+            except:
+                margin = 0
+
         # Create VStack node
         vstack = VStack(
             children=[],
@@ -198,6 +218,9 @@ class VStackExtension(Extension):
             height=height,
             spacing=spacing,
             padding=padding,
+            margin=margin,
+            align_h=align_h,
+            align_v=align_v,
             id=id,
         )
 
@@ -224,7 +247,8 @@ class HStackExtension(Extension):
     """Jinja2 extension for {% hstack %} tag.
 
     Syntax:
-        {% hstack width="auto" height="fill" spacing=0 padding=0 %}
+        {% hstack width="auto" height="fill" spacing=0 padding=0
+                  margin=0 align_h="stretch" align_v="stretch" %}
             ... children ...
         {% endhstack %}
     """
@@ -270,7 +294,8 @@ class HStackExtension(Extension):
         return node
 
     def _render_hstack(
-        self, caller, width="auto", height="fill", spacing=0, padding=0, id=None
+        self, caller, width="auto", height="fill", spacing=0, padding=0,
+        margin=0, align_h="stretch", align_v="stretch", id=None
     ) -> str:
         """Render the hstack tag.
 
@@ -286,6 +311,12 @@ class HStackExtension(Extension):
             Spacing between children
         padding : int
             Padding around children
+        margin : int or tuple
+            Margin around container
+        align_h : str
+            Horizontal alignment of children
+        align_v : str
+            Vertical alignment of children
         id : str, optional
             Node identifier
 
@@ -306,6 +337,18 @@ class HStackExtension(Extension):
         spacing = int(spacing)
         padding = int(padding)
 
+        # Parse margin
+        if isinstance(margin, str) and margin.startswith("("):
+            try:
+                margin = eval(margin)
+            except:
+                margin = 0
+        elif isinstance(margin, str):
+            try:
+                margin = int(margin)
+            except:
+                margin = 0
+
         # Create HStack node
         hstack = HStack(
             children=[],
@@ -313,6 +356,9 @@ class HStackExtension(Extension):
             height=height,
             spacing=spacing,
             padding=padding,
+            margin=margin,
+            align_h=align_h,
+            align_v=align_v,
             id=id,
         )
 
@@ -339,7 +385,9 @@ class FrameExtension(Extension):
     """Jinja2 extension for {% frame %} tag.
 
     Syntax:
-        {% frame title="Title" border="single" width="fill" height="auto" %}
+        {% frame title="Title" border="single" width="fill" height="auto"
+                 margin=0 align_h="stretch" align_v="stretch"
+                 content_align_h="stretch" content_align_v="stretch" %}
             ... content ...
         {% endframe %}
     """
@@ -385,7 +433,18 @@ class FrameExtension(Extension):
         return node
 
     def _render_frame(
-        self, caller, width="fill", height="auto", title=None, border="single", id=None
+        self,
+        caller,
+        width="fill",
+        height="auto",
+        title=None,
+        border="single",
+        margin=0,
+        align_h="stretch",
+        align_v="stretch",
+        content_align_h="stretch",
+        content_align_v="stretch",
+        id=None,
     ) -> str:
         """Render the frame tag.
 
@@ -401,6 +460,16 @@ class FrameExtension(Extension):
             Frame title
         border : str
             Border style
+        margin : int or tuple, optional
+            Margin around frame (default: 0)
+        align_h : str, optional
+            Horizontal alignment of frame within parent (default: "stretch")
+        align_v : str, optional
+            Vertical alignment of frame within parent (default: "stretch")
+        content_align_h : str, optional
+            Horizontal alignment of content within frame (default: "stretch")
+        content_align_v : str, optional
+            Vertical alignment of content within frame (default: "stretch")
         id : str, optional
             Node identifier
 
@@ -419,16 +488,38 @@ class FrameExtension(Extension):
         width = parse_size_attr(width)
         height = parse_size_attr(height)
 
+        # Parse margin - could be int or tuple string like "(1,2,3,4)"
+        if isinstance(margin, str) and margin.startswith("("):
+            # Parse tuple string
+            try:
+                margin = eval(margin)
+            except:
+                margin = 0
+        elif isinstance(margin, str):
+            try:
+                margin = int(margin)
+            except:
+                margin = 0
+
         # Create VStack to hold frame content
         # (Frame is a visual wrapper, we need a container for children)
+        # Note: content_align_h/v controls how children are aligned INSIDE the frame
         frame_container = VStack(
             children=[],
             width=width,
             height=height,
             spacing=0,
             padding=1,  # Frame has implicit padding
+            margin=margin,
+            align_h=content_align_h,  # Use content alignment to position frame's children
+            align_v=content_align_v,
             id=id,
         )
+
+        # Store the frame-level alignment as metadata for potential future use
+        # (Currently, frame-level alignment requires parent container support)
+        frame_container._frame_align_h = align_h
+        frame_container._frame_align_v = align_v
 
         # Store frame styling info on the container
         # (We'll apply this during rendering)

@@ -6,7 +6,7 @@ border styles, titles, and content.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Literal
 
 from ..terminal.ansi import visible_length, clip_to_width
 
@@ -60,11 +60,17 @@ class FrameStyle:
         Frame title
     padding : tuple, optional
         Padding (top, right, bottom, left)
+    content_align_h : {"left", "center", "right", "stretch"}, optional
+        Horizontal alignment of content within frame (default: "stretch")
+    content_align_v : {"top", "middle", "bottom", "stretch"}, optional
+        Vertical alignment of content within frame (default: "stretch")
     """
 
     border: BorderStyle = BorderStyle.SINGLE
     title: Optional[str] = None
     padding: Tuple[int, int, int, int] = (0, 1, 0, 1)  # top, right, bottom, left
+    content_align_h: Literal["left", "center", "right", "stretch"] = "stretch"
+    content_align_v: Literal["top", "middle", "bottom", "stretch"] = "stretch"
 
 
 class Frame:
@@ -136,17 +142,43 @@ class Frame:
                 self._render_empty_line(chars, padding_left, inner_width, padding_right)
             )
 
-        # Content lines
-        for i in range(inner_height):
-            if i < len(self.content):
-                line = self.content[i]
-            else:
-                line = ""
+        # Calculate vertical alignment
+        num_content_lines = len(self.content)
+        if self.style.content_align_v != "stretch" and num_content_lines < inner_height:
+            empty_space = inner_height - num_content_lines
+            if self.style.content_align_v == "middle":
+                top_empty = empty_space // 2
+                bottom_empty = empty_space - top_empty
+            elif self.style.content_align_v == "bottom":
+                top_empty = empty_space
+                bottom_empty = 0
+            else:  # "top"
+                top_empty = 0
+                bottom_empty = empty_space
+        else:
+            # "stretch": fill remaining space after content
+            top_empty = 0
+            bottom_empty = max(0, inner_height - num_content_lines)
 
+        # Top empty lines for vertical alignment
+        for _ in range(top_empty):
+            lines.append(
+                self._render_empty_line(chars, padding_left, inner_width, padding_right)
+            )
+
+        # Content lines
+        for i in range(min(num_content_lines, inner_height)):
+            line = self.content[i]
             lines.append(
                 self._render_content_line(
                     line, chars, padding_left, inner_width, padding_right
                 )
+            )
+
+        # Bottom empty lines (either for alignment or to fill remaining space in stretch mode)
+        for _ in range(bottom_empty):
+            lines.append(
+                self._render_empty_line(chars, padding_left, inner_width, padding_right)
             )
 
         # Bottom padding
@@ -264,14 +296,28 @@ class Frame:
         str
             Rendered content line
         """
-        # Clip content to inner width
+        # Get visible content length
         content_len = visible_length(content)
 
+        # Handle horizontal alignment
         if content_len > inner_width:
+            # Content too wide, clip it
             content = clip_to_width(content, inner_width, ellipsis="")
+        elif self.style.content_align_h == "stretch" or content_len == inner_width:
+            # Stretch to full width or already full width
+            if content_len < inner_width:
+                content = content + " " * (inner_width - content_len)
         elif content_len < inner_width:
-            # Pad to inner width
-            content = content + " " * (inner_width - content_len)
+            # Apply alignment
+            empty_space = inner_width - content_len
+            if self.style.content_align_h == "center":
+                left_space = empty_space // 2
+                right_space = empty_space - left_space
+                content = " " * left_space + content + " " * right_space
+            elif self.style.content_align_h == "right":
+                content = " " * empty_space + content
+            else:  # "left"
+                content = content + " " * empty_space
 
         return (
             chars["v"] + " " * padding_left + content + " " * padding_right + chars["v"]

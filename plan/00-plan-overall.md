@@ -286,7 +286,7 @@ class Frame(Container):
 - [x] Implement 5 border styles (3 done: single, double, rounded)
 - [x] Title rendering (left/center/right) (left position done)
 - [x] Padding support
-- [ ] Margin support
+- [x] Margin support
 - [x] Test all combinations
 
 **Acceptance Criteria:**
@@ -434,6 +434,8 @@ class TextArea(Element):
 - [ ] Line wrapping support
 - [ ] Min/max height constraints
 - [ ] Two-way state binding
+- [ ] Ctrl+left and ctrl+right skip to word boundary
+- [ ] Possibly syntax coloring??
 
 **Acceptance Criteria:**
 - Smooth multiline editing experience

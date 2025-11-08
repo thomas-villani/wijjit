@@ -450,3 +450,482 @@ class TestSizeConstraints:
 
         assert constraints.preferred_width == 20
         assert constraints.preferred_height == 10
+
+
+class TestMarginSupport:
+    """Tests for margin support in containers."""
+
+    def test_uniform_margin_in_constraints(self):
+        """Test uniform margins are added to size constraints."""
+        child = ElementNode(MockElement(width=20, height=3))
+        vstack = VStack(children=[child], margin=2)
+
+        constraints = vstack.calculate_constraints()
+
+        # Width = 20 + 2*2 (margin) = 24
+        # Height = 3 + 2*2 (margin) = 7
+        assert constraints.preferred_width == 24
+        assert constraints.preferred_height == 7
+
+    def test_tuple_margin_in_constraints(self):
+        """Test per-side margins are added to size constraints."""
+        child = ElementNode(MockElement(width=20, height=3))
+        vstack = VStack(children=[child], margin=(1, 2, 3, 4))  # top, right, bottom, left
+
+        constraints = vstack.calculate_constraints()
+
+        # Width = 20 + 4 (left) + 2 (right) = 26
+        # Height = 3 + 1 (top) + 3 (bottom) = 7
+        assert constraints.preferred_width == 26
+        assert constraints.preferred_height == 7
+
+    def test_margin_offset_in_assign_bounds(self):
+        """Test margins offset children positioning."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], margin=(1, 2, 3, 4))  # top, right, bottom, left
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 20, 10)
+
+        # Child should be offset by left and top margins
+        # x = 0 + 4 (left margin) = 4
+        # y = 0 + 1 (top margin) = 1
+        assert child.bounds.x == 4
+        assert child.bounds.y == 1
+
+    def test_margin_with_padding(self):
+        """Test margins work with padding."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], margin=2, padding=1)
+
+        constraints = vstack.calculate_constraints()
+
+        # Width = 10 + 2*1 (padding) + 2*2 (margin) = 16
+        # Height = 2 + 2*1 (padding) + 2*2 (margin) = 8
+        assert constraints.preferred_width == 16
+        assert constraints.preferred_height == 8
+
+
+class TestFrameLevelAlignment:
+    """Tests for frame-level alignment (align_h, align_v) in containers."""
+
+    def test_horizontal_alignment_left(self):
+        """Test horizontal left alignment in VStack."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], align_h="left")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should be left-aligned
+        # x = 0 (left aligned)
+        # width = 10 (child's preferred width)
+        assert child.bounds.x == 0
+        assert child.bounds.width == 10
+
+    def test_horizontal_alignment_center(self):
+        """Test horizontal center alignment in VStack."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], align_h="center")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should be center-aligned
+        # Available width = 30, child width = 10
+        # x = 0 + (30 - 10) // 2 = 10
+        assert child.bounds.x == 10
+        assert child.bounds.width == 10
+
+    def test_horizontal_alignment_right(self):
+        """Test horizontal right alignment in VStack."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], align_h="right")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should be right-aligned
+        # Available width = 30, child width = 10
+        # x = 0 + (30 - 10) = 20
+        assert child.bounds.x == 20
+        assert child.bounds.width == 10
+
+    def test_horizontal_alignment_stretch(self):
+        """Test horizontal stretch alignment in VStack (default)."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], align_h="stretch")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should stretch to fill width
+        # x = 0, width = 30 (full width)
+        assert child.bounds.x == 0
+        assert child.bounds.width == 30
+
+    def test_vertical_alignment_top(self):
+        """Test vertical top alignment in HStack."""
+        child = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child], align_v="top")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should be top-aligned
+        # y = 0 (top aligned)
+        # height = 2 (child's preferred height)
+        assert child.bounds.y == 0
+        assert child.bounds.height == 2
+
+    def test_vertical_alignment_middle(self):
+        """Test vertical middle alignment in HStack."""
+        child = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child], align_v="middle")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should be middle-aligned
+        # Available height = 10, child height = 2
+        # y = 0 + (10 - 2) // 2 = 4
+        assert child.bounds.y == 4
+        assert child.bounds.height == 2
+
+    def test_vertical_alignment_bottom(self):
+        """Test vertical bottom alignment in HStack."""
+        child = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child], align_v="bottom")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should be bottom-aligned
+        # Available height = 10, child height = 2
+        # y = 0 + (10 - 2) = 8
+        assert child.bounds.y == 8
+        assert child.bounds.height == 2
+
+    def test_vertical_alignment_stretch(self):
+        """Test vertical stretch alignment in HStack (default)."""
+        child = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child], align_v="stretch")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Child should stretch to fill height
+        # y = 0, height = 10 (full height)
+        assert child.bounds.y == 0
+        assert child.bounds.height == 10
+
+
+class TestVStackVerticalAlignment:
+    """Tests for vertical alignment in VStack (positioning groups of children)."""
+
+    def test_vstack_vertical_alignment_top(self):
+        """Test VStack vertical top alignment with multiple children."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2], align_v="top")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # Children should be positioned at the top (no offset)
+        assert child1.bounds.y == 0
+        assert child2.bounds.y == 2
+
+    def test_vstack_vertical_alignment_middle(self):
+        """Test VStack vertical middle alignment with multiple children."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2], align_v="middle")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # Total children height = 2 + 2 = 4
+        # Available height = 20
+        # Offset = (20 - 4) // 2 = 8
+        assert child1.bounds.y == 8
+        assert child2.bounds.y == 10
+
+    def test_vstack_vertical_alignment_bottom(self):
+        """Test VStack vertical bottom alignment with multiple children."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2], align_v="bottom")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # Total children height = 2 + 2 = 4
+        # Available height = 20
+        # Offset = 20 - 4 = 16
+        assert child1.bounds.y == 16
+        assert child2.bounds.y == 18
+
+    def test_vstack_vertical_alignment_with_spacing(self):
+        """Test VStack vertical middle alignment with spacing."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        child3 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2, child3], spacing=1, align_v="middle")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # Total children height = 2 + 2 + 2 = 6
+        # Total spacing = 2 * 1 = 2
+        # Total height = 6 + 2 = 8
+        # Available height = 20
+        # Offset = (20 - 8) // 2 = 6
+        assert child1.bounds.y == 6
+        assert child2.bounds.y == 9  # 6 + 2 + 1 (spacing)
+        assert child3.bounds.y == 12  # 9 + 2 + 1 (spacing)
+
+    def test_vstack_vertical_alignment_with_padding(self):
+        """Test VStack vertical middle alignment with padding."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2], padding=2, align_v="middle")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # Content area = 20 - 2*2 (padding) = 16
+        # Total children height = 2 + 2 = 4
+        # Offset within content area = (16 - 4) // 2 = 6
+        # Actual y position = 2 (padding) + 6 (offset) = 8
+        assert child1.bounds.y == 8
+        assert child2.bounds.y == 10
+
+    def test_vstack_vertical_alignment_stretch_default(self):
+        """Test VStack vertical stretch alignment (default behavior)."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2], align_v="stretch")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # With stretch, children should be positioned from the top (no offset)
+        assert child1.bounds.y == 0
+        assert child2.bounds.y == 2
+
+    def test_vstack_vertical_alignment_with_fill_child(self):
+        """Test VStack vertical alignment with fill children (should disable alignment)."""
+        child1 = ElementNode(MockElement(width=10, height=2), height="fill")
+        child2 = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child1, child2], align_v="middle")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # When there are fill children, vertical alignment should be disabled
+        # Children should be positioned from the top
+        assert child1.bounds.y == 0
+
+
+class TestHStackHorizontalAlignment:
+    """Tests for horizontal alignment in HStack (positioning groups of children)."""
+
+    def test_hstack_horizontal_alignment_left(self):
+        """Test HStack horizontal left alignment with multiple children."""
+        child1 = ElementNode(MockElement(width=5, height=2))
+        child2 = ElementNode(MockElement(width=5, height=2))
+        hstack = HStack(children=[child1, child2], align_h="left")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Children should be positioned at the left (no offset)
+        assert child1.bounds.x == 0
+        assert child2.bounds.x == 5
+
+    def test_hstack_horizontal_alignment_center(self):
+        """Test HStack horizontal center alignment with multiple children."""
+        child1 = ElementNode(MockElement(width=5, height=2))
+        child2 = ElementNode(MockElement(width=5, height=2))
+        hstack = HStack(children=[child1, child2], align_h="center")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Total children width = 5 + 5 = 10
+        # Available width = 30
+        # Offset = (30 - 10) // 2 = 10
+        assert child1.bounds.x == 10
+        assert child2.bounds.x == 15
+
+    def test_hstack_horizontal_alignment_right(self):
+        """Test HStack horizontal right alignment with multiple children."""
+        child1 = ElementNode(MockElement(width=5, height=2))
+        child2 = ElementNode(MockElement(width=5, height=2))
+        hstack = HStack(children=[child1, child2], align_h="right")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 30, 10)
+
+        # Total children width = 5 + 5 = 10
+        # Available width = 30
+        # Offset = 30 - 10 = 20
+        assert child1.bounds.x == 20
+        assert child2.bounds.x == 25
+
+    def test_hstack_horizontal_alignment_with_spacing(self):
+        """Test HStack horizontal center alignment with spacing."""
+        child1 = ElementNode(MockElement(width=5, height=2))
+        child2 = ElementNode(MockElement(width=5, height=2))
+        child3 = ElementNode(MockElement(width=5, height=2))
+        hstack = HStack(children=[child1, child2, child3], spacing=2, align_h="center")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 40, 10)
+
+        # Total children width = 5 + 5 + 5 = 15
+        # Total spacing = 2 * 2 = 4
+        # Total width = 15 + 4 = 19
+        # Available width = 40
+        # Offset = (40 - 19) // 2 = 10
+        assert child1.bounds.x == 10
+        assert child2.bounds.x == 17  # 10 + 5 + 2 (spacing)
+        assert child3.bounds.x == 24  # 17 + 5 + 2 (spacing)
+
+
+class TestMarginAndAlignmentIntegration:
+    """Integration tests for margin and alignment working together."""
+
+    def test_margin_with_horizontal_alignment(self):
+        """Test margin combined with horizontal alignment."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], margin=2, align_h="center")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 10)
+
+        # Content area after margins = 30 - 2*2 (horizontal margins) = 26
+        # Child width = 10
+        # Horizontal offset = (26 - 10) // 2 = 8
+        # Actual x = 0 + 2 (left margin) + 8 (alignment offset) = 10
+        assert child.bounds.x == 10
+        # Vertical position with top margin
+        assert child.bounds.y == 2
+
+    def test_margin_with_vertical_alignment(self):
+        """Test margin combined with vertical alignment."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], margin=2, align_v="middle")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # Content area after margins = 20 - 2*2 (vertical margins) = 16
+        # Child height = 2
+        # Vertical offset = (16 - 2) // 2 = 7
+        # Actual y = 0 + 2 (top margin) + 7 (alignment offset) = 9
+        assert child.bounds.y == 9
+
+    def test_margin_padding_alignment_combined(self):
+        """Test margin, padding, and alignment all combined."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(
+            children=[child], margin=2, padding=1, align_h="center", align_v="middle"
+        )
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 40, 20)
+
+        # Content area after margins = 40 - 2*2 (horizontal margins) = 36
+        # Content area after padding = 36 - 2*1 (horizontal padding) = 34
+        # Child width = 10
+        # Horizontal offset = (34 - 10) // 2 = 12
+        # Actual x = 0 + 2 (left margin) + 1 (left padding) + 12 (alignment) = 15
+        assert child.bounds.x == 15
+
+        # Vertical: area after margins = 20 - 2*2 = 16
+        # Area after padding = 16 - 2*1 = 14
+        # Child height = 2
+        # Vertical offset = (14 - 2) // 2 = 6
+        # Actual y = 0 + 2 (top margin) + 1 (top padding) + 6 (alignment) = 9
+        assert child.bounds.y == 9
+
+    def test_nested_containers_with_alignment(self):
+        """Test nested containers with different alignments."""
+        # Create nested structure: outer VStack with centered HStack
+        # Set HStack height to "auto" so it doesn't fill (default is "fill")
+        elem1 = ElementNode(MockElement(width=5, height=2, id="e1"))
+        elem2 = ElementNode(MockElement(width=5, height=2, id="e2"))
+        inner_hstack = HStack(children=[elem1, elem2], spacing=2, height="auto")
+
+        outer_vstack = VStack(children=[inner_hstack], align_h="center", align_v="middle")
+
+        outer_vstack.calculate_constraints()
+        outer_vstack.assign_bounds(0, 0, 40, 20)
+
+        # HStack size = 5 + 5 + 2 (spacing) = 12 width, 2 height
+        # Horizontal centering: (40 - 12) // 2 = 14
+        # Vertical centering: (20 - 2) // 2 = 9
+        assert inner_hstack.bounds.x == 14
+        assert inner_hstack.bounds.y == 9
+        assert inner_hstack.bounds.height == 2  # Should have auto height, not fill
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_zero_margin(self):
+        """Test margin=0 behaves like no margin."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], margin=0)
+
+        constraints = vstack.calculate_constraints()
+        assert constraints.preferred_width == 10
+        assert constraints.preferred_height == 2
+
+        vstack.assign_bounds(0, 0, 20, 10)
+        assert child.bounds.x == 0
+        assert child.bounds.y == 0
+
+    def test_margin_tuple_with_zeros(self):
+        """Test margin tuple with some zero values."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], margin=(0, 2, 0, 3))
+
+        constraints = vstack.calculate_constraints()
+        # Width = 10 + 3 (left) + 2 (right) = 15
+        # Height = 2 + 0 (top) + 0 (bottom) = 2
+        assert constraints.preferred_width == 15
+        assert constraints.preferred_height == 2
+
+    def test_alignment_when_child_fills_space(self):
+        """Test alignment has no effect when child fills available space."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], align_h="center")
+
+        vstack.calculate_constraints()
+        # Assign bounds exactly matching child size
+        vstack.assign_bounds(0, 0, 10, 2)
+
+        # No extra space, so centering has no effect
+        assert child.bounds.x == 0
+
+    def test_multiple_children_mixed_sizes_alignment(self):
+        """Test alignment with multiple children of different sizes."""
+        child1 = ElementNode(MockElement(width=5, height=2))
+        child2 = ElementNode(MockElement(width=15, height=3))
+        child3 = ElementNode(MockElement(width=10, height=1))
+        vstack = VStack(children=[child1, child2, child3], align_h="center")
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 20)
+
+        # VStack width is determined by widest child (15)
+        # Each child should be centered within the 30-width container
+        # child1 (width=5): offset = (30 - 5) // 2 = 12
+        # child2 (width=15): offset = (30 - 15) // 2 = 7
+        # child3 (width=10): offset = (30 - 10) // 2 = 10
+        assert child1.bounds.x == 12
+        assert child2.bounds.x == 7
+        assert child3.bounds.x == 10

@@ -5,7 +5,7 @@ and size of UI elements in the terminal.
 """
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Tuple
 
 
 @dataclass
@@ -244,3 +244,32 @@ def parse_size(value: Union[int, str, Size]) -> Size:
     if isinstance(value, Size):
         return value
     return Size(value)
+
+
+def parse_margin(value: Union[int, Tuple[int, int, int, int]]) -> Tuple[int, int, int, int]:
+    """Parse a margin value into a normalized 4-tuple.
+
+    Parameters
+    ----------
+    value : int or tuple of int
+        Margin specification. If int, applies uniformly to all sides.
+        If tuple, specifies (top, right, bottom, left) margins.
+
+    Returns
+    -------
+    tuple of int
+        Normalized 4-tuple (top, right, bottom, left)
+
+    Examples
+    --------
+    >>> parse_margin(2)
+    (2, 2, 2, 2)
+    >>> parse_margin((1, 2, 3, 4))
+    (1, 2, 3, 4)
+    """
+    if isinstance(value, int):
+        return (value, value, value, value)
+    elif isinstance(value, tuple) and len(value) == 4:
+        return value
+    else:
+        raise ValueError(f"Margin must be int or 4-tuple, got {type(value)}")
