@@ -5,6 +5,7 @@ This example shows the TextArea element with:
 - Keyboard navigation (arrows, home/end, word boundaries)
 - Scrolling for large content
 - Mouse support (click to position, wheel to scroll)
+- Line wrapping modes (none, soft, hard)
 - Real-time status display
 
 Run with: python examples/textarea_demo.py
@@ -18,6 +19,7 @@ Controls:
 - Page Up/Down: Scroll viewport
 - Click: Position cursor
 - Mouse wheel: Scroll content
+- F1/F2/F3: Switch wrap modes (none/soft/hard)
 - q: Quit
 """
 
@@ -43,7 +45,7 @@ def create_app():
     # Initial content for the textarea
     initial_content = """Welcome to Wijjit TextArea!
 
-This is a multiline text editor component. Try these features:
+This is a multiline text editor component with line wrapping support. Try these features:
 
 EDITING:
 - Type to insert text
@@ -65,6 +67,13 @@ MOUSE:
 - Click to position cursor
 - Wheel to scroll content
 
+LINE WRAPPING MODES (F1/F2/F3):
+- F1: No wrapping - long lines extend beyond viewport
+- F2: Soft wrapping - visual wrapping only, original text unchanged
+- F3: Hard wrapping - inserts actual newlines when lines exceed width
+
+Try typing a very long line to see how wrapping works! For example: This is a deliberately long line that will demonstrate the wrapping behavior when it exceeds the width of the text area, showing how the different wrap modes handle text that is too wide to fit.
+
 Press 'q' to quit. Happy editing!"""
 
     # Initialize app
@@ -73,6 +82,7 @@ Press 'q' to quit. Happy editing!"""
         "cursor_pos": "0:0",
         "lines": 0,
         "chars": 0,
+        "wrap_mode": "none",
     })
 
     # Create TextArea element
@@ -130,6 +140,7 @@ Press 'q' to quit. Happy editing!"""
 
             # Build UI
             border = "=" * term_width
+            wrap_mode_display = app.state.get('wrap_mode', 'none').upper()
             content_lines = [
                 border,
                 "  TEXTAREA DEMO",
@@ -139,9 +150,10 @@ Press 'q' to quit. Happy editing!"""
                 "",
                 border,
                 f"  Cursor: {app.state['cursor_pos']}  |  Lines: {app.state['lines']}  "
-                f"|  Chars: {app.state['chars']}  |  Scroll: {scroll_pos}/{scroll_max} ({scroll_pct}%)",
+                f"|  Chars: {app.state['chars']}  |  Scroll: {scroll_pos}/{scroll_max} ({scroll_pct}%)  "
+                f"|  Wrap: {wrap_mode_display}",
                 border,
-                "  [Arrows] Navigate  [Home/End] Line  [Ctrl+Home/End] Document  [PgUp/PgDn] Scroll  [Esc/Ctrl+Q] Quit",
+                "  [Arrows] Navigate  [F1/F2/F3] Wrap Mode  [PgUp/PgDn] Scroll  [Esc/Ctrl+Q] Quit",
                 border,
             ]
 
@@ -165,6 +177,35 @@ Press 'q' to quit. Happy editing!"""
             if event.key == "escape" or (event.key == "q" and event.ctrl):
                 app.quit()
                 event.cancel()  # Prevent further handling
+                return
+
+            # Handle wrap mode switching with F1/F2/F3
+            if event.key == "f1":
+                textarea.wrap_mode = "none"
+                app.state["wrap_mode"] = "none"
+                # Update scroll manager for new wrap mode
+                visual_line_count = textarea._calculate_total_visual_lines()
+                textarea.scroll_manager.update_content_size(visual_line_count)
+                app.refresh()
+                event.cancel()
+                return
+            elif event.key == "f2":
+                textarea.wrap_mode = "soft"
+                app.state["wrap_mode"] = "soft"
+                # Update scroll manager for new wrap mode
+                visual_line_count = textarea._calculate_total_visual_lines()
+                textarea.scroll_manager.update_content_size(visual_line_count)
+                app.refresh()
+                event.cancel()
+                return
+            elif event.key == "f3":
+                textarea.wrap_mode = "hard"
+                app.state["wrap_mode"] = "hard"
+                # Update scroll manager for new wrap mode
+                visual_line_count = textarea._calculate_total_visual_lines()
+                textarea.scroll_manager.update_content_size(visual_line_count)
+                app.refresh()
+                event.cancel()
                 return
 
             # Focus manager and textarea handle other keys automatically

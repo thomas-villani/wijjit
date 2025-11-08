@@ -150,6 +150,20 @@ class Keys:
     PAGE_UP = Key("pageup", KeyType.SPECIAL)
     PAGE_DOWN = Key("pagedown", KeyType.SPECIAL)
 
+    # Function keys
+    F1 = Key("f1", KeyType.SPECIAL)
+    F2 = Key("f2", KeyType.SPECIAL)
+    F3 = Key("f3", KeyType.SPECIAL)
+    F4 = Key("f4", KeyType.SPECIAL)
+    F5 = Key("f5", KeyType.SPECIAL)
+    F6 = Key("f6", KeyType.SPECIAL)
+    F7 = Key("f7", KeyType.SPECIAL)
+    F8 = Key("f8", KeyType.SPECIAL)
+    F9 = Key("f9", KeyType.SPECIAL)
+    F10 = Key("f10", KeyType.SPECIAL)
+    F11 = Key("f11", KeyType.SPECIAL)
+    F12 = Key("f12", KeyType.SPECIAL)
+
     # Control keys
     CTRL_C = Key("ctrl+c", KeyType.CONTROL, "\x03")
     CTRL_D = Key("ctrl+d", KeyType.CONTROL, "\x04")
@@ -210,6 +224,19 @@ PROMPT_TOOLKIT_KEY_MAP = {
     PTKeys.ControlEnd: Key("ctrl+end", KeyType.SPECIAL),
     PTKeys.ControlLeft: Key("ctrl+left", KeyType.SPECIAL),
     PTKeys.ControlRight: Key("ctrl+right", KeyType.SPECIAL),
+    # Function keys
+    PTKeys.F1: Keys.F1,
+    PTKeys.F2: Keys.F2,
+    PTKeys.F3: Keys.F3,
+    PTKeys.F4: Keys.F4,
+    PTKeys.F5: Keys.F5,
+    PTKeys.F6: Keys.F6,
+    PTKeys.F7: Keys.F7,
+    PTKeys.F8: Keys.F8,
+    PTKeys.F9: Keys.F9,
+    PTKeys.F10: Keys.F10,
+    PTKeys.F11: Keys.F11,
+    PTKeys.F12: Keys.F12,
 }
 
 
