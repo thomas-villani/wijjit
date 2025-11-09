@@ -27,6 +27,9 @@ from .core.state import State
 from .elements.base import Container, Element, ElementType
 from .elements.input import Button, TextArea, TextInput
 
+# Helpers
+from .helpers import load_filesystem_tree
+
 # Layout components
 from .layout.bounds import Bounds, Size, parse_size
 from .layout.frames import BorderStyle, Frame, FrameStyle
@@ -95,4 +98,6 @@ __all__ = [
     "TextInput",
     "Button",
     "TextArea",
+    # Helpers
+    "load_filesystem_tree",
 ]

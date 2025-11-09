@@ -11,6 +11,7 @@ from .tags import (
     SelectExtension,
     TableExtension,
     TextInputExtension,
+    TreeExtension,
     VStackExtension,
 )
 
@@ -22,4 +23,5 @@ __all__ = [
     "ButtonExtension",
     "SelectExtension",
     "TableExtension",
+    "TreeExtension",
 ]

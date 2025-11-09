@@ -708,7 +708,7 @@ class Wijjit:
         elements : list
             List of positioned elements
         """
-        from ..elements.display import Table
+        from ..elements.display import Table, Tree
         from ..elements.input import Button, Select, TextInput
 
         for elem in elements:
@@ -775,6 +775,18 @@ class Wijjit:
                         self.state[skey] = position
 
                     elem.on_scroll = on_scroll_handler
+
+            # Wire up Tree callbacks
+            if isinstance(elem, Tree):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+
+                    def on_select_handler(node, aid=action_id):
+                        # Dispatch action with node data
+                        self._dispatch_action(aid, data=node)
+
+                    elem.on_select = on_select_handler
 
     def _handle_tab_key(self, event: KeyEvent) -> None:
         """Handle Tab/Shift+Tab for focus navigation.
@@ -942,17 +954,19 @@ class Wijjit:
                 return elem
         return None
 
-    def _dispatch_action(self, action_id: str) -> None:
+    def _dispatch_action(self, action_id: str, data: Any = None) -> None:
         """Dispatch an action event to registered action handlers.
 
         Parameters
         ----------
         action_id : str
             The action ID to dispatch
+        data : Any, optional
+            Additional data to include with the action event
         """
         if action_id in self._action_handlers:
-            # Create action event
-            action_event = ActionEvent(action_id=action_id)
+            # Create action event with optional data
+            action_event = ActionEvent(action_id=action_id, data=data)
 
             # Call the handler
             try:

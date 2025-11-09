@@ -20,6 +20,7 @@ from ..template.tags import (
     SelectExtension,
     TableExtension,
     TextInputExtension,
+    TreeExtension,
     VStackExtension,
 )
 
@@ -67,6 +68,7 @@ class Renderer:
                 ButtonExtension,
                 SelectExtension,
                 TableExtension,
+                TreeExtension,
             ],
         )
 

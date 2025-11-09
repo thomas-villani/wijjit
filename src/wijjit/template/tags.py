@@ -11,7 +11,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 
 from ..elements.base import TextElement
-from ..elements.display import Table
+from ..elements.display import Table, Tree
 from ..elements.input import Button, Select, TextInput
 from ..layout.engine import ElementNode, HStack, LayoutNode, VStack
 
@@ -1239,6 +1239,258 @@ class TableExtension(Extension):
         # Create ElementNode
         # Table has fixed dimensions, so use exact width and height
         node = ElementNode(table, width=width, height=height)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        # Return empty string (layout will be processed later)
+        return ""
+
+
+class TreeExtension(Extension):
+    """Jinja2 extension for {% tree %} tag.
+
+    Syntax:
+        {% tree id="filetree"
+                data=state.file_tree
+                width=40
+                height=20
+                on_select="file_selected"
+                show_scrollbar=true
+                show_root=true %}
+        {% endtree %}
+    """
+
+    tags = {"tree"}
+
+    def parse(self, parser):
+        """Parse the tree tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endtree"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endtree)
+        node = nodes.CallBlock(
+            self.call_method("_render_tree", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endtree"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_tree(
+        self,
+        caller,
+        id=None,
+        data=None,
+        width=40,
+        height=15,
+        show_scrollbar=True,
+        show_root=True,
+        indent_size=2,
+        on_select=None,
+        expanded=None,
+        bind=True,
+    ) -> str:
+        """Render the tree tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        data : dict or list, optional
+            Tree data (nested dict or flat list)
+        width : int
+            Tree width (default: 40)
+        height : int
+            Tree height (default: 15)
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        show_root : bool
+            Whether to show root node (default: True)
+        indent_size : int
+            Indentation per level (default: 2)
+        on_select : str, optional
+            Action ID to dispatch when node is selected
+        expanded : str or list, optional
+            Expansion state binding. If a string, it's treated as a state key
+            name for two-way binding (tree reads from and writes to this key).
+            If a list, it's used for one-time initialization only.
+            Examples:
+                expanded="expanded_nodes"  # Two-way binding to state["expanded_nodes"]
+                expanded=["node1", "node2"]  # One-time initialization
+        bind : bool
+            Whether to auto-bind data to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            # No layout context available, skip
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+        indent_size = int(indent_size)
+        show_scrollbar = bool(show_scrollbar)
+        show_root = bool(show_root)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("tree")
+
+        # If binding is enabled and id is provided, try to get data from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        data = state[id]
+            except Exception:
+                pass
+
+        # Create Tree element
+        tree = Tree(
+            id=id,
+            data=data,
+            width=width,
+            height=height,
+            show_scrollbar=show_scrollbar,
+            show_root=show_root,
+            indent_size=indent_size,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            tree.focused = True
+
+        # Store action ID if provided
+        # The action will be dispatched by the app when on_select is called
+        if on_select:
+            tree.action = on_select
+
+        # Store bind setting
+        tree.bind = bind
+
+        # Restore scroll position, expansion state, and highlighted index from state
+        if id:
+            # Set state keys
+            scroll_key = f"_scroll_{id}"
+            expand_key = f"_expand_{id}"
+            highlight_key = f"_highlight_{id}"
+            selected_key = f"_selected_{id}"
+
+            tree.scroll_state_key = scroll_key
+            tree.expand_state_key = expand_key
+            tree.highlight_state_key = highlight_key
+            tree.selected_state_key = selected_key
+
+            # Give tree access to state dict for saving
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    tree._state_dict = ctx["state"]
+            except Exception:
+                pass
+
+            # Restore expansion state (do this first, before highlight)
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+
+                    # Check if expanded parameter is a string (state key name for two-way binding)
+                    if isinstance(expanded, str):
+                        # Two-way binding: use user's state key
+                        tree.expand_state_key = expanded
+                        if expanded in state:
+                            tree.expanded_nodes = set(state[expanded])
+                        else:
+                            tree.expanded_nodes = set()
+                        tree._rebuild_nodes()
+                    elif expanded is not None:
+                        # One-way binding: use provided list for initialization only
+                        # Tree will save to internal _expand_{id} key
+                        if expand_key in state:
+                            # Prefer saved state over parameter
+                            tree.expanded_nodes = set(state[expand_key])
+                        else:
+                            # Initialize from parameter
+                            tree.expanded_nodes = (
+                                set(expanded) if isinstance(expanded, list) else set()
+                            )
+                        tree._rebuild_nodes()
+                    else:
+                        # No expanded parameter: use internal state key
+                        if expand_key in state:
+                            tree.expanded_nodes = set(state[expand_key])
+                            tree._rebuild_nodes()
+            except Exception:
+                # Fall back to parameter if state restoration fails
+                if expanded:
+                    tree.expanded_nodes = (
+                        set(expanded) if isinstance(expanded, list) else set()
+                    )
+                    tree._rebuild_nodes()
+
+            # Restore scroll position
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if scroll_key in state:
+                        tree.scroll_manager.scroll_to(state[scroll_key])
+            except Exception:
+                pass
+
+            # Restore highlighted index
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if highlight_key in state:
+                        tree.highlighted_index = state[highlight_key]
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Tree has fixed dimensions, so use exact width and height
+        node = ElementNode(tree, width=width, height=height)
 
         # Add to layout context
         context.add_element(node)
