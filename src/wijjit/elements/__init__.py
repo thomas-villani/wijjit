@@ -1,7 +1,8 @@
 """UI elements for Wijjit applications."""
 
 from .base import Container, Element, ElementType, TextElement
-from .input import Button, TextArea, TextInput
+from .display import Table
+from .input import Button, Select, TextArea, TextInput
 
 __all__ = [
     "Element",
@@ -10,5 +11,7 @@ __all__ = [
     "ElementType",
     "TextInput",
     "Button",
+    "Select",
     "TextArea",
+    "Table",
 ]

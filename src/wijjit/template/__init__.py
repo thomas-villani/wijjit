@@ -8,6 +8,8 @@ from .tags import (
     ButtonExtension,
     FrameExtension,
     HStackExtension,
+    SelectExtension,
+    TableExtension,
     TextInputExtension,
     VStackExtension,
 )
@@ -18,4 +20,6 @@ __all__ = [
     "HStackExtension",
     "TextInputExtension",
     "ButtonExtension",
+    "SelectExtension",
+    "TableExtension",
 ]

@@ -18,6 +18,7 @@ from ..template.tags import (
     HStackExtension,
     LayoutContext,
     SelectExtension,
+    TableExtension,
     TextInputExtension,
     VStackExtension,
 )
@@ -65,6 +66,7 @@ class Renderer:
                 TextInputExtension,
                 ButtonExtension,
                 SelectExtension,
+                TableExtension,
             ],
         )
 

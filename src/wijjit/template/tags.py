@@ -11,6 +11,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 
 from ..elements.base import TextElement
+from ..elements.display import Table
 from ..elements.input import Button, Select, TextInput
 from ..layout.engine import ElementNode, HStack, LayoutNode, VStack
 
@@ -1065,3 +1066,185 @@ class SelectExtension(Extension):
             options.append(line)
 
         return options
+
+
+class TableExtension(Extension):
+    """Jinja2 extension for {% table %} tag.
+
+    Syntax:
+        {% table id="users"
+                 data=state.users
+                 columns=["Name", "Email", "Status"]
+                 sortable=true
+                 width=80
+                 height=15 %}
+        {% endtable %}
+    """
+
+    tags = {"table"}
+
+    def parse(self, parser):
+        """Parse the table tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endtable"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endtable)
+        node = nodes.CallBlock(
+            self.call_method("_render_table", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endtable"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_table(
+        self,
+        caller,
+        id=None,
+        data=None,
+        columns=None,
+        width=60,
+        height=10,
+        sortable=False,
+        show_header=True,
+        show_scrollbar=True,
+        border_style="single",
+        bind=True,
+    ) -> str:
+        """Render the table tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        data : list of dict, optional
+            Table data
+        columns : list, optional
+            Column definitions
+        width : int
+            Table width (default: 60)
+        height : int
+            Table height (default: 10)
+        sortable : bool
+            Whether columns are sortable (default: False)
+        show_header : bool
+            Whether to show header row (default: True)
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Rich border style (default: "single")
+        bind : bool
+            Whether to auto-bind data to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            # No layout context available, skip
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+        sortable = bool(sortable)
+        show_header = bool(show_header)
+        show_scrollbar = bool(show_scrollbar)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("table")
+
+        # If binding is enabled and id is provided, try to get data from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        data = state[id]
+            except Exception:
+                pass
+
+        # Ensure data is a list
+        if data is None:
+            data = []
+        elif not isinstance(data, list):
+            data = list(data)
+
+        # Ensure columns is a list
+        if columns is None:
+            columns = []
+        elif not isinstance(columns, list):
+            columns = list(columns)
+
+        # Create Table element
+        table = Table(
+            id=id,
+            data=data,
+            columns=columns,
+            width=width,
+            height=height,
+            sortable=sortable,
+            show_header=show_header,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+        )
+
+        # Store bind setting
+        table.bind = bind
+
+        # Restore scroll position from state if available
+        if id:
+            scroll_key = f"_scroll_{id}"
+            table.scroll_state_key = scroll_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if scroll_key in state:
+                        table.restore_scroll_position(state[scroll_key])
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Table has fixed dimensions, so use exact width and height
+        node = ElementNode(table, width=width, height=height)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        # Return empty string (layout will be processed later)
+        return ""

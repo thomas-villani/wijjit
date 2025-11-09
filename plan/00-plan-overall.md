@@ -476,10 +476,10 @@ class Select(Element):
 ```
 
 **Tasks:**
-- [ ] Options rendering
-- [ ] Arrow key navigation
-- [ ] Selection display
-- [ ] Scroll long lists
+- [x] Options rendering
+- [x] Arrow key navigation
+- [x] Selection display
+- [x] Scroll long lists
 - [ ] Search/filter (future)
 
 **Acceptance Criteria:**
@@ -501,7 +501,7 @@ class FocusManager:
 - [x] Track focusable elements
 - [x] Tab navigation
 - [x] Shift+Tab reverse
-- [ ] Mouse focus
+- [x] Mouse focus
 - [x] Focus indicators
 
 **Acceptance Criteria:**

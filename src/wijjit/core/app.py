@@ -708,6 +708,7 @@ class Wijjit:
         elements : list
             List of positioned elements
         """
+        from ..elements.display import Table
         from ..elements.input import Button, Select, TextInput
 
         for elem in elements:
@@ -763,6 +764,17 @@ class Wijjit:
                         self.state[eid] = new_val
 
                     elem.on_change = on_change_handler
+
+            # Wire up Table scroll position persistence
+            if isinstance(elem, Table):
+                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
+                    scroll_key = elem.scroll_state_key
+
+                    def on_scroll_handler(position, skey=scroll_key):
+                        # Update state when scroll position changes
+                        self.state[skey] = position
+
+                    elem.on_scroll = on_scroll_handler
 
     def _handle_tab_key(self, event: KeyEvent) -> None:
         """Handle Tab/Shift+Tab for focus navigation.
