@@ -971,9 +971,19 @@ class FrameNode(Container):
         -------
         list of Element
             Frame element plus all child elements
+
+        Notes
+        -----
+        If the frame has child elements, only include the frame if it has
+        content set. Otherwise, frame borders are rendered via the legacy
+        _render_frames() path to avoid double-rendering conflicts.
         """
-        # Frame itself is an element (it has render() and bounds)
-        elements = [self.frame]
+        elements = []
+
+        # Only include Frame object if it has actual content to render
+        # If frame has children, borders will be drawn by _render_frames()
+        if self.frame.content:
+            elements.append(self.frame)
 
         # Add children elements
         for child in self.content_container.children:

@@ -352,6 +352,31 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
     if current_length > width and ellipsis:
         output += ellipsis
 
+    # IMPORTANT: Preserve trailing ANSI codes (especially RESET) from the clipped portion
+    # This prevents style bleeding when text is clipped
+    trailing_ansi = []
+    while i < len(text):
+        if text[i : i + 2] == "\x1b[":
+            # Found trailing ANSI escape sequence
+            end = i + 2
+            while (
+                end < len(text)
+                and text[end]
+                not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            ):
+                end += 1
+            if end < len(text):
+                end += 1
+            trailing_ansi.append(text[i:end])
+            i = end
+        else:
+            # Skip non-ANSI characters in clipped portion
+            i += 1
+
+    # Append trailing ANSI codes (like RESET) to prevent style bleeding
+    if trailing_ansi:
+        output += "".join(trailing_ansi)
+
     return output
 
 

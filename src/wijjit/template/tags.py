@@ -612,6 +612,7 @@ class FrameExtension(Extension):
             width=frame_width,
             height=frame_height,
             style=frame_style,
+            id=id,
         )
 
         # Create FrameNode to hold frame and children

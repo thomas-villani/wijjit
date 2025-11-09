@@ -310,7 +310,7 @@ class Renderer:
                 pending_ansi = ""  # Accumulate consecutive ANSI sequences
                 last_visible_pos = -1  # Track last written position for trailing ANSI
 
-                while i_char < len(clipped_line) and visible_pos < remaining_width:
+                while i_char < len(clipped_line):
                     # Check if we're at the start of an ANSI sequence
                     if clipped_line[i_char : i_char + 2] == "\x1b[":
                         # Find the end of the ANSI sequence
@@ -335,7 +335,11 @@ class Renderer:
                             pending_ansi = (
                                 ""  # Clear pending after writing to first char
                             )
-                        visible_pos += 1
+                            visible_pos += 1
+                        else:
+                            # Past visible width - stop processing visible chars
+                            # but continue to collect trailing ANSI codes
+                            visible_pos += 1
                         i_char += 1
 
                 # If there are trailing ANSI codes (like RESET), append them to the last character
@@ -371,15 +375,33 @@ class Renderer:
         from ..layout.engine import Container, FrameNode
         from ..layout.frames import BorderStyle
 
-        # Skip FrameNode - it renders itself via Frame.render()
+        # Handle FrameNode - render borders if frame has no content
+        # (Frames with content render themselves via Frame.render())
         if isinstance(node, FrameNode):
-            # Still need to recurse for children
-            for child in node.content_container.children:
-                self._render_frames(child, buffer, width, height)
-            return
+            # Render frame borders if it has no content (children will render inside)
+            if not node.frame.content and node.bounds is not None:
+                # Create frame info for border rendering
+                border_value = (
+                    node.frame.style.border.value
+                    if hasattr(node.frame.style.border, "value")
+                    else str(node.frame.style.border)
+                )
+                frame_info = {
+                    "title": node.frame.style.title,
+                    "border": border_value,
+                }
+                # Render borders using existing logic by treating as legacy frame
+                # Fall through to border rendering logic below
+                node._frame_style = frame_info
+            else:
+                # Frame has content - it will render itself
+                # Just recurse for nested frames
+                for child in node.content_container.children:
+                    self._render_frames(child, buffer, width, height)
+                return
 
-        # Check if this node is a container with frame styling (legacy support)
-        if isinstance(node, Container) and hasattr(node, "_frame_style"):
+        # Check if this node is a container with frame styling (legacy support or FrameNode)
+        if isinstance(node, (Container, FrameNode)) and hasattr(node, "_frame_style"):
             # Render the frame
             frame_info = node._frame_style
             if node.bounds is not None:
@@ -481,7 +503,11 @@ class Renderer:
                         buffer[y][x + node.bounds.width - 1] = chars["br"]
 
         # Recursively process children (for nested frames)
-        if isinstance(node, Container):
+        if isinstance(node, FrameNode):
+            # FrameNode children are in content_container
+            for child in node.content_container.children:
+                self._render_frames(child, buffer, width, height)
+        elif isinstance(node, Container):
             for child in node.children:
                 self._render_frames(child, buffer, width, height)
 

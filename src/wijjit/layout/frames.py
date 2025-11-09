@@ -121,7 +121,13 @@ class Frame:
         Content lines
     """
 
-    def __init__(self, width: int, height: int, style: FrameStyle | None = None):
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        style: FrameStyle | None = None,
+        id: str | None = None,
+    ):
         self.width = max(3, width)  # Minimum width for borders
         self.height = max(3, height)  # Minimum height for borders
         self.style = style or FrameStyle()
@@ -130,6 +136,7 @@ class Frame:
         self._content_height: int = 0
         self._needs_scroll: bool = False
         self.bounds: Bounds | None = None  # Assigned during layout
+        self.id: str | None = id  # Optional identifier
 
     def set_content(self, text: str) -> None:
         """Set the frame content from a string.
