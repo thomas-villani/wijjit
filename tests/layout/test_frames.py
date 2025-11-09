@@ -662,3 +662,209 @@ class TestFrameScrolling:
         assert "╰" in lines[-1]
         # Content should be at top and centered
         assert "Test" in lines[1]
+
+
+class TestFrameTextOverflow:
+    """Tests for Frame text overflow_x functionality."""
+
+    def test_overflow_clip_default(self):
+        """Test that clip is the default overflow mode."""
+        frame = Frame(width=20, height=5)
+        assert frame.style.overflow_x == "clip"
+
+    def test_overflow_clip_truncates_long_text(self):
+        """Test that clip mode truncates text exceeding width."""
+        style = FrameStyle(overflow_x="clip")
+        frame = Frame(width=20, height=5, style=style)
+        frame.set_content("This is a very long line that will be clipped")
+        result = frame.render()
+
+        lines = result.split("\n")
+        from wijjit.terminal.ansi import visible_length
+
+        # Content line should not exceed frame width
+        for line in lines:
+            assert visible_length(line) <= 20
+
+    def test_overflow_visible_extends_beyond_border(self):
+        """Test that visible mode allows text to extend beyond borders."""
+        style = FrameStyle(overflow_x="visible")
+        frame = Frame(width=20, height=5, style=style)
+        frame.set_content("This is a very long line that will overflow")
+        result = frame.render()
+
+        lines = result.split("\n")
+        from wijjit.terminal.ansi import visible_length
+
+        # Some content lines may exceed frame width
+        content_lines = lines[1:-1]  # Exclude top and bottom borders
+        has_overflow = any(visible_length(line) > 20 for line in content_lines)
+        assert has_overflow
+
+    def test_overflow_wrap_simple(self):
+        """Test basic text wrapping."""
+        style = FrameStyle(overflow_x="wrap")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("This is a line that should wrap to multiple lines")
+        result = frame.render()
+
+        # Content should be split across multiple lines
+        assert len(frame.content) > 1
+        # Each line should fit within frame width
+        from wijjit.terminal.ansi import visible_length
+
+        padding_left, padding_right = frame.style.padding[3], frame.style.padding[1]
+        inner_width = frame.width - 2 - padding_left - padding_right
+        for line in frame.content:
+            assert visible_length(line) <= inner_width
+
+    def test_overflow_wrap_with_ansi_codes(self):
+        """Test wrapping preserves ANSI codes."""
+        from wijjit.terminal.ansi import ANSIColor
+
+        style = FrameStyle(overflow_x="wrap")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content(
+            f"{ANSIColor.RED}This is red text that will wrap{ANSIColor.RESET}"
+        )
+        result = frame.render()
+
+        # ANSI codes should be preserved
+        assert ANSIColor.RED in result
+        assert ANSIColor.RESET in result
+
+    def test_overflow_wrap_word_boundaries(self):
+        """Test that wrapping respects word boundaries."""
+        style = FrameStyle(overflow_x="wrap")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("Hello world this is a test")
+        result = frame.render()
+
+        # Should wrap at spaces, not mid-word
+        # The content array should have multiple lines
+        assert len(frame.content) > 1
+
+    def test_overflow_wrap_with_padding(self):
+        """Test wrapping accounts for padding."""
+        style = FrameStyle(overflow_x="wrap", padding=(1, 2, 1, 3))
+        frame = Frame(width=25, height=10, style=style)
+        frame.set_content("This is a long line that should wrap correctly with padding")
+
+        # Calculate expected inner width
+        padding_left, padding_right = 3, 2
+        inner_width = 25 - 2 - padding_left - padding_right  # 18 chars
+        from wijjit.terminal.ansi import visible_length
+
+        # All content lines should fit within inner width
+        for line in frame.content:
+            assert visible_length(line) <= inner_width
+
+    def test_overflow_wrap_with_scrolling(self):
+        """Test wrapping works with scrollable frames."""
+        style = FrameStyle(overflow_x="wrap", scrollable=True, show_scrollbar=True)
+        frame = Frame(width=20, height=8, style=style)
+        # Create enough content to need scrolling
+        long_text = "This is line one that wraps. " * 10
+        frame.set_content(long_text)
+
+        # Should have scroll manager
+        assert frame.scroll_manager is not None
+        # Content should be wrapped
+        assert len(frame.content) > 1
+
+    def test_overflow_wrap_empty_content(self):
+        """Test wrapping with empty content."""
+        style = FrameStyle(overflow_x="wrap")
+        frame = Frame(width=20, height=5, style=style)
+        frame.set_content("")
+
+        assert frame.content == []
+        result = frame.render()
+        assert len(result.split("\n")) == 5
+
+    def test_overflow_wrap_very_narrow_frame(self):
+        """Test wrapping in very narrow frame."""
+        style = FrameStyle(overflow_x="wrap", padding=(0, 0, 0, 0))
+        frame = Frame(width=8, height=10, style=style)
+        frame.set_content("Supercalifragilisticexpialidocious")
+
+        # Should force hard breaks for long words
+        from wijjit.terminal.ansi import visible_length
+
+        inner_width = 8 - 2  # Just borders, no padding
+        for line in frame.content:
+            assert visible_length(line) <= inner_width
+
+    def test_overflow_modes_with_alignment(self):
+        """Test that alignment works with different overflow modes."""
+        # Clip mode with center alignment
+        style_clip = FrameStyle(overflow_x="clip", content_align_h="center")
+        frame_clip = Frame(width=20, height=5, style=style_clip)
+        frame_clip.set_content("Short")
+        result_clip = frame_clip.render()
+        assert "Short" in result_clip
+
+        # Wrap mode with left alignment
+        style_wrap = FrameStyle(overflow_x="wrap", content_align_h="left")
+        frame_wrap = Frame(width=20, height=8, style=style_wrap)
+        frame_wrap.set_content("This will wrap to multiple lines")
+        result_wrap = frame_wrap.render()
+        assert len(frame_wrap.content) > 1
+
+    def test_overflow_clip_with_multiline_content(self):
+        """Test clip mode with content containing newlines."""
+        style = FrameStyle(overflow_x="clip")
+        frame = Frame(width=15, height=10, style=style)
+        frame.set_content("Line 1 is long\nLine 2\nLine 3 is also long")
+        result = frame.render()
+
+        from wijjit.terminal.ansi import visible_length
+
+        lines = result.split("\n")
+        for line in lines:
+            assert visible_length(line) <= 15
+
+    def test_overflow_wrap_with_multiline_content(self):
+        """Test wrap mode with content containing newlines."""
+        style = FrameStyle(overflow_x="wrap")
+        frame = Frame(width=15, height=15, style=style)
+        frame.set_content("Line 1 is long\nLine 2\nLine 3 is also long")
+
+        # Each original line should be wrapped independently
+        # Resulting in more than 3 lines total
+        assert len(frame.content) > 3
+
+    def test_overflow_visible_no_clipping(self):
+        """Test that visible mode doesn't clip at all."""
+        style = FrameStyle(overflow_x="visible")
+        frame = Frame(width=15, height=5, style=style)
+        long_line = "A" * 50
+        frame.set_content(long_line)
+        result = frame.render()
+
+        # The long line should appear in the output, not clipped
+        assert "A" * 20 in result  # At least 20 A's should be present
+
+    def test_overflow_wrap_single_long_word(self):
+        """Test wrapping when content is a single very long word."""
+        style = FrameStyle(overflow_x="wrap")
+        frame = Frame(width=12, height=10, style=style)
+        frame.set_content("Pneumonoultramicroscopicsilicovolcanoconiosis")
+
+        # Should break mid-word
+        from wijjit.terminal.ansi import visible_length
+
+        inner_width = 12 - 2 - 2  # borders + default padding
+        for line in frame.content:
+            assert visible_length(line) <= inner_width
+
+    def test_overflow_modes_render_correctly(self):
+        """Test that all overflow modes render without errors."""
+        for mode in ["clip", "visible", "wrap"]:
+            style = FrameStyle(overflow_x=mode)
+            frame = Frame(width=20, height=8, style=style)
+            frame.set_content("This is test content that may be long")
+            result = frame.render()
+            # Should render without exceptions
+            assert isinstance(result, str)
+            assert len(result) > 0

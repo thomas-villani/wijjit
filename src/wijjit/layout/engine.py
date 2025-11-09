@@ -19,6 +19,7 @@ from typing import Literal
 
 from ..elements.base import Element
 from .bounds import Bounds, Size, parse_margin, parse_size
+from .frames import Frame
 
 
 class Direction(Enum):
@@ -781,6 +782,204 @@ class HStack(Container):
 
             child.assign_bounds(current_x, child_y, child_width, child_height)
             current_x += child_width + self.spacing
+
+
+class FrameNode(Container):
+    """Frame container node that wraps Frame objects with children.
+
+    FrameNode combines the visual styling of Frame (borders, padding, overflow)
+    with the layout capabilities of Container (children management).
+
+    Parameters
+    ----------
+    frame : Frame
+        The Frame object providing visual styling and rendering
+    children : list of LayoutNode, optional
+        Child nodes to layout inside the frame
+    width : int, str, or Size, optional
+        Width specification (default: from frame)
+    height : int, str, or Size, optional
+        Height specification (default: from frame)
+    margin : int or tuple of int, optional
+        Margin around frame (default: 0)
+    align_h : {"left", "center", "right", "stretch"}, optional
+        Horizontal alignment within parent (default: "stretch")
+    align_v : {"top", "middle", "bottom", "stretch"}, optional
+        Vertical alignment within parent (default: "stretch")
+    content_align_h : {"left", "center", "right", "stretch"}, optional
+        Horizontal alignment of children within frame (default: "stretch")
+    content_align_v : {"top", "middle", "bottom", "stretch"}, optional
+        Vertical alignment of children within frame (default: "stretch")
+    id : str, optional
+        Node identifier
+
+    Attributes
+    ----------
+    frame : Frame
+        The wrapped Frame object
+    content_container : VStack
+        Internal VStack for managing children inside frame content area
+    """
+
+    def __init__(
+        self,
+        frame: "Frame",
+        children: list[LayoutNode] | None = None,
+        width: int | str | Size | None = None,
+        height: int | str | Size | None = None,
+        margin: int | tuple[int, int, int, int] = 0,
+        align_h: HAlign = "stretch",
+        align_v: VAlign = "stretch",
+        content_align_h: HAlign = "stretch",
+        content_align_v: VAlign = "stretch",
+        id: str | None = None,
+    ):
+
+        # Use frame dimensions if not specified
+        if width is None:
+            width = frame.width
+        if height is None:
+            height = frame.height
+
+        # Initialize container with frame dimensions
+        super().__init__(
+            children=[],
+            width=width,
+            height=height,
+            spacing=0,
+            padding=0,
+            margin=margin,
+            align_h=align_h,
+            align_v=align_v,
+            id=id,
+        )
+
+        self.frame = frame
+
+        # Create internal VStack for children inside frame content area
+        self.content_container = VStack(
+            children=children or [],
+            width="fill",
+            height="fill",
+            spacing=0,
+            padding=0,
+            margin=0,
+            align_h=content_align_h,
+            align_v=content_align_v,
+        )
+
+    def add_child(self, child: LayoutNode) -> None:
+        """Add a child node to the frame's content area.
+
+        Parameters
+        ----------
+        child : LayoutNode
+            Child node to add
+        """
+        self.content_container.add_child(child)
+
+    def calculate_constraints(self) -> SizeConstraints:
+        """Calculate size constraints for the frame and its children.
+
+        Returns
+        -------
+        SizeConstraints
+            Size constraints for the frame
+        """
+        # Calculate children constraints
+        if self.content_container.children:
+            child_constraints = self.content_container.calculate_constraints()
+            child_min_w = child_constraints.min_width
+            child_min_h = child_constraints.min_height
+        else:
+            child_min_w = 0
+            child_min_h = 0
+
+        # Account for frame borders and padding
+        padding_top, padding_right, padding_bottom, padding_left = (
+            self.frame.style.padding
+        )
+        border_width = 2  # Left and right borders
+        border_height = 2  # Top and bottom borders
+
+        # Calculate total required size
+        frame_min_w = child_min_w + padding_left + padding_right + border_width
+        frame_min_h = child_min_h + padding_top + padding_bottom + border_height
+
+        # Apply margin
+        margin_top, margin_right, margin_bottom, margin_left = self.margin
+        total_min_w = frame_min_w + margin_left + margin_right
+        total_min_h = frame_min_h + margin_top + margin_bottom
+
+        return SizeConstraints(
+            min_width=total_min_w,
+            min_height=total_min_h,
+            preferred_width=total_min_w,
+            preferred_height=total_min_h,
+        )
+
+    def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
+        """Assign absolute position and size.
+
+        Parameters
+        ----------
+        x : int
+            X position
+        y : int
+            Y position
+        width : int
+            Available width
+        height : int
+            Available height
+        """
+        from ..layout.bounds import Bounds
+
+        # Apply margin
+        margin_top, margin_right, margin_bottom, margin_left = self.margin
+        content_x = x + margin_left
+        content_y = y + margin_top
+        content_width = width - margin_left - margin_right
+        content_height = height - margin_top - margin_bottom
+
+        # Assign bounds to frame node and frame object
+        self.bounds = Bounds(content_x, content_y, content_width, content_height)
+        self.frame.bounds = Bounds(content_x, content_y, content_width, content_height)
+        self.frame.width = content_width
+        self.frame.height = content_height
+
+        # Calculate inner content area (inside borders and padding)
+        padding_top, padding_right, padding_bottom, padding_left = (
+            self.frame.style.padding
+        )
+        inner_x = content_x + 1 + padding_left  # +1 for left border
+        inner_y = content_y + 1 + padding_top  # +1 for top border
+        inner_width = content_width - 2 - padding_left - padding_right  # -2 for borders
+        inner_height = (
+            content_height - 2 - padding_top - padding_bottom
+        )  # -2 for borders
+
+        # Lay out children in content area
+        if self.content_container.children:
+            self.content_container.assign_bounds(
+                inner_x, inner_y, inner_width, inner_height
+            )
+
+    def collect_elements(self) -> list[Element]:
+        """Collect frame and all child elements.
+
+        Returns
+        -------
+        list of Element
+            Frame element plus all child elements
+        """
+        # Frame itself is an element (it has render() and bounds)
+        elements = [self.frame]
+
+        # Add children elements
+        for child in self.content_container.children:
+            elements.extend(child.collect_elements())
+
+        return elements
 
 
 class LayoutEngine:

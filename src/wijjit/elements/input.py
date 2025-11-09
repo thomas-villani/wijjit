@@ -10,6 +10,7 @@ from ..layout.scroll import ScrollManager, render_vertical_scrollbar
 from ..terminal.ansi import ANSIColor, ANSIStyle, clip_to_width, visible_length
 from ..terminal.input import Key, Keys
 from ..terminal.mouse import MouseButton, MouseEvent, MouseEventType
+from ..text import wrap_text
 from .base import Element, ElementType
 
 
@@ -1756,165 +1757,6 @@ class TextArea(Element):
         self._ensure_cursor_visible()
         return True
 
-    def _is_wrap_boundary(self, char: str) -> bool:
-        """Check if a character is a valid wrap boundary for line wrapping.
-
-        Parameters
-        ----------
-        char : str
-            Character to check
-
-        Returns
-        -------
-        bool
-            True if character is a wrap boundary (space, hyphen, or punctuation)
-
-        Notes
-        -----
-        Smart word boundary detection for soft wrapping.
-        Allows breaking at spaces, hyphens, and punctuation marks.
-        """
-        if not char:
-            return False
-
-        # Spaces are always wrap boundaries
-        if char.isspace():
-            return True
-
-        # Hyphens allow wrapping after them
-        if char == "-":
-            return True
-
-        # Common punctuation marks
-        # Note: Using ASCII punctuation to avoid unicode issues
-        punctuation = ".,;:!?)]}\"'"
-        if char in punctuation:
-            return True
-
-        return False
-
-    def _wrap_line(self, line: str, width: int) -> list[str]:
-        """Wrap a single line into multiple segments based on width.
-
-        Parameters
-        ----------
-        line : str
-            Line to wrap (may contain ANSI escape codes)
-        width : int
-            Maximum width for each segment
-
-        Returns
-        -------
-        list of str
-            List of wrapped line segments, preserving ANSI codes
-
-        Notes
-        -----
-        Uses smart word boundary detection (spaces, hyphens, punctuation).
-        Falls back to hard break at width if no boundary found.
-        Preserves ANSI escape codes using clip_to_width utility.
-        Empty lines return a single empty string segment.
-        """
-        if width <= 0:
-            return [""]
-
-        # Empty line returns single empty segment
-        if not line:
-            return [""]
-
-        # Calculate visible length
-        vis_len = visible_length(line)
-
-        # If line fits within width, return as-is
-        if vis_len <= width:
-            return [line]
-
-        # Line needs wrapping
-        segments = []
-        remaining = line
-
-        while remaining:
-            vis_len = visible_length(remaining)
-
-            if vis_len <= width:
-                # Remaining text fits
-                segments.append(remaining)
-                break
-
-            # Find best wrap point within width
-            # We need to find the last wrap boundary before width
-            # wrap_point = None
-
-            # Scan through the visible characters
-            # We need to track both visible position and actual string position
-            vis_pos = 0
-            # actual_pos = 0
-            last_boundary_vis = None
-            last_boundary_actual = None
-
-            # Strip ANSI to find visible character positions
-            from ..terminal.ansi import strip_ansi
-
-            stripped = strip_ansi(remaining)
-
-            # Build mapping of visible positions to actual positions
-            # This accounts for ANSI codes in the original string
-            for i, char in enumerate(stripped):
-                if vis_pos >= width:
-                    break
-
-                # Check if this is a wrap boundary
-                if self._is_wrap_boundary(char):
-                    last_boundary_vis = vis_pos + 1  # Break after the boundary char
-                    last_boundary_actual = i + 1
-
-                vis_pos += 1
-
-            # Decide where to break
-            if last_boundary_actual is not None and last_boundary_actual < len(
-                stripped
-            ):
-                # Found a wrap boundary within width
-                # Use clip_to_width to get the segment with ANSI codes preserved
-                segment = clip_to_width(remaining, last_boundary_vis, ellipsis="")
-                segments.append(segment)
-
-                # Remove the segment from remaining
-                # We need to find the actual position in the original string
-                # that corresponds to last_boundary_actual in the stripped version
-                char_count = 0
-                actual_cut_pos = 0
-                for idx, ch in enumerate(remaining):
-                    if ch == "\x1b":  # Start of ANSI sequence
-                        # Skip ANSI sequence
-                        continue
-                    if char_count >= last_boundary_actual:
-                        actual_cut_pos = idx
-                        break
-                    # Only count visible characters
-                    if ch not in ("\x1b", "[") or char_count > 0:
-                        char_count += 1
-                        actual_cut_pos = idx + 1
-
-                # Actually, using strip_ansi and finding positions is complex
-                # Let's use a simpler approach: clip_to_width already handles ANSI
-                # We can calculate how many actual chars to skip by using the segment
-                actual_cut_pos = len(segment)
-
-                # Skip past the segment
-                remaining = remaining[actual_cut_pos:].lstrip()  # Remove leading spaces
-
-            else:
-                # No wrap boundary found, force break at width
-                segment = clip_to_width(remaining, width, ellipsis="")
-                segments.append(segment)
-
-                # Calculate actual position to cut
-                actual_cut_pos = len(segment)
-                remaining = remaining[actual_cut_pos:]
-
-        return segments if segments else [""]
-
     def _calculate_total_visual_lines(self) -> int:
         """Calculate total number of visual lines with wrapping applied.
 
@@ -1942,7 +1784,7 @@ class TextArea(Element):
         total_visual_lines = 0
         for line in self.lines:
             # Wrap each line and count segments
-            wrapped_segments = self._wrap_line(line, content_width)
+            wrapped_segments = wrap_text(line, content_width)
             total_visual_lines += len(wrapped_segments)
 
         return max(1, total_visual_lines)  # At least one line
@@ -1980,13 +1822,13 @@ class TextArea(Element):
         visual_row = 0
         for i in range(row):
             if i < len(self.lines):
-                wrapped_segments = self._wrap_line(self.lines[i], content_width)
+                wrapped_segments = wrap_text(self.lines[i], content_width)
                 visual_row += len(wrapped_segments)
 
         # Now determine which segment of the current line contains col
         if row < len(self.lines):
             current_line = self.lines[row]
-            wrapped_segments = self._wrap_line(current_line, content_width)
+            wrapped_segments = wrap_text(current_line, content_width)
 
             # Find which segment contains the column
 
@@ -2050,7 +1892,7 @@ class TextArea(Element):
         current_visual_row = 0
 
         for actual_row, line in enumerate(self.lines):
-            wrapped_segments = self._wrap_line(line, content_width)
+            wrapped_segments = wrap_text(line, content_width)
 
             # Check if visual_row falls within this line's wrapped segments
             if current_visual_row + len(wrapped_segments) > visual_row:
@@ -2379,7 +2221,7 @@ class TextArea(Element):
 
             # Iterate through actual lines and render wrapped segments
             for _actual_row, line in enumerate(self.lines):
-                wrapped_segments = self._wrap_line(line, content_width)
+                wrapped_segments = wrap_text(line, content_width)
 
                 for _seg_idx, segment in enumerate(wrapped_segments):
                     # Check if this visual line is in the visible range

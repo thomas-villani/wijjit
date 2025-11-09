@@ -35,7 +35,7 @@ def create_long_content(num_lines: int = 100) -> str:
     """
     lines = []
     for i in range(1, num_lines + 1):
-        lines.append(f"Line {i:3d}: This is content line number {i}")
+        lines.append(f"Line {i:3d}: This is content line number {i}.")
     return "\n".join(lines)
 
 

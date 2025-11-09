@@ -295,7 +295,10 @@ class Renderer:
                 if x_start >= width:
                     continue
 
-                remaining_width = width - x_start
+                # Use the minimum of:
+                # 1. Element's allocated width (respects parent frame boundaries)
+                # 2. Remaining screen width (prevents overflow past screen edge)
+                remaining_width = min(element.bounds.width, width - x_start)
 
                 # Clip line to fit remaining width, preserving ANSI codes
                 clipped_line = clip_to_width(line, remaining_width, ellipsis="")
@@ -359,11 +362,23 @@ class Renderer:
             Buffer width
         height : int
             Buffer height
+
+        Notes
+        -----
+        FrameNode objects are skipped as they render themselves via Frame.render().
+        This method only handles legacy containers with _frame_style metadata.
         """
-        from ..layout.engine import Container
+        from ..layout.engine import Container, FrameNode
         from ..layout.frames import BorderStyle
 
-        # Check if this node is a container with frame styling
+        # Skip FrameNode - it renders itself via Frame.render()
+        if isinstance(node, FrameNode):
+            # Still need to recurse for children
+            for child in node.content_container.children:
+                self._render_frames(child, buffer, width, height)
+            return
+
+        # Check if this node is a container with frame styling (legacy support)
         if isinstance(node, Container) and hasattr(node, "_frame_style"):
             # Render the frame
             frame_info = node._frame_style

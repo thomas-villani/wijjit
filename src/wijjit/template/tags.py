@@ -5,6 +5,7 @@ during template rendering. The layout tree is built up in a context variable
 and then processed by the layout engine after rendering.
 """
 
+import textwrap
 from typing import Any
 
 from jinja2 import nodes
@@ -13,7 +14,8 @@ from jinja2.ext import Extension
 from ..elements.base import TextElement
 from ..elements.display import Table, Tree
 from ..elements.input import Button, Select, TextInput
-from ..layout.engine import ElementNode, HStack, LayoutNode, VStack
+from ..layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
+from ..layout.frames import BorderStyle, Frame, FrameStyle
 
 
 class LayoutContext:
@@ -266,7 +268,9 @@ class VStackExtension(Extension):
         # If body contains non-whitespace text, create TextElement and INSERT at beginning
         # (This is because child elements add themselves during caller(), so text appears after them)
         if body_output and body_output.strip():
-            text_elem = TextElement(body_output.strip())
+            # Dedent the text to remove common leading whitespace from template indentation
+            dedented_text = textwrap.dedent(body_output).strip()
+            text_elem = TextElement(dedented_text)
             text_node = ElementNode(text_elem, width="auto", height="auto")
             # Insert at beginning of children list instead of appending
             if vstack.children:
@@ -417,7 +421,9 @@ class HStackExtension(Extension):
         # If body contains non-whitespace text, create TextElement and INSERT at beginning
         # (This is because child elements add themselves during caller(), so text appears after them)
         if body_output and body_output.strip():
-            text_elem = TextElement(body_output.strip())
+            # Dedent the text to remove common leading whitespace from template indentation
+            dedented_text = textwrap.dedent(body_output).strip()
+            text_elem = TextElement(dedented_text)
             text_node = ElementNode(text_elem, width="auto", height="auto")
             # Insert at beginning of children list instead of appending
             if hstack.children:
@@ -495,6 +501,9 @@ class FrameExtension(Extension):
         align_v="stretch",
         content_align_h="stretch",
         content_align_v="stretch",
+        overflow_x="clip",
+        scrollable=False,
+        show_scrollbar=True,
         id=None,
     ) -> str:
         """Render the frame tag.
@@ -521,6 +530,12 @@ class FrameExtension(Extension):
             Horizontal alignment of content within frame (default: "stretch")
         content_align_v : str, optional
             Vertical alignment of content within frame (default: "stretch")
+        overflow_x : str, optional
+            Horizontal overflow mode: "clip", "visible", or "wrap" (default: "clip")
+        scrollable : bool, optional
+            Enable vertical scrolling (default: False)
+        show_scrollbar : bool, optional
+            Show scrollbar when scrollable (default: True)
         id : str, optional
             Node identifier
 
@@ -552,49 +567,88 @@ class FrameExtension(Extension):
             except ValueError:
                 margin = 0
 
-        # Create VStack to hold frame content
-        # (Frame is a visual wrapper, we need a container for children)
-        # Note: content_align_h/v controls how children are aligned INSIDE the frame
-        frame_container = VStack(
+        # Parse border style
+        border_map = {
+            "single": BorderStyle.SINGLE,
+            "double": BorderStyle.DOUBLE,
+            "rounded": BorderStyle.ROUNDED,
+        }
+        border_style = border_map.get(border, BorderStyle.SINGLE)
+
+        # Parse overflow_y from scrollable parameter
+        if scrollable:
+            overflow_y = "auto"
+        else:
+            overflow_y = "clip"
+
+        # Create actual Frame object with all styling
+        frame_style = FrameStyle(
+            border=border_style,
+            title=title,
+            padding=(1, 1, 1, 1),  # Default padding
+            content_align_h=content_align_h,
+            content_align_v=content_align_v,
+            scrollable=scrollable,
+            show_scrollbar=show_scrollbar,
+            overflow_y=overflow_y,
+            overflow_x=overflow_x,
+        )
+
+        # Parse width/height as integers if they're numeric strings
+        frame_width = (
+            int(width) if isinstance(width, str) and width.isdigit() else width
+        )
+        frame_height = (
+            int(height) if isinstance(height, str) and height.isdigit() else height
+        )
+
+        # Default frame size if auto/fill
+        if frame_width == "auto" or frame_width == "fill":
+            frame_width = 40
+        if frame_height == "auto" or frame_height == "fill":
+            frame_height = 10
+
+        frame = Frame(
+            width=frame_width,
+            height=frame_height,
+            style=frame_style,
+        )
+
+        # Create FrameNode to hold frame and children
+        frame_node = FrameNode(
+            frame=frame,
             children=[],
             width=width,
             height=height,
-            spacing=0,
-            padding=1,  # Frame has implicit padding
             margin=margin,
-            align_h=content_align_h,  # Use content alignment to position frame's children
-            align_v=content_align_v,
+            align_h=align_h,
+            align_v=align_v,
+            content_align_h=content_align_h,
+            content_align_v=content_align_v,
             id=id,
         )
 
-        # Store the frame-level alignment as metadata for potential future use
-        # (Currently, frame-level alignment requires parent container support)
-        frame_container._frame_align_h = align_h
-        frame_container._frame_align_v = align_v
-
-        # Store frame styling info on the container
-        # (We'll apply this during rendering)
-        frame_container._frame_style = {
-            "title": title,
-            "border": border,
-        }
-
         # Push onto stack
-        context.push(frame_container)
+        context.push(frame_node)
 
         # Render body
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement and INSERT at beginning
-        # (This is because child elements add themselves during caller(), so text appears after them)
+        # Handle text content in frame
         if body_output and body_output.strip():
-            text_elem = TextElement(body_output.strip())
-            text_node = ElementNode(text_elem, width="auto", height="auto")
-            # Insert at beginning of children list instead of appending
-            if frame_container.children:
-                frame_container.children.insert(0, text_node)
+            # Dedent the text to remove common leading whitespace from template indentation
+            dedented_text = textwrap.dedent(body_output).strip()
+
+            # If frame has no child elements, use Frame's set_content (handles overflow_x)
+            # Otherwise, add text as a child element alongside other elements
+            if not frame_node.content_container.children:
+                # No children - set content directly on Frame for overflow_x handling
+                frame.set_content(dedented_text)
             else:
-                frame_container.children.append(text_node)
+                # Has children - add text as first child element
+                text_elem = TextElement(dedented_text)
+                text_node = ElementNode(text_elem, width="auto", height="auto")
+                frame_node.content_container.children.insert(0, text_node)
 
         # Pop from stack
         context.pop()

@@ -12,6 +12,8 @@ from typing import Literal
 from ..terminal.ansi import clip_to_width, visible_length
 from ..terminal.input import Key
 from ..terminal.mouse import MouseEvent, MouseEventType
+from ..text import wrap_text
+from .bounds import Bounds
 from .scroll import ScrollManager, render_vertical_scrollbar
 
 
@@ -77,6 +79,11 @@ class FrameStyle:
         - "clip": Clip content beyond viewport
         - "scroll": Always show scrollbar
         - "auto": Show scrollbar only when needed
+    overflow_x : {"clip", "visible", "wrap"}, optional
+        Horizontal overflow behavior (default: "clip")
+        - "clip": Truncate text at frame width (default behavior)
+        - "visible": Allow text to extend beyond frame borders
+        - "wrap": Wrap text to multiple lines at word boundaries
     """
 
     border: BorderStyle = BorderStyle.SINGLE
@@ -87,6 +94,7 @@ class FrameStyle:
     scrollable: bool = False
     show_scrollbar: bool = True
     overflow_y: Literal["clip", "scroll", "auto"] = "auto"
+    overflow_x: Literal["clip", "visible", "wrap"] = "clip"
 
 
 class Frame:
@@ -121,6 +129,7 @@ class Frame:
         self.scroll_manager: ScrollManager | None = None
         self._content_height: int = 0
         self._needs_scroll: bool = False
+        self.bounds: Bounds | None = None  # Assigned during layout
 
     def set_content(self, text: str) -> None:
         """Set the frame content from a string.
@@ -134,8 +143,31 @@ class Frame:
         -----
         If the frame is scrollable, this method will create or update
         the ScrollManager based on content height and viewport size.
+
+        If overflow_x="wrap", content lines will be wrapped to fit the
+        frame's inner width, potentially expanding the number of content lines.
         """
-        self.content = text.split("\n") if text else []
+        # Split text into lines
+        lines = text.split("\n") if text else []
+
+        # If overflow_x is "wrap", pre-wrap all lines to inner width
+        if self.style.overflow_x == "wrap":
+            padding_top, padding_right, padding_bottom, padding_left = (
+                self.style.padding
+            )
+            inner_width = self.width - 2 - padding_left - padding_right
+
+            # Wrap each line and flatten into content array
+            wrapped_lines = []
+            for line in lines:
+                segments = wrap_text(line, inner_width)
+                wrapped_lines.extend(segments)
+
+            self.content = wrapped_lines
+        else:
+            # No wrapping - use lines as-is
+            self.content = lines
+
         self._content_height = len(self.content)
 
         # Create or update scroll manager if frame is scrollable
@@ -448,29 +480,46 @@ class Frame:
         -------
         str
             Rendered content line
+
+        Notes
+        -----
+        Respects the overflow_x setting:
+        - "clip": Truncates text at inner_width (default)
+        - "visible": Allows text to extend beyond borders
+        - "wrap": Text should already be wrapped via set_content()
         """
         # Get visible content length
         content_len = visible_length(content)
 
-        # Handle horizontal alignment
-        if content_len > inner_width:
-            # Content too wide, clip it
-            content = clip_to_width(content, inner_width, ellipsis="")
-        elif self.style.content_align_h == "stretch" or content_len == inner_width:
-            # Stretch to full width or already full width
+        # Handle overflow_x mode
+        if self.style.overflow_x == "visible":
+            # Allow content to extend beyond borders - don't clip
+            # Just pad if shorter than inner_width
             if content_len < inner_width:
                 content = content + " " * (inner_width - content_len)
-        elif content_len < inner_width:
-            # Apply alignment
-            empty_space = inner_width - content_len
-            if self.style.content_align_h == "center":
-                left_space = empty_space // 2
-                right_space = empty_space - left_space
-                content = " " * left_space + content + " " * right_space
-            elif self.style.content_align_h == "right":
-                content = " " * empty_space + content
-            else:  # "left"
-                content = content + " " * empty_space
+        elif content_len > inner_width:
+            # For "clip" and "wrap" modes, clip content that exceeds width
+            # (wrap mode should have pre-wrapped in set_content, but clip as safety)
+            content = clip_to_width(content, inner_width, ellipsis="")
+            content_len = inner_width
+
+        # Apply horizontal alignment (only if content fits or we're in clip/wrap mode)
+        if self.style.overflow_x != "visible" or content_len <= inner_width:
+            if self.style.content_align_h == "stretch" or content_len == inner_width:
+                # Stretch to full width or already full width
+                if content_len < inner_width:
+                    content = content + " " * (inner_width - content_len)
+            elif content_len < inner_width:
+                # Apply alignment
+                empty_space = inner_width - content_len
+                if self.style.content_align_h == "center":
+                    left_space = empty_space // 2
+                    right_space = empty_space - left_space
+                    content = " " * left_space + content + " " * right_space
+                elif self.style.content_align_h == "right":
+                    content = " " * empty_space + content
+                else:  # "left"
+                    content = content + " " * empty_space
 
         return (
             chars["v"] + " " * padding_left + content + " " * padding_right + chars["v"]
@@ -506,12 +555,25 @@ class Frame:
         -------
         str
             Rendered content line with scrollbar
+
+        Notes
+        -----
+        Respects the overflow_x setting:
+        - "clip": Truncates text at inner_width (default)
+        - "visible": Allows text to extend beyond borders
+        - "wrap": Text should already be wrapped via set_content()
         """
         # Get visible content length
         content_len = visible_length(content)
 
-        # Clip to width if necessary
-        if content_len > inner_width:
+        # Handle overflow_x mode
+        if self.style.overflow_x == "visible":
+            # Allow content to extend beyond borders - don't clip
+            # Just pad if shorter than inner_width
+            if content_len < inner_width:
+                content = content + " " * (inner_width - content_len)
+        elif content_len > inner_width:
+            # For "clip" and "wrap" modes, clip content that exceeds width
             content = clip_to_width(content, inner_width, ellipsis="")
         elif content_len < inner_width:
             # Pad to full width

@@ -85,11 +85,9 @@ def main_view():
       {% vstack spacing=0 width=42 %}
         {% frame title="Details" border="single" width="fill" height=20 %}
           {% if state.selected_file %}
-            Name: {{ state.selected_file.label }}
-
-            Path: {{ state.selected_file.value }}
-
-            Type: {{ state.selected_file.get('type', 'unknown') }}
+Name: {{ state.selected_file.label }}
+Path: {{ state.selected_file.value }}
+Type: {{ state.selected_file.get('type', 'unknown') }}
 
             {% if state.selected_file.get('size') %}
             Size: {{ state.selected_file.size }}
@@ -102,8 +100,7 @@ def main_view():
           {% else %}
             No item selected.
 
-            Click on a file or folder
-            to see details.
+            Click on a file or folder to see details.
           {% endif %}
         {% endframe %}
       {% endvstack %}
