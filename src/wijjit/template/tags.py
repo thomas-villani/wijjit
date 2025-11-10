@@ -1083,6 +1083,23 @@ class SelectExtension(Extension):
         # Store bind setting
         select.bind = bind
 
+        # Restore highlighted_index and scroll position from state if available
+        if id:
+            highlight_key = f"_highlight_{id}"
+            scroll_key = f"_scroll_{id}"
+            select.highlight_state_key = highlight_key
+            select.scroll_state_key = scroll_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if highlight_key in state:
+                        select.highlighted_index = state[highlight_key]
+                    if scroll_key in state:
+                        select.scroll_manager.scroll_to(state[scroll_key])
+            except Exception:
+                pass
+
         # Create ElementNode
         # Calculate total height accounting for borders
         # - No borders: height = visible_rows (content only)

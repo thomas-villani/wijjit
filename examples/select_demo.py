@@ -36,7 +36,7 @@ def main_view():
     {% endvstack %}
 
     {% vstack spacing=0 %}
-      Instructions: Tab to navigate | Up/Down to select | Home/End for first/last | Enter/Space to confirm
+      Instructions: Tab to navigate | Up/Down to browse | Enter/Space to select | Home/End for first/last
     {% endvstack %}
 
     {% hstack spacing=2 %}
@@ -177,6 +177,6 @@ def handle_quit(event):
 if __name__ == "__main__":
     # Run the app
     # Press Tab to navigate between selects
-    # Use arrow keys to navigate through options
+    # Use arrow keys to browse through options
     # Press Enter or Space to select the highlighted option
     app.run()

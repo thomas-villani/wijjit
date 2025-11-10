@@ -754,7 +754,6 @@ class Wijjit:
                         elem.value = self.state[elem.id]
                         # Update selected_index to match the value
                         elem.selected_index = elem._find_option_index(elem.value)
-                        elem.highlighted_index = max(0, elem.selected_index)
 
                     # Set up two-way binding
                     elem_id = elem.id
@@ -764,6 +763,26 @@ class Wijjit:
                         self.state[eid] = new_val
 
                     elem.on_change = on_change_handler
+
+                # Wire up highlighted_index persistence if element has the state key
+                if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
+                    highlight_key = elem.highlight_state_key
+
+                    def on_highlight_handler(new_index, hkey=highlight_key):
+                        # Update state when highlight changes
+                        self.state[hkey] = new_index
+
+                    elem.on_highlight_change = on_highlight_handler
+
+                # Wire up scroll position persistence if element has the state key
+                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
+                    scroll_key = elem.scroll_state_key
+
+                    def on_scroll_handler(new_position, skey=scroll_key):
+                        # Update state when scroll position changes
+                        self.state[skey] = new_position
+
+                    elem.on_scroll = on_scroll_handler
 
             # Wire up Table scroll position persistence
             if isinstance(elem, Table):

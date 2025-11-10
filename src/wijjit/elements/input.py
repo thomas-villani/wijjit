@@ -459,10 +459,14 @@ class Select(Element):
         # Callbacks
         self.on_change: Callable[[str | None, str | None], None] | None = on_change
         self.on_action: Callable[[], None] | None = None
+        self.on_highlight_change: Callable[[int], None] | None = None
+        self.on_scroll: Callable[[int], None] | None = None
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
+        self.highlight_state_key: str | None = None
+        self.scroll_state_key: str | None = None
 
         # Backward compatibility
         self.max_visible = visible_rows  # Alias for tests
@@ -580,6 +584,15 @@ class Select(Element):
         # All options disabled
         return start_index
 
+    def on_focus(self) -> None:
+        """Called when element gains focus.
+
+        Note: highlighted_index is preserved across renders via state persistence,
+        so we don't reset it here. It's initialized correctly during __init__
+        (either from state restoration or defaults to selected_index).
+        """
+        super().on_focus()
+
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
 
@@ -610,7 +623,7 @@ class Select(Element):
                     return True
             return True
 
-        # Up arrow - move highlight up AND select
+        # Up arrow - move highlight up (selection happens on Enter/Space)
         elif key == Keys.UP:
             if self.highlighted_index > 0:
                 new_index = self.highlighted_index - 1
@@ -619,12 +632,7 @@ class Select(Element):
                     new_index = self._skip_disabled_options(new_index, -1)
                 if new_index != self.highlighted_index:
                     self.highlighted_index = new_index
-                    # Immediately select the new option
-                    opt = self.options[self.highlighted_index]
-                    if opt["value"] not in self.disabled_values:
-                        self.value = opt["value"]
-                        self.selected_index = self.highlighted_index
-                        self._emit_change(old_value, self.value)
+                    self._emit_highlight_change(self.highlighted_index)
                     # Ensure visible with margin (keep 2 lines visible above when possible)
                     visible_start, _ = self.scroll_manager.get_visible_range()
                     margin = 2
@@ -632,9 +640,10 @@ class Select(Element):
                         # Scroll up to keep margin, but don't go below 0
                         target = max(0, self.highlighted_index - margin)
                         self.scroll_manager.scroll_to(target)
+                        self._emit_scroll_change()
             return True
 
-        # Down arrow - move highlight down AND select
+        # Down arrow - move highlight down (selection happens on Enter/Space)
         elif key == Keys.DOWN:
             if self.highlighted_index < len(self.options) - 1:
                 new_index = self.highlighted_index + 1
@@ -643,12 +652,7 @@ class Select(Element):
                     new_index = self._skip_disabled_options(new_index, 1)
                 if new_index != self.highlighted_index:
                     self.highlighted_index = new_index
-                    # Immediately select the new option
-                    opt = self.options[self.highlighted_index]
-                    if opt["value"] not in self.disabled_values:
-                        self.value = opt["value"]
-                        self.selected_index = self.highlighted_index
-                        self._emit_change(old_value, self.value)
+                    self._emit_highlight_change(self.highlighted_index)
                     # Ensure visible with margin (keep 2 lines visible below when possible)
                     _, visible_end = self.scroll_manager.get_visible_range()
                     margin = 2
@@ -658,25 +662,22 @@ class Select(Element):
                         # Scroll down to keep margin
                         target = self.highlighted_index - self.visible_rows + margin + 1
                         self.scroll_manager.scroll_to(max(0, target))
+                        self._emit_scroll_change()
             return True
 
-        # Home - jump to first option AND select
+        # Home - jump to first option (selection happens on Enter/Space)
         elif key == Keys.HOME:
             new_index = 0
             # Skip disabled options if any exist
             if self.disabled_values:
                 new_index = self._skip_disabled_options(0, 1)
             self.highlighted_index = new_index
-            # Immediately select the new option
-            opt = self.options[self.highlighted_index]
-            if opt["value"] not in self.disabled_values:
-                self.value = opt["value"]
-                self.selected_index = self.highlighted_index
-                self._emit_change(old_value, self.value)
+            self._emit_highlight_change(self.highlighted_index)
             self.scroll_manager.scroll_to(0)
+            self._emit_scroll_change()
             return True
 
-        # End - jump to last option AND select
+        # End - jump to last option (selection happens on Enter/Space)
         elif key == Keys.END:
             last = len(self.options) - 1
             new_index = last
@@ -684,36 +685,29 @@ class Select(Element):
             if self.disabled_values:
                 new_index = self._skip_disabled_options(last, -1)
             self.highlighted_index = new_index
-            # Immediately select the new option
-            opt = self.options[self.highlighted_index]
-            if opt["value"] not in self.disabled_values:
-                self.value = opt["value"]
-                self.selected_index = self.highlighted_index
-                self._emit_change(old_value, self.value)
+            self._emit_highlight_change(self.highlighted_index)
             target = max(0, self.highlighted_index - self.visible_rows + 1)
             self.scroll_manager.scroll_to(target)
+            self._emit_scroll_change()
             return True
 
-        # Page Up AND select
+        # Page Up (selection happens on Enter/Space)
         elif key == Keys.PAGE_UP:
             self.scroll_manager.page_up()
+            self._emit_scroll_change()
             # Move highlighted to top of visible range
             visible_start, _ = self.scroll_manager.get_visible_range()
             if self.disabled_values:
                 self.highlighted_index = self._skip_disabled_options(visible_start, 1)
             else:
                 self.highlighted_index = visible_start
-            # Immediately select the new option
-            opt = self.options[self.highlighted_index]
-            if opt["value"] not in self.disabled_values:
-                self.value = opt["value"]
-                self.selected_index = self.highlighted_index
-                self._emit_change(old_value, self.value)
+            self._emit_highlight_change(self.highlighted_index)
             return True
 
-        # Page Down AND select
+        # Page Down (selection happens on Enter/Space)
         elif key == Keys.PAGE_DOWN:
             self.scroll_manager.page_down()
+            self._emit_scroll_change()
             # Move highlighted to bottom of visible range
             _, visible_end = self.scroll_manager.get_visible_range()
             bottom_index = visible_end - 1
@@ -721,12 +715,7 @@ class Select(Element):
                 self.highlighted_index = self._skip_disabled_options(bottom_index, -1)
             else:
                 self.highlighted_index = bottom_index
-            # Immediately select the new option
-            opt = self.options[self.highlighted_index]
-            if opt["value"] not in self.disabled_values:
-                self.value = opt["value"]
-                self.selected_index = self.highlighted_index
-                self._emit_change(old_value, self.value)
+            self._emit_highlight_change(self.highlighted_index)
             return True
 
         return False
@@ -748,12 +737,20 @@ class Select(Element):
         if event.button == MouseButton.SCROLL_UP:
             old_pos = self.scroll_manager.state.scroll_position
             self.scroll_manager.scroll_by(-1)
-            return old_pos != self.scroll_manager.state.scroll_position
+            new_pos = self.scroll_manager.state.scroll_position
+            if old_pos != new_pos:
+                self._emit_scroll_change()
+                return True
+            return False
 
         elif event.button == MouseButton.SCROLL_DOWN:
             old_pos = self.scroll_manager.state.scroll_position
             self.scroll_manager.scroll_by(1)
-            return old_pos != self.scroll_manager.state.scroll_position
+            new_pos = self.scroll_manager.state.scroll_position
+            if old_pos != new_pos:
+                self._emit_scroll_change()
+                return True
+            return False
 
         # Click events
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
@@ -800,6 +797,22 @@ class Select(Element):
         """
         if self.on_change and old_value != new_value:
             self.on_change(old_value, new_value)
+
+    def _emit_highlight_change(self, new_index: int) -> None:
+        """Emit highlight change event.
+
+        Parameters
+        ----------
+        new_index : int
+            New highlighted index
+        """
+        if self.on_highlight_change:
+            self.on_highlight_change(new_index)
+
+    def _emit_scroll_change(self) -> None:
+        """Emit scroll position change event."""
+        if self.on_scroll:
+            self.on_scroll(self.scroll_manager.state.scroll_position)
 
     def render(self) -> str:
         """Render the select element as a scrollable list.
