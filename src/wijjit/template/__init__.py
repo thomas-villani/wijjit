@@ -9,6 +9,7 @@ from .tags import (
     CodeBlockExtension,
     FrameExtension,
     HStackExtension,
+    ListViewExtension,
     MarkdownExtension,
     SelectExtension,
     TableExtension,
@@ -30,4 +31,5 @@ __all__ = [
     "MarkdownExtension",
     "CodeBlockExtension",
     "TextAreaExtension",
+    "ListViewExtension",
 ]

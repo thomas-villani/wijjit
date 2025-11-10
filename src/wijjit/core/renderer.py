@@ -20,6 +20,7 @@ from ..template.tags import (
     FrameExtension,
     HStackExtension,
     LayoutContext,
+    ListViewExtension,
     MarkdownExtension,
     ProgressBarExtension,
     RadioExtension,
@@ -84,6 +85,7 @@ class Renderer:
                 TreeExtension,
                 ProgressBarExtension,
                 SpinnerExtension,
+                ListViewExtension,
                 MarkdownExtension,
                 CodeBlockExtension,
                 TextAreaExtension,
@@ -97,10 +99,12 @@ class Renderer:
         self._setup_filters()
 
         # Add layout constants to globals for easier template usage
-        self.env.globals.update({
-            'fill': 'fill',
-            'auto': 'auto',
-        })
+        self.env.globals.update(
+            {
+                "fill": "fill",
+                "auto": "auto",
+            }
+        )
 
     def _setup_filters(self) -> None:
         """Set up custom Jinja2 filters for terminal rendering."""

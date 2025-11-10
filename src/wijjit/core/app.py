@@ -734,7 +734,7 @@ class Wijjit:
         elements : list
             List of positioned elements
         """
-        from ..elements.display import CodeBlock, MarkdownView, Table, Tree
+        from ..elements.display import CodeBlock, ListView, MarkdownView, Table, Tree
         from ..elements.input import (
             Button,
             Checkbox,
@@ -842,6 +842,17 @@ class Wijjit:
 
             # Wire up CodeBlock scroll position persistence
             if isinstance(elem, CodeBlock):
+                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
+                    scroll_key = elem.scroll_state_key
+
+                    def on_scroll_handler(position, skey=scroll_key):
+                        # Update state when scroll position changes
+                        self.state[skey] = position
+
+                    elem.on_scroll = on_scroll_handler
+
+            # Wire up ListView scroll position persistence
+            if isinstance(elem, ListView):
                 if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
                     scroll_key = elem.scroll_state_key
 

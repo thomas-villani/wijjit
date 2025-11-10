@@ -1,6 +1,5 @@
 """Tests for display elements (MarkdownView, CodeBlock)."""
 
-
 from wijjit.elements.base import ElementType
 from wijjit.elements.display import CodeBlock, MarkdownView
 from wijjit.terminal.input import Keys
@@ -560,7 +559,10 @@ class TestContentUpdates:
         # Should have more rendered lines
         assert new_lines > old_lines
         # Check content changed
-        assert md.content == "# New Content\n\nThis is a longer document with multiple lines."
+        assert (
+            md.content
+            == "# New Content\n\nThis is a longer document with multiple lines."
+        )
 
     def test_update_code_content(self):
         """Test updating code content dynamically.

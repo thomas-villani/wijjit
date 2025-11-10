@@ -195,7 +195,9 @@ class ElementNode(LayoutNode):
         """
         # For fill elements, check if the element has a _dynamic_sizing flag
         # If so, skip rendering and use minimal constraints
-        has_dynamic_sizing = hasattr(self.element, '_dynamic_sizing') and self.element._dynamic_sizing
+        has_dynamic_sizing = (
+            hasattr(self.element, "_dynamic_sizing") and self.element._dynamic_sizing
+        )
 
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
@@ -211,6 +213,7 @@ class ElementNode(LayoutNode):
             rendered = self.element.render()
             lines = rendered.split("\n")
             from ..terminal.ansi import visible_length
+
             content_width = max((visible_length(line) for line in lines), default=1)
             min_width = content_width
             preferred_width = content_width
@@ -225,7 +228,7 @@ class ElementNode(LayoutNode):
             preferred_height = 5  # Keep preferred same as min to avoid inflating parent
         else:
             # Auto or other - measure content
-            if not hasattr(self, '_rendered_for_constraints'):
+            if not hasattr(self, "_rendered_for_constraints"):
                 rendered = self.element.render()
                 lines = rendered.split("\n")
                 self._rendered_for_constraints = True

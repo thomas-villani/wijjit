@@ -2569,7 +2569,7 @@ class MarkdownExtension(Extension):
         )
 
         # Store the dynamic sizing flag
-        markdown._dynamic_sizing = (width_spec == "fill" or height_spec == "fill")
+        markdown._dynamic_sizing = width_spec == "fill" or height_spec == "fill"
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -2960,7 +2960,7 @@ class TextAreaExtension(Extension):
         )
 
         # Store the dynamic sizing flag
-        textarea._dynamic_sizing = (width_spec == "fill" or height_spec == "fill")
+        textarea._dynamic_sizing = width_spec == "fill" or height_spec == "fill"
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -2977,6 +2977,223 @@ class TextAreaExtension(Extension):
         # Create ElementNode
         # Use width_spec/height_spec directly for ElementNode (supports "fill")
         node = ElementNode(textarea, width=width_spec, height=height_spec)
+
+        # Add to layout context
+        context.add_element(node)
+
+        return ""
+
+
+class ListViewExtension(Extension):
+    """Jinja2 extension for listview tag.
+
+    Syntax:
+        {% listview id="tasks" items=state.tasks
+                    bullet="bullet" show_dividers=true
+                    width=60 height=20 border="single" title="Tasks" %}
+        {% endlistview %}
+
+        Or with static items:
+        {% listview bullet="dash" %}
+    Task 1
+    Task 2
+    Task 3
+        {% endlistview %}
+
+        Or with details (2-tuples or dicts):
+        {% listview bullet="number" items=items %}
+        {% endlistview %}
+    """
+
+    tags = {"listview"}
+
+    def parse(self, parser):
+        """Parse the listview tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endlistview"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (list items if not provided as attribute)
+        node = nodes.CallBlock(
+            self.call_method("_render_listview", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endlistview"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_listview(
+        self,
+        caller,
+        id=None,
+        items=None,
+        width=40,
+        height=10,
+        bullet="bullet",
+        show_dividers=False,
+        show_scrollbar=True,
+        border_style="single",
+        title=None,
+        indent_details=2,
+        dim_details=True,
+        bind=True,
+        raw=False,
+    ) -> str:
+        """Render the listview tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        items : list, optional
+            List items (if not provided in body)
+        width : int
+            ListView width (default: 40)
+        height : int
+            ListView height (default: 10)
+        bullet : str
+            Bullet style: "bullet", "dash", "number", or custom character
+            (default: "bullet")
+        show_dividers : bool
+            Whether to show horizontal dividers (default: False)
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Border style (default: "single")
+        title : str, optional
+            Border title
+        indent_details : int
+            Details indentation (default: 2)
+        dim_details : bool
+            Whether to dim details text (default: True)
+        bind : bool
+            Whether to auto-bind items to state[id] (default: True)
+        raw : bool
+            Preserve whitespace in body content (default: False)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+        show_dividers = bool(show_dividers)
+        show_scrollbar = bool(show_scrollbar)
+        indent_details = int(indent_details)
+        dim_details = bool(dim_details)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("listview")
+
+        # Get items from body if not provided as attribute
+        if items is None:
+            body_output = caller()
+            body_text = process_body_content(body_output, raw=raw)
+
+            # Split body into lines and filter empty lines
+            if body_text.strip():
+                items = [line.strip() for line in body_text.split("\n") if line.strip()]
+            else:
+                items = []
+        else:
+            # Items provided as attribute, consume body anyway
+            caller()
+
+            # Ensure items is a list
+            if not isinstance(items, list):
+                items = []
+
+        # If binding is enabled and id is provided, try to get items from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        state_items = state[id]
+                        # Ensure it's a list
+                        if isinstance(state_items, list):
+                            items = state_items
+            except Exception:
+                pass
+
+        # Create ListView element
+        from ..elements.display import ListView
+
+        listview = ListView(
+            id=id,
+            items=items,
+            width=width,
+            height=height,
+            bullet=bullet,
+            show_dividers=show_dividers,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+            title=title,
+            indent_details=indent_details,
+            dim_details=dim_details,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            listview.focused = True
+
+        # Store bind setting
+        listview.bind = bind
+
+        # Restore scroll position from state if available
+        if id:
+            scroll_key = f"_scroll_{id}"
+            listview.scroll_state_key = scroll_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if scroll_key in state:
+                        listview.restore_scroll_position(state[scroll_key])
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Calculate total height accounting for borders
+        total_height = height + (2 if border_style != "none" else 0)
+        total_width = width + (2 if border_style != "none" else 0)
+
+        node = ElementNode(listview, width=total_width, height=total_height)
 
         # Add to layout context
         context.add_element(node)
