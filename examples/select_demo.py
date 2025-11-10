@@ -6,6 +6,8 @@ This example demonstrates:
 - Disabled options
 - Long lists with scrolling
 - Multiple selects with state binding
+- Box-drawing borders (single, double, rounded styles)
+- Border color changes when focused (BOLD + CYAN)
 """
 
 from wijjit import Wijjit
@@ -38,45 +40,34 @@ def main_view():
     {% endvstack %}
 
     {% hstack spacing=2 %}
-      {% vstack spacing=0 %}
-        Color (simple options):
-        {% select id="color" width=30 %}
-          Red
-          Green
-          Blue
-          Yellow
-          Purple
-        {% endselect %}
-      {% endvstack %}
+      {% select id="color" width=30 border_style="single" title="Color" %}
+        Red
+        Green
+        Blue
+        Yellow
+        Purple
+      {% endselect %}
 
-      {% vstack spacing=0 %}
-        Size (value/label pairs):
-        {% select id="size" width=30 %}
-          {"value": "xs", "label": "Extra Small"}
-          {"value": "s", "label": "Small"}
-          {"value": "m", "label": "Medium"}
-          {"value": "l", "label": "Large"}
-          {"value": "xl", "label": "Extra Large"}
-        {% endselect %}
-      {% endvstack %}
+      {% select id="size" width=30 border_style="rounded" title="Size" %}
+        {"value": "xs", "label": "Extra Small"}
+        {"value": "s", "label": "Small"}
+        {"value": "m", "label": "Medium"}
+        {"value": "l", "label": "Large"}
+        {"value": "xl", "label": "Extra Large"}
+      {% endselect %}
     {% endhstack %}
 
     {% hstack spacing=2 %}
-      {% vstack spacing=0 %}
-        Priority (with disabled options):
-        {% select id="priority" width=30 %}
-          Critical
-          High
-          Medium
-          Low
-          None (disabled)
-        {% endselect %}
-      {% endvstack %}
+      {% select id="priority" width=30 border_style="double" title="Priority" %}
+        Critical
+        High
+        Medium
+        Low
+        None (disabled)
+      {% endselect %}
 
-      {% vstack spacing=0 %}
-        Country (scrollable list):
-        {% select id="country" width=40 visible_rows=8 %}
-          Afghanistan
+      {% select id="country" width=40 visible_rows=8 border_style="single" title="Country" %}
+        Afghanistan
           Albania
           Algeria
           Argentina
@@ -120,7 +111,6 @@ def main_view():
           United States
           Vietnam
         {% endselect %}
-      {% endvstack %}
     {% endhstack %}
 
     {% hstack spacing=2 %}

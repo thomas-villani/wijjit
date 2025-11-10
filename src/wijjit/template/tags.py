@@ -970,6 +970,8 @@ class SelectExtension(Extension):
         visible_rows=5,
         action=None,
         bind=True,
+        border_style=None,
+        title=None,
     ) -> str:
         """Render the select tag.
 
@@ -991,6 +993,10 @@ class SelectExtension(Extension):
             Action ID to dispatch when value changes
         bind : bool
             Whether to auto-bind value to state[id] (default: True)
+        border_style : str, optional
+            Border style: "single", "double", "rounded", or None (default: None)
+        title : str, optional
+            Title to display in top border (only when border_style is set)
 
         Returns
         -------
@@ -1061,6 +1067,8 @@ class SelectExtension(Extension):
             width=width,
             visible_rows=visible_rows,
             disabled_values=disabled_values,
+            border_style=border_style,
+            title=title,
         )
 
         # Check if this element should be focused
@@ -1076,8 +1084,15 @@ class SelectExtension(Extension):
         select.bind = bind
 
         # Create ElementNode
-        # Height is fixed at visible_rows since it's always displaying that many rows
-        node = ElementNode(select, width=width, height=visible_rows)
+        # Calculate total height accounting for borders
+        # - No borders: height = visible_rows (content only)
+        # - With borders: height = visible_rows + 2 (top border + content + bottom border)
+        total_height = visible_rows + (2 if border_style is not None else 0)
+
+        # Width also needs to account for borders (adds 2 columns)
+        total_width = width + (2 if border_style is not None else 0)
+
+        node = ElementNode(select, width=total_width, height=total_height)
 
         # Add to layout context
         context.add_element(node)

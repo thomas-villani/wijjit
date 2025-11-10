@@ -6,6 +6,7 @@ This module provides interactive input elements like TextInput and Button.
 from collections.abc import Callable
 from typing import Literal
 
+from ..layout.frames import BORDER_CHARS, BorderStyle
 from ..layout.scroll import ScrollManager, render_vertical_scrollbar
 from ..terminal.ansi import ANSIColor, ANSIStyle, clip_to_width, visible_length
 from ..terminal.input import Key, Keys
@@ -333,13 +334,23 @@ class Select(Element):
     value : str, optional
         Currently selected value
     width : int, optional
-        Display width (default: 20)
+        Display width for content area (default: 20).
+        Note: Borders add 2 additional columns to total width when enabled.
     visible_rows : int, optional
         Number of visible rows in the list (default: 5)
     disabled_values : list, optional
         List of values that are disabled (cannot be selected)
     item_renderer : callable, optional
         Custom renderer function: (option, selected, highlighted, disabled) -> str
+    border_style : BorderStyle or {"single", "double", "rounded"} or None, optional
+        Border style for the select list (default: None).
+        - "single": Single-line box-drawing characters
+        - "double": Double-line box-drawing characters
+        - "rounded": Rounded corner box-drawing characters
+        - None: No borders (backward compatible)
+        Can also accept BorderStyle enum values.
+    title : str, optional
+        Title to display in the top border (only shown when border_style is not None)
 
     Attributes
     ----------
@@ -352,7 +363,7 @@ class Select(Element):
     highlighted_index : int
         Index of highlighted option for keyboard navigation
     width : int
-        Display width
+        Display width (content area, excluding borders)
     visible_rows : int
         Number of visible rows
     disabled_values : set
@@ -361,6 +372,10 @@ class Select(Element):
         Custom renderer function
     scroll_manager : ScrollManager
         Manages scrolling of options list
+    border_style : BorderStyle or None
+        Border style for rendering
+    title : str or None
+        Title displayed in top border (when borders are enabled)
 
     Notes
     -----
@@ -386,6 +401,10 @@ class Select(Element):
         disabled_values: list | None = None,
         item_renderer: Callable | None = None,
         on_change: Callable[[str | None, str | None], None] | None = None,
+        border_style: (
+            BorderStyle | Literal["single", "double", "rounded"] | None
+        ) = None,
+        title: str | None = None,
     ):
         super().__init__(id)
         self.element_type = ElementType.SELECTABLE
@@ -409,6 +428,12 @@ class Select(Element):
 
         # Custom renderer
         self.item_renderer = item_renderer
+
+        # Border style (normalize string to enum)
+        self.border_style = self._normalize_border_style(border_style)
+
+        # Title for border display
+        self.title = title
 
         # Scroll management for long lists
         self.scroll_manager = ScrollManager(
@@ -441,6 +466,33 @@ class Select(Element):
 
         # Backward compatibility
         self.max_visible = visible_rows  # Alias for tests
+
+    def _normalize_border_style(
+        self, style: BorderStyle | Literal["single", "double", "rounded"] | None
+    ) -> BorderStyle | None:
+        """Normalize border style from string or enum to BorderStyle enum.
+
+        Parameters
+        ----------
+        style : BorderStyle or str or None
+            Border style as enum, string, or None
+
+        Returns
+        -------
+        BorderStyle or None
+            Normalized border style as enum, or None
+        """
+        if style is None:
+            return None
+        if isinstance(style, BorderStyle):
+            return style
+        # Convert string to enum
+        style_map = {
+            "single": BorderStyle.SINGLE,
+            "double": BorderStyle.DOUBLE,
+            "rounded": BorderStyle.ROUNDED,
+        }
+        return style_map.get(style.lower(), BorderStyle.SINGLE)
 
     def _normalize_options(self, options: list) -> list[dict]:
         """Normalize options to internal format with value and label.
@@ -712,6 +764,11 @@ class Select(Element):
             relative_x = event.x - self.bounds.x
             relative_y = event.y - self.bounds.y
 
+            # Account for borders if present
+            if self.border_style is not None:
+                relative_y -= 1  # Top border
+                relative_x -= 1  # Left border
+
             # Click on an option
             if 0 <= relative_y < self.visible_rows and 0 <= relative_x < self.width:
                 visible_start, _ = self.scroll_manager.get_visible_range()
@@ -750,8 +807,15 @@ class Select(Element):
         Returns
         -------
         str
-            Multi-line rendering of visible options
+            Multi-line rendering of visible options, with optional borders
+
+        Notes
+        -----
+        Renders with box-drawing borders if border_style is set.
         """
+        # Get border characters if borders are enabled
+        chars = BORDER_CHARS[self.border_style] if self.border_style else None
+
         lines = []
 
         # Render visible options
@@ -794,7 +858,53 @@ class Select(Element):
             empty_line = " " * self.width
             lines.append(f"{ANSIStyle.RESET}{empty_line}{ANSIStyle.RESET}")
 
-        return "\n".join(lines)
+        # Apply borders if enabled
+        if self.border_style is not None and chars is not None:
+            # Choose border color based on focus
+            if self.focused:
+                border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}"
+                reset = ANSIStyle.RESET
+            else:
+                border_color = ""
+                reset = ""
+
+            # Top border (with optional title like Frame)
+            if self.title:
+                title_text = f" {self.title} "
+                title_len = visible_length(title_text)
+                remaining = self.width - title_len
+
+                if remaining >= 0:
+                    left_len = 1
+                    right_len = remaining - left_len
+                    top_border = (
+                        f"{border_color}{chars['tl']}{chars['h'] * left_len}"
+                        f"{reset}{title_text}{border_color}"
+                        f"{chars['h'] * right_len}{chars['tr']}{reset}"
+                    )
+                else:
+                    # Title too long, truncate
+                    title_text = clip_to_width(title_text, self.width, ellipsis="...")
+                    top_border = f"{border_color}{chars['tl']}{reset}{title_text}{border_color}{chars['tr']}{reset}"
+            else:
+                # No title
+                top_border = f"{border_color}{chars['tl']}{chars['h'] * self.width}{chars['tr']}{reset}"
+
+            # Wrap each option line with left and right borders
+            bordered_lines = []
+            for line in lines:
+                bordered_lines.append(
+                    f"{border_color}{chars['v']}{reset}{line}{border_color}{chars['v']}{reset}"
+                )
+
+            # Bottom border
+            bottom_border = f"{border_color}{chars['bl']}{chars['h'] * self.width}{chars['br']}{reset}"
+
+            # Combine all parts
+            return f"{top_border}\n" + "\n".join(bordered_lines) + f"\n{bottom_border}"
+        else:
+            # No borders - plain rendering
+            return "\n".join(lines)
 
     def _render_option(
         self, option: dict, is_selected: bool, is_highlighted: bool, is_disabled: bool
@@ -856,7 +966,8 @@ class TextArea(Element):
     value : str, optional
         Initial value (multiline text with \\n separators)
     width : int, optional
-        Display width in columns (default: 40)
+        Display width in columns for content area (default: 40).
+        Note: Borders add 2 additional columns to total width when enabled.
     height : int, optional
         Display height in rows/lines (default: 10)
     wrap_mode : {"none", "soft", "hard"}, optional
@@ -868,6 +979,13 @@ class TextArea(Element):
         Maximum number of lines allowed
     show_scrollbar : bool, optional
         Whether to show vertical scrollbar (default: True)
+    border_style : BorderStyle or {"single", "double", "rounded"} or None, optional
+        Border style for the text area (default: "single").
+        - "single": Single-line box-drawing characters
+        - "double": Double-line box-drawing characters
+        - "rounded": Rounded corner box-drawing characters
+        - None: No borders
+        Can also accept BorderStyle enum values.
 
     Attributes
     ----------
@@ -880,7 +998,7 @@ class TextArea(Element):
     scroll_manager : ScrollManager
         Manages vertical scrolling
     width : int
-        Display width
+        Display width (content area, excluding borders)
     height : int
         Display height (viewport)
     wrap_mode : str
@@ -889,6 +1007,8 @@ class TextArea(Element):
         Maximum line count
     show_scrollbar : bool
         Whether to show scrollbar
+    border_style : BorderStyle or None
+        Border style for rendering
     """
 
     def __init__(
@@ -900,6 +1020,9 @@ class TextArea(Element):
         wrap_mode: Literal["none", "soft", "hard"] = "none",
         max_lines: int | None = None,
         show_scrollbar: bool = True,
+        border_style: (
+            BorderStyle | Literal["single", "double", "rounded"] | None
+        ) = "single",
     ):
         super().__init__(id)
         self.element_type = ElementType.INPUT
@@ -911,6 +1034,9 @@ class TextArea(Element):
         self.wrap_mode = wrap_mode
         self.max_lines = max_lines
         self.show_scrollbar = show_scrollbar
+
+        # Border style (normalize string to enum)
+        self.border_style = self._normalize_border_style(border_style)
 
         # Text content storage
         self.lines: list[str] = [""]  # Start with one empty line
@@ -933,6 +1059,33 @@ class TextArea(Element):
         # Set initial value if provided
         if value:
             self.set_value(value)
+
+    def _normalize_border_style(
+        self, style: BorderStyle | Literal["single", "double", "rounded"] | None
+    ) -> BorderStyle | None:
+        """Normalize border style from string or enum to BorderStyle enum.
+
+        Parameters
+        ----------
+        style : BorderStyle or str or None
+            Border style as enum, string, or None
+
+        Returns
+        -------
+        BorderStyle or None
+            Normalized border style as enum, or None
+        """
+        if style is None:
+            return None
+        if isinstance(style, BorderStyle):
+            return style
+        # Convert string to enum
+        style_map = {
+            "single": BorderStyle.SINGLE,
+            "double": BorderStyle.DOUBLE,
+            "rounded": BorderStyle.ROUNDED,
+        }
+        return style_map.get(style.lower(), BorderStyle.SINGLE)
 
     def get_value(self) -> str:
         """Get the full text content.
@@ -2039,10 +2192,10 @@ class TextArea(Element):
                 relative_x = event.x - self.bounds.x
                 relative_y = event.y - self.bounds.y
 
-                # Account for top border when focused
-                # Bounds include the border, so relative_y=0 is the border, relative_y=1 is first content line
-                if self.focused:
-                    relative_y -= 1
+                # Account for borders if present
+                if self.border_style is not None:
+                    relative_y -= 1  # Top border
+                    relative_x -= 1  # Left border
             else:
                 # If bounds not set, assume coordinates are already relative
                 relative_x = event.x
@@ -2171,7 +2324,11 @@ class TextArea(Element):
         Optionally shows scrollbar if content exceeds viewport.
         Shows cursor at current position when focused.
         Applies line wrapping according to wrap_mode setting.
+        Renders with box-drawing borders if border_style is set.
         """
+        # Get border characters if borders are enabled
+        chars = BORDER_CHARS[self.border_style] if self.border_style else None
+
         # Determine content width (reserve space for scrollbar if shown)
         content_width = self.width
         if self.show_scrollbar and self.scroll_manager.state.is_scrollable:
@@ -2271,17 +2428,36 @@ class TextArea(Element):
             for i in range(len(rendered_lines)):
                 rendered_lines[i] += scrollbar_chars[i]
 
-        # Apply focus styling
-        if self.focused:
-            # Add border or background for focused state
-            border_top = (
-                f"{ANSIStyle.BOLD}{ANSIColor.CYAN}{'=' * self.width}{ANSIStyle.RESET}"
-            )
-            border_bottom = (
-                f"{ANSIStyle.BOLD}{ANSIColor.CYAN}{'=' * self.width}{ANSIStyle.RESET}"
-            )
-            content = "\n".join(rendered_lines)
-            return f"{border_top}\n{content}\n{border_bottom}"
+        # Apply borders if enabled
+        if self.border_style is not None and chars is not None:
+            # Calculate total width (content + scrollbar if shown)
+            total_width = content_width
+            if self.show_scrollbar and self.scroll_manager.state.is_scrollable:
+                total_width += 1  # Add back scrollbar width
+
+            # Choose border color based on focus
+            if self.focused:
+                border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}"
+                reset = ANSIStyle.RESET
+            else:
+                border_color = ""
+                reset = ""
+
+            # Top border
+            top_border = f"{border_color}{chars['tl']}{chars['h'] * total_width}{chars['tr']}{reset}"
+
+            # Wrap each content line with left and right borders
+            bordered_lines = []
+            for line in rendered_lines:
+                bordered_lines.append(
+                    f"{border_color}{chars['v']}{reset}{line}{border_color}{chars['v']}{reset}"
+                )
+
+            # Bottom border
+            bottom_border = f"{border_color}{chars['bl']}{chars['h'] * total_width}{chars['br']}{reset}"
+
+            # Combine all parts
+            return f"{top_border}\n" + "\n".join(bordered_lines) + f"\n{bottom_border}"
         else:
-            # Plain rendering
+            # No borders - plain rendering
             return "\n".join(rendered_lines)
