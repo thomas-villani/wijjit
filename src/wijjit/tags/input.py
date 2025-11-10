@@ -8,7 +8,11 @@ from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextArea, TextInput
 from wijjit.layout.engine import ElementNode
+from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 class TextInputExtension(Extension):
@@ -116,8 +120,8 @@ class TextInputExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         value = str(state[id])
-            except Exception:
-                pass  # If we can't get state, use provided value
+            except Exception as e:
+                logger.warning(f"Failed to restore state for textinput '{id}': {e}")
 
         # Create TextInput element
         text_input = TextInput(id=id, placeholder=placeholder, value=value, width=width)
@@ -409,8 +413,8 @@ class SelectExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         value = str(state[id]) if state[id] is not None else None
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state for select '{id}': {e}")
 
         # Create Select element
         select = Select(
@@ -450,8 +454,10 @@ class SelectExtension(Extension):
                         select.highlighted_index = state[highlight_key]
                     if scroll_key in state:
                         select.scroll_manager.scroll_to(state[scroll_key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    f"Failed to restore highlight/scroll state for select '{id}': {e}"
+                )
 
         # Create ElementNode
         # Calculate total height accounting for borders
@@ -572,8 +578,8 @@ class CheckboxExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         checked = bool(state[id])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state for checkbox '{id}': {e}")
 
         # Create Checkbox element
         checkbox = Checkbox(id=id, label=label, checked=checked, value=value)
@@ -671,8 +677,8 @@ class RadioExtension(Extension):
                     if name in state:
                         # Check if this radio's value matches the group's selected value
                         checked = state[name] == value
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state for radio '{name}': {e}")
 
         # Create Radio element
         radio = Radio(name=name, id=id, label=label, checked=checked, value=value)
@@ -777,8 +783,8 @@ class CheckboxGroupExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         selected = state[id]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state for checkbox_group '{id}': {e}")
 
         # Ensure selected is a list
         if selected is None:
@@ -825,8 +831,10 @@ class CheckboxGroupExtension(Extension):
                     state = ctx["state"]
                     if highlight_key in state:
                         checkbox_group.highlighted_index = state[highlight_key]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    f"Failed to restore highlight state for checkbox_group '{id}': {e}"
+                )
 
         # Create ElementNode
         # Calculate total height accounting for borders
@@ -918,8 +926,8 @@ class RadioGroupExtension(Extension):
                     state = ctx["state"]
                     if name in state:
                         selected = state[name]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state for radio_group '{name}': {e}")
 
         # Ensure options is a list
         if options is None:
@@ -961,8 +969,10 @@ class RadioGroupExtension(Extension):
                     state = ctx["state"]
                     if highlight_key in state:
                         radio_group.highlighted_index = state[highlight_key]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    f"Failed to restore highlight state for radio_group '{id}': {e}"
+                )
 
         # Create ElementNode
         # Calculate total height accounting for borders
@@ -1123,8 +1133,8 @@ class TextAreaExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         value = str(state[id])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state for textarea '{id}': {e}")
 
         # Create TextArea element
         textarea = TextArea(

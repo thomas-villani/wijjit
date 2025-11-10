@@ -12,6 +12,10 @@ from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
 from wijjit.elements.base import Element
 from wijjit.layout.engine import LayoutEngine, LayoutNode
+from wijjit.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 from wijjit.tags.display import (
     CodeBlockExtension,
     ListViewExtension,
@@ -237,6 +241,8 @@ class Renderer:
             width = width or term_size.columns
             height = height or term_size.height
 
+        logger.debug(f"Rendering template with layout (width={width}, height={height})")
+
         # Create layout context
         layout_ctx = LayoutContext()
 
@@ -266,8 +272,10 @@ class Renderer:
             return output, []
 
         # Run layout engine
+        logger.debug("Running layout engine")
         engine = LayoutEngine(layout_ctx.root, width, height)
         elements = engine.layout()
+        logger.debug(f"Layout calculated for {len(elements)} elements")
 
         # Compose output from positioned elements
         output = self._compose_output(elements, width, height, layout_ctx.root)

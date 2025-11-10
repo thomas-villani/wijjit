@@ -34,6 +34,7 @@ from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
+from wijjit.logging_config import get_logger
 from wijjit.elements.display.code import CodeBlock
 from wijjit.elements.display.list import ListView
 from wijjit.elements.display.markdown import MarkdownView
@@ -49,6 +50,9 @@ from wijjit.terminal.input import InputHandler, Key
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
 from wijjit.terminal.mouse import MouseEventType
 from wijjit.terminal.screen import ScreenManager
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -160,6 +164,11 @@ class Wijjit:
         initial_state : Optional[Dict[str, Any]]
             Initial state dictionary
         """
+        logger.info(
+            f"Initializing Wijjit application (template_dir={template_dir}, "
+            f"initial_state_keys={list(initial_state.keys()) if initial_state else []})"
+        )
+
         # Initialize state
         self.state = State(initial_state or {})
 
@@ -265,6 +274,8 @@ class Wijjit:
 
             self.views[name] = view_config
 
+            logger.debug(f"Registered view '{name}' (default={default})")
+
             # Set as default view if specified
             if default and self.current_view is None:
                 self.current_view = name
@@ -322,7 +333,13 @@ class Wijjit:
             If view_name doesn't exist
         """
         if view_name not in self.views:
+            logger.error(f"Navigation failed: view '{view_name}' not found")
             raise ValueError(f"View '{view_name}' not found")
+
+        logger.info(
+            f"Navigating from '{self.current_view}' to '{view_name}' "
+            f"(params={list(params.keys())})"
+        )
 
         # Initialize the new view
         self._initialize_view(self.views[view_name])
@@ -461,18 +478,23 @@ class Wijjit:
 
         The loop continues until quit() is called or the user presses Ctrl+C.
         """
+        logger.info("Starting Wijjit application")
+
         # Find default view if current_view not set
         if self.current_view is None:
             for name, view in self.views.items():
                 if view.is_default:
                     self.current_view = name
+                    logger.debug(f"Selected default view: '{name}'")
                     break
 
         if self.current_view is None and self.views:
             # Use first registered view as fallback
             self.current_view = next(iter(self.views.keys()))
+            logger.debug(f"No default view, using first view: '{self.current_view}'")
 
         if self.current_view is None:
+            logger.error("No views registered")
             raise RuntimeError(
                 "No views registered. Use @app.view() to register a view."
             )
@@ -497,14 +519,18 @@ class Wijjit:
         try:
             # Enter alternate screen
             self.screen_manager.enter_alternate_buffer()
+            logger.debug("Entered alternate screen buffer")
 
             # Enable mouse tracking
             self.input_handler.enable_mouse_tracking()
+            logger.debug("Enabled mouse tracking")
 
             # Render initial view
+            logger.info(f"Rendering initial view: '{self.current_view}'")
             self._render()
             self._last_refresh_time = time.time()
 
+            logger.info("Entering main event loop")
             # Main event loop
             while self.running:
                 try:
@@ -538,8 +564,14 @@ class Wijjit:
                     if isinstance(input_event, Key):
                         # Handle Ctrl+C
                         if input_event.is_ctrl_c:
+                            logger.info("Received Ctrl+C, exiting application")
                             self.running = False
                             break
+
+                        logger.debug(
+                            f"Key event: {input_event.name} "
+                            f"(modifiers={input_event.modifiers})"
+                        )
 
                         # Create and dispatch key event
                         event = KeyEvent(
@@ -554,6 +586,10 @@ class Wijjit:
 
                     # Check if it's a mouse event
                     elif isinstance(input_event, TerminalMouseEvent):
+                        logger.debug(
+                            f"Mouse event: {input_event.event_type} at "
+                            f"({input_event.x}, {input_event.y})"
+                        )
                         # Handle mouse event
                         hover_changed = self._handle_mouse_event(input_event)
 
@@ -567,6 +603,7 @@ class Wijjit:
                         self._last_refresh_time = time.time()
 
                 except KeyboardInterrupt:
+                    logger.info("Received KeyboardInterrupt, exiting application")
                     self.running = False
                     break
                 except Exception as e:
@@ -576,10 +613,14 @@ class Wijjit:
                     break
 
         finally:
+            logger.info("Exiting application, cleaning up")
             # Always exit alternate screen on cleanup
             self.screen_manager.exit_alternate_buffer()
+            logger.debug("Exited alternate screen buffer")
             # Close input handler to exit raw mode
             self.input_handler.close()
+            logger.debug("Closed input handler")
+            logger.info("Application shutdown complete")
 
     def _render(self) -> None:
         """Render the current view to the screen.
@@ -588,8 +629,10 @@ class Wijjit:
         It renders the current view's template with data and displays it.
         """
         if self.current_view is None or self.current_view not in self.views:
+            logger.warning("Render skipped: no current view")
             return
 
+        logger.debug(f"Rendering view: '{self.current_view}'")
         view = self.views[self.current_view]
         self._initialize_view(view)
 
@@ -604,6 +647,7 @@ class Wijjit:
 
             # Check if template has layout tags
             has_layout = self._has_layout_tags(view.template)
+            logger.debug(f"View has layout tags: {has_layout}")
 
             if has_layout:
                 # Get the currently focused element ID (if any) from FocusManager
@@ -1168,6 +1212,7 @@ class Wijjit:
             Additional data to include with the action event
         """
         if action_id in self._action_handlers:
+            logger.info(f"Dispatching action: '{action_id}' (data={data})")
             # Create action event with optional data
             action_event = ActionEvent(action_id=action_id, data=data)
 
@@ -1179,6 +1224,8 @@ class Wijjit:
 
             # Trigger re-render if needed
             self.needs_render = True
+        else:
+            logger.warning(f"Action handler not found: '{action_id}'")
 
     def _advance_spinner_frames(self) -> None:
         """Advance animation frames for all active spinners.
@@ -1198,14 +1245,16 @@ class Wijjit:
                 if hasattr(elem, "_state_dict") and hasattr(elem, "_frame_key"):
                     try:
                         elem._state_dict[elem._frame_key] = elem.frame_index
-                    except Exception:
+                    except Exception as e:
                         # If state update fails, just continue
-                        pass
+                        logger.warning(
+                            f"Failed to update frame index in state for element: {e}"
+                        )
 
     def _handle_error(self, message: str, exception: Exception) -> None:
         """Handle errors during app execution.
 
-        Displays error message but doesn't crash the app.
+        Logs error message but doesn't crash the app.
 
         Parameters
         ----------
@@ -1214,14 +1263,19 @@ class Wijjit:
         exception : Exception
             The exception that occurred
         """
-        # In a real app, we might show an error view
-        # For now, just log to stderr
+        # Log the error with full traceback
         try:
+            logger.error(
+                f"{message}: {str(exception)}\n{traceback.format_exc()}",
+                exc_info=True,
+            )
+            # Also print to stderr for immediate visibility (can be disabled by user)
             error_text = f"\n{message}: {str(exception)}\n"
             error_text += traceback.format_exc()
             print(colorize(error_text, color=ANSIColor.RED), file=sys.stderr)
-        except Exception:
-            # If error handling itself fails, print plain text
+        except Exception as e:
+            # If error handling itself fails, log basic error
+            logger.error(f"Error handling failed: {message}: {str(exception)}: {e}")
             print(f"\nError: {message}: {str(exception)}\n", file=sys.stderr)
 
         # Keep running unless it's a critical error

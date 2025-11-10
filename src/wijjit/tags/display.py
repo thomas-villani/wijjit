@@ -5,7 +5,11 @@ from jinja2.ext import Extension
 from wijjit.elements.display.table import Table
 from wijjit.elements.display.tree import Tree
 from wijjit.layout.engine import ElementNode
+from wijjit.logging_config import get_logger
 from wijjit.tags.layout import process_body_content
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 class TableExtension(Extension):
@@ -132,8 +136,8 @@ class TableExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         data = state[id]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Ensure data is a list
         if data is None:
@@ -173,8 +177,8 @@ class TableExtension(Extension):
                     state = ctx["state"]
                     if scroll_key in state:
                         table.restore_scroll_position(state[scroll_key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
         # Table has fixed dimensions, so use exact width and height
@@ -320,8 +324,8 @@ class TreeExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         data = state[id]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create Tree element
         tree = Tree(
@@ -365,8 +369,8 @@ class TreeExtension(Extension):
                 ctx = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     tree._state_dict = ctx["state"]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
             # Restore expansion state (do this first, before highlight)
             try:
@@ -415,8 +419,8 @@ class TreeExtension(Extension):
                     state = ctx["state"]
                     if scroll_key in state:
                         tree.scroll_manager.scroll_to(state[scroll_key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
             # Restore highlighted index
             try:
@@ -425,8 +429,8 @@ class TreeExtension(Extension):
                     state = ctx["state"]
                     if highlight_key in state:
                         tree.highlighted_index = state[highlight_key]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
         # Tree has fixed dimensions, so use exact width and height
@@ -560,8 +564,8 @@ class ProgressBarExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         value = float(state[id])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Convert show_percentage to bool if provided
         if show_percentage is not None:
@@ -701,8 +705,8 @@ class SpinnerExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         active = bool(state[id])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Get or restore frame index from state
         frame_index = 0
@@ -897,8 +901,8 @@ class MarkdownExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         content = str(state[id])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create MarkdownView element
         from wijjit.elements.display.markdown import MarkdownView
@@ -934,8 +938,8 @@ class MarkdownExtension(Extension):
                     state = ctx["state"]
                     if scroll_key in state:
                         markdown.restore_scroll_position(state[scroll_key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
         # Use width_spec/height_spec directly for ElementNode (supports "fill")
@@ -1092,8 +1096,8 @@ class CodeBlockExtension(Extension):
                     state = ctx["state"]
                     if id in state:
                         code = str(state[id])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create CodeBlock element
         from wijjit.elements.display.code import CodeBlock
@@ -1130,8 +1134,8 @@ class CodeBlockExtension(Extension):
                     state = ctx["state"]
                     if scroll_key in state:
                         codeblock.restore_scroll_position(state[scroll_key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
         # Calculate total height accounting for borders
@@ -1289,8 +1293,8 @@ class LogViewExtension(Extension):
                         # Ensure it's a list
                         if isinstance(state_lines, list):
                             lines = state_lines
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Ensure lines is a list of strings
         if lines is None:
@@ -1339,8 +1343,8 @@ class LogViewExtension(Extension):
                 ctx = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     logview._state_dict = ctx["state"]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
             try:
                 ctx = self.environment.globals.get("_wijjit_current_context")
@@ -1356,8 +1360,8 @@ class LogViewExtension(Extension):
                         logview.auto_scroll = bool(state[autoscroll_key])
                         if logview.auto_scroll:
                             logview._user_scrolled_up = False
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
         # Calculate total height accounting for borders
@@ -1538,8 +1542,8 @@ class ListViewExtension(Extension):
                         # Ensure it's a list
                         if isinstance(state_items, list):
                             items = state_items
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ListView element
         from wijjit.elements.display.list import ListView
@@ -1576,8 +1580,8 @@ class ListViewExtension(Extension):
                     state = ctx["state"]
                     if scroll_key in state:
                         listview.restore_scroll_position(state[scroll_key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
         # Calculate total height accounting for borders

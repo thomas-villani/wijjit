@@ -13,7 +13,11 @@ from typing import Optional, Union
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys as PTKeys
 
+from wijjit.logging_config import get_logger
 from wijjit.terminal.mouse import MouseEvent, MouseEventParser, MouseTrackingMode
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 class KeyType(Enum):
@@ -371,7 +375,8 @@ class InputHandler:
 
             return None
 
-        except (EOFError, KeyboardInterrupt, IndexError):
+        except (EOFError, KeyboardInterrupt, IndexError) as e:
+            logger.debug(f"Input read terminated: {type(e).__name__}")
             return None
 
     def read_key(self) -> Key | None:
@@ -446,8 +451,8 @@ class InputHandler:
         if self._raw_mode is not None:
             try:
                 self._raw_mode.__exit__(None, None, None)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error exiting raw mode during cleanup: {e}")
             self._raw_mode = None
 
         if self._input:

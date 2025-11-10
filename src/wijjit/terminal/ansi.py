@@ -6,6 +6,11 @@ colors, cursor control, and text styling.
 
 import re
 
+from wijjit.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
+
 # ANSI escape sequence pattern for stripping
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
@@ -487,8 +492,9 @@ def supports_unicode() -> bool:
         _unicode_support_cache = False
         return False
 
-    except Exception:
+    except Exception as e:
         # If detection fails, default to False for safety
+        logger.debug(f"Unicode support detection failed, defaulting to False: {e}")
         _unicode_support_cache = False
         return False
 

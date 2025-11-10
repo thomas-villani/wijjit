@@ -5,6 +5,10 @@ typically using Tab and Shift+Tab keys.
 """
 
 from wijjit.elements.base import Element
+from wijjit.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 class FocusManager:
@@ -155,6 +159,10 @@ class FocusManager:
         index : int
             Index of element to focus
         """
+        old_index = self.current_index
+        element_id = self.elements[index].id if 0 <= index < len(self.elements) else None
+        logger.debug(f"Focus change: index {old_index} -> {index} (element: {element_id})")
+
         # Blur currently focused element
         if self.current_index is not None and 0 <= self.current_index < len(
             self.elements

@@ -8,6 +8,11 @@ from collections import UserDict
 from collections.abc import Callable
 from typing import Any
 
+from wijjit.logging_config import get_logger
+
+# Get logger for this module
+logger = get_logger(__name__)
+
 
 class State(UserDict):
     """Application state with change detection.
@@ -60,6 +65,7 @@ class State(UserDict):
 
         # Only trigger callbacks if value actually changed
         if old_value != value:
+            logger.debug(f"State change: {key} = {value} (was {old_value})")
             self._trigger_change(key, old_value, value)
 
     def __getattr__(self, name: str) -> Any:
@@ -117,6 +123,8 @@ class State(UserDict):
         """
         if callback not in self._change_callbacks:
             self._change_callbacks.append(callback)
+            callback_name = getattr(callback, '__name__', repr(callback))
+            logger.debug(f"Registered global state change callback: {callback_name}")
 
     def watch(self, key: str, callback: Callable) -> None:
         """Watch a specific state key for changes.
@@ -134,6 +142,8 @@ class State(UserDict):
 
         if callback not in self._watchers[key]:
             self._watchers[key].append(callback)
+            callback_name = getattr(callback, '__name__', repr(callback))
+            logger.debug(f"Registered state watcher for key '{key}': {callback_name}")
 
     def unwatch(self, key: str, callback: Callable | None = None) -> None:
         """Stop watching a state key.
@@ -173,7 +183,10 @@ class State(UserDict):
                 callback(key, old_value, new_value)
             except Exception as e:
                 # Log error but don't stop other callbacks
-                print(f"Error in state change callback: {e}")
+                logger.error(
+                    f"Error in state change callback for key '{key}': {e}",
+                    exc_info=True,
+                )
 
         # Trigger specific watchers for this key
         if key in self._watchers:
@@ -181,7 +194,9 @@ class State(UserDict):
                 try:
                     callback(old_value, new_value)
                 except Exception as e:
-                    print(f"Error in state watcher for '{key}': {e}")
+                    logger.error(
+                        f"Error in state watcher for key '{key}': {e}", exc_info=True
+                    )
 
     def update(self, other: dict[str, Any]) -> None:
         """Update multiple state values at once.
