@@ -26,6 +26,32 @@ from ..layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
 from ..layout.frames import BorderStyle, Frame, FrameStyle
 
 
+def process_body_content(body_output: str, raw: bool = False) -> str:
+    """Process template body content with optional whitespace stripping.
+
+    Parameters
+    ----------
+    body_output : str
+        Raw body content from caller()
+    raw : bool, optional
+        If True, preserve whitespace. If False, dedent and strip (default: False)
+
+    Returns
+    -------
+    str
+        Processed body content
+    """
+    if not body_output or not body_output.strip():
+        return ""
+
+    if raw:
+        # Raw mode: preserve all whitespace
+        return body_output
+    else:
+        # Default mode: dedent and strip
+        return textwrap.dedent(body_output).strip()
+
+
 class LayoutContext:
     """Context for building layout tree during template rendering.
 
@@ -200,6 +226,7 @@ class VStackExtension(Extension):
         margin=0,
         align_h="stretch",
         align_v="stretch",
+        raw=False,
         id=None,
     ) -> str:
         """Render the vstack tag.
@@ -222,6 +249,8 @@ class VStackExtension(Extension):
             Horizontal alignment of children
         align_v : str
             Vertical alignment of children
+        raw : bool, optional
+            If True, preserve whitespace in body content. If False, dedent and strip (default: False)
         id : str, optional
             Node identifier
 
@@ -275,10 +304,9 @@ class VStackExtension(Extension):
 
         # If body contains non-whitespace text, create TextElement and INSERT at beginning
         # (This is because child elements add themselves during caller(), so text appears after them)
-        if body_output and body_output.strip():
-            # Dedent the text to remove common leading whitespace from template indentation
-            dedented_text = textwrap.dedent(body_output).strip()
-            text_elem = TextElement(dedented_text)
+        processed_text = process_body_content(body_output, raw=raw)
+        if processed_text:
+            text_elem = TextElement(processed_text)
             text_node = ElementNode(text_elem, width="auto", height="auto")
             # Insert at beginning of children list instead of appending
             if vstack.children:
@@ -353,6 +381,7 @@ class HStackExtension(Extension):
         margin=0,
         align_h="stretch",
         align_v="stretch",
+        raw=False,
         id=None,
     ) -> str:
         """Render the hstack tag.
@@ -375,6 +404,8 @@ class HStackExtension(Extension):
             Horizontal alignment of children
         align_v : str
             Vertical alignment of children
+        raw : bool, optional
+            If True, preserve whitespace in body content. If False, dedent and strip (default: False)
         id : str, optional
             Node identifier
 
@@ -428,10 +459,9 @@ class HStackExtension(Extension):
 
         # If body contains non-whitespace text, create TextElement and INSERT at beginning
         # (This is because child elements add themselves during caller(), so text appears after them)
-        if body_output and body_output.strip():
-            # Dedent the text to remove common leading whitespace from template indentation
-            dedented_text = textwrap.dedent(body_output).strip()
-            text_elem = TextElement(dedented_text)
+        processed_text = process_body_content(body_output, raw=raw)
+        if processed_text:
+            text_elem = TextElement(processed_text)
             text_node = ElementNode(text_elem, width="auto", height="auto")
             # Insert at beginning of children list instead of appending
             if hstack.children:
@@ -512,6 +542,7 @@ class FrameExtension(Extension):
         overflow_x="clip",
         scrollable=False,
         show_scrollbar=True,
+        raw=False,
         id=None,
     ) -> str:
         """Render the frame tag.
@@ -544,6 +575,8 @@ class FrameExtension(Extension):
             Enable vertical scrolling (default: False)
         show_scrollbar : bool, optional
             Show scrollbar when scrollable (default: True)
+        raw : bool, optional
+            If True, preserve whitespace in body content. If False, dedent and strip (default: False)
         id : str, optional
             Node identifier
 
@@ -644,18 +677,16 @@ class FrameExtension(Extension):
         body_output = caller()
 
         # Handle text content in frame
-        if body_output and body_output.strip():
-            # Dedent the text to remove common leading whitespace from template indentation
-            dedented_text = textwrap.dedent(body_output).strip()
-
+        processed_text = process_body_content(body_output, raw=raw)
+        if processed_text:
             # If frame has no child elements, use Frame's set_content (handles overflow_x)
             # Otherwise, add text as a child element alongside other elements
             if not frame_node.content_container.children:
                 # No children - set content directly on Frame for overflow_x handling
-                frame.set_content(dedented_text)
+                frame.set_content(processed_text)
             else:
                 # Has children - add text as first child element
-                text_elem = TextElement(dedented_text)
+                text_elem = TextElement(processed_text)
                 text_node = ElementNode(text_elem, width="auto", height="auto")
                 frame_node.content_container.children.insert(0, text_node)
 

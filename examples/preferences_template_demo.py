@@ -55,11 +55,52 @@ def create_app():
         template = """
 {% vstack spacing=1 padding=1 %}
 
-    {% frame title="User Preferences" border="double" width=78 height=20 %}{% vstack spacing=1 %}
+    {% frame title="User Preferences" border="double" width=78 height=20 %}
+        {% vstack spacing=1 %}
+
             {% hstack spacing=1 height="auto" %}
-                {% frame title="Appearance" border="single" width=24 height=12 %}{% vstack spacing=0 padding=0 %}{% checkbox id="dark_mode" label="Dark mode" %}{% endcheckbox %}{% checkbox id="show_line_numbers" label="Line nums" %}{% endcheckbox %}{% radiogroup name="theme" options=["Red", "Green", "Blue", "Purple"] width=18 border_style="rounded" title="Theme" %}{% endradiogroup %}{% endvstack %}{% endframe %}
-                {% frame title="Editor" border="single" width=24 height=11 %}{% vstack spacing=0 padding=0 %}{% checkbox id="auto_save" label="Auto-save" %}{% endcheckbox %}{% radiogroup name="font_size" options=["Small", "Medium", "Large", "X-Large"] width=18 border_style="rounded" title="Font Size" %}{% endradiogroup %}{% endvstack %}{% endframe %}
-                {% frame title="Notifications" border="single" width=24 height=10 %}{% vstack spacing=0 padding=0 %}{% checkboxgroup id="notifications" options=[{"value": "email", "label": "Email"}, {"value": "desktop", "label": "Desktop"}, {"value": "sound", "label": "Sound"}, {"value": "mobile", "label": "Mobile"}] width=18 border_style="single" title="Enable" %}{% endcheckboxgroup %}{% endvstack %}{% endframe %}
+                {% frame title="Appearance" border="single" width=24 height=12 %}
+                    {% vstack spacing=0 padding=0 %}
+                        {% checkbox id="dark_mode" label="Dark mode" %}{% endcheckbox %}
+                        {% checkbox id="show_line_numbers" label="Line nums" %}{% endcheckbox %}
+
+                        {% radiogroup name="theme"
+                                      options=["Red", "Green", "Blue", "Purple"]
+                                      width=18
+                                      border_style="rounded"
+                                      title="Theme" %}
+                        {% endradiogroup %}
+                    {% endvstack %}
+                {% endframe %}
+
+                {% frame title="Editor" border="single" width=24 height=11 %}
+                    {% vstack spacing=0 padding=0 %}
+                        {% checkbox id="auto_save" label="Auto-save" %}{% endcheckbox %}
+
+                        {% radiogroup name="font_size"
+                                      options=["Small", "Medium", "Large", "X-Large"]
+                                      width=18
+                                      border_style="rounded"
+                                      title="Font Size" %}
+                        {% endradiogroup %}
+                    {% endvstack %}
+                {% endframe %}
+
+                {% frame title="Notifications" border="single" width=24 height=10 %}
+                    {% vstack spacing=0 padding=0 %}
+                        {% checkboxgroup id="notifications"
+                                         options=[
+                                             {"value": "email", "label": "Email"},
+                                             {"value": "desktop", "label": "Desktop"},
+                                             {"value": "sound", "label": "Sound"},
+                                             {"value": "mobile", "label": "Mobile"}
+                                         ]
+                                         width=18
+                                         border_style="single"
+                                         title="Enable" %}
+                        {% endcheckboxgroup %}
+                    {% endvstack %}
+                {% endframe %}
             {% endhstack %}
 
             {% hstack spacing=2 align_h="center" %}
@@ -73,8 +114,8 @@ def create_app():
     {% if state.submitted %}
         {% frame title="Saved" border="single" width=78 %}
             {% vstack padding=1 %}
-Dark: {{ "On" if state.dark_mode else "Off" }} | Lines: {{ "On" if state.show_line_numbers else "Off" }} | Auto-save: {{ "On" if state.auto_save else "Off" }} | Theme: {{ state.theme|title }} | Font: {{ state.font_size|title }}
-Notifications: {{ ", ".join(state.notifications)|title if state.notifications else "None" }}
+            Dark: {{ "On" if state.dark_mode else "Off" }} | Lines: {{ "On" if state.show_line_numbers else "Off" }} | Auto-save: {{ "On" if state.auto_save else "Off" }} | Theme: {{ state.theme|title }} | Font: {{ state.font_size|title }}
+            Notifications: {{ ", ".join(state.notifications)|title if state.notifications else "None" }}
             {% endvstack %}
         {% endframe %}
     {% endif %}
@@ -82,7 +123,7 @@ Notifications: {{ ", ".join(state.notifications)|title if state.notifications el
     Controls: [Tab] Navigate  [Space/Enter] Toggle/Select  [q] Quit
 
 {% endvstack %}
-""" # noqa: E501
+"""
 
         return {
             "template": template,
