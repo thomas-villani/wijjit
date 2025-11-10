@@ -7,7 +7,7 @@ import rich.box
 from rich.console import Console
 from rich.table import Table as RichTable
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
@@ -26,7 +26,7 @@ BOX_STYLES = {
 }
 
 
-class Table(Element):
+class Table(ScrollableMixin, Element):
     """Table element for displaying tabular data with sorting.
 
     This element provides a rich table display with support for:
@@ -94,7 +94,8 @@ class Table(Element):
         show_scrollbar: bool = True,
         border_style: str = "single",
     ):
-        super().__init__(id)
+        ScrollableMixin.__init__(self)
+        Element.__init__(self, id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -135,16 +136,11 @@ class Table(Element):
 
         # Scroll position persistence (will be set by template extension)
         self.initial_scroll_position = 0
-        self.scroll_state_key: str | None = (
-            None  # Key in app state for persisting scroll
-        )
+        # scroll_state_key and on_scroll provided by ScrollableMixin
 
         # Callbacks
         self.on_sort: Callable[[str | None, str], None] | None = (
             None  # (column, direction)
-        )
-        self.on_scroll: Callable[[int], None] | None = (
-            None  # Called when scroll position changes
         )
 
         # Template metadata

@@ -1,14 +1,13 @@
 # ${DIR_PATH}/${FILE_NAME}
-from collections.abc import Callable
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent
 
 
-class MarkdownView(Element):
+class MarkdownView(ScrollableMixin, Element):
     """Markdown content display element with Rich integration.
 
     This element renders markdown content using Rich's Markdown renderer,
@@ -61,7 +60,8 @@ class MarkdownView(Element):
         border_style: str = "single",
         title: str | None = None,
     ):
-        super().__init__(id)
+        ScrollableMixin.__init__(self)
+        Element.__init__(self, id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -85,15 +85,13 @@ class MarkdownView(Element):
             viewport_size=self._get_content_height(),
         )
 
-        # Callbacks
-        self.on_scroll: Callable[[int], None] | None = None
+        # Callbacks (on_scroll provided by ScrollableMixin)
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
-        # State persistence
-        self.scroll_state_key: str | None = None
+        # State persistence (scroll_state_key provided by ScrollableMixin)
 
         # Dynamic sizing flag (set by template tag)
         self._dynamic_sizing: bool = False

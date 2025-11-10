@@ -34,10 +34,7 @@ from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
-from wijjit.elements.display.code import CodeBlock
-from wijjit.elements.display.list import ListView
-from wijjit.elements.display.markdown import MarkdownView
-from wijjit.elements.display.table import Table
+from wijjit.elements.base import ScrollableMixin
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
@@ -852,51 +849,8 @@ class Wijjit:
 
                     elem.on_highlight_change = on_highlight_handler
 
-                # Wire up scroll position persistence if element has the state key
-                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
-                    scroll_key = elem.scroll_state_key
-
-                    def on_scroll_handler(new_position, skey=scroll_key):
-                        # Update state when scroll position changes
-                        self.state[skey] = new_position
-
-                    elem.on_scroll = on_scroll_handler
-
-            # Wire up Table scroll position persistence
-            if isinstance(elem, Table):
-                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
-                    scroll_key = elem.scroll_state_key
-
-                    def on_scroll_handler(position, skey=scroll_key):
-                        # Update state when scroll position changes
-                        self.state[skey] = position
-
-                    elem.on_scroll = on_scroll_handler
-
-            # Wire up MarkdownView scroll position persistence
-            if isinstance(elem, MarkdownView):
-                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
-                    scroll_key = elem.scroll_state_key
-
-                    def on_scroll_handler(position, skey=scroll_key):
-                        # Update state when scroll position changes
-                        self.state[skey] = position
-
-                    elem.on_scroll = on_scroll_handler
-
-            # Wire up CodeBlock scroll position persistence
-            if isinstance(elem, CodeBlock):
-                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
-                    scroll_key = elem.scroll_state_key
-
-                    def on_scroll_handler(position, skey=scroll_key):
-                        # Update state when scroll position changes
-                        self.state[skey] = position
-
-                    elem.on_scroll = on_scroll_handler
-
-            # Wire up ListView scroll position persistence
-            if isinstance(elem, ListView):
+            # Wire up scroll position persistence for all ScrollableMixin elements
+            if isinstance(elem, ScrollableMixin):
                 if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
                     scroll_key = elem.scroll_state_key
 

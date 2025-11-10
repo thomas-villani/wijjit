@@ -2,7 +2,7 @@
 from collections.abc import Callable
 from typing import Literal
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager
 from wijjit.terminal.ansi import ANSIColor, ANSIStyle, clip_to_width, visible_length
@@ -10,7 +10,7 @@ from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 
-class Select(Element):
+class Select(ScrollableMixin, Element):
     """Select list element for choosing from a scrollable list of options.
 
     This is a fixed-height scrollable list selector suitable for TUI applications.
@@ -97,7 +97,8 @@ class Select(Element):
         ) = None,
         title: str | None = None,
     ):
-        super().__init__(id)
+        ScrollableMixin.__init__(self)
+        Element.__init__(self, id)
         self.element_type = ElementType.SELECTABLE
         self.focusable = True
 
@@ -151,13 +152,13 @@ class Select(Element):
         self.on_change: Callable[[str | None, str | None], None] | None = on_change
         self.on_action: Callable[[], None] | None = None
         self.on_highlight_change: Callable[[int], None] | None = None
-        self.on_scroll: Callable[[int], None] | None = None
+        # on_scroll provided by ScrollableMixin
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
         self.highlight_state_key: str | None = None
-        self.scroll_state_key: str | None = None
+        # scroll_state_key provided by ScrollableMixin
 
         # Backward compatibility
         self.max_visible = visible_rows  # Alias for tests

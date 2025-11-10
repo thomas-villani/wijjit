@@ -1,14 +1,14 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 
-class Tree(Element):
+class Tree(ScrollableMixin, Element):
     """Tree element for displaying hierarchical data with expand/collapse.
 
     This element provides a tree view display with support for:
@@ -85,7 +85,8 @@ class Tree(Element):
         show_root: bool = True,
         indent_size: int = 2,
     ):
-        super().__init__(id)
+        ScrollableMixin.__init__(self)
+        Element.__init__(self, id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True
 
@@ -118,14 +119,14 @@ class Tree(Element):
         self.on_select: Callable[[dict], None] | None = None
         self.on_expand: Callable[[str], None] | None = None
         self.on_collapse: Callable[[str], None] | None = None
-        self.on_scroll: Callable[[int], None] | None = None
+        # on_scroll provided by ScrollableMixin
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
         # State persistence keys
-        self.scroll_state_key: str | None = None
+        # scroll_state_key provided by ScrollableMixin
         self.expand_state_key: str | None = None
         self.highlight_state_key: str | None = None
         self.selected_state_key: str | None = None

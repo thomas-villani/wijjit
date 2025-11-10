@@ -5,9 +5,8 @@ with automatic log level detection, coloring, auto-scroll, and soft-wrap.
 """
 
 import re
-from collections.abc import Callable
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import (
     ANSIColor,
@@ -28,7 +27,7 @@ LOG_PATTERNS = {
 }
 
 
-class LogView(Element):
+class LogView(ScrollableMixin, Element):
     """LogView element for displaying logs with automatic coloring and scrolling.
 
     This element provides a display for log files with support for:
@@ -148,7 +147,8 @@ class LogView(Element):
         border_style: str = "single",
         title: str | None = None,
     ):
-        super().__init__(id)
+        ScrollableMixin.__init__(self)
+        Element.__init__(self, id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -186,15 +186,14 @@ class LogView(Element):
             self.scroll_manager.scroll_to_bottom()
             self._last_content_size = len(self.rendered_lines)
 
-        # Callbacks
-        self.on_scroll: Callable[[int], None] | None = None
+        # Callbacks (on_scroll provided by ScrollableMixin)
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
         # State persistence
-        self.scroll_state_key: str | None = None
+        # scroll_state_key provided by ScrollableMixin
         self.autoscroll_state_key: str | None = None
         self._state_dict: dict | None = None
 

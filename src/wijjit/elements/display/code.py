@@ -1,14 +1,13 @@
 # ${DIR_PATH}/${FILE_NAME}
-from collections.abc import Callable
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent
 
 
-class CodeBlock(Element):
+class CodeBlock(ScrollableMixin, Element):
     """Code display element with syntax highlighting via Rich.
 
     This element renders code with syntax highlighting using Rich's Syntax
@@ -81,7 +80,8 @@ class CodeBlock(Element):
         title: str | None = None,
         theme: str = "monokai",
     ):
-        super().__init__(id)
+        ScrollableMixin.__init__(self)
+        Element.__init__(self, id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -109,15 +109,13 @@ class CodeBlock(Element):
             viewport_size=self._get_content_height(),
         )
 
-        # Callbacks
-        self.on_scroll: Callable[[int], None] | None = None
+        # Callbacks (on_scroll provided by ScrollableMixin)
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
-        # State persistence
-        self.scroll_state_key: str | None = None
+        # State persistence (scroll_state_key provided by ScrollableMixin)
 
     def _get_content_height(self) -> int:
         """Calculate content area height accounting for borders.

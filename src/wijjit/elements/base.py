@@ -127,6 +127,36 @@ class Element(ABC):
         self.bounds = bounds
 
 
+class ScrollableMixin:
+    """Mixin class for elements that support scroll state persistence.
+
+    This mixin provides standard attributes and methods for elements that
+    need to persist their scroll position to application state. Elements
+    that inherit from this mixin can be automatically wired for scroll
+    state persistence by the application's callback wiring system.
+
+    Attributes
+    ----------
+    scroll_state_key : str or None
+        State key for persisting scroll position (typically "_scroll_{id}")
+    on_scroll : callable or None
+        Callback function called when scroll position changes.
+        Signature: on_scroll(position: int) -> None
+
+    Notes
+    -----
+    Elements using this mixin should:
+    1. Initialize scroll_state_key in their __init__ (usually via template tags)
+    2. Call self.on_scroll(position) when scroll position changes
+    3. The application will wire on_scroll to update state automatically
+    """
+
+    def __init__(self):
+        """Initialize scroll state attributes."""
+        self.scroll_state_key: str | None = None
+        self.on_scroll: callable | None = None
+
+
 class Container(Element):
     """Base class for elements that contain other elements.
 
