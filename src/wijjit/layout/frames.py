@@ -137,8 +137,20 @@ class Frame:
         self.bounds: Bounds | None = None  # Assigned during layout
         self.id: str | None = id  # Optional identifier
 
+        # Track child elements for scrolling
+        self._child_elements: list[tuple[object, int, int]] = (
+            []
+        )  # (element, y_offset, height)
+        self._has_children: bool = False
+
         # Frame is only focusable if it's scrollable (needs to handle UP/DOWN for scrolling)
         self.focusable: bool = self.style.scrollable
+        self.focused: bool = False  # Track focus state
+        self.hovered: bool = False  # Track hover state
+
+        # State persistence (similar to ListView/LogView pattern)
+        self.scroll_state_key: str | None = None
+        self._state_dict: dict | None = None
 
     def set_content(self, text: str) -> None:
         """Set the frame content from a string.
@@ -205,6 +217,76 @@ class Frame:
             # Update focusable status - frame should be focusable if it needs scrolling
             self.focusable = self._needs_scroll
 
+            # Restore pending scroll position if available
+            if hasattr(self, "_pending_scroll_restore"):
+                self.restore_scroll_position(self._pending_scroll_restore)
+                delattr(self, "_pending_scroll_restore")
+
+    def set_child_content_height(self, child_height: int) -> None:
+        """Set the total height of child elements for scrolling calculations.
+
+        Parameters
+        ----------
+        child_height : int
+            Total height of all child elements combined
+
+        Notes
+        -----
+        This method is called by the layout engine when a frame contains
+        child elements instead of text content. It sets up the ScrollManager
+        to enable scrolling of the composite child content.
+        """
+        self._has_children = True
+        self._content_height = child_height
+
+        # Create or update scroll manager if frame is scrollable
+        if self.style.scrollable:
+            # Calculate viewport height (inner height after borders and padding)
+            padding_top, padding_right, padding_bottom, padding_left = (
+                self.style.padding
+            )
+            viewport_height = self.height - 2 - padding_top - padding_bottom
+
+            if self.scroll_manager is None:
+                # Create new scroll manager
+                self.scroll_manager = ScrollManager(
+                    content_size=self._content_height,
+                    viewport_size=viewport_height,
+                    initial_position=0,
+                )
+            else:
+                # Update existing scroll manager
+                self.scroll_manager.update_content_size(self._content_height)
+                self.scroll_manager.update_viewport_size(viewport_height)
+
+            # Determine if scrolling is needed
+            self._needs_scroll = self.scroll_manager.state.is_scrollable
+
+            # Update focusable status - frame should be focusable if it needs scrolling
+            self.focusable = self._needs_scroll
+
+            # Restore pending scroll position if available
+            if hasattr(self, "_pending_scroll_restore"):
+                self.restore_scroll_position(self._pending_scroll_restore)
+                delattr(self, "_pending_scroll_restore")
+
+    def get_scroll_offset(self) -> int:
+        """Get the current scroll offset for rendering children.
+
+        Returns
+        -------
+        int
+            Number of lines scrolled from the top (0 if not scrolling)
+
+        Notes
+        -----
+        This is used by the renderer to adjust child element positions
+        when the frame is scrollable and has been scrolled.
+        """
+        if self.scroll_manager and self._needs_scroll:
+            return self.scroll_manager.state.scroll_position
+        return 0
+
     def render(self) -> str:
         """Render the frame as a string.
 
@@ -218,8 +300,17 @@ class Frame:
         If the frame is scrollable and content exceeds viewport, only
         the visible portion of content (based on scroll position) will
         be rendered, along with a scrollbar if enabled.
+
+        When a scrollable frame has children, it renders borders and scrollbar,
+        but children render themselves at their scrolled positions.
         """
-        # If scrollable, use scrollable rendering
+        # If frame has children (regardless of scrollable), don't render anything
+        # Borders are handled by _render_frames(), children render themselves
+        # For scrollable frames, the scrollbar is also handled by _render_frames()
+        if self._has_children and not self.content:
+            return ""
+
+        # If scrollable with text content, use scrollable rendering
         if self.style.scrollable and self._needs_scroll:
             return self._render_scrollable()
         else:
@@ -361,6 +452,83 @@ class Frame:
             lines.append(
                 self._render_scrollable_content_line(
                     line,
+                    chars,
+                    padding_left,
+                    inner_width,
+                    padding_right,
+                    scrollbar_char if self.style.show_scrollbar else None,
+                )
+            )
+
+        # Bottom padding
+        for _ in range(padding_bottom):
+            lines.append(
+                self._render_empty_line(
+                    chars, padding_left, inner_width, padding_right, scrollbar_width
+                )
+            )
+
+        # Bottom border
+        lines.append(self._render_bottom_border(chars))
+
+        return "\n".join(lines)
+
+    def _render_scrollable_container(self) -> str:
+        """Render frame borders and scrollbar for container with children.
+
+        Returns
+        -------
+        str
+            Rendered frame borders with scrollbar
+
+        Notes
+        -----
+        This method is used for scrollable frames that contain child elements
+        (not text content). It renders the frame borders and scrollbar, but
+        children render themselves at their scrolled positions.
+        """
+        if not self.scroll_manager:
+            return ""
+
+        lines = []
+        chars = BORDER_CHARS[self.style.border]
+
+        # Calculate inner dimensions
+        padding_top, padding_right, padding_bottom, padding_left = self.style.padding
+
+        # Reserve space for scrollbar if showing
+        scrollbar_width = 1 if self.style.show_scrollbar else 0
+        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width
+        inner_height = self.height - 2 - padding_top - padding_bottom
+
+        # Generate scrollbar
+        scrollbar_chars = []
+        if self.style.show_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, inner_height, style="simple"
+            )
+
+        # Top border
+        lines.append(self._render_top_border(chars))
+
+        # Top padding
+        for _ in range(padding_top):
+            lines.append(
+                self._render_empty_line(
+                    chars, padding_left, inner_width, padding_right, scrollbar_width
+                )
+            )
+
+        # Render empty content area with scrollbar
+        # Children will render themselves in this space
+        for i in range(inner_height):
+            # Get scrollbar character for this line
+            scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+
+            # Render empty line with scrollbar
+            lines.append(
+                self._render_scrollable_content_line(
+                    "",  # No content - children render separately
                     chars,
                     padding_left,
                     inner_width,
@@ -628,21 +796,27 @@ class Frame:
 
         if key_name == "up":
             self.scroll_manager.scroll_by(-1)
+            self._save_scroll_state()
             return True
         elif key_name == "down":
             self.scroll_manager.scroll_by(1)
+            self._save_scroll_state()
             return True
         elif key_name == "pageup":
             self.scroll_manager.page_up()
+            self._save_scroll_state()
             return True
         elif key_name == "pagedown":
             self.scroll_manager.page_down()
+            self._save_scroll_state()
             return True
         elif key_name == "home":
             self.scroll_manager.scroll_to_top()
+            self._save_scroll_state()
             return True
         elif key_name == "end":
             self.scroll_manager.scroll_to_bottom()
+            self._save_scroll_state()
             return True
 
         return False
@@ -665,6 +839,7 @@ class Frame:
 
         # Scroll by 3 lines per wheel notch (common convention)
         self.scroll_manager.scroll_by(direction * 3)
+        self._save_scroll_state()
         return True
 
     def handle_mouse(self, event: MouseEvent) -> bool:
@@ -693,3 +868,70 @@ class Frame:
                 return self.handle_scroll(1)
 
         return False
+
+    def on_focus(self) -> None:
+        """Called when frame gains focus.
+
+        Notes
+        -----
+        Sets the focused flag to True. Used by focus manager.
+        """
+        self.focused = True
+
+    def on_blur(self) -> None:
+        """Called when frame loses focus.
+
+        Notes
+        -----
+        Sets the focused flag to False. Used by focus manager.
+        """
+        self.focused = False
+
+    def on_hover_enter(self) -> None:
+        """Called when mouse enters frame.
+
+        Notes
+        -----
+        Sets the hovered flag to True. Used by hover manager.
+        """
+        self.hovered = True
+
+    def on_hover_exit(self) -> None:
+        """Called when mouse exits frame.
+
+        Notes
+        -----
+        Sets the hovered flag to False. Used by hover manager.
+        """
+        self.hovered = False
+
+    def _save_scroll_state(self) -> None:
+        """Save scroll position to app state if available.
+
+        Notes
+        -----
+        Uses the same state persistence pattern as ListView and LogView.
+        If _state_dict and scroll_state_key are set, saves current scroll
+        position to the state dictionary.
+        """
+        if self._state_dict is not None and self.scroll_state_key:
+            if self.scroll_manager:
+                self._state_dict[self.scroll_state_key] = (
+                    self.scroll_manager.state.scroll_position
+                )
+
+    def restore_scroll_position(self, position: int) -> None:
+        """Restore scroll position from saved state.
+
+        Parameters
+        ----------
+        position : int
+            Scroll position to restore
+
+        Notes
+        -----
+        This method is called by the framework to restore scroll state
+        when the element is recreated.
+        """
+        if self.scroll_manager:
+            self.scroll_manager.scroll_to(position)

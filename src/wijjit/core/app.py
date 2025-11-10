@@ -587,7 +587,7 @@ class Wijjit:
                     # Check if it's a mouse event
                     elif isinstance(input_event, TerminalMouseEvent):
                         logger.debug(
-                            f"Mouse event: {input_event.event_type} at "
+                            f"Mouse event: {input_event.type} at "
                             f"({input_event.x}, {input_event.y})"
                         )
                         # Handle mouse event
@@ -1165,11 +1165,26 @@ class Wijjit:
                 return hover_changed
 
             # Dispatch to target element if it exists
+            handled = False
             if target_element and hasattr(target_element, "handle_mouse"):
                 handled = target_element.handle_mouse(terminal_event)
                 if handled:
                     # Element handled the event, trigger re-render
                     self.needs_render = True
+
+            # If scroll event wasn't handled and element has a scrollable parent, try parent
+            if (
+                not handled
+                and terminal_event.type == MouseEventType.SCROLL
+                and target_element
+                and hasattr(target_element, "parent_frame")
+                and target_element.parent_frame is not None
+            ):
+                parent = target_element.parent_frame
+                if hasattr(parent, "handle_mouse"):
+                    handled = parent.handle_mouse(terminal_event)
+                    if handled:
+                        self.needs_render = True
 
             return hover_changed
 

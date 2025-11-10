@@ -11,7 +11,9 @@ from typing import Any, Optional
 from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
 from wijjit.elements.base import Element
-from wijjit.layout.engine import LayoutEngine, LayoutNode
+from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
+from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.scroll import render_vertical_scrollbar
 from wijjit.logging_config import get_logger
 from wijjit.tags.display import (
     CodeBlockExtension,
@@ -39,6 +41,7 @@ from wijjit.tags.layout import (
     LayoutContext,
     VStackExtension,
 )
+from wijjit.terminal.ansi import clip_to_width
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -307,7 +310,6 @@ class Renderer:
         str
             Composed output
         """
-        from wijjit.terminal.ansi import clip_to_width
 
         # Create output buffer - now stores strings per cell to handle ANSI
         # Each cell can contain a character with ANSI codes
@@ -322,15 +324,41 @@ class Renderer:
             if element.bounds is None:
                 continue
 
+            # Check if element is inside a scrollable frame
+            scroll_offset = 0
+            frame_clip_top = None
+            frame_clip_bottom = None
+
+            if hasattr(element, "parent_frame") and element.parent_frame is not None:
+                parent = element.parent_frame
+                if parent.style.scrollable and parent._needs_scroll:
+                    scroll_offset = parent.get_scroll_offset()
+
+                    # Calculate frame's visible content area for clipping
+                    if parent.bounds is not None:
+                        padding_top, _, padding_bottom, _ = parent.style.padding
+                        frame_clip_top = (
+                            parent.bounds.y + 1 + padding_top
+                        )  # +1 for top border
+                        frame_clip_bottom = (
+                            parent.bounds.y + parent.bounds.height - padding_bottom
+                        )  # Don't subtract 1, check is >=
+
             # Render element
             content = element.render()
             lines = content.split("\n")
 
-            # Write to buffer at element's position
+            # Write to buffer at element's position (adjusted for scroll offset)
             for i, line in enumerate(lines):
-                y = element.bounds.y + i
+                y = element.bounds.y + i - scroll_offset
                 if y >= height:
                     break
+
+                # Skip lines that are clipped by parent frame viewport
+                if frame_clip_top is not None and (
+                    y < frame_clip_top or y >= frame_clip_bottom
+                ):
+                    continue
 
                 # Calculate remaining width from element position
                 x_start = element.bounds.x
@@ -414,14 +442,30 @@ class Renderer:
         FrameNode objects are skipped as they render themselves via Frame.render().
         This method only handles legacy containers with _frame_style metadata.
         """
-        from wijjit.layout.engine import Container, FrameNode
-        from wijjit.layout.frames import BorderStyle
 
         # Handle FrameNode - render borders if frame has no content
         # (Frames with content render themselves via Frame.render())
         if isinstance(node, FrameNode):
-            # Render frame borders if it has no content (children will render inside)
-            if not node.frame.content and node.bounds is not None:
+            # Check if this is a scrollable frame with children
+            is_scrollable_container = (
+                node.frame.style.scrollable
+                and node.frame._needs_scroll
+                and node.frame._has_children
+            )
+
+            # Handle scrollable frames with children specially
+            if is_scrollable_container:
+                # Render borders and scrollbar directly into buffer
+                self._render_scrollable_frame_borders(node, buffer, width, height)
+                # Don't recurse - children will render via element path with scroll offset
+                return
+
+            # Only render borders for non-scrollable frames with children
+            if (
+                not node.frame.content
+                and node.bounds is not None
+                and not (node.frame.style.scrollable and node.frame._needs_scroll)
+            ):
                 # Create frame info for border rendering
                 border_value = (
                     node.frame.style.border.value
@@ -552,6 +596,120 @@ class Renderer:
         elif isinstance(node, Container):
             for child in node.children:
                 self._render_frames(child, buffer, width, height)
+
+    def _render_scrollable_frame_borders(
+        self, node: FrameNode, buffer: list[list[str]], width: int, height: int
+    ) -> None:
+        """Render borders and scrollbar for a scrollable frame with children.
+
+        Parameters
+        ----------
+        node : FrameNode
+            The scrollable frame node
+        buffer : list of list of str
+            Output buffer
+        width : int
+            Buffer width
+        height : int
+            Buffer height
+
+        Notes
+        -----
+        This method renders only the borders and scrollbar, leaving the content
+        area empty for children to render into with scroll offset applied.
+        """
+
+        frame = node.frame
+        if not frame.bounds or not frame.scroll_manager:
+            return
+
+        chars = BORDER_CHARS[frame.style.border]
+        padding_top, padding_right, padding_bottom, padding_left = frame.style.padding
+
+        # Calculate inner dimensions
+        inner_height = frame.bounds.height - 2 - padding_top - padding_bottom
+        # scrollbar_width = 1 if frame.style.show_scrollbar else 0
+
+        # Generate scrollbar
+        scrollbar_chars = []
+        if frame.style.show_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                frame.scroll_manager.state, inner_height, style="simple"
+            )
+
+        # Draw top border with title
+        y = frame.bounds.y
+        if y < height:
+            x = frame.bounds.x
+            if frame.style.title:
+                title_text = f" {frame.style.title} "
+                title_len = len(title_text)
+                # Top-left corner
+                if x < width:
+                    buffer[y][x] = chars["tl"]
+                # Horizontal line before title
+                if x + 1 < width:
+                    buffer[y][x + 1] = chars["h"]
+                # Title
+                for i, ch in enumerate(title_text):
+                    if x + 2 + i < width:
+                        buffer[y][x + 2 + i] = ch
+                # Horizontal line after title to right edge
+                for i in range(2 + title_len, frame.bounds.width - 1):
+                    if x + i < width:
+                        buffer[y][x + i] = chars["h"]
+                # Top-right corner
+                if x + frame.bounds.width - 1 < width:
+                    buffer[y][x + frame.bounds.width - 1] = chars["tr"]
+            else:
+                # No title - just horizontal line
+                if x < width:
+                    buffer[y][x] = chars["tl"]
+                for i in range(1, frame.bounds.width - 1):
+                    if x + i < width:
+                        buffer[y][x + i] = chars["h"]
+                if x + frame.bounds.width - 1 < width:
+                    buffer[y][x + frame.bounds.width - 1] = chars["tr"]
+
+        # Draw side borders and scrollbar
+        for row in range(1, frame.bounds.height - 1):
+            y = frame.bounds.y + row
+            if y < height:
+                x_left = frame.bounds.x
+                x_right = frame.bounds.x + frame.bounds.width - 1
+
+                # Left border
+                if x_left < width:
+                    buffer[y][x_left] = chars["v"]
+
+                # Scrollbar (if in content area, not padding)
+                if frame.style.show_scrollbar:
+                    content_row = row - 1 - padding_top
+                    if 0 <= content_row < inner_height:
+                        scrollbar_x = x_right - 1
+                        scrollbar_char = (
+                            scrollbar_chars[content_row]
+                            if content_row < len(scrollbar_chars)
+                            else " "
+                        )
+                        if scrollbar_x < width:
+                            buffer[y][scrollbar_x] = scrollbar_char
+
+                # Right border
+                if x_right < width:
+                    buffer[y][x_right] = chars["v"]
+
+        # Draw bottom border
+        y = frame.bounds.y + frame.bounds.height - 1
+        if y < height:
+            x = frame.bounds.x
+            if x < width:
+                buffer[y][x] = chars["bl"]
+            for i in range(1, frame.bounds.width - 1):
+                if x + i < width:
+                    buffer[y][x + i] = chars["h"]
+            if x + frame.bounds.width - 1 < width:
+                buffer[y][x + frame.bounds.width - 1] = chars["br"]
 
     def clear_cache(self) -> None:
         """Clear the template cache."""

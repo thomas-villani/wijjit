@@ -868,3 +868,103 @@ class TestFrameTextOverflow:
             # Should render without exceptions
             assert isinstance(result, str)
             assert len(result) > 0
+
+    def test_set_child_content_height(self):
+        """Test setting child content height for scrolling."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+
+        # Set child content height (simulates layout engine setting this)
+        child_height = 30  # More than viewport
+        frame.set_child_content_height(child_height)
+
+        # Should have created scroll manager
+        assert frame.scroll_manager is not None
+        assert frame._content_height == 30
+        assert frame._has_children is True
+
+        # Should determine that scrolling is needed
+        assert frame._needs_scroll is True
+        assert frame.focusable is True
+
+    def test_set_child_content_height_no_overflow(self):
+        """Test setting child content height when no scrolling needed."""
+        style = FrameStyle(scrollable=True, padding=(1, 1, 1, 1))
+        frame = Frame(width=20, height=10, style=style)
+
+        # Set child content height that fits in viewport
+        viewport_height = 10 - 2 - 2  # height - borders - padding
+        child_height = viewport_height - 2  # Fits comfortably
+        frame.set_child_content_height(child_height)
+
+        # Should have scroll manager but not need scrolling
+        assert frame.scroll_manager is not None
+        assert frame._needs_scroll is False
+        assert frame.focusable is False
+
+    def test_get_scroll_offset(self):
+        """Test getting scroll offset for child rendering."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+
+        # Before scrolling is set up
+        assert frame.get_scroll_offset() == 0
+
+        # Set up scrolling with children
+        frame.set_child_content_height(30)
+        assert frame.get_scroll_offset() == 0  # Initial position
+
+        # Scroll down
+        frame.scroll_manager.scroll_by(5)
+        assert frame.get_scroll_offset() == 5
+
+        # Scroll more
+        frame.scroll_manager.scroll_by(10)
+        assert frame.get_scroll_offset() == 15
+
+    def test_scrollable_with_children_creates_scroll_manager(self):
+        """Test that scrollable frames with children create scroll manager."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+
+        # Initially no scroll manager
+        assert frame.scroll_manager is None
+
+        # Set child content height
+        frame.set_child_content_height(25)
+
+        # Now should have scroll manager
+        assert frame.scroll_manager is not None
+        assert frame.scroll_manager.state.content_size == 25
+
+    def test_child_scrolling_updates_focusable(self):
+        """Test that focusable status updates when child scrolling is set."""
+        style = FrameStyle(scrollable=True)
+        frame = Frame(width=20, height=10, style=style)
+
+        # Initially focusable because scrollable=True
+        initial_focusable = frame.focusable
+
+        # Set child content that needs scrolling
+        frame.set_child_content_height(30)
+
+        # Should be focusable because needs scrolling
+        assert frame.focusable is True
+        assert frame._needs_scroll is True
+
+    def test_scrollable_children_viewport_calculation(self):
+        """Test viewport height calculation for child scrolling."""
+        padding = (2, 1, 2, 1)  # top, right, bottom, left
+        style = FrameStyle(scrollable=True, padding=padding)
+        frame = Frame(width=20, height=15, style=style)
+
+        # Calculate expected viewport height
+        expected_viewport = (
+            15 - 2 - 2 - 2
+        )  # height - borders - top_padding - bottom_padding
+
+        # Set child content height
+        frame.set_child_content_height(30)
+
+        # Check viewport size in scroll manager
+        assert frame.scroll_manager.state.viewport_size == expected_viewport

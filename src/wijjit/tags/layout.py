@@ -515,6 +515,7 @@ class FrameExtension(Extension):
         title=None,
         border="single",
         margin=0,
+        padding=None,
         align_h="stretch",
         align_v="stretch",
         content_align_h="stretch",
@@ -541,6 +542,8 @@ class FrameExtension(Extension):
             Border style
         margin : int or tuple, optional
             Margin around frame (default: 0)
+        padding : int or tuple, optional
+            Padding inside frame (top, right, bottom, left). Can be int for uniform padding or tuple
         align_h : str, optional
             Horizontal alignment of frame within parent (default: "stretch")
         align_v : str, optional
@@ -571,6 +574,14 @@ class FrameExtension(Extension):
             context = LayoutContext()
             self.environment.globals["_wijjit_layout_context"] = context
 
+        # Auto-generate ID for scrollable frames if not provided
+        if scrollable and not id:
+            # Get or create auto-ID counter
+            if "_wijjit_frame_counter" not in self.environment.globals:
+                self.environment.globals["_wijjit_frame_counter"] = 0
+            self.environment.globals["_wijjit_frame_counter"] += 1
+            id = f"frame_{self.environment.globals['_wijjit_frame_counter']}"
+
         # Parse attributes
         width = parse_size_attr(width)
         height = parse_size_attr(height)
@@ -596,6 +607,24 @@ class FrameExtension(Extension):
         }
         border_style = border_map.get(border, BorderStyle.SINGLE)
 
+        # Parse padding - could be int or tuple string like "(1,2,3,4)"
+        if padding is None:
+            padding = (1, 1, 1, 1)  # Default padding
+        elif isinstance(padding, int):
+            padding = (padding, padding, padding, padding)
+        elif isinstance(padding, str) and padding.startswith("("):
+            # Parse tuple string
+            try:
+                padding = eval(padding)
+            except (ValueError, SyntaxError, NameError):
+                padding = (1, 1, 1, 1)
+        elif isinstance(padding, str):
+            try:
+                p = int(padding)
+                padding = (p, p, p, p)
+            except ValueError:
+                padding = (1, 1, 1, 1)
+
         # Parse overflow_y from scrollable parameter
         if scrollable:
             overflow_y = "auto"
@@ -606,7 +635,7 @@ class FrameExtension(Extension):
         frame_style = FrameStyle(
             border=border_style,
             title=title,
-            padding=(1, 1, 1, 1),  # Default padding
+            padding=padding,
             content_align_h=content_align_h,
             content_align_v=content_align_v,
             scrollable=scrollable,
@@ -635,6 +664,26 @@ class FrameExtension(Extension):
             style=frame_style,
             id=id,
         )
+
+        # Set up state persistence for scrollable frames
+        if scrollable and id:
+            scroll_key = f"_scroll_{id}"
+            frame.scroll_state_key = scroll_key
+
+            # Give frame access to state dict for saving scroll position
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state_dict = ctx["state"]
+                    frame._state_dict = state_dict
+
+                    # Restore scroll position if it exists in state
+                    if scroll_key in state_dict:
+                        # Position will be restored after scroll manager is created
+                        # Store it temporarily for later restoration
+                        frame._pending_scroll_restore = state_dict[scroll_key]
+            except (KeyError, AttributeError):
+                pass
 
         # Create FrameNode to hold frame and children
         frame_node = FrameNode(

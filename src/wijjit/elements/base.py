@@ -57,6 +57,7 @@ class Element(ABC):
         self.hovered = False
         self.bounds: Bounds | None = None
         self.element_type = ElementType.DISPLAY
+        self.parent_frame = None  # Reference to parent Frame if this element is inside a scrollable frame
 
     @abstractmethod
     def render(self) -> str:

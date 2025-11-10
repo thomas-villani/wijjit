@@ -937,12 +937,24 @@ class FrameNode(Container):
         """
         # Calculate children constraints
         if self.content_container.children:
+            # Has layout children (which may include text converted to TextElement)
             child_constraints = self.content_container.calculate_constraints()
             child_min_w = child_constraints.min_width
             child_min_h = child_constraints.min_height
+
+            # If frame ALSO has direct text content (edge case), add it to height
+            # This shouldn't normally happen (text becomes TextElement child), but handle it
+            if self.frame.content:
+                child_min_h += len(self.frame.content)
         else:
-            child_min_w = 0
-            child_min_h = 0
+            # No layout children, but check if frame has text content
+            if self.frame.content:
+                # Use number of content lines as minimum height
+                child_min_h = len(self.frame.content)
+                child_min_w = 0
+            else:
+                child_min_w = 0
+                child_min_h = 0
 
         # Account for frame borders and padding
         padding_top, padding_right, padding_bottom, padding_left = (
@@ -1028,6 +1040,45 @@ class FrameNode(Container):
                 inner_x, inner_y, inner_width, inner_height
             )
 
+            # Calculate total child content height for scrolling
+            # Recursively find the bottom-most element across all descendants
+            def find_max_bottom(node: LayoutNode, base_y: int) -> int:
+                """Recursively find the maximum bottom position of all descendants.
+
+                Parameters
+                ----------
+                node : LayoutNode
+                    Node to search
+                base_y : int
+                    Base Y position to calculate relative bottom from
+
+                Returns
+                -------
+                int
+                    Maximum bottom position relative to base_y
+                """
+                max_bottom = 0
+
+                # Check this node's bounds
+                if node.bounds is not None:
+                    node_bottom = node.bounds.y + node.bounds.height - base_y
+                    max_bottom = max(max_bottom, node_bottom)
+
+                # Recursively check children if this is a container
+                if isinstance(node, Container):
+                    for child in node.children:
+                        child_bottom = find_max_bottom(child, base_y)
+                        max_bottom = max(max_bottom, child_bottom)
+
+                return max_bottom
+
+            # Find maximum bottom across all descendants
+            max_bottom = find_max_bottom(self.content_container, inner_y)
+
+            # Set child content height on frame for scrolling calculations
+            # Always call this when there are children, even if calculated height is 0
+            self.frame.set_child_content_height(max_bottom)
+
     def collect_elements(self) -> list[Element]:
         """Collect frame and all child elements.
 
@@ -1038,20 +1089,32 @@ class FrameNode(Container):
 
         Notes
         -----
-        If the frame has child elements, only include the frame if it has
-        content set. Otherwise, frame borders are rendered via the legacy
-        _render_frames() path to avoid double-rendering conflicts.
+        Includes the Frame object if:
+        - It has text content set, OR
+        - It's scrollable and needs scrolling (to receive focus and keyboard input)
+
+        Otherwise, frame borders are rendered via the legacy _render_frames() path.
         """
         elements = []
 
-        # Only include Frame object if it has actual content to render
-        # If frame has children, borders will be drawn by _render_frames()
-        if self.frame.content:
+        # Include Frame object if:
+        # - It has text content, OR
+        # - It's scrollable (needs to receive mouse/keyboard input for scrolling)
+        # Note: Scrollable frames must be in elements list even when _needs_scroll is False
+        # to receive mouse wheel events
+        if self.frame.content or self.frame.style.scrollable:
             elements.append(self.frame)
 
-        # Add children elements
+        # Add children elements and set parent_frame reference if frame is scrollable
         for child in self.content_container.children:
-            elements.extend(child.collect_elements())
+            child_elements = child.collect_elements()
+
+            # If this frame is scrollable with children, set parent_frame on child elements
+            if self.frame.style.scrollable and self.frame._has_children:
+                for elem in child_elements:
+                    elem.parent_frame = self.frame
+
+            elements.extend(child_elements)
 
         return elements
 
