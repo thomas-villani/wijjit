@@ -1,7 +1,8 @@
 """Tests for display elements (MarkdownView, CodeBlock)."""
 
 from wijjit.elements.base import ElementType
-from wijjit.elements.display import CodeBlock, MarkdownView
+from wijjit.elements.display.code import CodeBlock
+from wijjit.elements.display.markdown import MarkdownView
 from wijjit.terminal.input import Keys
 
 

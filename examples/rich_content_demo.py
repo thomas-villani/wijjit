@@ -24,7 +24,8 @@ import shutil
 
 from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
-from wijjit.elements.display import CodeBlock, MarkdownView
+from wijjit.elements.display.code import CodeBlock
+from wijjit.elements.display.markdown import MarkdownView
 
 # API Documentation
 API_DOCS = """# Wijjit API Reference

@@ -34,7 +34,11 @@ from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
-from wijjit.elements.display import CodeBlock, ListView, MarkdownView, Table, Tree
+from wijjit.elements.display.code import CodeBlock
+from wijjit.elements.display.list import ListView
+from wijjit.elements.display.markdown import MarkdownView
+from wijjit.elements.display.tree import Tree
+from wijjit.elements.display.table import Table
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup
@@ -1183,7 +1187,7 @@ class Wijjit:
         spinners, advances their frame counters, and updates state.
         Called periodically when refresh_interval is set.
         """
-        from wijjit.elements.display import Spinner
+        from wijjit.elements.display.spinner import Spinner
 
         for elem in self.positioned_elements:
             if isinstance(elem, Spinner) and elem.active:

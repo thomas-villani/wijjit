@@ -1,7 +1,7 @@
 """Tests for Tree display element."""
 
 from wijjit.elements.base import ElementType
-from wijjit.elements.display import Tree
+from wijjit.elements.display.tree import Tree
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 

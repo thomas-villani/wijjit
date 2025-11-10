@@ -8,7 +8,7 @@ This module tests the Spinner element including:
 - Color support
 """
 
-from wijjit.elements.display import SPINNER_FRAMES, Spinner
+from wijjit.elements.display.spinner import SPINNER_FRAMES, Spinner
 from wijjit.terminal.ansi import strip_ansi
 
 

@@ -23,7 +23,7 @@ import shutil
 
 from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
-from wijjit.elements.display import MarkdownView
+from wijjit.elements.display.markdown import MarkdownView
 
 # Sample markdown content
 SAMPLE_MARKDOWN = """# Welcome to Wijjit MarkdownView

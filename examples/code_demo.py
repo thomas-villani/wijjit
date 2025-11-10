@@ -25,7 +25,7 @@ from wijjit import (
     Wijjit,
 )
 from wijjit.core.events import EventType, HandlerScope
-from wijjit.elements.display import CodeBlock
+from wijjit.elements.display.code import CodeBlock
 
 # Sample code in different languages
 PYTHON_CODE = '''def fibonacci(n):

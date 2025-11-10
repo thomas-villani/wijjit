@@ -310,19 +310,13 @@ Template + State → Pre-render (Layout) → Render → Terminal
 
 **Deliverables:**
 
-- [ ] Basic Wijjit app class
-
-- [ ] View decorator and routing system
-
-- [ ] Global state management with change detection
-
-- [ ] Simple template rendering (no custom tags yet)
-
-- [ ] Keyboard input loop (blocking, raw mode)
-
-- [ ] Alternate screen buffer management
-
-- [ ] Basic demo: Hello World with navigation
+- [x] Basic Wijjit app class
+- [x] View decorator and routing system
+- [x] Global state management with change detection
+- [x] Simple template rendering (no custom tags yet)
+- [x] Keyboard input loop (blocking, raw mode)
+- [x] Alternate screen buffer management
+- [x] Basic demo: Hello World with navigation
 
 
 **Technical Tasks:**

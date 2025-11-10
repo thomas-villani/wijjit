@@ -1,7 +1,7 @@
 """Tests for ListView display element."""
 
 from wijjit.elements.base import ElementType
-from wijjit.elements.display import ListView
+from wijjit.elements.display.list import ListView
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 

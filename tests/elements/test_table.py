@@ -1,7 +1,7 @@
 """Tests for Table display element."""
 
 from wijjit.elements.base import ElementType
-from wijjit.elements.display import Table
+from wijjit.elements.display.table import Table
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 

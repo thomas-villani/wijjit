@@ -7,7 +7,7 @@ This module tests the ProgressBar element including:
 - Unicode and ASCII rendering
 """
 
-from wijjit.elements.display import ProgressBar
+from wijjit.elements.display.progress import ProgressBar
 from wijjit.terminal.ansi import strip_ansi, visible_length
 
 
