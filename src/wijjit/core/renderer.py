@@ -12,11 +12,31 @@ from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
 from wijjit.elements.base import Element
 from wijjit.layout.engine import LayoutEngine, LayoutNode
-from wijjit.tags.display import TableExtension, TreeExtension, ProgressBarExtension, SpinnerExtension, \
-    MarkdownExtension, CodeBlockExtension, ListViewExtension
-from wijjit.tags.input import TextInputExtension, ButtonExtension, SelectExtension, CheckboxExtension, \
-    RadioExtension, CheckboxGroupExtension, RadioGroupExtension, TextAreaExtension
-from wijjit.tags.layout import LayoutContext, VStackExtension, HStackExtension, FrameExtension
+from wijjit.tags.display import (
+    CodeBlockExtension,
+    ListViewExtension,
+    MarkdownExtension,
+    ProgressBarExtension,
+    SpinnerExtension,
+    TableExtension,
+    TreeExtension,
+)
+from wijjit.tags.input import (
+    ButtonExtension,
+    CheckboxExtension,
+    CheckboxGroupExtension,
+    RadioExtension,
+    RadioGroupExtension,
+    SelectExtension,
+    TextAreaExtension,
+    TextInputExtension,
+)
+from wijjit.tags.layout import (
+    FrameExtension,
+    HStackExtension,
+    LayoutContext,
+    VStackExtension,
+)
 
 
 class Renderer:

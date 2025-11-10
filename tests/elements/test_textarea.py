@@ -2,8 +2,8 @@
 
 from unittest.mock import Mock
 
-from wijjit.elements.input.text import TextArea
 from wijjit.elements.base import ElementType
+from wijjit.elements.input.text import TextArea
 from wijjit.terminal.input import Key, Keys, KeyType
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 

@@ -6,8 +6,8 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 
 from wijjit.elements.base import TextElement
-from wijjit.layout.engine import LayoutNode, VStack, ElementNode, HStack, FrameNode
-from wijjit.layout.frames import BorderStyle, FrameStyle, Frame
+from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
+from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 
 
 def process_body_content(body_output: str, raw: bool = False) -> str:

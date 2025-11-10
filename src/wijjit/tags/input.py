@@ -6,7 +6,7 @@ from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
-from wijjit.elements.input.text import TextInput, TextArea
+from wijjit.elements.input.text import TextArea, TextInput
 from wijjit.layout.engine import ElementNode
 from wijjit.tags.layout import LayoutContext
 

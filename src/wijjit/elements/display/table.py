@@ -1,16 +1,17 @@
 # ${DIR_PATH}/${FILE_NAME}
+from collections.abc import Callable
 from io import StringIO
-from typing import Literal, Callable
+from typing import Literal
 
-from rich.console import Console
 import rich.box
+from rich.console import Console
 from rich.table import Table as RichTable
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
-from wijjit.terminal.mouse import MouseEvent, MouseButton, MouseEventType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 BOX_STYLES = {
     "none": None,

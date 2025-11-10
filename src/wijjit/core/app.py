@@ -37,8 +37,8 @@ from wijjit.core.state import State
 from wijjit.elements.display.code import CodeBlock
 from wijjit.elements.display.list import ListView
 from wijjit.elements.display.markdown import MarkdownView
-from wijjit.elements.display.tree import Tree
 from wijjit.elements.display.table import Table
+from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup

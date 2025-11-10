@@ -2,10 +2,10 @@
 
 from unittest.mock import Mock
 
-from wijjit.elements.input.button import Button
-from wijjit.elements.input.text import TextInput
 from wijjit.elements.base import ElementType
+from wijjit.elements.input.button import Button
 from wijjit.elements.input.select import Select
+from wijjit.elements.input.text import TextInput
 from wijjit.terminal.input import Key, Keys, KeyType
 
 

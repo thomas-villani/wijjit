@@ -1,11 +1,11 @@
 # ${DIR_PATH}/${FILE_NAME}
-from typing import Callable
+from collections.abc import Callable
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
-from wijjit.terminal.ansi import visible_length, clip_to_width
+from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
-from wijjit.terminal.mouse import MouseEvent, MouseButton
+from wijjit.terminal.mouse import MouseButton, MouseEvent
 
 
 class MarkdownView(Element):
