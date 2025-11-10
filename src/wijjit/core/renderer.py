@@ -19,9 +19,11 @@ from ..template.tags import (
     FrameExtension,
     HStackExtension,
     LayoutContext,
+    ProgressBarExtension,
     RadioExtension,
     RadioGroupExtension,
     SelectExtension,
+    SpinnerExtension,
     TableExtension,
     TextInputExtension,
     TreeExtension,
@@ -77,6 +79,8 @@ class Renderer:
                 SelectExtension,
                 TableExtension,
                 TreeExtension,
+                ProgressBarExtension,
+                SpinnerExtension,
             ],
         )
 

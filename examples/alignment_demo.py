@@ -37,31 +37,31 @@ def alignment_demo():
     {% endhstack %}
 
     {# Row 2: Content vertical alignment #}
-    {% hstack height=6 spacing=1 %}
-      {% frame title="Top" border="single" width=20 height=6 content_align_v="top" %}
+    {% hstack height=8 spacing=1 %}
+      {% frame title="Top" border="single" width=20 height=8 content_align_v="top" %}
         At top
       {% endframe %}
 
-      {% frame title="Middle" border="single" width=20 height=6 content_align_v="middle" %}
+      {% frame title="Middle" border="single" width=20 height=8 content_align_v="middle" %}
         In middle
       {% endframe %}
 
-      {% frame title="Bottom" border="single" width=20 height=6 content_align_v="bottom" %}
+      {% frame title="Bottom" border="single" width=20 height=8 content_align_v="bottom" %}
         At bottom
       {% endframe %}
     {% endhstack %}
 
     {# Row 3: Margins demonstration #}
-    {% hstack height=5 spacing=0 %}
-      {% frame title="No Margin" border="single" width=20 height=5 margin=0 %}
+    {% hstack height=10 spacing=0 %}
+      {% frame title="No Margin" border="single" width=20 height=8 margin=0 %}
         margin=0
       {% endframe %}
 
-      {% frame title="Margin=1" border="single" width=20 height=5 margin=1 %}
+      {% frame title="Margin=1" border="single" width=20 height=8 margin=1 %}
         margin=1
       {% endframe %}
 
-      {% frame title="Margin=2" border="single" width=20 height=5 margin=2 %}
+      {% frame title="Margin=2" border="single" width=20 height=8 margin=2 %}
         margin=2
       {% endframe %}
     {% endhstack %}

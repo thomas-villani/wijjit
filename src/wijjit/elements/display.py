@@ -1354,3 +1354,520 @@ class Tree(Element):
             line = f"{ANSIStyle.REVERSE}{line}{ANSIStyle.RESET}"
 
         return line
+
+
+class ProgressBar(Element):
+    """Progress bar element for displaying progress of operations.
+
+    This element provides a visual progress indicator with support for:
+    - Multiple display styles (filled bar, percentage only, gradient, custom)
+    - Optional coloring
+    - Customizable fill and empty characters
+    - Percentage display
+
+    Parameters
+    ----------
+    id : str, optional
+        Element identifier
+    value : float, optional
+        Current progress value (default: 0)
+    max : float, optional
+        Maximum progress value (default: 100)
+    width : int, optional
+        Display width in columns (default: 40)
+    style : str, optional
+        Display style: "filled", "percentage", "gradient", "custom" (default: "filled")
+    color : str, optional
+        Color name for the progress bar (default: None)
+    show_percentage : bool, optional
+        Whether to show percentage text (default: True for filled/gradient, False for percentage style)
+    fill_char : str, optional
+        Character for filled portion (default: block character)
+    empty_char : str, optional
+        Character for empty portion (default: light shade character)
+
+    Attributes
+    ----------
+    value : float
+        Current progress value
+    max : float
+        Maximum progress value
+    width : int
+        Display width
+    style : str
+        Display style
+    color : str or None
+        Color name
+    show_percentage : bool
+        Whether to show percentage
+    fill_char : str
+        Fill character
+    empty_char : str
+        Empty character
+    """
+
+    def __init__(
+        self,
+        id: str | None = None,
+        value: float = 0,
+        max: float = 100,
+        width: int = 40,
+        style: Literal["filled", "percentage", "gradient", "custom"] = "filled",
+        color: str | None = None,
+        show_percentage: bool | None = None,
+        fill_char: str | None = None,
+        empty_char: str | None = None,
+    ):
+        super().__init__(id)
+        self.element_type = ElementType.DISPLAY
+        self.focusable = False  # Progress bars are not interactive
+
+        # Progress properties
+        self.value = float(value)
+        self.max = float(max)
+        self.width = width
+        self.style = style
+        self.color = color
+
+        # Default show_percentage based on style
+        if show_percentage is None:
+            self.show_percentage = style in ("filled", "gradient", "custom")
+        else:
+            self.show_percentage = show_percentage
+
+        # Default characters based on unicode support
+        from ..terminal.ansi import supports_unicode
+
+        if supports_unicode():
+            self.fill_char = (
+                fill_char if fill_char is not None else "\u2588"
+            )  # Full block
+            self.empty_char = (
+                empty_char if empty_char is not None else "\u2591"
+            )  # Light shade
+        else:
+            self.fill_char = fill_char if fill_char is not None else "#"
+            self.empty_char = empty_char if empty_char is not None else "-"
+
+        # Template metadata
+        self.action: str | None = None
+        self.bind: bool = True
+
+    def set_progress(self, value: float) -> None:
+        """Update progress value.
+
+        Parameters
+        ----------
+        value : float
+            New progress value
+        """
+        self.value = float(value)
+
+    def get_percentage(self) -> float:
+        """Get current progress as percentage.
+
+        Returns
+        -------
+        float
+            Progress percentage (0-100)
+        """
+        if self.max <= 0:
+            return 0.0
+        return min(100.0, max(0.0, (self.value / self.max) * 100.0))
+
+    def _get_color_for_percentage(self, percentage: float) -> str | None:
+        """Get color based on percentage for gradient style.
+
+        Parameters
+        ----------
+        percentage : float
+            Current percentage (0-100)
+
+        Returns
+        -------
+        str or None
+            ANSI color code
+        """
+        from ..terminal.ansi import ANSIColor
+
+        if percentage < 33:
+            return ANSIColor.RED
+        elif percentage < 66:
+            return ANSIColor.YELLOW
+        else:
+            return ANSIColor.GREEN
+
+    def _render_filled_bar(self) -> str:
+        """Render filled block style progress bar.
+
+        Returns
+        -------
+        str
+            Rendered progress bar
+        """
+        from ..terminal.ansi import ANSIColor, colorize
+
+        percentage = self.get_percentage()
+
+        # Calculate percentage text first to know its exact width
+        if self.show_percentage:
+            percentage_text = f" {percentage:.1f}%"
+            percentage_width = len(percentage_text)
+            bar_width = self.width - percentage_width
+        else:
+            bar_width = self.width
+
+        # Ensure minimum bar width
+        bar_width = max(1, bar_width)
+
+        # Calculate filled and empty portions
+        filled_width = int((percentage / 100.0) * bar_width)
+        empty_width = bar_width - filled_width
+
+        # Build bar
+        bar = self.fill_char * filled_width + self.empty_char * empty_width
+
+        # Apply color if specified
+        if self.color:
+            color_code = getattr(ANSIColor, self.color.upper(), None)
+            if color_code:
+                bar = colorize(bar, color=color_code)
+
+        # Add percentage text if enabled
+        if self.show_percentage:
+            return bar + percentage_text
+        else:
+            return bar
+
+    def _render_percentage_only(self) -> str:
+        """Render percentage-only style.
+
+        Returns
+        -------
+        str
+            Rendered percentage text
+        """
+        from ..terminal.ansi import ANSIColor, colorize
+
+        percentage = self.get_percentage()
+        text = f"Progress: {percentage:5.1f}%"
+
+        # Apply color if specified
+        if self.color:
+            color_code = getattr(ANSIColor, self.color.upper(), None)
+            if color_code:
+                text = colorize(text, color=color_code)
+
+        # Pad to width
+        if len(text) < self.width:
+            text = text.ljust(self.width)
+        else:
+            text = clip_to_width(text, self.width)
+
+        return text
+
+    def _render_gradient_bar(self) -> str:
+        """Render gradient color style progress bar.
+
+        The color changes based on completion percentage:
+        - 0-33%: Red
+        - 33-66%: Yellow
+        - 66-100%: Green
+
+        Returns
+        -------
+        str
+            Rendered progress bar with gradient color
+        """
+        from ..terminal.ansi import colorize
+
+        percentage = self.get_percentage()
+
+        # Calculate percentage text first to know its exact width
+        if self.show_percentage:
+            percentage_text = f" {percentage:.1f}%"
+            percentage_width = len(percentage_text)
+            bar_width = self.width - percentage_width
+        else:
+            bar_width = self.width
+
+        bar_width = max(1, bar_width)
+
+        # Calculate filled and empty portions
+        filled_width = int((percentage / 100.0) * bar_width)
+        empty_width = bar_width - filled_width
+
+        # Build bar
+        bar = self.fill_char * filled_width + self.empty_char * empty_width
+
+        # Apply gradient color
+        gradient_color = self._get_color_for_percentage(percentage)
+        if gradient_color:
+            bar = colorize(bar, color=gradient_color)
+
+        # Add percentage text
+        if self.show_percentage:
+            return bar + percentage_text
+        else:
+            return bar
+
+    def _render_custom_bar(self) -> str:
+        """Render custom character style progress bar.
+
+        Uses user-specified fill_char and empty_char.
+
+        Returns
+        -------
+        str
+            Rendered progress bar
+        """
+        from ..terminal.ansi import ANSIColor, colorize
+
+        percentage = self.get_percentage()
+
+        # Calculate percentage text first to know its exact width
+        if self.show_percentage:
+            percentage_text = f" {percentage:.1f}%"
+            percentage_width = len(percentage_text)
+            bar_width = self.width - percentage_width
+        else:
+            bar_width = self.width
+
+        bar_width = max(1, bar_width)
+
+        # Calculate filled and empty portions
+        filled_width = int((percentage / 100.0) * bar_width)
+        empty_width = bar_width - filled_width
+
+        # Build bar with custom characters
+        bar = self.fill_char * filled_width + self.empty_char * empty_width
+
+        # Apply color if specified
+        if self.color:
+            color_code = getattr(ANSIColor, self.color.upper(), None)
+            if color_code:
+                bar = colorize(bar, color=color_code)
+
+        # Add percentage text
+        if self.show_percentage:
+            return bar + percentage_text
+        else:
+            return bar
+
+    def render(self) -> str:
+        """Render the progress bar.
+
+        Returns
+        -------
+        str
+            Rendered progress bar as single-line string
+        """
+        if self.style == "filled":
+            return self._render_filled_bar()
+        elif self.style == "percentage":
+            return self._render_percentage_only()
+        elif self.style == "gradient":
+            return self._render_gradient_bar()
+        elif self.style == "custom":
+            return self._render_custom_bar()
+        else:
+            # Default to filled style
+            return self._render_filled_bar()
+
+
+# Spinner animation frames
+SPINNER_FRAMES = {
+    # Braille dots spinner
+    "dots": [
+        "\u280b",
+        "\u2819",
+        "\u2839",
+        "\u2838",
+        "\u283c",
+        "\u2834",
+        "\u2826",
+        "\u2827",
+        "\u2807",
+        "\u280f",
+    ],
+    "dots_ascii": ["/", "-", "\\", "|"],
+    # Rotating line
+    "line": ["|", "/", "-", "\\"],
+    # Bouncing braille bar
+    "bouncing": [
+        "\u28fe",
+        "\u28fd",
+        "\u28fb",
+        "\u28bf",
+        "\u287f",
+        "\u28df",
+        "\u28ef",
+        "\u28f7",
+    ],
+    "bouncing_ascii": ["<", "<<", "<<<", ">>", ">"],
+    # Clock face
+    "clock": [
+        "\U0001f550",
+        "\U0001f551",
+        "\U0001f552",
+        "\U0001f553",
+        "\U0001f554",
+        "\U0001f555",
+        "\U0001f556",
+        "\U0001f557",
+        "\U0001f558",
+        "\U0001f559",
+        "\U0001f55a",
+        "\U0001f55b",
+    ],
+    "clock_ascii": ["12", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+}
+
+
+class Spinner(Element):
+    """Spinner element for displaying indefinite loading animation.
+
+    This element provides an animated spinner indicator with support for:
+    - Multiple animation styles (dots, line, bouncing, clock)
+    - Unicode detection with ASCII fallback
+    - Optional label text
+    - Optional coloring
+    - Active/inactive state control
+
+    Parameters
+    ----------
+    id : str, optional
+        Element identifier
+    active : bool, optional
+        Whether spinner is active and animating (default: True)
+    style : str, optional
+        Animation style: "dots", "line", "bouncing", "clock" (default: "dots")
+    label : str, optional
+        Label text to display next to spinner (default: "")
+    color : str, optional
+        Color name for the spinner (default: None)
+    frame_index : int, optional
+        Current animation frame index (default: 0)
+
+    Attributes
+    ----------
+    active : bool
+        Whether spinner is active
+    style : str
+        Animation style
+    label : str
+        Label text
+    color : str or None
+        Color name
+    frame_index : int
+        Current frame index
+    """
+
+    def __init__(
+        self,
+        id: str | None = None,
+        active: bool = True,
+        style: Literal["dots", "line", "bouncing", "clock"] = "dots",
+        label: str = "",
+        color: str | None = None,
+        frame_index: int = 0,
+    ):
+        super().__init__(id)
+        self.element_type = ElementType.DISPLAY
+        self.focusable = False  # Spinners are not interactive
+
+        # Spinner properties
+        self.active = active
+        self.style = style
+        self.label = label
+        self.color = color
+        self.frame_index = frame_index
+
+        # Template metadata
+        self.action: str | None = None
+        self.bind: bool = True
+
+    def next_frame(self) -> None:
+        """Advance to the next animation frame.
+
+        This method increments the frame index and wraps around to 0
+        when reaching the end of the animation sequence.
+        """
+        frames = self._get_style_frames(self.style)
+        self.frame_index = (self.frame_index + 1) % len(frames)
+
+    def _get_style_frames(self, style: str) -> list[str]:
+        """Get animation frames for a style, with Unicode fallback.
+
+        Parameters
+        ----------
+        style : str
+            Animation style name
+
+        Returns
+        -------
+        list of str
+            List of frame characters
+        """
+        from ..terminal.ansi import supports_unicode
+
+        # Check if we should use ASCII fallback
+        if not supports_unicode():
+            # Use ASCII fallback versions
+            ascii_style = f"{style}_ascii"
+            if ascii_style in SPINNER_FRAMES:
+                return SPINNER_FRAMES[ascii_style]
+            # If no ASCII version, default to line
+            return SPINNER_FRAMES["line"]
+
+        # Use Unicode version
+        if style in SPINNER_FRAMES:
+            return SPINNER_FRAMES[style]
+        else:
+            # Default to dots if style not found
+            return SPINNER_FRAMES["dots"]
+
+    def _get_current_frame(self) -> str:
+        """Get the current animation frame character.
+
+        Returns
+        -------
+        str
+            Current frame character
+        """
+        frames = self._get_style_frames(self.style)
+        # Ensure frame_index is within bounds
+        frame_idx = self.frame_index % len(frames)
+        return frames[frame_idx]
+
+    def render(self) -> str:
+        """Render the spinner.
+
+        Returns
+        -------
+        str
+            Rendered spinner with optional label as single-line string
+        """
+        from ..terminal.ansi import ANSIColor, colorize
+
+        # If not active, return empty space or just label
+        if not self.active:
+            if self.label:
+                return self.label
+            else:
+                return ""
+
+        # Get current frame
+        frame = self._get_current_frame()
+
+        # Apply color if specified
+        if self.color:
+            color_code = getattr(ANSIColor, self.color.upper(), None)
+            if color_code:
+                frame = colorize(frame, color=color_code)
+
+        # Combine frame and label
+        if self.label:
+            return f"{frame} {self.label}"
+        else:
+            return frame

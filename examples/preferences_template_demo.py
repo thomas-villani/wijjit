@@ -123,7 +123,7 @@ def create_app():
     Controls: [Tab] Navigate  [Space/Enter] Toggle/Select  [q] Quit
 
 {% endvstack %}
-"""
+""" # noqa: E501
 
         return {
             "template": template,

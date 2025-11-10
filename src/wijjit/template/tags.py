@@ -2098,3 +2098,318 @@ class RadioGroupExtension(Extension):
         caller()
 
         return ""
+
+
+class ProgressBarExtension(Extension):
+    """Jinja2 extension for progressbar tag.
+
+    Syntax:
+        {% progressbar id="download" value=state.progress max=100
+                       width=40 style="filled" color="green"
+                       show_percentage=True %}
+        {% endprogressbar %}
+    """
+
+    tags = {"progressbar"}
+
+    def parse(self, parser):
+        """Parse the progressbar tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endprogressbar"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endprogressbar)
+        node = nodes.CallBlock(
+            self.call_method("_render_progressbar", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endprogressbar"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_progressbar(
+        self,
+        caller,
+        id=None,
+        value=0,
+        max=100,
+        width=40,
+        style="filled",
+        color=None,
+        show_percentage=None,
+        fill_char=None,
+        empty_char=None,
+        bind=True,
+    ) -> str:
+        """Render the progressbar tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        value : float or int
+            Current progress value (default: 0)
+        max : float or int
+            Maximum progress value (default: 100)
+        width : int
+            Progress bar width (default: 40)
+        style : str
+            Display style: "filled", "percentage", "gradient", "custom" (default: "filled")
+        color : str, optional
+            Color name for the bar (default: None)
+        show_percentage : bool, optional
+            Whether to show percentage text (default: auto based on style)
+        fill_char : str, optional
+            Character for filled portion (default: block character)
+        empty_char : str, optional
+            Character for empty portion (default: light shade character)
+        bind : bool
+            Whether to auto-bind value to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert numeric parameters
+        value = float(value)
+        max_val = float(max)
+        width = int(width)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("progressbar")
+
+        # If binding is enabled and id is provided, try to get value from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        value = float(state[id])
+            except Exception:
+                pass
+
+        # Convert show_percentage to bool if provided
+        if show_percentage is not None:
+            show_percentage = bool(show_percentage)
+
+        # Create ProgressBar element
+        from ..elements.display import ProgressBar
+
+        progressbar = ProgressBar(
+            id=id,
+            value=value,
+            max=max_val,
+            width=width,
+            style=style,
+            color=color,
+            show_percentage=show_percentage,
+            fill_char=fill_char,
+            empty_char=empty_char,
+        )
+
+        # Store bind setting
+        progressbar.bind = bind
+
+        # Create ElementNode
+        # Progress bar is always single line
+        node = ElementNode(progressbar, width=width, height=1)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""
+
+
+class SpinnerExtension(Extension):
+    """Jinja2 extension for spinner tag.
+
+    Syntax:
+        {% spinner id="loading" active=state.loading
+                   style="dots" label="Loading..." color="cyan" %}
+        {% endspinner %}
+    """
+
+    tags = {"spinner"}
+
+    def parse(self, parser):
+        """Parse the spinner tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endspinner"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endspinner)
+        node = nodes.CallBlock(
+            self.call_method("_render_spinner", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endspinner"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_spinner(
+        self,
+        caller,
+        id=None,
+        active=True,
+        style="dots",
+        label="",
+        color=None,
+        bind=True,
+    ) -> str:
+        """Render the spinner tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        active : bool
+            Whether spinner is active and animating (default: True)
+        style : str
+            Animation style: "dots", "line", "bouncing", "clock" (default: "dots")
+        label : str
+            Label text to display next to spinner (default: "")
+        color : str, optional
+            Color name for the spinner (default: None)
+        bind : bool
+            Whether to auto-bind active state to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert active to bool
+        active = bool(active)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("spinner")
+
+        # If binding is enabled and id is provided, try to get active state from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        active = bool(state[id])
+            except Exception:
+                pass
+
+        # Get or restore frame index from state
+        frame_index = 0
+        frame_key = f"_spinner_frame_{id}"
+        try:
+            ctx = self.environment.globals.get("_wijjit_current_context")
+            if ctx and "state" in ctx:
+                state = ctx["state"]
+                if frame_key in state:
+                    frame_index = int(state[frame_key])
+        except Exception:
+            pass
+
+        # Create Spinner element
+        from ..elements.display import Spinner
+
+        spinner = Spinner(
+            id=id,
+            active=active,
+            style=style,
+            label=label,
+            color=color,
+            frame_index=frame_index,
+        )
+
+        # Store bind setting
+        spinner.bind = bind
+
+        # Store state dict reference for frame updates
+        try:
+            ctx = self.environment.globals.get("_wijjit_current_context")
+            if ctx and "state" in ctx:
+                spinner._state_dict = ctx["state"]
+                spinner._frame_key = frame_key
+        except Exception:
+            pass
+
+        # Calculate width based on label and spinner character
+        # Spinner is typically 1-2 chars wide, plus space, plus label length
+        spinner_width = 3 + len(label) if label else 2
+
+        # Create ElementNode
+        # Spinner is always single line
+        node = ElementNode(spinner, width=spinner_width, height=1)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""

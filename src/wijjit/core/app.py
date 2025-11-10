@@ -15,6 +15,7 @@ declarative UI patterns.
 
 import shutil
 import sys
+import time
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -185,6 +186,10 @@ class Wijjit:
 
         # Action handlers
         self._action_handlers: dict[str, Callable] = {}
+
+        # Auto-refresh for animations (e.g., spinners)
+        self.refresh_interval: float | None = None  # None = no auto-refresh
+        self._last_refresh_time: float = 0.0
 
         # Hook state changes to trigger re-render
         self.state.on_change(self._on_state_change)
@@ -488,15 +493,35 @@ class Wijjit:
 
             # Render initial view
             self._render()
+            self._last_refresh_time = time.time()
 
             # Main event loop
             while self.running:
                 try:
-                    # Read input (blocking) - keyboard or mouse
+                    # Check if auto-refresh is needed (for animations like spinners)
+                    if self.refresh_interval is not None:
+                        current_time = time.time()
+                        elapsed = current_time - self._last_refresh_time
+
+                        if elapsed >= self.refresh_interval:
+                            # Time to refresh - advance spinner frames and re-render
+                            self._advance_spinner_frames()
+                            self.needs_render = True
+                            self._last_refresh_time = current_time
+
+                    # Read input - use short timeout if refresh_interval is set
+                    # This allows animations to run smoothly
+                    # Note: InputHandler.read_input() is blocking, so we check refresh
+                    # timing before reading. For smooth animations, refresh_interval
+                    # should be small (e.g., 0.1 seconds)
                     input_event = self.input_handler.read_input()
 
                     if input_event is None:
                         # Error reading input, continue
+                        # But still check if refresh is needed
+                        if self.needs_render:
+                            self._render()
+                            self._last_refresh_time = time.time()
                         continue
 
                     # Check if it's a keyboard event
@@ -529,6 +554,7 @@ class Wijjit:
                     # Re-render if needed
                     if self.needs_render:
                         self._render()
+                        self._last_refresh_time = time.time()
 
                 except KeyboardInterrupt:
                     self.running = False
@@ -1120,6 +1146,28 @@ class Wijjit:
 
             # Trigger re-render if needed
             self.needs_render = True
+
+    def _advance_spinner_frames(self) -> None:
+        """Advance animation frames for all active spinners.
+
+        This method iterates through all positioned elements, finds active
+        spinners, advances their frame counters, and updates state.
+        Called periodically when refresh_interval is set.
+        """
+        from ..elements.display import Spinner
+
+        for elem in self.positioned_elements:
+            if isinstance(elem, Spinner) and elem.active:
+                # Advance to next frame
+                elem.next_frame()
+
+                # Update frame index in state if element has state dict reference
+                if hasattr(elem, "_state_dict") and hasattr(elem, "_frame_key"):
+                    try:
+                        elem._state_dict[elem._frame_key] = elem.frame_index
+                    except Exception:
+                        # If state update fails, just continue
+                        pass
 
     def _handle_error(self, message: str, exception: Exception) -> None:
         """Handle errors during app execution.
