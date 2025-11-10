@@ -1146,6 +1146,235 @@ class CodeBlockExtension(Extension):
         return ""
 
 
+class LogViewExtension(Extension):
+    """Jinja2 extension for logview tag.
+
+    Syntax:
+        {% logview id="app_logs"
+                   lines=state.logs
+                   auto_scroll=true
+                   soft_wrap=false
+                   width=80
+                   height=20
+                   show_line_numbers=false
+                   detect_log_levels=true
+                   border_style="single"
+                   title="Application Logs"
+                   show_scrollbar=true %}
+        {% endlogview %}
+    """
+
+    tags = {"logview"}
+
+    def parse(self, parser):
+        """Parse the logview tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endlogview"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endlogview)
+        node = nodes.CallBlock(
+            self.call_method("_render_logview", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endlogview"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_logview(
+        self,
+        caller,
+        id=None,
+        lines=None,
+        width=80,
+        height=20,
+        auto_scroll=True,
+        soft_wrap=False,
+        show_line_numbers=False,
+        line_number_start=1,
+        detect_log_levels=True,
+        show_scrollbar=True,
+        border_style="single",
+        title=None,
+        bind=True,
+    ) -> str:
+        """Render the logview tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        lines : list of str, optional
+            Log lines
+        width : int
+            LogView width (default: 80)
+        height : int
+            LogView height (default: 20)
+        auto_scroll : bool
+            Automatically scroll to bottom (default: True)
+        soft_wrap : bool
+            Wrap long lines (default: False)
+        show_line_numbers : bool
+            Display line numbers (default: False)
+        line_number_start : int
+            Starting line number (default: 1)
+        detect_log_levels : bool
+            Auto-detect and color log levels (default: True)
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Border style (default: "single")
+        title : str, optional
+            Border title
+        bind : bool
+            Whether to auto-bind lines to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+        auto_scroll = bool(auto_scroll)
+        soft_wrap = bool(soft_wrap)
+        show_line_numbers = bool(show_line_numbers)
+        line_number_start = int(line_number_start)
+        detect_log_levels = bool(detect_log_levels)
+        show_scrollbar = bool(show_scrollbar)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("logview")
+
+        # If binding is enabled and id is provided, try to get lines from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        state_lines = state[id]
+                        # Ensure it's a list
+                        if isinstance(state_lines, list):
+                            lines = state_lines
+            except Exception:
+                pass
+
+        # Ensure lines is a list of strings
+        if lines is None:
+            lines = []
+        elif not isinstance(lines, list):
+            lines = []
+        else:
+            # Convert all items to strings
+            lines = [str(line) for line in lines]
+
+        # Create LogView element
+        from wijjit.elements.display.logview import LogView
+
+        logview = LogView(
+            id=id,
+            lines=lines,
+            width=width,
+            height=height,
+            auto_scroll=auto_scroll,
+            soft_wrap=soft_wrap,
+            show_line_numbers=show_line_numbers,
+            line_number_start=line_number_start,
+            detect_log_levels=detect_log_levels,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+            title=title,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            logview.focused = True
+
+        # Store bind setting
+        logview.bind = bind
+
+        # Restore scroll position and auto-scroll state from state if available
+        if id:
+            scroll_key = f"_scroll_{id}"
+            autoscroll_key = f"_autoscroll_{id}"
+            logview.scroll_state_key = scroll_key
+            logview.autoscroll_state_key = autoscroll_key
+
+            # Give logview access to state dict for saving
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    logview._state_dict = ctx["state"]
+            except Exception:
+                pass
+
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+
+                    # Restore scroll position
+                    if scroll_key in state:
+                        logview.restore_scroll_position(state[scroll_key])
+
+                    # Restore auto-scroll state
+                    if autoscroll_key in state:
+                        logview.auto_scroll = bool(state[autoscroll_key])
+                        if logview.auto_scroll:
+                            logview._user_scrolled_up = False
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Calculate total height accounting for borders
+        total_height = height + (2 if border_style != "none" else 0)
+        total_width = width + (2 if border_style != "none" else 0)
+
+        node = ElementNode(logview, width=total_width, height=total_height)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""
+
+
 class ListViewExtension(Extension):
     """Jinja2 extension for listview tag.
 

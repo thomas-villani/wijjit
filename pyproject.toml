@@ -60,7 +60,10 @@ ignore = []
     "E402",  # Module level import not at top (common with pytest.skip)
     "E501",  # Line too long (tests often have long assertion lines)
     "F841",  # Variable assigned but never used
-
+]
+"examples/*.py" = [
+    "E501",
+    "B007"
 ]
 
 [tool.mypy]

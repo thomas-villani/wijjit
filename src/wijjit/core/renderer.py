@@ -15,6 +15,7 @@ from wijjit.layout.engine import LayoutEngine, LayoutNode
 from wijjit.tags.display import (
     CodeBlockExtension,
     ListViewExtension,
+    LogViewExtension,
     MarkdownExtension,
     ProgressBarExtension,
     SpinnerExtension,
@@ -90,6 +91,7 @@ class Renderer:
                 ProgressBarExtension,
                 SpinnerExtension,
                 ListViewExtension,
+                LogViewExtension,
                 MarkdownExtension,
                 CodeBlockExtension,
                 TextAreaExtension,
