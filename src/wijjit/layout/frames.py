@@ -138,6 +138,9 @@ class Frame:
         self.bounds: Bounds | None = None  # Assigned during layout
         self.id: str | None = id  # Optional identifier
 
+        # Frame is only focusable if it's scrollable (needs to handle UP/DOWN for scrolling)
+        self.focusable: bool = self.style.scrollable
+
     def set_content(self, text: str) -> None:
         """Set the frame content from a string.
 
@@ -199,6 +202,9 @@ class Frame:
 
             # Determine if scrolling is needed
             self._needs_scroll = self.scroll_manager.state.is_scrollable
+
+            # Update focusable status - frame should be focusable if it needs scrolling
+            self.focusable = self._needs_scroll
 
     def render(self) -> str:
         """Render the frame as a string.

@@ -709,7 +709,15 @@ class Wijjit:
             List of positioned elements
         """
         from ..elements.display import Table, Tree
-        from ..elements.input import Button, Select, TextInput
+        from ..elements.input import (
+            Button,
+            Checkbox,
+            CheckboxGroup,
+            Radio,
+            RadioGroup,
+            Select,
+            TextInput,
+        )
 
         for elem in elements:
             # Wire up action callbacks for buttons
@@ -806,6 +814,123 @@ class Wijjit:
                         self._dispatch_action(aid, data=node)
 
                     elem.on_select = on_select_handler
+
+            # Wire up Checkbox callbacks
+            if isinstance(elem, Checkbox):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
+
+                # Wire up state binding if enabled
+                if hasattr(elem, "bind") and elem.bind and elem.id:
+                    # Initialize element checked state from state if key exists
+                    if elem.id in self.state:
+                        elem.checked = bool(self.state[elem.id])
+
+                    # Set up two-way binding
+                    elem_id = elem.id
+
+                    def on_change_handler(old_val, new_val, eid=elem_id):
+                        # Update state when element changes
+                        self.state[eid] = new_val
+
+                    elem.on_change = on_change_handler
+
+            # Wire up Radio callbacks
+            if isinstance(elem, Radio):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
+
+                # Wire up state binding if enabled (bind to group name, not id)
+                if hasattr(elem, "bind") and elem.bind and elem.name:
+                    # Initialize element checked state from state[name]
+                    if elem.name in self.state:
+                        elem.checked = self.state[elem.name] == elem.value
+
+                    # Set up two-way binding
+                    radio_name = elem.name
+                    radio_value = elem.value
+
+                    def on_change_handler(
+                        old_val, new_val, rname=radio_name, rval=radio_value
+                    ):
+                        # Update state when radio is selected
+                        if (
+                            new_val
+                        ):  # Only update state when radio is selected (not deselected)
+                            self.state[rname] = rval
+
+                    elem.on_change = on_change_handler
+
+            # Wire up CheckboxGroup callbacks
+            if isinstance(elem, CheckboxGroup):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
+
+                # Wire up state binding if enabled
+                if hasattr(elem, "bind") and elem.bind and elem.id:
+                    # Initialize element selected values from state if key exists
+                    if elem.id in self.state:
+                        elem.selected_values = set(self.state[elem.id])
+
+                    # Set up two-way binding
+                    elem_id = elem.id
+
+                    def on_change_handler(old_val, new_val, eid=elem_id):
+                        # Update state when element changes
+                        self.state[eid] = new_val
+
+                    elem.on_change = on_change_handler
+
+                # Wire up highlighted_index persistence if element has the state key
+                if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
+                    highlight_key = elem.highlight_state_key
+
+                    def on_highlight_handler(new_index, hkey=highlight_key):
+                        # Update state when highlight changes
+                        self.state[hkey] = new_index
+
+                    elem.on_highlight_change = on_highlight_handler
+
+            # Wire up RadioGroup callbacks
+            if isinstance(elem, RadioGroup):
+                # Wire up action callback if action is specified
+                if hasattr(elem, "action") and elem.action:
+                    action_id = elem.action
+                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
+
+                # Wire up state binding if enabled (bind to group name)
+                if hasattr(elem, "bind") and elem.bind and elem.name:
+                    # Initialize element selected value from state[name]
+                    if elem.name in self.state:
+                        elem.selected_value = self.state[elem.name]
+                        elem.selected_index = elem._find_option_index(
+                            elem.selected_value
+                        )
+
+                    # Set up two-way binding
+                    group_name = elem.name
+
+                    def on_change_handler(old_val, new_val, gname=group_name):
+                        # Update state when element changes
+                        self.state[gname] = new_val
+
+                    elem.on_change = on_change_handler
+
+                # Wire up highlighted_index persistence if element has the state key
+                if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
+                    highlight_key = elem.highlight_state_key
+
+                    def on_highlight_handler(new_index, hkey=highlight_key):
+                        # Update state when highlight changes
+                        self.state[hkey] = new_index
+
+                    elem.on_highlight_change = on_highlight_handler
 
     def _handle_tab_key(self, event: KeyEvent) -> None:
         """Handle Tab/Shift+Tab for focus navigation.

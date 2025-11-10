@@ -13,7 +13,15 @@ from jinja2.ext import Extension
 
 from ..elements.base import TextElement
 from ..elements.display import Table, Tree
-from ..elements.input import Button, Select, TextInput
+from ..elements.input import (
+    Button,
+    Checkbox,
+    CheckboxGroup,
+    Radio,
+    RadioGroup,
+    Select,
+    TextInput,
+)
 from ..layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
 from ..layout.frames import BorderStyle, Frame, FrameStyle
 
@@ -1586,4 +1594,476 @@ class TreeExtension(Extension):
         caller()
 
         # Return empty string (layout will be processed later)
+        return ""
+
+
+class CheckboxExtension(Extension):
+    """Jinja2 extension for checkbox tag.
+
+    Syntax:
+        {% checkbox id="terms" label="I agree" checked=False action="submit" %}{% endcheckbox %}
+    """
+
+    tags = {"checkbox"}
+
+    def parse(self, parser):
+        """Parse the checkbox tag."""
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endcheckbox"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endcheckbox)
+        node = nodes.CallBlock(
+            self.call_method("_render_checkbox", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endcheckbox"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_checkbox(
+        self,
+        caller,
+        id=None,
+        label="",
+        checked=False,
+        value="",
+        action=None,
+        bind=True,
+    ) -> str:
+        """Render the checkbox tag."""
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("checkbox")
+
+        # If binding is enabled, try to get initial checked state from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        checked = bool(state[id])
+            except Exception:
+                pass
+
+        # Create Checkbox element
+        checkbox = Checkbox(id=id, label=label, checked=checked, value=value)
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            checkbox.focused = True
+
+        # Store action ID if provided
+        if action:
+            checkbox.action = action
+
+        # Store bind setting
+        checkbox.bind = bind
+
+        # Create ElementNode
+        from ..terminal.ansi import visible_length
+
+        checkbox_width = visible_length(checkbox.render())
+        node = ElementNode(checkbox, width=checkbox_width, height=1)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""
+
+
+class RadioExtension(Extension):
+    """Jinja2 extension for radio tag.
+
+    Syntax:
+        {% radio name="size" id="size_m" label="Medium" value="m" checked=False %}{% endradio %}
+    """
+
+    tags = {"radio"}
+
+    def parse(self, parser):
+        """Parse the radio tag."""
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endradio"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endradio)
+        node = nodes.CallBlock(
+            self.call_method("_render_radio", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endradio"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_radio(
+        self,
+        caller,
+        name,
+        id=None,
+        label="",
+        checked=False,
+        value="",
+        action=None,
+        bind=True,
+    ) -> str:
+        """Render the radio tag."""
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("radio")
+
+        # If binding is enabled, try to get checked state from state[name]
+        if bind and name:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if name in state:
+                        # Check if this radio's value matches the group's selected value
+                        checked = state[name] == value
+            except Exception:
+                pass
+
+        # Create Radio element
+        radio = Radio(name=name, id=id, label=label, checked=checked, value=value)
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            radio.focused = True
+
+        # Store action ID if provided
+        if action:
+            radio.action = action
+
+        # Store bind setting
+        radio.bind = bind
+
+        # Create ElementNode
+        from ..terminal.ansi import visible_length
+
+        radio_width = visible_length(radio.render())
+        node = ElementNode(radio, width=radio_width, height=1)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""
+
+
+class CheckboxGroupExtension(Extension):
+    """Jinja2 extension for checkboxgroup tag.
+
+    Syntax:
+        {% checkboxgroup id="features" options=["A", "B", "C"]
+                         selected=["A"] width=30
+                         border="single" title="Select Features" %}
+        {% endcheckboxgroup %}
+    """
+
+    tags = {"checkboxgroup"}
+
+    def parse(self, parser):
+        """Parse the checkboxgroup tag."""
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endcheckboxgroup"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endcheckboxgroup)
+        node = nodes.CallBlock(
+            self.call_method("_render_checkboxgroup", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endcheckboxgroup"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_checkboxgroup(
+        self,
+        caller,
+        id=None,
+        options=None,
+        selected=None,
+        width=20,
+        orientation="vertical",
+        border_style=None,
+        title=None,
+        action=None,
+        bind=True,
+    ) -> str:
+        """Render the checkboxgroup tag."""
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("checkboxgroup")
+
+        # If binding is enabled, try to get selected values from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        selected = state[id]
+            except Exception:
+                pass
+
+        # Ensure selected is a list
+        if selected is None:
+            selected = []
+        elif not isinstance(selected, list):
+            selected = list(selected)
+
+        # Ensure options is a list
+        if options is None:
+            options = []
+        elif not isinstance(options, list):
+            options = list(options)
+
+        # Create CheckboxGroup element
+        checkbox_group = CheckboxGroup(
+            id=id,
+            options=options,
+            selected_values=selected,
+            width=width,
+            orientation=orientation,
+            border_style=border_style,
+            title=title,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            checkbox_group.focused = True
+
+        # Store action ID if provided
+        if action:
+            checkbox_group.action = action
+
+        # Store bind setting
+        checkbox_group.bind = bind
+
+        # Restore highlighted_index from state if available
+        if id:
+            highlight_key = f"_highlight_{id}"
+            checkbox_group.highlight_state_key = highlight_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if highlight_key in state:
+                        checkbox_group.highlighted_index = state[highlight_key]
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Calculate total height accounting for borders
+        total_height = len(options) + (2 if border_style is not None else 0)
+        total_width = width + (2 if border_style is not None else 0)
+
+        node = ElementNode(checkbox_group, width=total_width, height=total_height)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""
+
+
+class RadioGroupExtension(Extension):
+    """Jinja2 extension for radiogroup tag.
+
+    Syntax:
+        {% radiogroup name="size" id="size_group" options=["S", "M", "L"]
+                      selected="M" width=20
+                      border="single" title="Select Size" %}
+        {% endradiogroup %}
+    """
+
+    tags = {"radiogroup"}
+
+    def parse(self, parser):
+        """Parse the radiogroup tag."""
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endradiogroup"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endradiogroup)
+        node = nodes.CallBlock(
+            self.call_method("_render_radiogroup", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endradiogroup"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_radiogroup(
+        self,
+        caller,
+        name,
+        id=None,
+        options=None,
+        selected=None,
+        width=20,
+        orientation="vertical",
+        border_style=None,
+        title=None,
+        action=None,
+        bind=True,
+    ) -> str:
+        """Render the radiogroup tag."""
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("radiogroup")
+
+        # If binding is enabled, try to get selected value from state[name]
+        if bind and name:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if name in state:
+                        selected = state[name]
+            except Exception:
+                pass
+
+        # Ensure options is a list
+        if options is None:
+            options = []
+        elif not isinstance(options, list):
+            options = list(options)
+
+        # Create RadioGroup element
+        radio_group = RadioGroup(
+            name=name,
+            id=id,
+            options=options,
+            selected_value=selected,
+            width=width,
+            orientation=orientation,
+            border_style=border_style,
+            title=title,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            radio_group.focused = True
+
+        # Store action ID if provided
+        if action:
+            radio_group.action = action
+
+        # Store bind setting
+        radio_group.bind = bind
+
+        # Restore highlighted_index from state if available
+        if id:
+            highlight_key = f"_highlight_{id}"
+            radio_group.highlight_state_key = highlight_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if highlight_key in state:
+                        radio_group.highlighted_index = state[highlight_key]
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Calculate total height accounting for borders
+        total_height = len(options) + (2 if border_style is not None else 0)
+        total_width = width + (2 if border_style is not None else 0)
+
+        node = ElementNode(radio_group, width=total_width, height=total_height)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Consume body (should be empty)
+        caller()
+
         return ""

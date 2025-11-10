@@ -758,6 +758,7 @@ class HStack(Container):
                 child_height = content_height
                 child_y = current_y
             elif child.height_spec.is_fixed:
+                # Use fixed height - don't clamp to content_height
                 child_height = child.height_spec.value
             else:
                 child_height = (
@@ -765,9 +766,8 @@ class HStack(Container):
                     if child.constraints
                     else content_height
                 )
-
-            # Ensure height doesn't exceed content height
-            child_height = min(child_height, content_height)
+                # Only clamp non-fixed heights to content height
+                child_height = min(child_height, content_height)
 
             # Apply vertical alignment if child is shorter than available space
             if self.align_v != "stretch" and child_height < content_height:
@@ -911,12 +911,27 @@ class FrameNode(Container):
         total_min_w = frame_min_w + margin_left + margin_right
         total_min_h = frame_min_h + margin_top + margin_bottom
 
-        return SizeConstraints(
+        # Respect fixed width/height specifications
+        # If width_spec is fixed, use that instead of calculated width
+        if self.width_spec.is_fixed:
+            total_min_w = self.width_spec.value + margin_left + margin_right
+            preferred_width = self.width_spec.value + margin_left + margin_right
+        else:
+            preferred_width = total_min_w
+
+        if self.height_spec.is_fixed:
+            total_min_h = self.height_spec.value + margin_top + margin_bottom
+            preferred_height = self.height_spec.value + margin_top + margin_bottom
+        else:
+            preferred_height = total_min_h
+
+        self.constraints = SizeConstraints(
             min_width=total_min_w,
             min_height=total_min_h,
-            preferred_width=total_min_w,
-            preferred_height=total_min_h,
+            preferred_width=preferred_width,
+            preferred_height=preferred_height,
         )
+        return self.constraints
 
     def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
         """Assign absolute position and size.

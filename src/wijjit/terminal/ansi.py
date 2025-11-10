@@ -423,3 +423,71 @@ def colorize(
 
     prefix = "".join(codes)
     return f"{prefix}{text}{ANSIStyle.RESET}"
+
+
+_unicode_support_cache: bool | None = None
+
+
+def supports_unicode() -> bool:
+    """Check if the terminal supports unicode characters.
+
+    This function checks the system encoding and environment variables
+    to determine if unicode characters can be safely displayed.
+    The result is cached for performance.
+
+    Returns
+    -------
+    bool
+        True if unicode is supported, False otherwise
+
+    Notes
+    -----
+    Detection is based on:
+    - System default encoding (UTF-8, utf8, etc.)
+    - LANG environment variable
+    - Terminal type environment variable
+    """
+    global _unicode_support_cache
+
+    if _unicode_support_cache is not None:
+        return _unicode_support_cache
+
+    import locale
+    import os
+    import sys
+
+    try:
+        # Check system encoding
+        encoding = sys.getdefaultencoding().lower()
+        if "utf" in encoding or "utf8" in encoding:
+            _unicode_support_cache = True
+            return True
+
+        # Check locale encoding
+        locale_encoding = locale.getpreferredencoding().lower()
+        if "utf" in locale_encoding or "utf8" in locale_encoding:
+            _unicode_support_cache = True
+            return True
+
+        # Check LANG environment variable
+        lang = os.environ.get("LANG", "").lower()
+        if "utf" in lang or "utf8" in lang:
+            _unicode_support_cache = True
+            return True
+
+        # Check if running on Windows with modern terminal
+        if sys.platform == "win32":
+            # Windows Terminal and Windows 10+ console support unicode
+            wt_session = os.environ.get("WT_SESSION")
+            if wt_session:
+                _unicode_support_cache = True
+                return True
+
+        # Default to False for safety
+        _unicode_support_cache = False
+        return False
+
+    except Exception:
+        # If detection fails, default to False for safety
+        _unicode_support_cache = False
+        return False
