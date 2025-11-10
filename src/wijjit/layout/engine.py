@@ -193,29 +193,45 @@ class ElementNode(LayoutNode):
         SizeConstraints
             Calculated constraints
         """
-        # Get element's rendered content to measure
-        rendered = self.element.render()
-        lines = rendered.split("\n")
-
-        # Import visible_length for ANSI-aware measurement
-        from ..terminal.ansi import visible_length
-
-        # Calculate actual content size
-        content_width = max((visible_length(line) for line in lines), default=1)
-        content_height = len(lines)
+        # For fill elements, check if the element has a _dynamic_sizing flag
+        # If so, skip rendering and use minimal constraints
+        has_dynamic_sizing = hasattr(self.element, '_dynamic_sizing') and self.element._dynamic_sizing
 
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
             min_width = self.width_spec.value
             preferred_width = self.width_spec.value
+        elif has_dynamic_sizing and self.width_spec.is_fill:
+            # Dynamic sizing elements report minimal constraints to avoid inflating parent
+            # They will expand to fill when space is available via assign_bounds
+            min_width = 10  # Reasonable minimum for visibility
+            preferred_width = 10  # Keep preferred same as min to avoid inflating parent
         else:
+            # Auto or other - measure content
+            rendered = self.element.render()
+            lines = rendered.split("\n")
+            from ..terminal.ansi import visible_length
+            content_width = max((visible_length(line) for line in lines), default=1)
             min_width = content_width
             preferred_width = content_width
 
         if self.height_spec.is_fixed:
             min_height = self.height_spec.value
             preferred_height = self.height_spec.value
+        elif has_dynamic_sizing and self.height_spec.is_fill:
+            # Dynamic sizing elements report minimal constraints to avoid inflating parent
+            # They will expand to fill when space is available via assign_bounds
+            min_height = 5  # Reasonable minimum for visibility (includes borders)
+            preferred_height = 5  # Keep preferred same as min to avoid inflating parent
         else:
+            # Auto or other - measure content
+            if not hasattr(self, '_rendered_for_constraints'):
+                rendered = self.element.render()
+                lines = rendered.split("\n")
+                self._rendered_for_constraints = True
+            else:
+                lines = self.element.render().split("\n")
+            content_height = len(lines)
             min_height = content_height
             preferred_height = content_height
 
@@ -352,7 +368,7 @@ class VStack(Container):
     width : int, str, or Size, optional
         Width specification (default: "fill")
     height : int, str, or Size, optional
-        Height specification (default: "auto")
+        Height specification (default: "fill")
     spacing : int, optional
         Spacing between children (default: 0)
     padding : int, optional
@@ -371,7 +387,7 @@ class VStack(Container):
         self,
         children: list[LayoutNode] | None = None,
         width: int | str | Size = "fill",
-        height: int | str | Size = "auto",
+        height: int | str | Size = "fill",
         spacing: int = 0,
         padding: int = 0,
         margin: int | tuple[int, int, int, int] = 0,
@@ -414,7 +430,17 @@ class VStack(Container):
         max_child_width = max(c.preferred_width for c in child_constraints)
 
         # Height: sum of children plus spacing
-        total_height = sum(c.preferred_height for c in child_constraints)
+        # For children with height=fill, use min_height instead of preferred_height
+        # to avoid inflating the parent
+        total_height = 0
+        for i, child in enumerate(self.children):
+            constraint = child_constraints[i]
+            if child.height_spec.is_fill:
+                # Fill children contribute only their minimum
+                total_height += constraint.min_height
+            else:
+                # Fixed/auto children contribute their preferred size
+                total_height += constraint.preferred_height
         total_height += self.spacing * (len(self.children) - 1)
 
         # Add padding and margins
@@ -574,7 +600,7 @@ class HStack(Container):
     width : int, str, or Size, optional
         Width specification (default: "auto")
     height : int, str, or Size, optional
-        Height specification (default: "fill")
+        Height specification (default: "auto")
     spacing : int, optional
         Spacing between children (default: 0)
     padding : int, optional
@@ -593,7 +619,7 @@ class HStack(Container):
         self,
         children: list[LayoutNode] | None = None,
         width: int | str | Size = "auto",
-        height: int | str | Size = "fill",
+        height: int | str | Size = "auto",
         spacing: int = 0,
         padding: int = 0,
         margin: int | tuple[int, int, int, int] = 0,
@@ -633,11 +659,31 @@ class HStack(Container):
         child_constraints = [child.calculate_constraints() for child in self.children]
 
         # Width: sum of children plus spacing
-        total_width = sum(c.preferred_width for c in child_constraints)
+        # For children with width=fill, use min_width instead of preferred_width
+        # to avoid inflating the parent
+        total_width = 0
+        for i, child in enumerate(self.children):
+            constraint = child_constraints[i]
+            if child.width_spec.is_fill:
+                # Fill children contribute only their minimum
+                total_width += constraint.min_width
+            else:
+                # Fixed/auto children contribute their preferred size
+                total_width += constraint.preferred_width
         total_width += self.spacing * (len(self.children) - 1)
 
         # Height: max of children
-        max_child_height = max(c.preferred_height for c in child_constraints)
+        # For children with height=fill, use min_height instead of preferred_height
+        max_child_height = 0
+        for i, child in enumerate(self.children):
+            constraint = child_constraints[i]
+            if child.height_spec.is_fill:
+                # Fill children contribute only their minimum
+                height = constraint.min_height
+            else:
+                # Fixed/auto children contribute their preferred size
+                height = constraint.preferred_height
+            max_child_height = max(max_child_height, height)
 
         # Add padding and margins
         min_width = total_width + 2 * self.padding + margin_left + margin_right

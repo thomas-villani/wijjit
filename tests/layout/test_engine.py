@@ -935,3 +935,93 @@ class TestEdgeCases:
         assert child1.bounds.x == 12
         assert child2.bounds.x == 7
         assert child3.bounds.x == 10
+
+
+class TestFillChildrenConstraints:
+    """Test that fill children don't inflate parent containers."""
+    
+    def test_vstack_fill_child_minimal_constraints(self):
+        """Test that VStack with fill child reports minimal constraints."""
+        # Create a fill child with dynamic sizing
+        elem1 = MockElement(width=10, height=5)
+        elem1._dynamic_sizing = True
+        fill_child = ElementNode(elem1, height="fill")
+        
+        # Create an auto child
+        elem2 = MockElement(width=10, height=3)
+        auto_child = ElementNode(elem2, height="auto")
+        
+        # VStack should use min_height for fill child
+        vstack = VStack(children=[fill_child, auto_child])
+        constraints = vstack.calculate_constraints()
+        
+        # Total should be fill child's min (5) + auto child's preferred (3)
+        assert constraints.preferred_height == 8
+    
+    def test_hstack_fill_child_minimal_constraints(self):
+        """Test that HStack with fill child reports minimal constraints."""
+        # Create a fill child with dynamic sizing
+        elem1 = MockElement(width=10, height=5)
+        elem1._dynamic_sizing = True
+        fill_child = ElementNode(elem1, width="fill")
+        
+        # Create an auto child
+        elem2 = MockElement(width=15, height=5)
+        auto_child = ElementNode(elem2, width="auto")
+        
+        # HStack should use min_width for fill child
+        hstack = HStack(children=[fill_child, auto_child])
+        constraints = hstack.calculate_constraints()
+        
+        # Total should be fill child's min (10) + auto child's preferred (15)
+        assert constraints.preferred_width == 25
+    
+    def test_vstack_distributes_remaining_space_to_fill_children(self):
+        """Test that VStack gives remaining space to fill children."""
+        # Create fill child
+        elem1 = MockElement(width=10, height=5)
+        elem1._dynamic_sizing = True
+        fill_child = ElementNode(elem1, height="fill")
+        
+        # Create fixed child
+        elem2 = MockElement(width=10, height=10)
+        fixed_child = ElementNode(elem2, height=10)
+        
+        vstack = VStack(children=[fill_child, fixed_child])
+        vstack.calculate_constraints()
+        
+        # Assign 50 height total
+        vstack.assign_bounds(0, 0, 20, 50)
+        
+        # Fill child should get remaining: 50 - 10 (fixed) = 40
+        assert fill_child.bounds.height == 40
+        assert fixed_child.bounds.height == 10
+    
+    def test_nested_vstacks_with_fill(self):
+        """Test nested VStacks where outer has fill and inner has auto/fill children."""
+        # Inner VStack children
+        elem1 = MockElement(width=10, height=5)
+        elem1._dynamic_sizing = True
+        inner_fill = ElementNode(elem1, height="fill")
+        
+        elem2 = MockElement(width=10, height=3)
+        inner_auto = ElementNode(elem2, height="auto")
+        
+        inner_vstack = VStack(children=[inner_fill, inner_auto], height="fill")
+        
+        # Outer VStack has the inner VStack plus a fixed element
+        elem3 = MockElement(width=10, height=5)
+        fixed = ElementNode(elem3, height=5)
+        
+        outer_vstack = VStack(children=[inner_vstack, fixed])
+        outer_vstack.calculate_constraints()
+        
+        # Assign bounds
+        outer_vstack.assign_bounds(0, 0, 20, 50)
+        
+        # Inner vstack should get: 50 - 5 (fixed) = 45
+        assert inner_vstack.bounds.height == 45
+        
+        # Within inner vstack, fill child gets: 45 - 3 (auto) = 42
+        assert inner_fill.bounds.height == 42
+        assert inner_auto.bounds.height == 3

@@ -16,15 +16,18 @@ from ..template.tags import (
     ButtonExtension,
     CheckboxExtension,
     CheckboxGroupExtension,
+    CodeBlockExtension,
     FrameExtension,
     HStackExtension,
     LayoutContext,
+    MarkdownExtension,
     ProgressBarExtension,
     RadioExtension,
     RadioGroupExtension,
     SelectExtension,
     SpinnerExtension,
     TableExtension,
+    TextAreaExtension,
     TextInputExtension,
     TreeExtension,
     VStackExtension,
@@ -81,6 +84,9 @@ class Renderer:
                 TreeExtension,
                 ProgressBarExtension,
                 SpinnerExtension,
+                MarkdownExtension,
+                CodeBlockExtension,
+                TextAreaExtension,
             ],
         )
 
@@ -89,6 +95,12 @@ class Renderer:
 
         # Add custom filters
         self._setup_filters()
+
+        # Add layout constants to globals for easier template usage
+        self.env.globals.update({
+            'fill': 'fill',
+            'auto': 'auto',
+        })
 
     def _setup_filters(self) -> None:
         """Set up custom Jinja2 filters for terminal rendering."""

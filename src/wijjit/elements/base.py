@@ -205,18 +205,48 @@ class TextElement(Element):
         Text content to display
     id : str, optional
         Unique identifier for this element
+    wrap : bool, optional
+        Whether to wrap text to fit bounds width (default: True)
 
     Attributes
     ----------
     text : str
         Text content
+    wrap : bool
+        Whether text wrapping is enabled
     """
 
-    def __init__(self, text: str, id: str | None = None):
+    def __init__(self, text: str, id: str | None = None, wrap: bool = True):
         super().__init__(id)
         self.text = text
         self.element_type = ElementType.DISPLAY
         self.focusable = False
+        self.wrap = wrap
+        self._wrapped_text: str | None = None
+
+    def set_bounds(self, bounds) -> None:
+        """Set bounds and wrap text if needed.
+
+        Parameters
+        ----------
+        bounds : Bounds
+            New bounds for the element
+        """
+        super().set_bounds(bounds)
+
+        # Apply text wrapping if enabled and bounds are available
+        if self.wrap and bounds and bounds.width > 0:
+            from ..text import wrap_text
+
+            lines = self.text.split("\n")
+            wrapped_lines = []
+            for line in lines:
+                segments = wrap_text(line, bounds.width)
+                wrapped_lines.extend(segments)
+
+            self._wrapped_text = "\n".join(wrapped_lines)
+        else:
+            self._wrapped_text = None
 
     def render(self) -> str:
         """Render the text element.
@@ -224,6 +254,6 @@ class TextElement(Element):
         Returns
         -------
         str
-            The text content
+            The text content (wrapped if bounds have been set)
         """
-        return self.text
+        return self._wrapped_text if self._wrapped_text is not None else self.text

@@ -1,7 +1,7 @@
 """UI elements for Wijjit applications."""
 
 from .base import Container, Element, ElementType, TextElement
-from .display import ProgressBar, Spinner, Table, Tree
+from .display import CodeBlock, MarkdownView, ProgressBar, Spinner, Table, Tree
 from .input import (
     Button,
     Checkbox,
@@ -30,4 +30,6 @@ __all__ = [
     "Tree",
     "ProgressBar",
     "Spinner",
+    "MarkdownView",
+    "CodeBlock",
 ]

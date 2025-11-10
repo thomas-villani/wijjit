@@ -1075,9 +1075,40 @@ class TextArea(Element):
         self.action: str | None = None
         self.bind: bool = True
 
+        # Dynamic sizing flag (set by template tag)
+        self._dynamic_sizing: bool = False
+
         # Set initial value if provided
         if value:
             self.set_value(value)
+
+    def set_bounds(self, bounds) -> None:
+        """Set bounds and dynamically resize if needed.
+
+        Parameters
+        ----------
+        bounds : Bounds
+            New bounds for the element
+        """
+        super().set_bounds(bounds)
+
+        # If dynamic sizing is enabled, resize the element to fit the bounds
+        if self._dynamic_sizing and bounds:
+            new_width = bounds.width
+            new_height = bounds.height
+
+            # Account for borders
+            if self.border_style is not None:
+                new_width = max(3, new_width - 2)  # Minimum width for borders
+                new_height = max(3, new_height - 2)  # Minimum height for borders
+
+            # Update dimensions if changed
+            if new_width != self.width or new_height != self.height:
+                self.width = new_width
+                self.height = new_height
+
+                # Update scroll manager with new viewport size
+                self.scroll_manager.viewport_size = self.height
 
     def _normalize_border_style(
         self, style: BorderStyle | Literal["single", "double", "rounded"] | None

@@ -6,10 +6,13 @@ template syntax.
 
 from .tags import (
     ButtonExtension,
+    CodeBlockExtension,
     FrameExtension,
     HStackExtension,
+    MarkdownExtension,
     SelectExtension,
     TableExtension,
+    TextAreaExtension,
     TextInputExtension,
     TreeExtension,
     VStackExtension,
@@ -24,4 +27,7 @@ __all__ = [
     "SelectExtension",
     "TableExtension",
     "TreeExtension",
+    "MarkdownExtension",
+    "CodeBlockExtension",
+    "TextAreaExtension",
 ]

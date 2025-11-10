@@ -20,6 +20,7 @@ from ..elements.input import (
     Radio,
     RadioGroup,
     Select,
+    TextArea,
     TextInput,
 )
 from ..layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
@@ -220,7 +221,7 @@ class VStackExtension(Extension):
         self,
         caller,
         width="fill",
-        height="auto",
+        height="fill",
         spacing=0,
         padding=0,
         margin=0,
@@ -236,9 +237,9 @@ class VStackExtension(Extension):
         caller : callable
             Jinja2 caller for body content
         width : int or str
-            Width specification
+            Width specification (default: "fill")
         height : int or str
-            Height specification
+            Height specification (default: "fill")
         spacing : int
             Spacing between children
         padding : int
@@ -302,17 +303,15 @@ class VStackExtension(Extension):
         # Render body
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement and INSERT at beginning
-        # (This is because child elements add themselves during caller(), so text appears after them)
+        # If body contains non-whitespace text, create TextElement
+        # Text is appended to maintain source order
         processed_text = process_body_content(body_output, raw=raw)
         if processed_text:
-            text_elem = TextElement(processed_text)
+            # When raw=True, disable text wrapping
+            text_elem = TextElement(processed_text, wrap=not raw)
             text_node = ElementNode(text_elem, width="auto", height="auto")
-            # Insert at beginning of children list instead of appending
-            if vstack.children:
-                vstack.children.insert(0, text_node)
-            else:
-                vstack.children.append(text_node)
+            # Append to maintain source order
+            vstack.children.append(text_node)
 
         # Pop from stack
         context.pop()
@@ -375,7 +374,7 @@ class HStackExtension(Extension):
         self,
         caller,
         width="auto",
-        height="fill",
+        height="auto",
         spacing=0,
         padding=0,
         margin=0,
@@ -391,9 +390,9 @@ class HStackExtension(Extension):
         caller : callable
             Jinja2 caller for body content
         width : int or str
-            Width specification
+            Width specification (default: "auto")
         height : int or str
-            Height specification
+            Height specification (default: "auto")
         spacing : int
             Spacing between children
         padding : int
@@ -457,17 +456,15 @@ class HStackExtension(Extension):
         # Render body
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement and INSERT at beginning
-        # (This is because child elements add themselves during caller(), so text appears after them)
+        # If body contains non-whitespace text, create TextElement
+        # Text is appended to maintain source order
         processed_text = process_body_content(body_output, raw=raw)
         if processed_text:
-            text_elem = TextElement(processed_text)
+            # When raw=True, disable text wrapping
+            text_elem = TextElement(processed_text, wrap=not raw)
             text_node = ElementNode(text_elem, width="auto", height="auto")
-            # Insert at beginning of children list instead of appending
-            if hstack.children:
-                hstack.children.insert(0, text_node)
-            else:
-                hstack.children.append(text_node)
+            # Append to maintain source order
+            hstack.children.append(text_node)
 
         # Pop from stack
         context.pop()
@@ -2411,5 +2408,577 @@ class SpinnerExtension(Extension):
 
         # Consume body (should be empty)
         caller()
+
+        return ""
+
+
+class MarkdownExtension(Extension):
+    """Jinja2 extension for markdown tag.
+
+    Syntax:
+        {% markdown content=state.readme width=80 height=20
+                    border="single" title="Documentation"
+                    show_scrollbar=true %}
+        {% endmarkdown %}
+
+        Or with body content:
+        {% markdown width=80 height=20 %}
+            # Hello World
+            This is **markdown** content.
+        {% endmarkdown %}
+    """
+
+    tags = {"markdown"}
+
+    def parse(self, parser):
+        """Parse the markdown tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endmarkdown"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (markdown content)
+        node = nodes.CallBlock(
+            self.call_method("_render_markdown", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endmarkdown"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_markdown(
+        self,
+        caller,
+        id=None,
+        content=None,
+        width="fill",
+        height="fill",
+        show_scrollbar=True,
+        border_style="single",
+        title=None,
+        bind=True,
+    ) -> str:
+        """Render the markdown tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        content : str, optional
+            Markdown content (if not provided in body)
+        width : int or str
+            Markdown view width (default: "fill")
+        height : int or str
+            Markdown view height (default: "fill")
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Border style (default: "single")
+        title : str, optional
+            Border title
+        bind : bool
+            Whether to auto-bind content to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        # for initial element creation (will be resized on bounds assignment)
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 20  # Default for initial render
+        else:
+            element_height = int(height)
+
+        show_scrollbar = bool(show_scrollbar)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("markdown")
+
+        # Get content from body if not provided as attribute
+        if content is None:
+            body = caller().strip()
+            content = body if body else ""
+        else:
+            # Content provided as attribute, consume body anyway
+            caller()
+
+        # If binding is enabled and id is provided, try to get content from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        content = str(state[id])
+            except Exception:
+                pass
+
+        # Create MarkdownView element
+        from ..elements.display import MarkdownView
+
+        markdown = MarkdownView(
+            id=id,
+            content=content,
+            width=element_width,
+            height=element_height,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+            title=title,
+        )
+
+        # Store the dynamic sizing flag
+        markdown._dynamic_sizing = (width_spec == "fill" or height_spec == "fill")
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            markdown.focused = True
+
+        # Store bind setting
+        markdown.bind = bind
+
+        # Restore scroll position from state if available
+        if id:
+            scroll_key = f"_scroll_{id}"
+            markdown.scroll_state_key = scroll_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if scroll_key in state:
+                        markdown.restore_scroll_position(state[scroll_key])
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Use width_spec/height_spec directly for ElementNode (supports "fill")
+        node = ElementNode(markdown, width=width_spec, height=height_spec)
+
+        # Add to layout context
+        context.add_element(node)
+
+        return ""
+
+
+class CodeBlockExtension(Extension):
+    """Jinja2 extension for code tag.
+
+        Syntax:
+            {% code language="python" width=80 height=20
+                    line_numbers=true border="single" title="Example" %}
+    {{ state.code }}
+            {% endcode %}
+
+            Or with static code:
+            {% code language="javascript" %}
+    function hello() {
+        console.log("Hello, world!");
+    }
+            {% endcode %}
+    """
+
+    tags = {"code"}
+
+    def parse(self, parser):
+        """Parse the code tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endcode"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (code content)
+        node = nodes.CallBlock(
+            self.call_method("_render_code", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endcode"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_code(
+        self,
+        caller,
+        id=None,
+        code=None,
+        language="python",
+        width=60,
+        height=20,
+        show_line_numbers=True,
+        line_number_start=1,
+        show_scrollbar=True,
+        border_style="single",
+        title=None,
+        theme="monokai",
+        bind=True,
+        raw=True,
+    ) -> str:
+        """Render the code tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        code : str, optional
+            Code content (if not provided in body)
+        language : str
+            Programming language (default: "python")
+        width : int
+            Code block width (default: 60)
+        height : int
+            Code block height (default: 20)
+        show_line_numbers : bool
+            Whether to show line numbers (default: True)
+        line_number_start : int
+            Starting line number (default: 1)
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Border style (default: "single")
+        title : str, optional
+            Border title
+        theme : str
+            Syntax highlighting theme (default: "monokai")
+        bind : bool
+            Whether to auto-bind code to state[id] (default: True)
+        raw : bool
+            Preserve whitespace in body content (default: True for code)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+        show_line_numbers = bool(show_line_numbers)
+        line_number_start = int(line_number_start)
+        show_scrollbar = bool(show_scrollbar)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("code")
+
+        # Get code from body if not provided as attribute
+        if code is None:
+            body_output = caller()
+            # For code blocks, preserve whitespace by default
+            code = process_body_content(body_output, raw=raw)
+        else:
+            # Code provided as attribute, consume body anyway
+            caller()
+
+        # If binding is enabled and id is provided, try to get code from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        code = str(state[id])
+            except Exception:
+                pass
+
+        # Create CodeBlock element
+        from ..elements.display import CodeBlock
+
+        codeblock = CodeBlock(
+            id=id,
+            code=code,
+            language=language,
+            width=width,
+            height=height,
+            show_line_numbers=show_line_numbers,
+            line_number_start=line_number_start,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+            title=title,
+            theme=theme,
+        )
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            codeblock.focused = True
+
+        # Store bind setting
+        codeblock.bind = bind
+
+        # Restore scroll position from state if available
+        if id:
+            scroll_key = f"_scroll_{id}"
+            codeblock.scroll_state_key = scroll_key
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if scroll_key in state:
+                        codeblock.restore_scroll_position(state[scroll_key])
+            except Exception:
+                pass
+
+        # Create ElementNode
+        # Calculate total height accounting for borders
+        total_height = height + (2 if border_style != "none" else 0)
+        total_width = width + (2 if border_style != "none" else 0)
+
+        node = ElementNode(codeblock, width=total_width, height=total_height)
+
+        # Add to layout context
+        context.add_element(node)
+
+        return ""
+
+
+class TextAreaExtension(Extension):
+    """Jinja2 extension for textarea tag.
+
+    Syntax:
+        {% textarea id="editor" value=state.content
+                    width=60 height=15 wrap_mode="soft"
+                    border="single" title="Editor" %}
+        {% endtextarea %}
+    """
+
+    tags = {"textarea"}
+
+    def parse(self, parser):
+        """Parse the textarea tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endtextarea"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endtextarea)
+        node = nodes.CallBlock(
+            self.call_method("_render_textarea", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endtextarea"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_textarea(
+        self,
+        caller,
+        id=None,
+        value="",
+        width="auto",
+        height="auto",
+        wrap_mode="none",
+        max_lines=None,
+        show_scrollbar=True,
+        border_style="single",
+        action=None,
+        bind=True,
+    ) -> str:
+        """Render the textarea tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        value : str
+            Initial value (default: "")
+        width : int or str
+            TextArea width (default: "auto")
+        height : int or str
+            TextArea height (default: "auto")
+        wrap_mode : str
+            Line wrapping mode: "none", "soft", or "hard" (default: "none")
+        max_lines : int, optional
+            Maximum number of lines
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Border style (default: "single")
+        action : str, optional
+            Action ID to dispatch on content change
+        bind : bool
+            Whether to auto-bind value to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        # for initial element creation (will be resized on bounds assignment)
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 40  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 10  # Default for initial render
+        else:
+            element_height = int(height)
+
+        show_scrollbar = bool(show_scrollbar)
+        if max_lines is not None:
+            max_lines = int(max_lines)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("textarea")
+
+        # Get initial value from body if not provided as attribute
+        if not value:
+            body = caller().strip()
+            value = body if body else ""
+        else:
+            # Value provided as attribute, consume body anyway
+            caller()
+
+        # If binding is enabled and id is provided, try to get value from state
+        # (state value takes precedence over body/value parameter)
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        value = str(state[id])
+            except Exception:
+                pass
+
+        # Create TextArea element
+        textarea = TextArea(
+            id=id,
+            value=value,
+            width=element_width,
+            height=element_height,
+            wrap_mode=wrap_mode,
+            max_lines=max_lines,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+        )
+
+        # Store the dynamic sizing flag
+        textarea._dynamic_sizing = (width_spec == "fill" or height_spec == "fill")
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            textarea.focused = True
+
+        # Store action ID if provided
+        if action:
+            textarea.action = action
+
+        # Store bind setting
+        textarea.bind = bind
+
+        # Create ElementNode
+        # Use width_spec/height_spec directly for ElementNode (supports "fill")
+        node = ElementNode(textarea, width=width_spec, height=height_spec)
+
+        # Add to layout context
+        context.add_element(node)
 
         return ""
