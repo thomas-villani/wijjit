@@ -20,7 +20,10 @@ Controls:
 
 import shutil
 
-from wijjit import Button, Checkbox, CheckboxGroup, EventType, HandlerScope, Wijjit
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 
 
 def create_app():

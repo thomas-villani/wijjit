@@ -9,12 +9,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
-from ..terminal.ansi import clip_to_width, visible_length
-from ..terminal.input import Key
-from ..terminal.mouse import MouseEvent, MouseEventType
-from ..text import wrap_text
-from .bounds import Bounds
-from .scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.layout.bounds import Bounds
+from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.terminal.ansi import clip_to_width, visible_length, wrap_text
+from wijjit.terminal.input import Key
+from wijjit.terminal.mouse import MouseEvent, MouseEventType
 
 
 class BorderStyle(Enum):
@@ -686,7 +685,7 @@ class Frame:
 
         # Handle scroll wheel
         if event.type == MouseEventType.SCROLL:
-            from ..terminal.mouse import MouseButton
+            from wijjit.terminal.mouse import MouseButton
 
             if event.button == MouseButton.SCROLL_UP:
                 return self.handle_scroll(-1)

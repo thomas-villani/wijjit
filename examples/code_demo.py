@@ -22,11 +22,10 @@ Controls:
 import shutil
 
 from wijjit import (
-    EventType,
-    HandlerScope,
     Wijjit,
 )
-from wijjit.elements import CodeBlock
+from wijjit.core.events import EventType, HandlerScope
+from wijjit.elements.display import CodeBlock
 
 # Sample code in different languages
 PYTHON_CODE = '''def fibonacci(n):

@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock
 
-from wijjit.elements.input import Checkbox, CheckboxGroup
+from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.terminal.input import Key, Keys, KeyType
 
 

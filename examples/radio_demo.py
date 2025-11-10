@@ -20,7 +20,10 @@ Controls:
 
 import shutil
 
-from wijjit import Button, EventType, HandlerScope, RadioGroup, Wijjit
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.radio import RadioGroup
 
 
 def create_app():

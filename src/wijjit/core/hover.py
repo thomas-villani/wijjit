@@ -4,7 +4,7 @@ This module handles hover state tracking when the mouse moves over elements.
 It manages transitions between elements and calls appropriate lifecycle methods.
 """
 
-from ..elements.base import Element
+from wijjit.elements.base import Element
 
 
 class HoverManager:

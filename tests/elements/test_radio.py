@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock
 
-from wijjit.elements.input import Radio, RadioGroup
+from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.terminal.input import Key, Keys, KeyType
 
 

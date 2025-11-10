@@ -19,13 +19,10 @@ Controls:
 
 import shutil
 
-from wijjit import (
-    Button,
-    EventType,
-    HandlerScope,
-    TextInput,
-    Wijjit,
-)
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.text import TextInput
 
 
 def create_app():

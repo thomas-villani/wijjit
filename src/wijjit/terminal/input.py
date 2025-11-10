@@ -13,14 +13,7 @@ from typing import Optional, Union
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys as PTKeys
 
-# Import mouse event handling
-try:
-    from .mouse import MouseEvent, MouseEventParser, MouseTrackingMode
-except ImportError:
-    # For when running tests that might not have mouse module yet
-    MouseEvent = None
-    MouseEventParser = None
-    MouseTrackingMode = None
+from wijjit.terminal.mouse import MouseEvent, MouseEventParser, MouseTrackingMode
 
 
 class KeyType(Enum):

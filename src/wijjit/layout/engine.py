@@ -17,9 +17,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
-from ..elements.base import Element
-from .bounds import Bounds, Size, parse_margin, parse_size
-from .frames import Frame
+from wijjit.elements.base import Element
+from wijjit.layout.bounds import Bounds, Size, parse_margin, parse_size
+from wijjit.layout.frames import Frame
 
 
 class Direction(Enum):
@@ -212,7 +212,7 @@ class ElementNode(LayoutNode):
             # Auto or other - measure content
             rendered = self.element.render()
             lines = rendered.split("\n")
-            from ..terminal.ansi import visible_length
+            from wijjit.terminal.ansi import visible_length
 
             content_width = max((visible_length(line) for line in lines), default=1)
             min_width = content_width
@@ -996,7 +996,7 @@ class FrameNode(Container):
         height : int
             Available height
         """
-        from ..layout.bounds import Bounds
+        from wijjit.layout.bounds import Bounds
 
         # Apply margin
         margin_top, margin_right, margin_bottom, margin_left = self.margin

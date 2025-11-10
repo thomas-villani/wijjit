@@ -21,12 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from ..terminal.ansi import ANSIColor, colorize
-from ..terminal.input import InputHandler, Key
-from ..terminal.mouse import MouseEvent as TerminalMouseEvent
-from ..terminal.mouse import MouseEventType
-from ..terminal.screen import ScreenManager
-from .events import (
+from wijjit.core.events import (
     ActionEvent,
     Event,
     EventType,
@@ -35,10 +30,21 @@ from .events import (
     KeyEvent,
     MouseEvent,
 )
-from .focus import FocusManager
-from .hover import HoverManager
-from .renderer import Renderer
-from .state import State
+from wijjit.core.focus import FocusManager
+from wijjit.core.hover import HoverManager
+from wijjit.core.renderer import Renderer
+from wijjit.core.state import State
+from wijjit.elements.display import CodeBlock, ListView, MarkdownView, Table, Tree
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
+from wijjit.elements.input.radio import Radio, RadioGroup
+from wijjit.elements.input.select import Select
+from wijjit.elements.input.text import TextInput
+from wijjit.terminal.ansi import ANSIColor, colorize
+from wijjit.terminal.input import InputHandler, Key
+from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
+from wijjit.terminal.mouse import MouseEventType
+from wijjit.terminal.screen import ScreenManager
 
 
 @dataclass
@@ -734,16 +740,6 @@ class Wijjit:
         elements : list
             List of positioned elements
         """
-        from ..elements.display import CodeBlock, ListView, MarkdownView, Table, Tree
-        from ..elements.input import (
-            Button,
-            Checkbox,
-            CheckboxGroup,
-            Radio,
-            RadioGroup,
-            Select,
-            TextInput,
-        )
 
         for elem in elements:
             # Wire up action callbacks for buttons
@@ -1187,7 +1183,7 @@ class Wijjit:
         spinners, advances their frame counters, and updates state.
         Called periodically when refresh_interval is set.
         """
-        from ..elements.display import Spinner
+        from wijjit.elements.display import Spinner
 
         for elem in self.positioned_elements:
             if isinstance(elem, Spinner) and elem.active:

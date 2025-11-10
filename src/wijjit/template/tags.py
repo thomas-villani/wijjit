@@ -11,20 +11,15 @@ from typing import Any
 from jinja2 import nodes
 from jinja2.ext import Extension
 
-from ..elements.base import TextElement
-from ..elements.display import Table, Tree
-from ..elements.input import (
-    Button,
-    Checkbox,
-    CheckboxGroup,
-    Radio,
-    RadioGroup,
-    Select,
-    TextArea,
-    TextInput,
-)
-from ..layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
-from ..layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.elements.base import TextElement
+from wijjit.elements.display import Table, Tree
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
+from wijjit.elements.input.radio import Radio, RadioGroup
+from wijjit.elements.input.select import Select
+from wijjit.elements.input.text import TextArea, TextInput
+from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
+from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 
 
 def process_body_content(body_output: str, raw: bool = False) -> str:
@@ -1708,7 +1703,7 @@ class CheckboxExtension(Extension):
         checkbox.bind = bind
 
         # Create ElementNode
-        from ..terminal.ansi import visible_length
+        from wijjit.terminal.ansi import visible_length
 
         checkbox_width = visible_length(checkbox.render())
         node = ElementNode(checkbox, width=checkbox_width, height=1)
@@ -1807,7 +1802,7 @@ class RadioExtension(Extension):
         radio.bind = bind
 
         # Create ElementNode
-        from ..terminal.ansi import visible_length
+        from wijjit.terminal.ansi import visible_length
 
         radio_width = visible_length(radio.render())
         node = ElementNode(radio, width=radio_width, height=1)
@@ -2223,7 +2218,7 @@ class ProgressBarExtension(Extension):
             show_percentage = bool(show_percentage)
 
         # Create ProgressBar element
-        from ..elements.display import ProgressBar
+        from wijjit.elements.display import ProgressBar
 
         progressbar = ProgressBar(
             id=id,
@@ -2372,7 +2367,7 @@ class SpinnerExtension(Extension):
             pass
 
         # Create Spinner element
-        from ..elements.display import Spinner
+        from wijjit.elements.display import Spinner
 
         spinner = Spinner(
             id=id,
@@ -2556,7 +2551,7 @@ class MarkdownExtension(Extension):
                 pass
 
         # Create MarkdownView element
-        from ..elements.display import MarkdownView
+        from wijjit.elements.display import MarkdownView
 
         markdown = MarkdownView(
             id=id,
@@ -2751,7 +2746,7 @@ class CodeBlockExtension(Extension):
                 pass
 
         # Create CodeBlock element
-        from ..elements.display import CodeBlock
+        from wijjit.elements.display import CodeBlock
 
         codeblock = CodeBlock(
             id=id,
@@ -3151,7 +3146,7 @@ class ListViewExtension(Extension):
                 pass
 
         # Create ListView element
-        from ..elements.display import ListView
+        from wijjit.elements.display import ListView
 
         listview = ListView(
             id=id,

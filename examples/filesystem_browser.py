@@ -10,8 +10,9 @@ This example demonstrates:
 import sys
 from pathlib import Path
 
-from wijjit import Wijjit, load_filesystem_tree
+from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
+from wijjit.helpers import load_filesystem_tree
 
 # Get directory to browse from command line, default to current directory
 if len(sys.argv) > 1:

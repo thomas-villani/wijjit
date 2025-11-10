@@ -10,9 +10,9 @@ from typing import Any, Optional
 
 from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
-from ..elements.base import Element
-from ..layout.engine import LayoutEngine, LayoutNode
-from ..template.tags import (
+from wijjit.elements.base import Element
+from wijjit.layout.engine import LayoutEngine, LayoutNode
+from wijjit.template.tags import (
     ButtonExtension,
     CheckboxExtension,
     CheckboxGroupExtension,
@@ -293,7 +293,7 @@ class Renderer:
         str
             Composed output
         """
-        from ..terminal.ansi import clip_to_width
+        from wijjit.terminal.ansi import clip_to_width
 
         # Create output buffer - now stores strings per cell to handle ANSI
         # Each cell can contain a character with ANSI codes
@@ -400,8 +400,8 @@ class Renderer:
         FrameNode objects are skipped as they render themselves via Frame.render().
         This method only handles legacy containers with _frame_style metadata.
         """
-        from ..layout.engine import Container, FrameNode
-        from ..layout.frames import BorderStyle
+        from wijjit.layout.engine import Container, FrameNode
+        from wijjit.layout.frames import BorderStyle
 
         # Handle FrameNode - render borders if frame has no content
         # (Frames with content render themselves via Frame.render())

@@ -25,12 +25,9 @@ Controls:
 
 import shutil
 
-from wijjit import (
-    EventType,
-    HandlerScope,
-    TextArea,
-    Wijjit,
-)
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
+from wijjit.elements.input.text import TextArea
 from wijjit.layout.bounds import Bounds
 
 

@@ -10,11 +10,11 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from ..terminal.input import Key
-from ..terminal.mouse import MouseEvent
+from wijjit.terminal.input import Key
+from wijjit.terminal.mouse import MouseEvent
 
 if TYPE_CHECKING:
-    from ..layout.bounds import Bounds
+    from wijjit.layout.bounds import Bounds
 
 
 class ElementType(Enum):
@@ -236,7 +236,7 @@ class TextElement(Element):
 
         # Apply text wrapping if enabled and bounds are available
         if self.wrap and bounds and bounds.width > 0:
-            from ..text import wrap_text
+            from wijjit.terminal.ansi import wrap_text
 
             lines = self.text.split("\n")
             wrapped_lines = []

@@ -4,7 +4,8 @@ Run with: python examples/hello_world.py
 Press 'q' to quit.
 """
 
-from wijjit import EventType, HandlerScope, Wijjit
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
 
 
 def main():

@@ -8,7 +8,7 @@ import sys
 from contextlib import contextmanager
 from typing import TextIO
 
-from .ansi import ANSICursor, ANSIScreen
+from wijjit.terminal.ansi import ANSICursor, ANSIScreen
 
 
 class ScreenManager:

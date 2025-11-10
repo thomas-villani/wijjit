@@ -1,6 +1,7 @@
 """Simplified checkbox template demo to debug rendering."""
 
-from wijjit import EventType, HandlerScope, Wijjit
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
 
 
 def create_app():

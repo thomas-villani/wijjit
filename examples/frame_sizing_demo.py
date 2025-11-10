@@ -1,6 +1,6 @@
 # examples/frame_sizing_demo.py
 
-from wijjit import Renderer
+from wijjit.core.renderer import Renderer
 
 
 def main():

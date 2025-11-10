@@ -11,11 +11,11 @@ from rich import box
 from rich.console import Console
 from rich.table import Table as RichTable
 
-from ..layout.scroll import ScrollManager, render_vertical_scrollbar
-from ..terminal.ansi import clip_to_width, visible_length
-from ..terminal.input import Key, Keys
-from ..terminal.mouse import MouseButton, MouseEvent, MouseEventType
-from .base import Element, ElementType
+from wijjit.elements.base import Element, ElementType
+from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.terminal.ansi import clip_to_width, visible_length
+from wijjit.terminal.input import Key, Keys
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 # Mapping of border style names to Rich box styles
 BOX_STYLES = {
@@ -1349,7 +1349,7 @@ class Tree(Element):
         # Apply styling for highlighted node
         if is_highlighted and self.focused:
             # Use reverse video for highlighted node
-            from ..terminal.ansi import ANSIStyle
+            from wijjit.terminal.ansi import ANSIStyle
 
             line = f"{ANSIStyle.REVERSE}{line}{ANSIStyle.RESET}"
 
@@ -1436,7 +1436,7 @@ class ProgressBar(Element):
             self.show_percentage = show_percentage
 
         # Default characters based on unicode support
-        from ..terminal.ansi import supports_unicode
+        from wijjit.terminal.ansi import supports_unicode
 
         if supports_unicode():
             self.fill_char = (
@@ -1488,7 +1488,7 @@ class ProgressBar(Element):
         str or None
             ANSI color code
         """
-        from ..terminal.ansi import ANSIColor
+        from wijjit.terminal.ansi import ANSIColor
 
         if percentage < 33:
             return ANSIColor.RED
@@ -1505,7 +1505,7 @@ class ProgressBar(Element):
         str
             Rendered progress bar
         """
-        from ..terminal.ansi import ANSIColor, colorize
+        from wijjit.terminal.ansi import ANSIColor, colorize
 
         percentage = self.get_percentage()
 
@@ -1547,7 +1547,7 @@ class ProgressBar(Element):
         str
             Rendered percentage text
         """
-        from ..terminal.ansi import ANSIColor, colorize
+        from wijjit.terminal.ansi import ANSIColor, colorize
 
         percentage = self.get_percentage()
         text = f"Progress: {percentage:5.1f}%"
@@ -1579,7 +1579,7 @@ class ProgressBar(Element):
         str
             Rendered progress bar with gradient color
         """
-        from ..terminal.ansi import colorize
+        from wijjit.terminal.ansi import colorize
 
         percentage = self.get_percentage()
 
@@ -1621,7 +1621,7 @@ class ProgressBar(Element):
         str
             Rendered progress bar
         """
-        from ..terminal.ansi import ANSIColor, colorize
+        from wijjit.terminal.ansi import ANSIColor, colorize
 
         percentage = self.get_percentage()
 
@@ -1809,7 +1809,7 @@ class Spinner(Element):
         list of str
             List of frame characters
         """
-        from ..terminal.ansi import supports_unicode
+        from wijjit.terminal.ansi import supports_unicode
 
         # Check if we should use ASCII fallback
         if not supports_unicode():
@@ -1848,7 +1848,7 @@ class Spinner(Element):
         str
             Rendered spinner with optional label as single-line string
         """
-        from ..terminal.ansi import ANSIColor, colorize
+        from wijjit.terminal.ansi import ANSIColor, colorize
 
         # If not active, return empty space or just label
         if not self.active:
@@ -2210,8 +2210,8 @@ class MarkdownView(Element):
         list of str
             Lines with border added
         """
-        from ..layout.frames import BORDER_CHARS, BorderStyle
-        from ..terminal.ansi import ANSIColor, ANSIStyle
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.terminal.ansi import ANSIColor, ANSIStyle
 
         # Get border characters
         border_map = {
@@ -2562,7 +2562,7 @@ class ListView(Element):
         str
             Bullet character or prefix string
         """
-        from ..terminal.ansi import supports_unicode
+        from wijjit.terminal.ansi import supports_unicode
 
         if self.bullet == "bullet":
             # Use unicode bullet if supported, otherwise asterisk
@@ -2583,7 +2583,7 @@ class ListView(Element):
 
         Updates the rendered_lines cache with the current items.
         """
-        from ..terminal.ansi import ANSIStyle, supports_unicode
+        from wijjit.terminal.ansi import ANSIStyle, supports_unicode
 
         self.rendered_lines = []
         content_width = self._get_content_width()
@@ -2786,8 +2786,8 @@ class ListView(Element):
         list of str
             Lines with border added
         """
-        from ..layout.frames import BORDER_CHARS, BorderStyle
-        from ..terminal.ansi import ANSIColor, ANSIStyle
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.terminal.ansi import ANSIColor, ANSIStyle
 
         # Get border characters
         border_map = {
@@ -3238,8 +3238,8 @@ class CodeBlock(Element):
         list of str
             Lines with border added
         """
-        from ..layout.frames import BORDER_CHARS, BorderStyle
-        from ..terminal.ansi import ANSIColor, ANSIStyle
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.terminal.ansi import ANSIColor, ANSIStyle
 
         # Get border characters
         border_map = {

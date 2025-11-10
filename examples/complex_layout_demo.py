@@ -9,7 +9,7 @@ This demo showcases:
 - Real-world dashboard-like layout
 """
 
-from wijjit import Renderer
+from wijjit.core.renderer import Renderer
 
 
 def main():

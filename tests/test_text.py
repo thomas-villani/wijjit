@@ -1,7 +1,6 @@
 """Tests for text processing utilities."""
 
-from wijjit.terminal.ansi import ANSIColor, ANSIStyle
-from wijjit.text import is_wrap_boundary, wrap_text
+from wijjit.terminal.ansi import ANSIColor, ANSIStyle, is_wrap_boundary, wrap_text
 
 
 class TestIsWrapBoundary:

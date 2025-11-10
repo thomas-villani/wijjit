@@ -22,12 +22,9 @@ Controls:
 
 import shutil
 
-from wijjit import (
-    EventType,
-    HandlerScope,
-    Wijjit,
-)
-from wijjit.elements import CodeBlock, MarkdownView
+from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
+from wijjit.elements.display import CodeBlock, MarkdownView
 
 # API Documentation
 API_DOCS = """# Wijjit API Reference
