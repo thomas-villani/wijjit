@@ -784,7 +784,9 @@ class CheckboxGroupExtension(Extension):
                     if id in state:
                         selected = state[id]
             except Exception as e:
-                logger.warning(f"Failed to restore state for checkbox_group '{id}': {e}")
+                logger.warning(
+                    f"Failed to restore state for checkbox_group '{id}': {e}"
+                )
 
         # Ensure selected is a list
         if selected is None:

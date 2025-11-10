@@ -160,8 +160,12 @@ class FocusManager:
             Index of element to focus
         """
         old_index = self.current_index
-        element_id = self.elements[index].id if 0 <= index < len(self.elements) else None
-        logger.debug(f"Focus change: index {old_index} -> {index} (element: {element_id})")
+        element_id = (
+            self.elements[index].id if 0 <= index < len(self.elements) else None
+        )
+        logger.debug(
+            f"Focus change: index {old_index} -> {index} (element: {element_id})"
+        )
 
         # Blur currently focused element
         if self.current_index is not None and 0 <= self.current_index < len(

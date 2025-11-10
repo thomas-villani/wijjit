@@ -123,7 +123,7 @@ class State(UserDict):
         """
         if callback not in self._change_callbacks:
             self._change_callbacks.append(callback)
-            callback_name = getattr(callback, '__name__', repr(callback))
+            callback_name = getattr(callback, "__name__", repr(callback))
             logger.debug(f"Registered global state change callback: {callback_name}")
 
     def watch(self, key: str, callback: Callable) -> None:
@@ -142,7 +142,7 @@ class State(UserDict):
 
         if callback not in self._watchers[key]:
             self._watchers[key].append(callback)
-            callback_name = getattr(callback, '__name__', repr(callback))
+            callback_name = getattr(callback, "__name__", repr(callback))
             logger.debug(f"Registered state watcher for key '{key}': {callback_name}")
 
     def unwatch(self, key: str, callback: Callable | None = None) -> None:

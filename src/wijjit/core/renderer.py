@@ -13,9 +13,6 @@ from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 from wijjit.elements.base import Element
 from wijjit.layout.engine import LayoutEngine, LayoutNode
 from wijjit.logging_config import get_logger
-
-# Get logger for this module
-logger = get_logger(__name__)
 from wijjit.tags.display import (
     CodeBlockExtension,
     ListViewExtension,
@@ -42,6 +39,9 @@ from wijjit.tags.layout import (
     LayoutContext,
     VStackExtension,
 )
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 class Renderer:

@@ -34,7 +34,6 @@ from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
-from wijjit.logging_config import get_logger
 from wijjit.elements.display.code import CodeBlock
 from wijjit.elements.display.list import ListView
 from wijjit.elements.display.markdown import MarkdownView
@@ -45,6 +44,7 @@ from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextInput
+from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import ANSIColor, colorize
 from wijjit.terminal.input import InputHandler, Key
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent

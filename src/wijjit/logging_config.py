@@ -36,15 +36,13 @@ Configure via environment variables:
 
 import logging
 import os
-import sys
 from pathlib import Path
-from typing import Optional, Union
 
 
 def configure_logging(
-    filename: Optional[Union[str, Path]] = None,
-    level: Union[str, int] = logging.INFO,
-    format_string: Optional[str] = None,
+    filename: str | Path | None = None,
+    level: str | int = logging.INFO,
+    format_string: str | None = None,
 ) -> None:
     """
     Configure logging for Wijjit applications.
@@ -82,7 +80,7 @@ def configure_logging(
         >>> configure_logging(None)
     """
     # Get the root wijjit logger
-    logger = logging.getLogger('wijjit')
+    logger = logging.getLogger("wijjit")
 
     # Remove all existing handlers
     logger.handlers.clear()
@@ -101,14 +99,14 @@ def configure_logging(
     logger.setLevel(level)
 
     # Create file handler
-    file_handler = logging.FileHandler(filename, mode='a', encoding='utf-8')
+    file_handler = logging.FileHandler(filename, mode="a", encoding="utf-8")
     file_handler.setLevel(level)
 
     # Create formatter
     if format_string is None:
-        format_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    formatter = logging.Formatter(format_string, datefmt='%Y-%m-%d %H:%M:%S')
+    formatter = logging.Formatter(format_string, datefmt="%Y-%m-%d %H:%M:%S")
     file_handler.setFormatter(formatter)
 
     # Add handler to logger
@@ -148,8 +146,8 @@ def get_logger(name: str) -> logging.Logger:
         >>> logger.debug("Debug message")
     """
     # Ensure the logger is under the wijjit namespace
-    if not name.startswith('wijjit'):
-        name = f'wijjit.{name}'
+    if not name.startswith("wijjit"):
+        name = f"wijjit.{name}"
 
     return logging.getLogger(name)
 
@@ -179,8 +177,8 @@ def configure_from_environment() -> None:
 
         >>> import wijjit.logging_config  # Automatically configures from env vars
     """
-    log_file = os.environ.get('WIJJIT_LOG_FILE')
-    log_level = os.environ.get('WIJJIT_LOG_LEVEL', 'INFO')
+    log_file = os.environ.get("WIJJIT_LOG_FILE")
+    log_level = os.environ.get("WIJJIT_LOG_LEVEL", "INFO")
 
     if log_file:
         configure_logging(log_file, level=log_level)
