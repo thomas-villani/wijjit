@@ -668,3 +668,169 @@ def wrap_text(text: str, width: int) -> list[str]:
             remaining = remaining[actual_cut_pos:]
 
     return segments if segments else [""]
+
+
+def dim_text(text: str, dim_factor: float = 0.6) -> str:
+    """Dim text by reducing color brightness via ANSI codes.
+
+    This function applies dimming to text with ANSI color codes by either
+    using the ANSI DIM attribute or by reducing color intensity. Useful for
+    creating backdrop dimming effects behind modals.
+
+    Parameters
+    ----------
+    text : str
+        Text potentially containing ANSI color codes
+    dim_factor : float
+        Dimming intensity (0.0 = black, 1.0 = original). Default is 0.6.
+
+    Returns
+    -------
+    str
+        Dimmed text with modified ANSI codes
+
+    Notes
+    -----
+    For colored text, the function reduces RGB values in true-color codes
+    and applies the DIM attribute for basic colors. For non-colored text,
+    it applies the ANSI DIM style attribute.
+
+    Examples
+    --------
+    >>> dim_text("Hello World")  # Applies DIM style
+    >>> dim_text(f"{ANSIColor.RED}Error{ANSIColor.RESET}")  # Dims red color
+    """
+    if not text:
+        return text
+
+    # Pattern to match ANSI color codes
+    # Matches: \x1b[XXm, \x1b[XX;XXm, \x1b[XX;XX;XXm, etc.
+    ansi_pattern = re.compile(r"(\x1b\[[0-9;]*m)")
+
+    parts = ansi_pattern.split(text)
+    result = []
+    has_ansi = False
+
+    for part in parts:
+        if ansi_pattern.match(part):
+            # This is an ANSI code - try to dim it
+            dimmed_code = _dim_ansi_code(part, dim_factor)
+            result.append(dimmed_code)
+            has_ansi = True
+        else:
+            # Regular text
+            if part:
+                result.append(part)
+
+    # If no ANSI codes were found, wrap entire text with DIM
+    if not has_ansi and text:
+        return f"{ANSIStyle.DIM}{text}{ANSIStyle.RESET}"
+
+    return "".join(result)
+
+
+def _dim_ansi_code(code: str, dim_factor: float) -> str:
+    """Dim a single ANSI escape code.
+
+    Parameters
+    ----------
+    code : str
+        ANSI escape code (e.g., '\x1b[31m')
+    dim_factor : float
+        Dimming intensity (0.0 = black, 1.0 = original)
+
+    Returns
+    -------
+    str
+        Dimmed ANSI code
+    """
+    # Extract the numeric part
+    match = re.match(r"\x1b\[([0-9;]*)m", code)
+    if not match:
+        return code
+
+    params = match.group(1)
+    if not params:
+        return code
+
+    parts = params.split(";")
+
+    # Handle different color code types
+    if len(parts) == 1:
+        # Basic 8/16 color codes
+        color_code = int(parts[0])
+
+        # Foreground colors (30-37, 90-97)
+        if 30 <= color_code <= 37:
+            # Bright version becomes normal, normal becomes dim
+            return f"\x1b[2;{color_code}m"  # Add DIM attribute
+        elif 90 <= color_code <= 97:
+            # Bright colors -> normal colors
+            normal_code = color_code - 60
+            return f"\x1b[{normal_code}m"
+
+        # Background colors (40-47, 100-107)
+        elif 40 <= color_code <= 47:
+            return f"\x1b[2;{color_code}m"  # Add DIM attribute
+        elif 100 <= color_code <= 107:
+            # Bright background -> normal background
+            normal_code = color_code - 60
+            return f"\x1b[{normal_code}m"
+
+    elif len(parts) == 3 and parts[0] in ("38", "48") and parts[1] == "5":
+        # 256-color mode: \x1b[38;5;Nm or \x1b[48;5;Nm
+        fg_bg = parts[0]
+        color_num = int(parts[2])
+
+        # Dim by reducing color number (simple approach)
+        dimmed_num = int(color_num * dim_factor)
+        return f"\x1b[{fg_bg};5;{dimmed_num}m"
+
+    elif len(parts) == 5 and parts[0] in ("38", "48") and parts[1] == "2":
+        # RGB mode: \x1b[38;2;R;G;Bm or \x1b[48;2;R;G;Bm
+        fg_bg = parts[0]
+        r = int(parts[2])
+        g = int(parts[3])
+        b = int(parts[4])
+
+        # Dim by reducing RGB values
+        r_dimmed = int(r * dim_factor)
+        g_dimmed = int(g * dim_factor)
+        b_dimmed = int(b * dim_factor)
+
+        return f"\x1b[{fg_bg};2;{r_dimmed};{g_dimmed};{b_dimmed}m"
+
+    # Return original if we don't recognize the format
+    return code
+
+
+def apply_backdrop_dim(lines: list[str], dim_factor: float = 0.6) -> list[str]:
+    """Apply dimming to a buffer of lines for backdrop effect.
+
+    This function applies dimming to each line in a screen buffer, useful
+    for creating backdrop dimming effects behind modals and overlays.
+
+    Parameters
+    ----------
+    lines : list of str
+        List of screen buffer lines (may contain ANSI codes)
+    dim_factor : float
+        Dimming intensity (0.0 = black, 1.0 = original). Default is 0.6.
+
+    Returns
+    -------
+    list of str
+        Dimmed lines with modified ANSI codes
+
+    Notes
+    -----
+    This function processes each line independently, applying the dimming
+    effect to all ANSI color codes found. Non-colored text receives the
+    DIM style attribute.
+
+    Examples
+    --------
+    >>> buffer = ["Line 1", f"{ANSIColor.BLUE}Line 2{ANSIColor.RESET}"]
+    >>> dimmed = apply_backdrop_dim(buffer, dim_factor=0.5)
+    """
+    return [dim_text(line, dim_factor) for line in lines]

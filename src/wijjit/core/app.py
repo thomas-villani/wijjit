@@ -32,9 +32,10 @@ from wijjit.core.events import (
 )
 from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
+from wijjit.core.overlay import Overlay
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
-from wijjit.elements.base import ScrollableMixin
+from wijjit.elements.base import Element, ScrollableMixin
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
@@ -177,6 +178,11 @@ class Wijjit:
 
         # Initialize hover manager
         self.hover_manager = HoverManager()
+
+        # Initialize overlay manager
+        from wijjit.core.overlay import OverlayManager
+
+        self.overlay_manager = OverlayManager(self)
 
         # Initialize event system
         self.handler_registry = HandlerRegistry()
@@ -570,6 +576,13 @@ class Wijjit:
                             f"(modifiers={input_event.modifiers})"
                         )
 
+                        # Check for ESC key to close overlays
+                        if input_event.name == "escape":
+                            if self.overlay_manager.handle_escape():
+                                # Overlay was closed, trigger re-render
+                                self.needs_render = True
+                                continue  # Don't process event further
+
                         # Create and dispatch key event
                         event = KeyEvent(
                             key=input_event.name,
@@ -579,7 +592,18 @@ class Wijjit:
                         self.handler_registry.dispatch(event)
 
                         # Route key to focused element if not handled by other handlers
-                        self._route_key_to_focused_element(event)
+                        # If focus is trapped in an overlay, only route to overlay elements
+                        if not event.cancelled:
+                            if self.overlay_manager.should_trap_focus():
+                                # Focus is trapped - only route to focused element if it's in overlay
+                                focused = self.focus_manager.get_focused_element()
+                                if focused:
+                                    handled = focused.handle_key(input_event)
+                                    if handled:
+                                        self.needs_render = True
+                            else:
+                                # Normal focus routing
+                                self._route_key_to_focused_element(event)
 
                     # Check if it's a mouse event
                     elif isinstance(input_event, TerminalMouseEvent):
@@ -671,8 +695,10 @@ class Wijjit:
                 )
 
                 # Store elements and update focus manager
+                # (but don't update focus manager if focus is trapped in an overlay)
                 self.positioned_elements = elements
-                self._update_focus_manager(elements)
+                if not self.overlay_manager.should_trap_focus():
+                    self._update_focus_manager(elements)
 
                 # If this was the first render, re-render with focus now set
                 if (
@@ -709,7 +735,27 @@ class Wijjit:
                 if self.positioned_elements:
                     self._wire_element_callbacks(self.positioned_elements)
 
+            # Composite overlays if any are active
+            if self.overlay_manager.overlays:
+                term_size = shutil.get_terminal_size()
+                overlay_elements = self.overlay_manager.get_overlay_elements()
+                apply_dimming = self.overlay_manager.has_dimmed_overlay()
+
+                output = self.renderer.composite_overlays(
+                    output,
+                    overlay_elements,
+                    term_size.columns,
+                    term_size.lines,
+                    apply_dimming=apply_dimming,
+                )
+
             # Clear screen and display output
+            # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)
+            from wijjit.terminal.ansi import ANSIStyle
+
+            if not output.endswith(ANSIStyle.RESET):
+                output += ANSIStyle.RESET
+
             self.screen_manager.clear()
             self.screen_manager.move_cursor(0, 0)
             # Handle encoding for Windows console
@@ -1069,6 +1115,33 @@ class Wijjit:
             True if hover state changed (indicating need for re-render)
         """
         try:
+            # Check overlays first (highest z-index)
+            overlay = self.overlay_manager.get_at_position(
+                terminal_event.x, terminal_event.y
+            )
+
+            if overlay:
+                # Mouse event is on an overlay - route to overlay element
+                if hasattr(overlay.element, "handle_mouse"):
+                    handled = overlay.element.handle_mouse(terminal_event)
+                    if handled:
+                        self.needs_render = True
+                        return False  # Hover didn't change base UI
+                # Overlay consumed the event even if not handled
+                return False
+            else:
+                # Click outside all overlays - check if should close any
+                if terminal_event.type in (
+                    MouseEventType.CLICK,
+                    MouseEventType.DOUBLE_CLICK,
+                ):
+                    closed = self.overlay_manager.handle_click_outside(
+                        terminal_event.x, terminal_event.y
+                    )
+                    if closed:
+                        return False  # Overlay was closed, don't process further
+
+            # Fall through to base UI handling
             # Find element at mouse coordinates
             target_element = self._find_element_at(terminal_event.x, terminal_event.y)
 
@@ -1219,6 +1292,205 @@ class Wijjit:
                         logger.warning(
                             f"Failed to update frame index in state for element: {e}"
                         )
+
+    def show_modal(
+        self,
+        element: Element,
+        on_close: Callable[[], None] | None = None,
+        dim_background: bool = True,
+        close_on_escape: bool = True,
+        close_on_click_outside: bool = False,
+    ) -> Overlay:
+        """Show a modal dialog overlay.
+
+        Modals trap focus and typically dim the background. They are used for
+        important interactions that require user attention.
+
+        Parameters
+        ----------
+        element : Element
+            The element to display as a modal (typically a Frame with content)
+        on_close : Callable, optional
+            Callback to invoke when modal is closed
+        dim_background : bool
+            Whether to dim the background behind the modal (default: True)
+        close_on_escape : bool
+            Whether ESC key closes the modal (default: True)
+        close_on_click_outside : bool
+            Whether clicking outside closes the modal (default: False)
+
+        Returns
+        -------
+        Overlay
+            The created overlay object. Can be used to manually close via
+            overlay_manager.pop(overlay)
+
+        Examples
+        --------
+        Show a confirmation dialog:
+
+            from wijjit.elements.overlay import ConfirmDialog
+
+            def on_confirm():
+                state.file_deleted = True
+
+            dialog = ConfirmDialog(
+                title="Confirm Delete",
+                message="Are you sure?",
+                on_confirm=on_confirm
+            )
+            app.show_modal(dialog)
+        """
+        from wijjit.core.overlay import LayerType
+
+        return self.overlay_manager.push(
+            element,
+            LayerType.MODAL,
+            close_on_click_outside=close_on_click_outside,
+            close_on_escape=close_on_escape,
+            trap_focus=True,
+            dimmed_background=dim_background,
+            on_close=on_close,
+        )
+
+    def show_dropdown(
+        self,
+        element: Element,
+        x: int,
+        y: int,
+        on_close: Callable[[], None] | None = None,
+        close_on_click_outside: bool = True,
+        close_on_escape: bool = True,
+    ) -> "Overlay":
+        """Show a dropdown menu or context menu overlay.
+
+        Dropdowns appear at a specific position (typically below a button or
+        at cursor position for context menus). They close when clicking outside
+        or pressing ESC.
+
+        Parameters
+        ----------
+        element : Element
+            The element to display as a dropdown (typically a Menu)
+        x : int
+            X position for the dropdown
+        y : int
+            Y position for the dropdown
+        on_close : Callable, optional
+            Callback to invoke when dropdown is closed
+        close_on_click_outside : bool
+            Whether clicking outside closes the dropdown (default: True)
+        close_on_escape : bool
+            Whether ESC key closes the dropdown (default: True)
+
+        Returns
+        -------
+        Overlay
+            The created overlay object
+
+        Examples
+        --------
+        Show a dropdown menu below a button:
+
+            from wijjit.elements.overlay import DropdownMenu
+
+            button = app.get_element("menu_button")
+            menu = DropdownMenu(items=[
+                {"label": "Open", "action": "open"},
+                {"label": "Save", "action": "save"},
+            ])
+
+            app.show_dropdown(
+                menu,
+                x=button.bounds.x,
+                y=button.bounds.y + button.bounds.height
+            )
+        """
+        from wijjit.core.overlay import LayerType
+
+        # Set element position
+        if element.bounds is None:
+            from wijjit.layout.bounds import Bounds
+
+            # Estimate size (will be rendered at specified position)
+            element.bounds = Bounds(x=x, y=y, width=20, height=5)
+        else:
+            element.bounds.x = x
+            element.bounds.y = y
+
+        return self.overlay_manager.push(
+            element,
+            LayerType.DROPDOWN,
+            close_on_click_outside=close_on_click_outside,
+            close_on_escape=close_on_escape,
+            trap_focus=False,
+            dimmed_background=False,
+            on_close=on_close,
+        )
+
+    def show_tooltip(
+        self,
+        element: Element,
+        x: int,
+        y: int,
+        close_on_click_outside: bool = True,
+    ) -> "Overlay":
+        """Show a tooltip overlay.
+
+        Tooltips appear at a specific position (typically near the cursor or
+        element being hovered). They don't trap focus and typically close
+        automatically when the mouse moves.
+
+        Parameters
+        ----------
+        element : Element
+            The element to display as a tooltip (typically a small Frame)
+        x : int
+            X position for the tooltip
+        y : int
+            Y position for the tooltip
+        close_on_click_outside : bool
+            Whether clicking outside closes the tooltip (default: True)
+
+        Returns
+        -------
+        Overlay
+            The created overlay object
+
+        Notes
+        -----
+        Tooltips don't close on ESC by default since they're meant to be
+        unobtrusive and auto-close on mouse movement.
+
+        Examples
+        --------
+        Show a tooltip on hover:
+
+            from wijjit.elements.overlay import Tooltip
+
+            tooltip = Tooltip(text="Click to open file")
+            app.show_tooltip(tooltip, x=mouse_x + 1, y=mouse_y + 1)
+        """
+        from wijjit.core.overlay import LayerType
+
+        # Set element position
+        if element.bounds is None:
+            from wijjit.layout.bounds import Bounds
+
+            element.bounds = Bounds(x=x, y=y, width=30, height=3)
+        else:
+            element.bounds.x = x
+            element.bounds.y = y
+
+        return self.overlay_manager.push(
+            element,
+            LayerType.TOOLTIP,
+            close_on_click_outside=close_on_click_outside,
+            close_on_escape=False,  # Tooltips don't close on ESC
+            trap_focus=False,
+            dimmed_background=False,
+            on_close=None,
+        )
 
     def _handle_error(self, message: str, exception: Exception) -> None:
         """Handle errors during app execution.

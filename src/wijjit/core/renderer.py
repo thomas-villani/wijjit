@@ -421,6 +421,130 @@ class Renderer:
             "".join(cell if cell else " " for cell in row) for row in buffer
         )
 
+    def composite_overlays(
+        self,
+        base_output: str,
+        overlay_elements: list[Element],
+        width: int,
+        height: int,
+        apply_dimming: bool = False,
+        dim_factor: float = 0.6,
+    ) -> str:
+        """Composite overlay elements on top of base output.
+
+        This method renders overlays on top of the base UI output, optionally
+        applying backdrop dimming for modal effects.
+
+        Parameters
+        ----------
+        base_output : str
+            Base UI output (newline-separated lines)
+        overlay_elements : list of Element
+            Overlay elements with assigned bounds (in z-order, lowest first)
+        width : int
+            Screen width
+        height : int
+            Screen height
+        apply_dimming : bool
+            Whether to dim the base output (for modal backdrops)
+        dim_factor : float
+            Dimming intensity (0.0 = black, 1.0 = original). Default is 0.6.
+
+        Returns
+        -------
+        str
+            Composited output with overlays on top
+
+        Notes
+        -----
+        Overlays are rendered in the order provided (first = bottom, last = top).
+        If apply_dimming is True, the base output is dimmed before overlays
+        are composited.
+        """
+        from wijjit.terminal.ansi import apply_backdrop_dim, clip_to_width
+
+        # Convert base output to buffer
+        lines = base_output.split("\n")
+
+        # Apply backdrop dimming if requested
+        if apply_dimming:
+            lines = apply_backdrop_dim(lines, dim_factor)
+
+        # Ensure we have the right number of lines
+        while len(lines) < height:
+            lines.append(" " * width)
+
+        # Convert to 2D buffer for overlay compositing
+        buffer = []
+        for line in lines[:height]:
+            # Pad line to width if needed
+            padded = line + " " * max(0, width - len(line))
+            # Convert to list of individual characters (ANSI-aware)
+            # For now, simple character splitting (TODO: improve ANSI handling)
+            buffer.append(list(padded[:width]))
+
+        # Render each overlay element onto buffer
+        for element in overlay_elements:
+            if element.bounds is None:
+                continue
+
+            # Render element content
+            # Prepend RESET to ensure overlay isn't affected by backdrop dimming
+            from wijjit.terminal.ansi import ANSIStyle
+
+            content = element.render()
+            lines = content.split("\n")
+
+            # Write to buffer at element's position
+            for i, line in enumerate(lines):
+                y = element.bounds.y + i
+                if y >= height or y < 0:
+                    continue
+
+                x_start = element.bounds.x
+                if x_start >= width:
+                    continue
+
+                # Calculate remaining width
+                remaining_width = min(element.bounds.width, width - x_start)
+
+                # Prepend RESET to clear any backdrop dimming for this line
+                line = ANSIStyle.RESET + line
+
+                # Clip line to fit
+                clipped_line = clip_to_width(line, remaining_width, ellipsis="")
+
+                # Write line to buffer (ANSI-aware positioning)
+                visible_pos = 0
+                i_char = 0
+                pending_ansi = ""
+
+                while i_char < len(clipped_line):
+                    # Check for ANSI sequence
+                    if clipped_line[i_char : i_char + 2] == "\x1b[":
+                        ansi_end = i_char + 2
+                        while (
+                            ansi_end < len(clipped_line)
+                            and not clipped_line[ansi_end].isalpha()
+                        ):
+                            ansi_end += 1
+                        if ansi_end < len(clipped_line):
+                            ansi_end += 1
+                        pending_ansi += clipped_line[i_char:ansi_end]
+                        i_char = ansi_end
+                    else:
+                        # Regular character
+                        if visible_pos < remaining_width:
+                            x_pos = x_start + visible_pos
+                            if x_pos < width:
+                                buffer[y][x_pos] = pending_ansi + clipped_line[i_char]
+                                pending_ansi = ""
+                            visible_pos += 1
+                        i_char += 1
+
+        # Convert buffer back to string
+        return "\n".join("".join(row) for row in buffer)
+
     def _render_frames(
         self, node: "LayoutNode", buffer: list[list[str]], width: int, height: int
     ) -> None:

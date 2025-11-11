@@ -187,3 +187,87 @@ class FocusManager:
 
         self.elements = []
         self.current_index = None
+
+    def set_focus_filter(self, allowed_elements: list[Element] | None) -> None:
+        """Filter focusable elements to a specific subset.
+
+        This is used for focus trapping in overlays. When an overlay traps
+        focus, only elements within that overlay are focusable.
+
+        Parameters
+        ----------
+        allowed_elements : list of Element or None
+            Elements that should be focusable, or None to clear filter.
+            If provided, only these elements will be in the focus cycle.
+
+        Notes
+        -----
+        This temporarily restricts focus navigation to the specified elements.
+        The original element list is preserved and can be restored by passing
+        None or by calling set_elements() again.
+        """
+        if allowed_elements is None:
+            # Clear filter - this would typically be done when restoring
+            # from a saved state after overlay closes
+            return
+
+        # Save currently focused element before filtering
+        old_focused = self.get_focused_element()
+
+        # Filter to only allowed elements
+        self.elements = [elem for elem in allowed_elements if elem.focusable]
+
+        # Try to restore focus if the old element is still in the list
+        if old_focused and old_focused in self.elements:
+            self.focus_element(old_focused)
+        elif self.elements:
+            # Otherwise focus first element in filtered list
+            self.focus_first()
+        else:
+            self.current_index = None
+
+    def save_state(self) -> tuple[list[Element], int | None]:
+        """Save current focus state.
+
+        Returns
+        -------
+        tuple
+            Tuple of (elements list, current_index) that can be restored later
+
+        Notes
+        -----
+        Used by overlay manager to save focus state before showing an overlay
+        with focus trapping enabled.
+        """
+        return (list(self.elements), self.current_index)
+
+    def restore_state(self, state: tuple[list[Element], int | None]) -> None:
+        """Restore focus state from saved state.
+
+        Parameters
+        ----------
+        state : tuple
+            State tuple returned by save_state()
+
+        Notes
+        -----
+        Restores the complete focus state including the element list and
+        focused element. Used when closing an overlay that trapped focus.
+        """
+        elements, index = state
+
+        # Blur current element before restoring
+        if self.current_index is not None and 0 <= self.current_index < len(
+            self.elements
+        ):
+            self.elements[self.current_index].on_blur()
+
+        # Restore elements and index
+        self.elements = elements
+        self.current_index = index
+
+        # Focus the restored element
+        if self.current_index is not None and 0 <= self.current_index < len(
+            self.elements
+        ):
+            self.elements[self.current_index].on_focus()
