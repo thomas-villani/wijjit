@@ -154,11 +154,11 @@ def create_app():
 
             return {"content": "\n".join(content_lines)}
 
-        data = render_data()
+        # data = render_data()  # Fixed: pass function directly
 
         return {
             "template": "{{ content }}",
-            "data": data,
+            "data": render_data,  # Pass the function itself, not the result
             "on_enter": setup_handlers,
         }
 

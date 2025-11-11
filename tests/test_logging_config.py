@@ -10,8 +10,8 @@ This module tests the logging configuration functionality, including:
 import logging
 
 from wijjit.logging_config import (
-    configure_logging_from_environment,
     configure_logging,
+    configure_logging_from_environment,
     get_logger,
 )
 

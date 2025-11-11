@@ -43,7 +43,7 @@ from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextInput
 from wijjit.logging_config import get_logger
-from wijjit.terminal.ansi import ANSIColor, colorize
+from wijjit.terminal.ansi import ANSIColor, ANSICursor, colorize
 from wijjit.terminal.input import InputHandler, Key
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
 from wijjit.terminal.mouse import MouseEventType
@@ -183,6 +183,16 @@ class Wijjit:
         from wijjit.core.overlay import OverlayManager
 
         self.overlay_manager = OverlayManager(self)
+
+        # Initialize notification manager
+        from wijjit.core.notification_manager import NotificationManager
+
+        term_size = shutil.get_terminal_size()
+        self.notification_manager = NotificationManager(
+            overlay_manager=self.overlay_manager,
+            terminal_width=term_size.columns,
+            terminal_height=term_size.lines,
+        )
 
         # Initialize event system
         self.handler_registry = HandlerRegistry()
@@ -583,15 +593,26 @@ class Wijjit:
             # Main event loop
             while self.running:
                 try:
-                    # Check if auto-refresh is needed (for animations like spinners)
+                    # Check if auto-refresh is needed (for animations like spinners or notification expiry)
                     if self.refresh_interval is not None:
                         current_time = time.time()
                         elapsed = current_time - self._last_refresh_time
 
                         if elapsed >= self.refresh_interval:
-                            # Time to refresh - advance spinner frames and re-render
+                            # Time to refresh - advance spinner frames
                             self._advance_spinner_frames()
-                            self.needs_render = True
+
+                            # Check for expired notifications
+                            if self.notification_manager.check_expired():
+                                self.needs_render = True
+
+                            # Disable auto-refresh if no notifications remain
+                            if (
+                                len(self.notification_manager.notifications) == 0
+                                and self.refresh_interval == 0.1
+                            ):
+                                self.refresh_interval = None
+
                             self._last_refresh_time = current_time
 
                     # Check for terminal resize
@@ -603,6 +624,10 @@ class Wijjit:
                         )
                         # Recalculate overlay positions
                         self.overlay_manager.recalculate_centered_overlays(
+                            term_size.columns, term_size.lines
+                        )
+                        # Update notification positions
+                        self.notification_manager.update_terminal_size(
                             term_size.columns, term_size.lines
                         )
                         self._last_terminal_size = current_size
@@ -1638,6 +1663,138 @@ class Wijjit:
             dimmed_background=False,
             on_close=None,
         )
+
+    def notify(
+        self,
+        message: str,
+        severity: str = "info",
+        duration: float | None = 3.0,
+        action: tuple[str, Callable] | None = None,
+        dismiss_on_action: bool = True,
+        bell: bool = False,
+    ) -> str:
+        """Show a notification message.
+
+        Notifications are temporary messages that appear in a corner of the screen.
+        They auto-dismiss after a duration and can optionally include an action button.
+
+        Parameters
+        ----------
+        message : str
+            Notification message text
+        severity : str, optional
+            Severity level: "success", "error", "warning", or "info" (default: "info")
+        duration : float or None, optional
+            Duration in seconds before auto-dismiss (default: 3.0)
+            Set to None for no auto-dismiss
+        action : tuple of (str, callable), optional
+            Optional action button as (label, callback) tuple
+        dismiss_on_action : bool, optional
+            Whether to auto-dismiss when action is clicked (default: True)
+        bell : bool, optional
+            Whether to play a terminal bell sound (default: False)
+
+        Returns
+        -------
+        str
+            Notification ID for manual dismissal via dismiss_notification()
+
+        Examples
+        --------
+        Show a success notification:
+
+            app.notify("File saved successfully!", severity="success")
+
+        Show an error with an action button:
+
+            def retry():
+                # Retry logic
+                pass
+
+            app.notify(
+                "Connection failed",
+                severity="error",
+                action=("Retry", retry),
+                duration=5.0
+            )
+
+        Show a persistent notification with sound:
+
+            app.notify(
+                "Update available",
+                severity="info",
+                duration=None,  # Won't auto-dismiss
+                bell=True
+            )
+        """
+        from wijjit.elements.display.notification import NotificationElement
+
+        # Play bell if requested
+        if bell:
+            # Output bell character to terminal (use sys.stdout for immediate output)
+            sys.stdout.write(ANSICursor.bell())
+            sys.stdout.flush()
+
+        # Extract action components if provided
+        action_label = None
+        action_callback = None
+        if action:
+            action_label, action_callback = action
+
+        # Create notification element
+        notification = NotificationElement(
+            message=message,
+            severity=severity,
+            action_label=action_label,
+            action_callback=action_callback,
+            dismiss_on_action=dismiss_on_action,
+        )
+
+        # Add to notification manager
+        notification_id = self.notification_manager.add(
+            notification,
+            duration=duration,
+            on_close=lambda: setattr(self, "needs_render", True),
+        )
+
+        # Enable auto-refresh if we have notifications with timeouts
+        # This ensures notifications auto-dismiss even without user input
+        if duration is not None and self.refresh_interval is None:
+            self.refresh_interval = 0.1  # Check every 100ms
+
+        # Trigger render to show notification
+        self.needs_render = True
+
+        logger.debug(
+            f"Showed notification: {message[:50]}... "
+            f"(severity={severity}, duration={duration})"
+        )
+
+        return notification_id
+
+    def dismiss_notification(self, notification_id: str) -> bool:
+        """Manually dismiss a notification.
+
+        Parameters
+        ----------
+        notification_id : str
+            ID returned by notify()
+
+        Returns
+        -------
+        bool
+            True if notification was dismissed, False if not found
+
+        Examples
+        --------
+        >>> notification_id = app.notify("Processing...", duration=None)
+        >>> # ... do work ...
+        >>> app.dismiss_notification(notification_id)
+        """
+        result = self.notification_manager.remove(notification_id)
+        if result:
+            self.needs_render = True
+        return result
 
     def _handle_error(self, message: str, exception: Exception) -> None:
         """Handle errors during app execution.

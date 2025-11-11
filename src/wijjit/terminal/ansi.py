@@ -196,6 +196,17 @@ class ANSICursor:
         """
         return "\x1b[u"
 
+    @staticmethod
+    def bell() -> str:
+        """Emit terminal bell sound.
+
+        Returns
+        -------
+        str
+            Bell control character
+        """
+        return "\x07"
+
 
 class ANSIScreen:
     """ANSI screen control codes."""

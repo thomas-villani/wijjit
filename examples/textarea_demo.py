@@ -158,11 +158,9 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
 
             return {"content": content_text}
 
-        data = render_data()
-
         return {
             "template": "{{ content }}",
-            "data": data,
+            "data": render_data,  # Pass the function itself, not the result of calling it
             "on_enter": setup_handlers,
         }
 
@@ -171,7 +169,7 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
         def on_key(event):
             """Handle keyboard events."""
             # Handle quit with Escape or Ctrl+Q
-            if event.key == "escape" or (event.key == "q" and event.ctrl):
+            if event.key == "escape" or (event.key == "q" and "ctrl" in event.modifiers):
                 app.quit()
                 event.cancel()  # Prevent further handling
                 return

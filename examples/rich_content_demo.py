@@ -252,7 +252,7 @@ class DataViewerApp:
 
     def __init__(self, data):
         self.app = Wijjit(initial_state={
-            "data": data,
+            "data": render_data,  # Pass the function itself, not the result
             "filtered_data": data,
             "filter_text": "",
             "sort_column": None,
@@ -414,11 +414,11 @@ def create_app():
 
             return {"content": content_text}
 
-        data = render_data()
+        # data = render_data()  # Fixed: pass function directly
 
         return {
             "template": "{{ content }}",
-            "data": data,
+            "data": render_data,  # Pass the function itself, not the result
             "on_enter": setup_handlers,
         }
 
