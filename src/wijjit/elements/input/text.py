@@ -9,6 +9,7 @@ from wijjit.terminal.ansi import (
     ANSIColor,
     ANSIStyle,
     clip_to_width,
+    is_wrap_boundary,
     strip_ansi,
     visible_length,
     wrap_text,
@@ -1396,7 +1397,7 @@ class TextArea(Element):
         # Find last wrap boundary within width
         last_boundary_pos = None
         for i in range(min(width, len(stripped))):
-            if self._is_wrap_boundary(stripped[i]):
+            if is_wrap_boundary(stripped[i]):
                 last_boundary_pos = i + 1  # Break after boundary char
 
         # Determine where to split

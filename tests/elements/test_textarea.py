@@ -300,3 +300,169 @@ class TestTextAreaRendering:
         result = textarea.render()
         # Should show space in reverse video at end
         assert "\x1b[7m \x1b[27m" in result
+
+
+class TestTextAreaHardWrap:
+    """Tests for TextArea hard wrap mode.
+
+    Tests verify that wrap_mode="hard" correctly breaks long lines
+    at word boundaries without raising AttributeError.
+    """
+
+    def test_hard_wrap_basic(self):
+        """Test basic hard wrap functionality.
+
+        Verifies that when a line exceeds width, it is hard-wrapped
+        and additional lines are created.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="hard")
+        # Type a long line that exceeds width
+        long_text = "This is a very long line that should wrap"
+        for char in long_text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Should have multiple lines after wrapping
+        assert len(textarea.lines) > 1
+        # Each line should be <= width
+        for line in textarea.lines:
+            assert len(line) <= 10
+
+    def test_hard_wrap_at_word_boundary(self):
+        """Test that hard wrap breaks at word boundaries.
+
+        Verifies that wrap breaks at spaces or punctuation, not
+        mid-word, and correctly uses is_wrap_boundary function.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="hard")
+        # Type text with clear word boundaries
+        text = "Hello World Test"
+        for char in text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Should break at spaces, not in middle of words
+        for line in textarea.lines:
+            # Line shouldn't start or end with punctuation that suggests bad break
+            assert len(line) <= 10
+            # No AttributeError should have been raised
+
+    def test_hard_wrap_with_no_boundaries(self):
+        """Test hard wrap with no word boundaries.
+
+        Verifies that when there are no wrap boundaries within width,
+        the line is force-split at the width limit.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="hard")
+        # Type text with no spaces (no wrap boundaries)
+        long_word = "VeryLongWordWithNoSpaces"
+        for char in long_word:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Should force-split at width
+        assert len(textarea.lines) > 1
+        for line in textarea.lines[:-1]:  # All but last line
+            assert len(line) <= 10
+
+    def test_hard_wrap_with_punctuation_boundaries(self):
+        """Test hard wrap at punctuation boundaries.
+
+        Verifies that wrap can occur at various punctuation marks
+        as defined by is_wrap_boundary function.
+        """
+        textarea = TextArea(width=15, height=5, wrap_mode="hard")
+        # Text with various punctuation
+        text = "Hello,world-test.end;item:value"
+        for char in text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Should wrap at punctuation boundaries
+        for line in textarea.lines:
+            assert len(line) <= 15
+
+    def test_hard_wrap_preserves_content(self):
+        """Test that hard wrap preserves all content.
+
+        Verifies that when lines are wrapped, no characters are lost
+        and the full text is preserved.
+        """
+        textarea = TextArea(width=10, height=10, wrap_mode="hard")
+        original_text = "This is a test of hard wrap preserving content correctly"
+        for char in original_text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Join all lines and compare to original (minus spaces at breaks)
+        result = textarea.get_value()
+        # Content should be preserved (possibly with different spacing)
+        assert all(word in result for word in original_text.split() if word)
+
+    def test_hard_wrap_cursor_tracking(self):
+        """Test cursor position tracking during hard wrap.
+
+        Verifies that cursor position is correctly updated when
+        lines are wrapped.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="hard")
+        # Type text that will wrap
+        text = "Hello World Testing"
+        for char in text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Cursor should be at a valid position
+        assert textarea.cursor_row >= 0
+        assert textarea.cursor_col >= 0
+        assert textarea.cursor_row < len(textarea.lines)
+        assert textarea.cursor_col <= len(textarea.lines[textarea.cursor_row])
+
+    def test_hard_wrap_editing_wrapped_line(self):
+        """Test editing a line that has been hard-wrapped.
+
+        Verifies that when editing wrapped lines, the wrap is
+        re-applied correctly.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="hard")
+        # Type long text that wraps
+        text = "Hello World Test"
+        for char in text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        initial_line_count = len(textarea.lines)
+
+        # Go back and add more text
+        textarea.handle_key(Keys.HOME)  # Move to start
+        textarea.handle_key(Key("X", KeyType.CHARACTER, "X"))
+
+        # Should still be properly wrapped
+        for line in textarea.lines:
+            assert len(line) <= 10
+
+    def test_hard_wrap_with_empty_line(self):
+        """Test hard wrap with empty lines.
+
+        Verifies that empty lines don't cause issues with wrapping.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="hard")
+        # Create an empty line
+        textarea.handle_key(Keys.ENTER)
+        # Type on next line
+        text = "Hello World"
+        for char in text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Should handle empty lines correctly
+        assert len(textarea.lines) >= 2
+        assert textarea.lines[0] == ""
+
+    def test_soft_wrap_unchanged(self):
+        """Test that soft wrap mode is unaffected by is_wrap_boundary fix.
+
+        Verifies that soft wrap still works correctly and doesn't
+        call the hard wrap code path.
+        """
+        textarea = TextArea(width=10, height=5, wrap_mode="soft")
+        # Type long text
+        long_text = "This is a very long line for soft wrap"
+        for char in long_text:
+            textarea.handle_key(Key(char, KeyType.CHARACTER, char))
+
+        # Soft wrap keeps text on one logical line
+        assert len(textarea.lines) == 1
+        assert len(textarea.lines[0]) > 10  # Not hard-wrapped

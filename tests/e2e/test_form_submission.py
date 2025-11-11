@@ -7,6 +7,16 @@ input entry, validation, submission, and result handling.
 import pytest
 
 from wijjit.core.app import Wijjit
+from wijjit.core.events import ActionEvent
+
+from .helpers import (
+    assert_element_focused,
+    get_element_by_id,
+    render_view,
+    simulate_button_click,
+    simulate_tab_navigation,
+    simulate_typing,
+)
 
 pytestmark = pytest.mark.e2e
 
@@ -20,37 +30,40 @@ class TestLoginFormJourney:
         Journey:
         1. App displays login form
         2. User enters username
-        3. User enters password
-        4. User clicks login button
-        5. App validates credentials
-        6. App navigates to dashboard
-        7. Dashboard shows user information
+        3. User tabs to password field
+        4. User enters password
+        5. User tabs to login button
+        6. User clicks login button
+        7. App validates credentials
+        8. App navigates to dashboard
+        9. Dashboard shows user information
         """
         app = Wijjit(
             initial_state={
                 "logged_in": False,
-                "username": "",
                 "current_user": None,
                 "login_error": None,
             }
         )
 
-        submission_data = {}
+        # Register action handler for login button
+        @app.on_action("login")
+        def handle_login(event: ActionEvent):
+            # Get values from state (via two-way binding)
+            username = app.state.get("username", "")
+            password = app.state.get("password", "")
 
+            # Validate credentials
+            if username == "admin" and password == "secret":
+                app.state["logged_in"] = True
+                app.state["current_user"] = username
+                app.navigate("dashboard")
+            else:
+                app.state["login_error"] = "Invalid credentials"
+
+        # Define views
         @app.view("login", default=True)
         def login_view():
-            def handle_login():
-                # Simulate credential validation
-                username = submission_data.get("username", "")
-                password = submission_data.get("password", "")
-
-                if username == "admin" and password == "secret":
-                    app.state["logged_in"] = True
-                    app.state["current_user"] = username
-                    app.navigate("dashboard")
-                else:
-                    app.state["login_error"] = "Invalid credentials"
-
             return {
                 "template": """
 {% frame width=45 height=15 title="Login" %}
@@ -59,15 +72,14 @@ class TestLoginFormJourney:
     {% endif %}
 
     Username:
-    {% textinput id="username" %}{% endtextinput %}
+    {% textinput id="username" bind=True %}{% endtextinput %}
 
     Password:
-    {% textinput id="password" placeholder="Password" %}{% endtextinput %}
+    {% textinput id="password" bind=True %}{% endtextinput %}
 
-    {% button id="login" action="login" %}Login{% endbutton %}
+    {% button id="login_btn" action="login" %}Login{% endbutton %}
 {% endframe %}
-                """,
-                "on_enter": lambda: None,
+                """
             }
 
         @app.view("dashboard")
@@ -86,37 +98,46 @@ class TestLoginFormJourney:
         assert app.current_view == "login"
         assert not app.state["logged_in"]
 
-        # Step 2 & 3: Simulate user entering credentials
-        submission_data["username"] = "admin"
-        submission_data["password"] = "secret"
+        # Step 2: Render login form to create elements
+        output, elements = render_view(app, "login")
 
-        # Step 4: Simulate login button click
-        login_view()["on_enter"]  # Ensure view is initialized
+        # Get form elements
+        username_input = get_element_by_id(elements, "username")
+        password_input = get_element_by_id(elements, "password")
+        login_button = get_element_by_id(elements, "login_btn")
 
-        # Manually trigger login handler (simulating button action)
-        app._initialize_view(app.views["login"])
-        # In a real app, this would be triggered by action handler
+        assert username_input is not None, "Username input should exist"
+        assert password_input is not None, "Password input should exist"
+        assert login_button is not None, "Login button should exist"
 
-        # Step 5 & 6: Validate and navigate (simulating successful login)
-        if (
-            submission_data["username"] == "admin"
-            and submission_data["password"] == "secret"
-        ):
-            app.state["logged_in"] = True
-            app.state["current_user"] = submission_data["username"]
-            app.navigate("dashboard")
+        # Step 3: User enters username
+        simulate_typing(username_input, "admin")
+        assert username_input.value == "admin"
+        assert app.state["username"] == "admin"  # Two-way binding
 
-        # Step 7: Verify dashboard state
-        assert app.current_view == "dashboard"
+        # Step 4: User tabs to password field
+        simulate_tab_navigation(app)
+        assert_element_focused(app, "password")
+
+        # Step 5: User enters password
+        simulate_typing(password_input, "secret")
+        assert password_input.value == "secret"
+        assert app.state["password"] == "secret"  # Two-way binding
+
+        # Step 6: User tabs to login button
+        simulate_tab_navigation(app)
+        assert_element_focused(app, "login_btn")
+
+        # Step 7: User clicks login button
+        simulate_button_click(login_button)
+
+        # Step 8: Verify action handler fired and state updated
         assert app.state["logged_in"] is True
         assert app.state["current_user"] == "admin"
+        assert app.current_view == "dashboard"
 
-        # Verify dashboard can render
-        app._initialize_view(app.views["dashboard"])
-        data = {**dict(app.state), **app.views["dashboard"].data()}
-        output, _ = app.renderer.render_with_layout(
-            app.views["dashboard"].template, data
-        )
+        # Step 9: Verify dashboard renders correctly
+        output, _ = render_view(app, "dashboard")
         assert "Welcome, admin" in output
 
     def test_failed_login_flow(self):
@@ -129,30 +150,73 @@ class TestLoginFormJourney:
         4. App shows error message
         5. User remains on login page
         """
-        app = Wijjit(initial_state={"logged_in": False, "login_error": None})
+        app = Wijjit(
+            initial_state={
+                "logged_in": False,
+                "current_user": None,
+                "login_error": None,
+            }
+        )
 
-        # Step 1: Start at login
+        # Register action handler for login button
+        @app.on_action("login")
+        def handle_login(event: ActionEvent):
+            username = app.state.get("username", "")
+            password = app.state.get("password", "")
+
+            if username == "admin" and password == "secret":
+                app.state["logged_in"] = True
+                app.state["current_user"] = username
+                app.navigate("dashboard")
+            else:
+                app.state["login_error"] = "Invalid credentials"
+
+        # Define login view
         @app.view("login", default=True)
         def login_view():
             return {
                 "template": """
-{% if login_error %}
-    Error: {{ login_error }}
-{% else %}
-    Please log in
-{% endif %}
+{% frame width=45 height=15 title="Login" %}
+    {% if login_error %}
+        Error: {{ login_error }}
+    {% endif %}
+
+    Username:
+    {% textinput id="username" bind=True %}{% endtextinput %}
+
+    Password:
+    {% textinput id="password" bind=True %}{% endtextinput %}
+
+    {% button id="login_btn" action="login" %}Login{% endbutton %}
+{% endframe %}
                 """
             }
 
+        # Step 1: Verify initial state
         assert app.current_view == "login"
+        assert not app.state["logged_in"]
 
-        # Steps 2-4: Simulate failed login
-        app.state["login_error"] = "Invalid credentials"
+        # Step 2: Render and get elements
+        output, elements = render_view(app, "login")
+        username_input = get_element_by_id(elements, "username")
+        password_input = get_element_by_id(elements, "password")
+        login_button = get_element_by_id(elements, "login_btn")
 
-        # Step 5: Verify still on login page
-        assert app.current_view == "login"
+        # Step 3: User enters invalid credentials
+        simulate_typing(username_input, "wronguser")
+        simulate_typing(password_input, "wrongpass")
+
+        # Step 4: User clicks login button
+        simulate_button_click(login_button)
+
+        # Step 5: Verify error state and no navigation
         assert app.state["login_error"] == "Invalid credentials"
         assert not app.state["logged_in"]
+        assert app.current_view == "login"  # Still on login page
+
+        # Verify error message appears when re-rendered
+        output, _ = render_view(app, "login")
+        assert "Invalid credentials" in output
 
 
 class TestRegistrationFormJourney:
@@ -162,12 +226,12 @@ class TestRegistrationFormJourney:
         """Test end-to-end registration flow.
 
         Journey:
-        1. Navigate to registration form
-        2. Fill out all required fields
-        3. Click register button
-        4. Validate form data
-        5. Create account
-        6. Navigate to success page
+        1. Display registration form
+        2. User fills out all required fields
+        3. User clicks register button
+        4. App validates form data
+        5. App creates account
+        6. App navigates to success page
         """
         app = Wijjit(
             initial_state={
@@ -177,8 +241,30 @@ class TestRegistrationFormJourney:
             }
         )
 
-        form_data = {}
+        # Register action handler with validation
+        @app.on_action("register")
+        def handle_register(event: ActionEvent):
+            username = app.state.get("username", "")
+            email = app.state.get("email", "")
+            password = app.state.get("password", "")
 
+            # Validate form data
+            validation_errors = []
+            if not username:
+                validation_errors.append("Username required")
+            if not email or "@" not in email:
+                validation_errors.append("Valid email required")
+            if not password or len(password) < 6:
+                validation_errors.append("Password must be at least 6 characters")
+
+            if not validation_errors:
+                app.state["registration_complete"] = True
+                app.state["new_user"] = username
+                app.navigate("success")
+            else:
+                app.state["validation_errors"] = validation_errors
+
+        # Define views
         @app.view("register", default=True)
         def register_view():
             return {
@@ -190,10 +276,16 @@ class TestRegistrationFormJourney:
         {% endfor %}
     {% endif %}
 
-    {% textinput id="username" %}{% endtextinput %}
-    {% textinput id="email" %}{% endtextinput %}
-    {% textinput id="password" placeholder="Password" %}{% endtextinput %}
-    {% button id="register" %}Register{% endbutton %}
+    Username:
+    {% textinput id="username" bind=True %}{% endtextinput %}
+
+    Email:
+    {% textinput id="email" bind=True %}{% endtextinput %}
+
+    Password:
+    {% textinput id="password" bind=True %}{% endtextinput %}
+
+    {% button id="register_btn" action="register" %}Register{% endbutton %}
 {% endframe %}
                 """
             }
@@ -202,34 +294,38 @@ class TestRegistrationFormJourney:
         def success_view():
             return {"template": "Registration successful for {{ new_user }}!"}
 
-        # Step 1: Start at registration
+        # Step 1: Verify initial state
         assert app.current_view == "register"
 
-        # Step 2: Fill form
-        form_data["username"] = "newuser"
-        form_data["email"] = "user@example.com"
-        form_data["password"] = "secure123"
+        # Step 2: Render and get elements
+        output, elements = render_view(app, "register")
+        username_input = get_element_by_id(elements, "username")
+        email_input = get_element_by_id(elements, "email")
+        password_input = get_element_by_id(elements, "password")
+        register_button = get_element_by_id(elements, "register_btn")
 
-        # Steps 3-5: Validate and register
-        validation_errors = []
-        if not form_data.get("username"):
-            validation_errors.append("Username required")
-        if not form_data.get("email") or "@" not in form_data.get("email", ""):
-            validation_errors.append("Valid email required")
-        if not form_data.get("password") or len(form_data.get("password", "")) < 6:
-            validation_errors.append("Password must be at least 6 characters")
+        # Step 3: User fills out all fields
+        simulate_typing(username_input, "newuser")
+        simulate_typing(email_input, "user@example.com")
+        simulate_typing(password_input, "secure123")
 
-        if not validation_errors:
-            app.state["registration_complete"] = True
-            app.state["new_user"] = form_data["username"]
-            app.navigate("success")
-        else:
-            app.state["validation_errors"] = validation_errors
+        # Verify state binding worked
+        assert app.state["username"] == "newuser"
+        assert app.state["email"] == "user@example.com"
+        assert app.state["password"] == "secure123"
 
-        # Step 6: Verify success
-        assert app.current_view == "success"
+        # Step 4: User clicks register button
+        simulate_button_click(register_button)
+
+        # Step 5 & 6: Verify validation passed and navigation occurred
+        assert len(app.state["validation_errors"]) == 0
         assert app.state["registration_complete"] is True
         assert app.state["new_user"] == "newuser"
+        assert app.current_view == "success"
+
+        # Verify success message renders
+        output, _ = render_view(app, "success")
+        assert "Registration successful for newuser" in output
 
 
 class TestMultiStepFormJourney:
@@ -240,30 +336,45 @@ class TestMultiStepFormJourney:
 
         Journey:
         1. Start at step 1 (personal info)
-        2. Fill and proceed to step 2 (address)
-        3. Fill and proceed to step 3 (review)
-        4. Review and submit
-        5. Navigate to confirmation
+        2. User clicks Next to proceed to step 2
+        3. User clicks Next to proceed to step 3
+        4. User clicks Submit
+        5. App navigates to confirmation
         """
         app = Wijjit(
             initial_state={"wizard_step": 1, "form_data": {}, "submitted": False}
         )
 
+        # Register action handlers for wizard navigation
+        @app.on_action("next1")
+        def handle_next1(event: ActionEvent):
+            app.state["wizard_step"] = 2
+
+        @app.on_action("next2")
+        def handle_next2(event: ActionEvent):
+            app.state["wizard_step"] = 3
+
+        @app.on_action("submit")
+        def handle_submit(event: ActionEvent):
+            app.state["submitted"] = True
+            app.navigate("confirmation")
+
+        # Define views
         @app.view("wizard", default=True)
         def wizard_view():
             template = """
+{% frame width=50 height=15 title="Wizard - Step {{ wizard_step }}" %}
 {% if wizard_step == 1 %}
     Step 1: Personal Info
-    {% button id="next1" %}Next{% endbutton %}
+    {% button id="next1_btn" action="next1" %}Next{% endbutton %}
 {% elif wizard_step == 2 %}
     Step 2: Address
-    {% button id="back2" %}Back{% endbutton %}
-    {% button id="next2" %}Next{% endbutton %}
+    {% button id="next2_btn" action="next2" %}Next{% endbutton %}
 {% elif wizard_step == 3 %}
     Step 3: Review
-    {% button id="back3" %}Back{% endbutton %}
-    {% button id="submit" %}Submit{% endbutton %}
+    {% button id="submit_btn" action="submit" %}Submit{% endbutton %}
 {% endif %}
+{% endframe %}
             """
             return {"template": template}
 
@@ -271,23 +382,43 @@ class TestMultiStepFormJourney:
         def confirmation_view():
             return {"template": "Thank you! Your submission is complete."}
 
-        # Journey through steps
+        # Step 1: Verify initial state
         assert app.state["wizard_step"] == 1
 
-        # Step 1 -> 2
-        app.state["wizard_step"] = 2
+        # Step 2: Render step 1 and click Next
+        output, elements = render_view(app, "wizard")
+        assert "Step 1: Personal Info" in output
+        next1_button = get_element_by_id(elements, "next1_btn")
+        assert next1_button is not None
+        simulate_button_click(next1_button)
+
+        # Verify moved to step 2
         assert app.state["wizard_step"] == 2
 
-        # Step 2 -> 3
-        app.state["wizard_step"] = 3
+        # Step 3: Re-render for step 2 and click Next
+        output, elements = render_view(app, "wizard")
+        assert "Step 2: Address" in output
+        next2_button = get_element_by_id(elements, "next2_btn")
+        assert next2_button is not None
+        simulate_button_click(next2_button)
+
+        # Verify moved to step 3
         assert app.state["wizard_step"] == 3
 
-        # Submit
-        app.state["submitted"] = True
-        app.navigate("confirmation")
+        # Step 4: Re-render for step 3 and click Submit
+        output, elements = render_view(app, "wizard")
+        assert "Step 3: Review" in output
+        submit_button = get_element_by_id(elements, "submit_btn")
+        assert submit_button is not None
+        simulate_button_click(submit_button)
 
-        assert app.current_view == "confirmation"
+        # Step 5: Verify submission and navigation
         assert app.state["submitted"] is True
+        assert app.current_view == "confirmation"
+
+        # Verify confirmation message
+        output, _ = render_view(app, "confirmation")
+        assert "Thank you! Your submission is complete." in output
 
 
 class TestFormValidationJourney:
@@ -298,7 +429,7 @@ class TestFormValidationJourney:
 
         Journey:
         1. User starts entering email
-        2. Validation checks format on blur
+        2. Validation checks format after each keystroke
         3. Error shown for invalid format
         4. User corrects email
         5. Validation passes
@@ -308,35 +439,69 @@ class TestFormValidationJourney:
             initial_state={"email": "", "email_error": None, "can_submit": False}
         )
 
+        # Set up state change listener for validation
+        def validate_email(key, old_value, new_value):
+            if key == "email":
+                if new_value and "@" not in new_value:
+                    app.state["email_error"] = "Invalid email format"
+                    app.state["can_submit"] = False
+                elif new_value and "@" in new_value:
+                    app.state["email_error"] = None
+                    app.state["can_submit"] = True
+                else:
+                    app.state["email_error"] = None
+                    app.state["can_submit"] = False
+
+        app.state.on_change(validate_email)
+
         @app.view("form", default=True)
         def form_view():
             return {
                 "template": """
-{% textinput id="email" value=email %}{% endtextinput %}
-{% if email_error %}
-    Error: {{ email_error }}
-{% endif %}
-{% button id="submit" disabled=not can_submit %}Submit{% endbutton %}
+{% frame width=40 height=10 title="Email Form" %}
+    Email:
+    {% textinput id="email" bind=True %}{% endtextinput %}
+
+    {% if email_error %}
+        Error: {{ email_error }}
+    {% endif %}
+
+    {% button id="submit_btn" action="submit" %}Submit{% endbutton %}
+{% endframe %}
                 """
             }
 
-        # Step 1-3: Enter invalid email
-        app.state["email"] = "notanemail"
-        if "@" not in app.state["email"]:
-            app.state["email_error"] = "Invalid email format"
-            app.state["can_submit"] = False
+        # Render form
+        output, elements = render_view(app, "form")
+        email_input = get_element_by_id(elements, "email")
+        submit_button = get_element_by_id(elements, "submit_btn")
 
-        assert app.state["email_error"] is not None
-        assert not app.state["can_submit"]
+        # Step 1-3: User types invalid email
+        simulate_typing(email_input, "notanemail")
 
-        # Steps 4-5: Correct email
-        app.state["email"] = "valid@example.com"
-        if "@" in app.state["email"]:
-            app.state["email_error"] = None
-            app.state["can_submit"] = True
+        # Verify validation error set
+        assert app.state["email"] == "notanemail"
+        assert app.state["email_error"] == "Invalid email format"
+        assert app.state["can_submit"] is False
 
+        # Re-render to verify error message appears
+        output, _ = render_view(app, "form")
+        assert "Invalid email format" in output
+
+        # Step 4-5: User corrects email (clear and retype)
+        email_input.value = ""  # Clear the field
+        app.state["email"] = ""  # Clear state
+
+        simulate_typing(email_input, "valid@example.com")
+
+        # Verify validation passes
+        assert app.state["email"] == "valid@example.com"
         assert app.state["email_error"] is None
         assert app.state["can_submit"] is True
+
+        # Re-render to verify no error shown
+        output, _ = render_view(app, "form")
+        assert "Invalid email format" not in output
 
 
 class TestFormNavigationJourney:
@@ -346,43 +511,110 @@ class TestFormNavigationJourney:
         """Test navigating between different forms.
 
         Journey:
-        1. Fill out contact form
-        2. Navigate to preferences form
-        3. Fill preferences
-        4. Navigate back to review
-        5. Data from both forms persists
+        1. User fills out contact form
+        2. User clicks Next to navigate to preferences
+        3. User fills preferences form
+        4. User clicks Review to navigate to review page
+        5. Data from both forms persists and displays
         """
-        app = Wijjit(initial_state={"contact_data": {}, "preferences_data": {}})
+        app = Wijjit(initial_state={"name": "", "email": "", "theme": "", "notify": ""})
 
+        # Register navigation actions
+        @app.on_action("go_to_preferences")
+        def go_to_preferences(event: ActionEvent):
+            app.navigate("preferences")
+
+        @app.on_action("go_to_review")
+        def go_to_review(event: ActionEvent):
+            app.navigate("review")
+
+        # Define views
         @app.view("contact", default=True)
         def contact_view():
-            return {"template": "Contact Form"}
+            return {
+                "template": """
+{% frame width=50 height=12 title="Contact Form" %}
+    Name:
+    {% textinput id="name" bind=True %}{% endtextinput %}
+
+    Email:
+    {% textinput id="email" bind=True %}{% endtextinput %}
+
+    {% button id="next_btn" action="go_to_preferences" %}Next{% endbutton %}
+{% endframe %}
+                """
+            }
 
         @app.view("preferences")
         def preferences_view():
-            return {"template": "Preferences Form"}
+            return {
+                "template": """
+{% frame width=50 height=12 title="Preferences" %}
+    Theme:
+    {% textinput id="theme" bind=True %}{% endtextinput %}
+
+    Notifications:
+    {% textinput id="notify" bind=True %}{% endtextinput %}
+
+    {% button id="review_btn" action="go_to_review" %}Review{% endbutton %}
+{% endframe %}
+                """
+            }
 
         @app.view("review")
         def review_view():
-            return {"template": "Review: {{ contact_data }} {{ preferences_data }}"}
+            return {
+                "template": """
+{% frame width=50 height=15 title="Review" %}
+    Contact Info:
+    Name: {{ name }}
+    Email: {{ email }}
 
-        # Step 1: Fill contact
-        app.state["contact_data"] = {"name": "Alice", "email": "alice@example.com"}
+    Preferences:
+    Theme: {{ theme }}
+    Notify: {{ notify }}
+{% endframe %}
+                """
+            }
+
+        # Step 1: Fill contact form
+        output, elements = render_view(app, "contact")
+        name_input = get_element_by_id(elements, "name")
+        email_input = get_element_by_id(elements, "email")
+        next_button = get_element_by_id(elements, "next_btn")
+
+        simulate_typing(name_input, "Alice")
+        simulate_typing(email_input, "alice@example.com")
+
+        assert app.state["name"] == "Alice"
+        assert app.state["email"] == "alice@example.com"
 
         # Step 2: Navigate to preferences
-        app.navigate("preferences")
+        simulate_button_click(next_button)
         assert app.current_view == "preferences"
 
-        # Step 3: Fill preferences
-        app.state["preferences_data"] = {"theme": "dark", "notifications": True}
+        # Step 3: Fill preferences form
+        output, elements = render_view(app, "preferences")
+        theme_input = get_element_by_id(elements, "theme")
+        notify_input = get_element_by_id(elements, "notify")
+        review_button = get_element_by_id(elements, "review_btn")
+
+        simulate_typing(theme_input, "dark")
+        simulate_typing(notify_input, "yes")
+
+        assert app.state["theme"] == "dark"
+        assert app.state["notify"] == "yes"
 
         # Step 4: Navigate to review
-        app.navigate("review")
+        simulate_button_click(review_button)
         assert app.current_view == "review"
 
-        # Step 5: Verify data persists
-        assert app.state["contact_data"]["name"] == "Alice"
-        assert app.state["preferences_data"]["theme"] == "dark"
+        # Step 5: Verify all data persists in review
+        output, _ = render_view(app, "review")
+        assert "Alice" in output
+        assert "alice@example.com" in output
+        assert "dark" in output
+        assert "yes" in output
 
 
 class TestFormWithDynamicContent:
@@ -392,50 +624,71 @@ class TestFormWithDynamicContent:
         """Test form with conditional field visibility.
 
         Journey:
-        1. Select account type (personal/business)
-        2. Additional fields appear based on selection
-        3. Fill type-specific fields
-        4. Submit with correct data structure
+        1. User selects business account type
+        2. Additional business fields appear
+        3. User fills type-specific fields
+        4. Form state contains correct data structure
         """
         app = Wijjit(
             initial_state={
-                "account_type": None,
-                "show_business_fields": False,
-                "form_data": {},
+                "account_type": "",
+                "business_name": "",
+                "tax_id": "",
             }
         )
+
+        # Register action for account type selection
+        @app.on_action("select_business")
+        def select_business(event: ActionEvent):
+            app.state["account_type"] = "business"
 
         @app.view("signup", default=True)
         def signup_view():
             template = """
-Account Type: {{ account_type or "Not selected" }}
+{% frame width=50 height=15 title="Account Signup" %}
+    Account Type: {{ account_type or "Not selected" }}
 
-{% if show_business_fields %}
-    Business Name: [input]
-    Tax ID: [input]
-{% endif %}
+    {% if not account_type %}
+        {% button id="business_btn" action="select_business" %}Business Account{% endbutton %}
+    {% endif %}
 
-{% if account_type %}
-    {% button id="submit" %}Submit{% endbutton %}
-{% endif %}
+    {% if account_type == "business" %}
+        Business Name:
+        {% textinput id="business_name" bind=True %}{% endtextinput %}
+
+        Tax ID:
+        {% textinput id="tax_id" bind=True %}{% endtextinput %}
+    {% endif %}
+{% endframe %}
             """
             return {"template": template}
 
-        # Step 1: Select business account
-        app.state["account_type"] = "business"
-        app.state["show_business_fields"] = True
+        # Step 1: Render initial form (no account type selected)
+        output, elements = render_view(app, "signup")
+        assert "Not selected" in output
+        business_button = get_element_by_id(elements, "business_btn")
+        assert business_button is not None
 
-        # Step 2: Verify business fields shown
-        assert app.state["show_business_fields"] is True
+        # User selects business account type
+        simulate_button_click(business_button)
+        assert app.state["account_type"] == "business"
 
-        # Step 3: Fill business fields
-        app.state["form_data"] = {
-            "account_type": "business",
-            "business_name": "Acme Corp",
-            "tax_id": "12-3456789",
-        }
+        # Step 2: Re-render to show business fields
+        output, elements = render_view(app, "signup")
+        assert "Business Name:" in output
+        assert "Tax ID:" in output
+
+        # Verify business fields are now available
+        business_name_input = get_element_by_id(elements, "business_name")
+        tax_id_input = get_element_by_id(elements, "tax_id")
+        assert business_name_input is not None
+        assert tax_id_input is not None
+
+        # Step 3: Fill business-specific fields
+        simulate_typing(business_name_input, "Acme Corp")
+        simulate_typing(tax_id_input, "12-3456789")
 
         # Step 4: Verify data structure
-        assert app.state["form_data"]["account_type"] == "business"
-        assert "business_name" in app.state["form_data"]
-        assert "tax_id" in app.state["form_data"]
+        assert app.state["account_type"] == "business"
+        assert app.state["business_name"] == "Acme Corp"
+        assert app.state["tax_id"] == "12-3456789"

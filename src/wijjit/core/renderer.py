@@ -6,9 +6,12 @@ custom extensions and filters for terminal UI rendering.
 
 import os
 import shutil
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from jinja2 import DictLoader, Environment, FileSystemLoader, Template
+
+if TYPE_CHECKING:
+    from wijjit.core.overlay import OverlayManager
 
 from wijjit.elements.base import Element
 from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
@@ -223,6 +226,7 @@ class Renderer:
         context: dict[str, Any] | None = None,
         width: int | None = None,
         height: int | None = None,
+        overlay_manager: Optional["OverlayManager"] = None,
     ) -> tuple[str, list[Element]]:
         """Render a template with layout engine support.
 
@@ -242,6 +246,8 @@ class Renderer:
             Available width (default: terminal width)
         height : int, optional
             Available height (default: terminal height)
+        overlay_manager : OverlayManager, optional
+            Overlay manager to process template-declared overlays
 
         Returns
         -------
@@ -294,6 +300,24 @@ class Renderer:
 
         # Compose output from positioned elements
         output = self._compose_output(elements, width, height, layout_ctx.root)
+
+        # Process template-declared overlays
+        if overlay_manager is not None and hasattr(layout_ctx, "_overlays"):
+            # Clear existing overlays (simple rebuild strategy)
+            overlay_manager.clear()
+
+            # Push each template overlay to the overlay manager
+            for overlay_info in layout_ctx._overlays:
+                overlay_manager.push(
+                    element=overlay_info["element"],
+                    layer_type=overlay_info["layer_type"],
+                    close_on_escape=overlay_info.get("close_on_escape", True),
+                    close_on_click_outside=overlay_info.get(
+                        "close_on_click_outside", True
+                    ),
+                    trap_focus=overlay_info.get("trap_focus", False),
+                    dimmed_background=overlay_info.get("dim_background", False),
+                )
 
         return output, elements
 

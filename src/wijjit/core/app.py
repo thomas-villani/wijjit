@@ -738,6 +738,7 @@ class Wijjit:
                     context=data,
                     width=term_size.columns,
                     height=term_size.lines,
+                    overlay_manager=self.overlay_manager,
                 )
 
                 # Store elements and update focus manager
@@ -763,6 +764,7 @@ class Wijjit:
                         context=data,
                         width=term_size.columns,
                         height=term_size.lines,
+                        overlay_manager=self.overlay_manager,
                     )
                     self.positioned_elements = elements
 

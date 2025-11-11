@@ -1,122 +1,62 @@
-# Wijjit Project Plan
+# Wijjit
 
+**Flask for the Console: A declarative TUI framework for Python**
 
-**Wijjit is just Jinja in Terminal**
-
-
-*Flask for the Console: A declarative TUI framework for Python*
-
+*Wijjit is Just Jinja in Terminal*
 
 ---
 
+Wijjit is a Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns. 
+If you know Flask and Jinja2, you can build rich, interactive console applications with Wijjit.
 
-## Executive Summary
+Wijjit was obviously inspired by the wonderful Flask library, and makes heavy use of the patterns innate to Flask 
+applications. We built this library to bring the syntactic elegance of Flask's decorator patterns to building TUIs.
 
+## Features
 
-Wijjit is a new Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns. By combining Jinja2 templating with ANSI rendering, Wijjit enables developers to create rich, interactive console applications using declarative templates and a Flask-like API.
+- **Declarative UI**: Define layouts using Jinja2 templates, not procedural positioning code
+- **Flask-like API**: View decorators, routing, and state management that feels like web development
+- **Rich Component Library**: Pre-built elements for forms, tables, trees, progress indicators, and more
+- **Reactive State Management**: State changes automatically trigger re-renders
+- **Automatic Focus Navigation**: Tab/Shift+Tab navigation between interactive elements
+- **Modal Dialogs**: Built-in confirm, alert, and input dialogs
+- **Layout System**: Flexible frames with stacks (vertical/horizontal), scrolling, and sizing options
+- **Mouse Support**: Click buttons, scroll content, and interact with elements
+- **ANSI-Aware**: Proper handling of colors and styling throughout
 
-
-**Key Value Propositions:**
-
-- **Familiar patterns**: Developers who know Flask and Jinja2 can immediately be productive
-
-- **Declarative UI**: Define layouts in templates, not procedural positioning code
-
-- **Component reusability**: Pre-built elements for common patterns (forms, tables, menus)
-
-- **View-based architecture**: Navigate between screens like web routes
-
-- **Fills a gap**: No existing Python TUI framework offers this level of abstraction
-
-
-**Target Timeline:** 8-10 weeks to MVP
-
-**Target Audience:** CLI tool developers, DevOps engineers, data scientists, systems administrators
-
-
----
-
-
-## Getting Started
-
-### Installation
+## Installation
 
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/wijjit.git
 cd wijjit
 
-# Install in development mode
+# Install in development mode with uv (recommended)
+uv pip install -e .
+
+# Or with pip
 pip install -e .
 ```
 
-### Your First Wijjit App
+## Quick Start
 
-Here's a simple "Hello World" application:
+### Hello World
+
+The simplest possible Wijjit app:
 
 ```python
 from wijjit import Wijjit
+from wijjit.core.events import EventType, HandlerScope
 
-# Create the app
 app = Wijjit()
 
-# Define a view with the @app.view decorator
 @app.view("main", default=True)
 def main_view():
     return {
-        "template": "Hello, World! Press Ctrl+C to exit.",
-    }
-
-# Run the app
-if __name__ == "__main__":
-    app.run()
-```
-
-### Interactive Todo List Example
-
-For a more complete example with state management and event handling, see `examples/todo_app.py`:
-
-```python
-from wijjit import Wijjit, EventType, HandlerScope
-
-# Initialize app with state
-app = Wijjit(initial_state={
-    "todos": [
-        {"id": 1, "text": "Learn Wijjit", "done": False},
-        {"id": 2, "text": "Build a TUI app", "done": False},
-    ],
-    "next_id": 3,
-})
-
-# Define the main view
-@app.view("main", default=True)
-def main_view():
-    def render_data():
-        todos = app.state["todos"]
-        completed = sum(1 for todo in todos if todo["done"])
-
-        # Build todo list display
-        todo_lines = []
-        for todo in todos:
-            checkbox = "[X]" if todo["done"] else "[ ]"
-            todo_lines.append(f"{checkbox} {todo['text']}")
-
-        content = f"""
-Todo List ({completed}/{len(todos)} completed)
----
-{chr(10).join(todo_lines)}
----
-Controls: [a] Add  [d] Delete  [Space] Toggle  [q] Quit
-"""
-        return {"content": content}
-
-    return {
-        "template": "{{ content }}",
-        "data": render_data(),
+        "template": "Hello, World! Press 'q' to quit.",
         "on_enter": setup_handlers,
     }
 
-# Set up keyboard handlers
 def setup_handlers():
     def on_quit(event):
         if event.key == "q":
@@ -124,1201 +64,486 @@ def setup_handlers():
 
     app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
 
-# Run the app
-app.run()
+if __name__ == "__main__":
+    app.run()
 ```
 
-### Key Features Demonstrated
+### Login Form
 
-- **View Decorators**: Define views using `@app.view()` decorator (Flask-like)
-- **State Management**: Reactive state with `app.state` that triggers re-renders
-- **Event Handling**: Register keyboard handlers with `app.on()`
-- **Template Rendering**: Use Jinja2 templates for UI layout
-- **Lifecycle Hooks**: `on_enter` and `on_exit` hooks for view setup/teardown
-
-For more examples, check out the `examples/` directory.
-
-
----
-
-
-## Project Goals
-
-
-### Primary Goals
-
-1. Create a declarative TUI framework that reduces boilerplate for common CLI patterns
-
-2. Provide a component library for standard UI elements (inputs, tables, menus, etc.)
-
-3. Enable responsive layouts that adapt to terminal size
-
-4. Support keyboard-driven navigation with optional mouse support
-
-5. Achieve feature parity with basic web forms for data collection/display
-
-
-### Success Metrics
-
-- Build 3+ demo applications showcasing different use cases
-
-- Documentation coverage for all public APIs
-
-- Performance: Render complex UIs (<100 elements) at 60fps
-
-- Developer adoption: 100+ GitHub stars within 3 months of release
-
-
----
-
-
-## Technical Architecture
-
-
-### High-Level Design
-
-
-```
-
-┌─────────────────────────────────────────────────┐
-
-│              User Application                    │
-
-│  (View functions, state management, handlers)   │
-
-└────────────────┬────────────────────────────────┘
-                │
-
-┌────────────────▼────────────────────────────────┐
-
-│            Wijjit Core API                      │
-
-│  - App class \& view decorator                   │
-
-│  - Navigation system                            │
-
-│  - Global state management                      │
-
-└────────────┬────────────────────────────────────┘
-            │
-   ┌────────┼────────┐
-   │        │        │
-
-┌───▼───┐ ┌──▼──┐ ┌──▼────────┐
-
-│Template│ │Layout│ │ Terminal  │
-
-│ Engine │ │Engine│ │  I/O      │
-
-└───┬───┘ └──┬──┘ └──┬────────┘
-   │        │        │
-
-┌───▼────────▼────────▼──────────────────────────┐
-
-│         Rendering Pipeline                      │
-
-│  1. Parse template → AST                        │
-
-│  2. Calculate layout → coordinates              │
-
-│  3. Render elements → ANSI strings              │
-
-│  4. Composite → final output                    │
-
-└─────────────────────────────────────────────────┘
-
-```
-
-
-### Core Components
-
-
-#### 1. Application Layer (`wijjit/core/`)
-
-- **`app.py`**: Main Wijjit class, view decorator, navigation
-
-- **`state.py`**: Global state with change detection and reactivity
-
-- **`renderer.py`**: Orchestrates rendering pipeline
-
-
-#### 2. Template Layer (`wijjit/template/`)
-
-- **`tags.py`**: Custom Jinja extensions (frame, textinput, button, etc.)
-
-- **`filters.py`**: Custom filters (humanize, timeago, etc.)
-
-- **`loader.py`**: Template file loading and caching
-
-
-#### 3. Layout Layer (`wijjit/layout/`)
-
-- **`engine.py`**: Layout calculation (sizes, positions)
-
-- **`frames.py`**: Frame/border rendering with scroll support
-
-- **`positioning.py`**: Coordinate mapping for elements
-
-- **`scroll.py`**: Scroll state management
-
-
-#### 4. Elements Layer (`wijjit/elements/`)
-
-- **`base.py`**: Base Element and Container classes
-
-- **`input.py`**: TextInput, Select, Checkbox, RadioGroup
-
-- **`display.py`**: Table, Tree, Progress, LogView
-
-- **`interactive.py`**: Button, Menu, Link, Tabs
-
-
-#### 5. Terminal Layer (`wijjit/terminal/`)
-
-- **`input.py`**: Keyboard/mouse event handling
-
-- **`screen.py`**: Alternate buffer, cursor control
-
-- **`ansi.py`**: ANSI escape code utilities
-
-
-### Data Flow
-
-
-```
-
-User Input → InputHandler → FocusManager → Element.handle\_key()
-                                             ↓
-                                        State Change
-                                             ↓
-                                     Trigger Re-render
-                                             ↓
-
-Template + State → Pre-render (Layout) → Render → Terminal
-
-```
-
-
----
-
-
-## Feature Breakdown
-
-
-### Phase 1: Core Foundation (Weeks 1-2)
-
-
-**Deliverables:**
-
-- [x] Basic Wijjit app class
-- [x] View decorator and routing system
-- [x] Global state management with change detection
-- [x] Simple template rendering (no custom tags yet)
-- [x] Keyboard input loop (blocking, raw mode)
-- [x] Alternate screen buffer management
-- [x] Basic demo: Hello World with navigation
-
-
-**Technical Tasks:**
-
-- Implement `Wijjit` class with `run()` method
-
-- Create `@app.view()` decorator
-
-- Build `State` class with `\_\_setitem\_\_` change detection
-
-- Integrate Jinja2 environment
-
-- Implement basic input handler with `tty` module
-
-- ANSI escape codes for screen control
-
-
-### Phase 2: Layout Engine (Weeks 3-4)
-
-
-**Deliverables:**
-
-- [ ] Frame macro with border styles
-
-- [ ] Size calculation (fixed, fill, auto, percentages)
-
-- [ ] Padding and margin support
-
-- [ ] Coordinate mapping system
-
-- [ ] Terminal resize handling
-
-- [ ] Demo: Multi-frame layout
-
-
-**Technical Tasks:**
-
-- Create `LayoutNode` tree structure
-
-- Implement bottom-up size calculation
-
-- Implement top-down position assignment
-
-- Build frame rendering with box-drawing characters
-
-- Support 5 border styles (single, double, rounded, heavy, dashed)
-
-- Handle percentage widths/heights
-
-- Create `LayoutEngine` class
-
-
-**Frame Attributes:**
+A complete login form with validation, showing the power of templates:
 
 ```python
+from wijjit import Wijjit
 
-border: "none" | "single" | "double" | "rounded" | "heavy" | "dashed"
+app = Wijjit(initial_state={
+    'username': '',
+    'password': '',
+    'status': 'Please enter your credentials',
+})
 
-width: int | "auto" | "fill" | "100%" | "50%"
+@app.view("login", default=True)
+def login_view():
+    return {
+        "template": """
+{% frame title="Login" border="single" width=50 height=15 %}
+  {% vstack spacing=1 padding=1 %}
+    {{ state.status }}
 
-height: int | "auto" | "fill" | "100%"
+    {% vstack spacing=0 %}
+      Username:
+      {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
+    {% endvstack %}
 
-padding: int | (top, right, bottom, left)
+    {% vstack spacing=0 %}
+      Password:
+      {% textinput id="password" placeholder="Enter password" width=30 action="login" %}{% endtextinput %}
+    {% endvstack %}
 
-margin: int | (top, right, bottom, left)
+    {% hstack spacing=2 %}
+      {% button action="login" %}Login{% endbutton %}
+      {% button action="clear" %}Clear{% endbutton %}
+      {% button action="quit" %}Quit{% endbutton %}
+    {% endhstack %}
+  {% endvstack %}
+{% endframe %}
+        """
+    }
 
-title: str
+@app.on_action("login")
+def handle_login(event):
+    username = app.state.get('username', '')
+    password = app.state.get('password', '')
 
-title\_align: "left" | "center" | "right"
+    if username == 'admin' and password == 'password':
+        app.state['status'] = f'Success! Welcome, {username}!'
+    else:
+        app.state['status'] = 'Error: Invalid credentials'
 
-overflow\_x: "clip" | "scroll" | "auto" | "wrap"
+@app.on_action("clear")
+def handle_clear(event):
+    app.state['username'] = ''
+    app.state['password'] = ''
 
-overflow\_y: "clip" | "scroll" | "auto" | "wrap"
+@app.on_action("quit")
+def handle_quit(event):
+    app.quit()
 
+if __name__ == '__main__':
+    app.run()
 ```
 
+## Core Concepts
 
-### Phase 3: Input Elements (Weeks 5-6)
+### Views and Routing
 
-
-**Deliverables:**
-
-- [ ] TextInput with cursor positioning
-
-- [ ] Button with activation
-
-- [ ] Focus management (Tab/Shift+Tab)
-
-- [ ] Basic form validation
-
-- [ ] Select/dropdown component
-
-- [ ] Checkbox and RadioGroup
-
-- [ ] Demo: User registration form
-
-
-**Input Elements:**
+Like Flask, Wijjit uses decorators to define views:
 
 ```python
+@app.view("main", default=True)
+def main_view():
+    return {
+        "template": "...",  # Jinja2 template string
+        "data": {...},      # Additional template data
+        "on_enter": fn,     # Called when view is entered
+        "on_exit": fn,      # Called when view is exited
+    }
 
-{% textinput id="username" placeholder="Enter username" %}
-
-{% textinput id="password" type="password" %}
-
-{% numberinput id="port" min=1024 max=65535 %}
-
-{% select id="theme" options=\["dark", "light"] %}
-
-{% checkbox id="remember" label="Remember me" %}
-
-{% radiogroup id="mode" options=\["auto", "manual"] %}
-
-{% button action="submit" variant="primary" %}Submit{% endbutton %}
-
+# Navigate to a different view
+app.navigate("other_view", param=value)
 ```
-
-
-**Technical Tasks:**
-
-- Implement `Element` base class with focus support
-
-- Create `FocusManager` for Tab navigation
-
-- Build text input with editing (insert, delete, arrow keys)
-
-- Implement button activation on Enter/Space
-
-- Create select with arrow key navigation
-
-- Add input validation framework
-
-
-### Phase 4: Display Elements (Weeks 6-7)
-
-
-**Deliverables:**
-
-- [ ] Table component (leveraging Rich)
-
-- [ ] Tree view with expand/collapse
-
-- [ ] Progress bar
-
-- [ ] Log viewer with auto-scroll
-
-- [ ] Tabs component
-
-- [ ] Demo: File browser
-
-
-**Display Elements:**
-
-```python
-
-{% table data=items columns=\["Name", "Size"] selectable=true %}
-
-{% tree data=file\_tree on\_select="open\_node" %}
-
-{% progress value=50 max=100 %}
-
-{% logview lines=logs follow=true %}
-
-{% tabs active="overview" %}
- {% tab key="overview" %}...{% endtab %}
-
-{% endtabs %}
-
-```
-
-
-**Technical Tasks:**
-
-- Integrate Rich Table component
-
-- Build tree data structure with state
-
-- Create progress bar with percentage/bar format
-
-- Implement log viewer with scroll-to-bottom
-
-- Create tabs with keyboard switching
-
-
-### Phase 5: Advanced Features (Weeks 7-8)
-
-
-**Deliverables:**
-
-- [ ] Overflow and scrolling
-
-- [ ] Scrollbar rendering
-
-- [ ] Layout macros (hstack, vstack, split)
-
-- [ ] ANSI-aware text clipping
-
-- [ ] Event hooks (before\_navigate, on\_state\_change)
-
-- [ ] Demo: Dashboard with multiple panes
-
-
-**Layout Macros:**
-
-```jinja
-
-{% hstack spacing=2 %}
- {{ button("OK") }}
- {{ button("Cancel") }}
-
-{% endhstack %}
-
-
-{% vstack fill=true %}
- {% for item in items %}...{% endfor %}
-
-{% endvstack %}
-
-
-{% split direction="horizontal" ratio="30:70" %}
- {% left %}Sidebar{% endleft %}
- {% right %}Content{% endright %}
-
-{% endsplit %}
-
-```
-
-
-**Technical Tasks:**
-
-- Implement scroll offset tracking per frame
-
-- Render scrollbars with thumb/track
-
-- Create stack layout algorithms
-
-- Build split pane with ratio calculation
-
-- Add text wrapping with ANSI preservation
-
-- Create hook system for lifecycle events
-
-
-### Phase 6: Polish \& Documentation (Weeks 8-10)
-
-
-**Deliverables:**
-
-- [ ] Mouse support (optional)
-
-- [ ] Performance optimization (render caching)
-
-- [ ] Comprehensive documentation
-
-- [ ] 5+ example applications
-
-- [ ] Unit tests for core components
-
-- [ ] GitHub repository with CI/CD
-
-
-**Documentation Sections:**
-
-- Quick start guide
-
-- API reference
-
-- Template syntax guide
-
-- Element catalog with examples
-
-- Cookbook (common patterns)
-
-- Migration guide (from other TUI libs)
-
-
-**Example Applications:**
-
-- Todo list manager
-
-- File browser
-
-- System monitor
-
-- API testing tool
-
-- Database query interface
-
-
----
-
-
-## Technical Considerations
-
-
-### Performance
-
-
-**Optimization Strategies:**
-
-1. **Render caching**: Cache rendered frames when content unchanged
-
-2. **Dirty tracking**: Only re-render changed regions
-
-3. **Virtual scrolling**: Render only visible rows for large tables
-
-4. **Debounced input**: Batch rapid keystrokes
-
-5. **Lazy template compilation**: Compile templates once
-
-
-**Performance Targets:**
-
-- Initial render: <100ms for complex layouts
-
-- Input response: <16ms (60fps)
-
-- Memory: <50MB for typical applications
-
-
-### Overflow and Scrolling
-
-
-**Clip Mode** (`overflow="clip"`):
-
-- Content beyond bounds is cut off
-
-- No scrollbar shown
-
-- Simplest, fastest rendering
-
-
-**Scroll Mode** (`overflow="scroll"`):
-
-- Always show scrollbar
-
-- Arrow keys scroll content
-
-- PageUp/PageDown for large jumps
-
-- Home/End for top/bottom
-
-
-**Auto Mode** (`overflow="auto"`):
-
-- Show scrollbar only when needed
-
-- Dynamically calculate content height
-
-- Automatically hide when all content visible
-
-
-**Wrap Mode** (`overflow="wrap"`):
-
-- Text wraps to next line
-
-- Respects word boundaries
-
-- Increases content height dynamically
-
-
-### Text Handling with ANSI
-
-
-**Challenge**: ANSI escape codes (colors, formatting) don't count toward visible length
-
-
-**Solutions:**
-
-1. **Strip-and-measure**: Regex to remove ANSI, measure length
-
-2. **Clip-with-preservation**: Clip visible chars but keep ANSI codes
-
-3. **Slice-with-codes**: When scrolling, maintain ANSI state across slices
-
-
-```python
-
-def clip\_to\_width(text: str, width: int) -> str:
-   """Clip text preserving ANSI codes"""
-   ansi\_pattern = re.compile(r'\\x1b\\\[\[0-9;]*m')
-   parts = ansi\_pattern.split(text)
-   
-   result = \[]
-   visible\_count = 0
-   
-   for i, part in enumerate(parts):
-       if i % 2 == 1:  # ANSI code
-           result.append(part)
-       else:  # Regular text
-           remaining = width - visible\_count
-           if len(part) <= remaining:
-               result.append(part)
-               visible\_count += len(part)
-           else:
-               result.append(part\[:remaining])
-               break
-   
-   return ''.join(result)
-
-```
-
 
 ### State Management
 
-
-**Philosophy**: Single source of truth
-
+Wijjit provides reactive state that automatically triggers re-renders when changed:
 
 ```python
+# Initialize with state
+app = Wijjit(initial_state={'count': 0})
 
-# Global state
+# Access state (dict-style or attribute-style)
+app.state['count'] = 1
+app.state.count = 2
 
-state.current\_file = Path("config.py")
-
-state.editor\_buffer = "def main():\\n    pass"
-
-state.unsaved\_changes = True
-
-
-# View-specific ephemeral state
-
-state.view\_context\['editor'] = {
-   'cursor\_pos': (10, 5),
-   'scroll\_offset': 0
-
-}
-
+# State changes automatically re-render the UI
+# Elements with matching IDs automatically bind to state
 ```
 
+### Templates
 
-**Change Detection**:
+Use Jinja2 templates with custom tags for UI elements:
 
-- Intercept `\_\_setitem\_\_` to detect changes
+```jinja2
+{# Layout containers #}
+{% frame title="My App" border="rounded" width=60 %}
+  {% vstack spacing=1 %}
+    Content here
+  {% endvstack %}
+{% endframe %}
 
-- Notify registered watchers
+{# Input elements #}
+{% textinput id="name" placeholder="Enter name" %}{% endtextinput %}
+{% textarea id="bio" width=40 height=5 %}{% endtextarea %}
+{% button action="submit" %}Submit{% endbutton %}
+{% checkbox id="agree" label="I agree" %}{% endcheckbox %}
+{% select id="theme" options=["dark", "light"] %}{% endselect %}
 
-- Automatically trigger re-render
+{# Display elements #}
+{% table data=state.users columns=["name", "email"] %}{% endtable %}
+{% tree data=state.files %}{% endtree %}
+{% progress value=state.progress max=100 %}{% endprogress %}
+{% markdown content=state.readme %}{% endmarkdown %}
+```
 
+### Event Handling
 
-**Best Practices**:
+Handle user interactions with decorators:
 
-- Keep state flat when possible
+```python
+# Action handlers (from buttons, inputs with action attribute)
+@app.on_action("submit")
+def handle_submit(event):
+    # Process form submission
+    pass
 
-- Use view\_context for temporary state
+# Key handlers
+@app.on_key("ctrl+s")
+def save(event):
+    # Save on Ctrl+S
+    pass
 
-- Avoid nested mutations (use immutable updates)
+# Generic event handlers
+from wijjit.core.events import EventType, HandlerScope
 
+@app.view("main", default=True)
+def main_view():
+    return {
+        "template": "...",
+        "on_enter": setup_handlers,
+    }
 
-### Cross-Platform Compatibility
+def setup_handlers():
+    def on_key(event):
+        if event.key == "q":
+            app.quit()
 
+    app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
+```
 
-**Challenges:**
+### Layout System
 
-- Windows terminal limitations (ConPTY vs legacy)
+Wijjit provides flexible layout containers:
 
-- macOS vs Linux terminal escape sequences
+**Frames**: Boxes with borders, titles, and scrolling
+```jinja2
+{% frame title="Settings" border="single" width=60 height=20 overflow_y="scroll" %}
+  Content
+{% endframe %}
+```
 
-- UTF-8 support for box-drawing characters
+**VStack**: Vertical stack
+```jinja2
+{% vstack spacing=1 align_h="center" %}
+  {% button %}Top{% endbutton %}
+  {% button %}Bottom{% endbutton %}
+{% endvstack %}
+```
 
+**HStack**: Horizontal stack
+```jinja2
+{% hstack spacing=2 align_v="middle" %}
+  {% button %}Left{% endbutton %}
+  {% button %}Right{% endbutton %}
+{% endhstack %}
+```
 
-**Solutions:**
+**Sizing**: Flexible size specifications
+- Fixed: `width=50` or `width="50"`
+- Fill available space: `width="fill"`
+- Size to content: `width="auto"`
+- Percentage: `width="50%"`
 
-1. Use `prompt\_toolkit` for cross-platform input handling
+### Modal Dialogs
 
-2. Detect terminal capabilities with `blessed`
+Built-in dialog components:
 
-3. Fallback to ASCII box-drawing on limited terminals
+```python
+from wijjit.tags.dialogs import ConfirmDialog, AlertDialog, TextInputDialog
 
-4. Test on Windows Terminal, iTerm2, GNOME Terminal
+# Confirmation dialog
+dialog = ConfirmDialog(
+    title="Confirm",
+    message="Are you sure?",
+    on_confirm=lambda: print("Confirmed!"),
+    on_cancel=lambda: print("Cancelled")
+)
+app.show_modal(dialog)
 
+# Alert dialog
+dialog = AlertDialog(
+    title="Success",
+    message="Operation completed!",
+    on_close=lambda: app.navigate("main")
+)
+app.show_modal(dialog)
 
-### Error Handling
+# Input dialog
+dialog = TextInputDialog(
+    title="Enter Name",
+    prompt="What's your name?",
+    on_submit=lambda value: handle_input(value)
+)
+app.show_modal(dialog)
+```
 
+## Component Library
 
-**Graceful Degradation:**
+### Input Components
 
-- Terminal too small: Show minimum size warning
+- **TextInput**: Single-line text input with cursor editing
+- **TextArea**: Multi-line text input with scrolling
+- **Button**: Clickable button (mouse or keyboard)
+- **Checkbox**: Single checkbox or checkbox groups
+- **Radio**: Radio button groups
+- **Select**: Dropdown select menu
 
-- Resize during input: Reflow layout
+### Display Components
 
-- Invalid template: Show error view with traceback
+- **Table**: Sortable, scrollable tables (powered by Rich)
+- **Tree**: Hierarchical tree view with expand/collapse
+- **ListView**: Scrollable list with selection
+- **LogView**: Auto-scrolling log viewer
+- **ProgressBar**: Progress indicators (bar, dots, spinner styles)
+- **Spinner**: Animated loading indicators
+- **Markdown**: Markdown rendering with syntax highlighting
+- **CodeBlock**: Syntax-highlighted code display
 
-- Unhandled exception: Exit alternate screen before crash
+### Layout Components
 
+- **Frame**: Container with borders, titles, padding, and scrolling
+- **VStack**: Vertical stack layout
+- **HStack**: Horizontal stack layout
 
-**Debugging:**
+## Examples
 
-- Log mode: Write render output to file
+The `examples/` directory contains 40+ working examples demonstrating various features:
 
-- Step mode: Pause on each render
+**Basic Examples:**
+- `hello_world.py` - Minimal app
+- `simple_input_test.py` - Basic text input
+- `form_demo.py` - Complete form
 
-- State inspector: View current state tree
+**Template-Based Apps:**
+- `login_form.py` - Login form with validation
+- `todo_app.py` - Full todo list application
+- `filesystem_browser.py` - File browser with tree view
 
+**Widget Demos:**
+- `checkbox_demo.py` - Checkboxes and groups
+- `radio_demo.py` - Radio buttons
+- `select_demo.py` - Select dropdown
+- `table_demo.py` - Rich table with sorting
+- `tree_demo.py` - Hierarchical tree
+- `progress_demo.py` - Progress indicators
+- `spinner_demo.py` - Loading spinners
+- `textarea_demo.py` - Multi-line input
 
----
+**Layout Examples:**
+- `frame_sizing_demo.py` - Frame sizing modes
+- `complex_layout_demo.py` - Nested layouts
+- `alignment_demo.py` - Content alignment
+- `scroll_demo.py` - Scrolling features
 
+**Advanced Examples:**
+- `modal_with_button_demo.py` - Modal dialogs
+- `confirm_dialog_demo.py` - Confirmation prompts
+- `alert_dialog_demo.py` - Alert messages
+- `navigation_demo.py` - Multi-view navigation
+
+Run any example with:
+```bash
+python examples/<example_name>.py
+```
+
+## Architecture
+
+Wijjit follows a layered architecture:
+
+```
+┌─────────────────────────────────────────────────┐
+│              User Application                    │
+│  (View functions, state management, handlers)   │
+└────────────────┬────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────┐
+│            Wijjit Core API                      │
+│  - App class & view decorator                   │
+│  - Navigation system                            │
+│  - Global state management                      │
+└──────────────┬──────────────────────────────────┘
+               │
+    ┌──────────┼────────┐
+    │          │        │
+┌───▼───┐   ┌──▼───┐ ┌──▼────────┐
+│Template│  │Layout│ │ Terminal  │
+│ Engine │  │Engine│ │  I/O      │
+└───┬───┘   └──┬───┘ └──┬────────┘
+    │          │        │
+┌───▼──────────▼────────▼─────────────────────────┐
+│         Rendering Pipeline                      │
+│  1. Parse template → Element tree               │
+│  2. Calculate layout → Coordinates              │
+│  3. Render elements → ANSI strings              │
+│  4. Composite → Terminal output                 │
+└─────────────────────────────────────────────────┘
+```
+
+### Module Structure
+
+- **`wijjit/core/`**: App, state, renderer, events, focus, hover, overlay
+- **`wijjit/terminal/`**: ANSI utilities, screen management, input handling, mouse support
+- **`wijjit/layout/`**: Layout engine, frames, bounds calculation, scrolling
+- **`wijjit/elements/`**: Base classes and all interactive/display elements
+- **`wijjit/tags/`**: Jinja2 template tags for UI elements
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+python -m pytest
+
+# Run with verbose output
+python -m pytest -v
+
+# Run specific test file
+python -m pytest tests/terminal/test_ansi.py -v
+
+# Run with coverage
+python -m pytest --cov=src/wijjit --cov-report=html
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/ tests/
+
+# Type checking
+mypy src/
+
+# Linting
+ruff check src/ tests/
+```
+
+## Project Status
+
+Wijjit is **production-ready for many use cases**, with the core framework fully implemented and stable. The project is approximately 70-75% complete compared to the original ambitious roadmap.
+
+### Working Features ✓
+
+- ✅ Core App API with view decorator
+- ✅ State management with change detection
+- ✅ Template rendering with Jinja2
+- ✅ Layout engine (VStack, HStack, Frame)
+- ✅ All input elements (TextInput, TextArea, Button, Checkbox, Radio, Select)
+- ✅ All display elements (Table, Tree, ListView, LogView, Progress, Spinner, Markdown, Code)
+- ✅ Focus management with Tab navigation
+- ✅ Mouse support (click, scroll, hover)
+- ✅ Scrolling system with scrollbars
+- ✅ Modal/overlay system with dialogs
+- ✅ Event handling and dispatch
+- ✅ ANSI-aware text rendering
+- ✅ 40+ working examples
+- ✅ Comprehensive test suite (85%+ coverage)
+
+### Known Limitations
+
+- **Performance**: Not optimized for large datasets (no virtual scrolling)
+- **Windows**: Some Unicode characters may not display correctly
+- **Async**: No async/await support (all operations are synchronous)
+- **Documentation**: Limited to code comments and examples
+- **Plugin System**: Framework is monolithic (no plugin architecture)
+
+### Planned Features (Future)
+
+- Hot reload for templates
+- Visual debugger/inspector
+- Animation/transition support
+- Drag-and-drop
+- Chart/graph components
+- Async/await support
+- Plugin system
+
+## Use Cases
+
+Wijjit is ideal for:
+
+- ✅ CLI tools with forms (login, data entry, configuration)
+- ✅ System monitoring dashboards
+- ✅ File browsers and managers
+- ✅ Log viewers and analyzers
+- ✅ Data tables with sorting/filtering
+- ✅ Interactive configuration editors
+- ✅ Terminal-based admin interfaces
+
+Not recommended for:
+
+- ❌ High-performance real-time applications
+- ❌ Applications requiring complex animations
+- ❌ Large-scale applications needing code splitting
+- ❌ Applications requiring extensive plugin systems
 
 ## Dependencies
 
+**Core:**
+- `jinja2>=3.1.0` - Template engine
+- `prompt-toolkit>=3.0` - Terminal I/O
+- `rich>=13.0` - ANSI rendering and tables
 
-### Core Dependencies
+**Optional:**
+- `pygments>=2.0` - Syntax highlighting for code blocks
 
-```python
+**Development:**
+- `pytest>=7.0` - Testing
+- `pytest-cov>=4.0` - Coverage
+- `black>=23.0` - Code formatting
+- `mypy>=1.0` - Type checking
+- `ruff` - Linting
 
-jinja2>=3.1.0        # Template engine
+## Documentation
 
-prompt\_toolkit>=3.0  # Terminal input/output
+- **README.md** (this file) - Overview and quick start
+- **CLAUDE.md** - Development guide and architecture
+- **examples/** - 40+ working examples
+- **tests/** - Comprehensive test suite showing usage patterns
 
-rich>=13.0           # ANSI rendering, tables
+Full documentation (Sphinx-based) is in development.
 
-```
+## Contributing
 
+Wijjit is currently in active development. Contributions are welcome!
 
-### Optional Dependencies
+Areas where contributions would be particularly helpful:
+- Performance optimization (virtual scrolling, render caching)
+- Windows terminal compatibility improvements
+- Additional examples and tutorials
+- Documentation (Sphinx docs)
+- Bug fixes and edge case handling
 
-```python
+## License
 
-blessed>=1.20        # Terminal capabilities (cross-platform)
+[Add your license here]
 
-pyperclip>=1.8      # Clipboard integration
+## Credits
 
-pygments>=2.0       # Syntax highlighting
-
-```
-
-
-### Development Dependencies
-
-```python
-
-pytest>=7.0         # Testing
-
-pytest-cov>=4.0     # Coverage
-
-black>=23.0         # Formatting
-
-mypy>=1.0           # Type checking
-
-sphinx>=5.0         # Documentation
-
-```
-
+Wijjit is built on the shoulders of giants:
+- **Jinja2** for templating
+- **prompt-toolkit** for cross-platform terminal I/O
+- **Rich** for ANSI rendering and tables
 
 ---
 
+**Why "Wijjit"?**
 
-## Development Workflow
-
-
-### Repository Structure
-
-```
-
-wijjit/
-
-├── wijjit/
-
-│   ├── \_\_init\_\_.py
-
-│   ├── core/
-
-│   ├── elements/
-
-│   ├── layout/
-
-│   ├── template/
-
-│   └── terminal/
-
-├── examples/
-
-│   ├── todo.py
-
-│   ├── file\_browser.py
-
-│   └── form\_demo.py
-
-├── tests/
-
-│   ├── test\_core.py
-
-│   ├── test\_layout.py
-
-│   └── test\_elements.py
-
-├── docs/
-
-│   ├── quickstart.md
-
-│   ├── api.md
-
-│   └── examples/
-
-├── pyproject.toml
-
-└── README.md
-
-```
-
-
-### Testing Strategy
-
-Wijjit employs a comprehensive multi-layered testing strategy to ensure reliability and maintain code quality.
-
-#### Test Organization
-
-Tests are organized into multiple categories, each serving a specific purpose:
-
-```
-tests/
-├── unit/                  # Unit tests (existing core/, elements/, layout/, terminal/)
-├── integration/           # Integration tests (NEW)
-├── e2e/                   # End-to-end tests (NEW)
-├── benchmarks/            # Performance benchmarks (NEW)
-├── golden/                # Golden files for visual regression (NEW)
-├── conftest.py           # Shared pytest fixtures (NEW)
-└── helpers.py            # Custom test assertions (NEW)
-```
-
-#### Running Tests
-
-**Run all tests:**
-```bash
-pytest
-```
-
-**Run specific test categories:**
-```bash
-pytest -m unit              # Unit tests only
-pytest -m integration       # Integration tests only
-pytest -m e2e              # End-to-end tests only
-pytest -m visual           # Visual regression tests only
-pytest -m benchmark        # Performance benchmarks only
-```
-
-**Run with coverage:**
-```bash
-pytest --cov=src/wijjit --cov-report=html
-```
-
-**Update visual regression snapshots:**
-```bash
-pytest tests/test_visual_regression.py --snapshot-update
-```
-
-**Run performance benchmarks:**
-```bash
-pytest tests/benchmarks/ --benchmark-only
-```
-
-#### Test Categories
-
-**Unit Tests (95% of test suite)**
-- ✅ Terminal I/O (ANSI codes, screen management, input handling)
-- ✅ Core functionality (state, rendering, events, focus)
-- ✅ Layout engine (frames, bounds, constraints, scrolling)
-- ✅ Elements (input components, display components)
-- Location: `tests/core/`, `tests/elements/`, `tests/layout/`, `tests/terminal/`
-
-**Integration Tests (NEW)**
-- Tests component interactions and data flow
-- App lifecycle: initialization, view registration, navigation
-- State-rendering pipeline: state changes trigger re-renders
-- Template pipeline: parsing, layout, rendering
-- Event handling: action handlers, key handlers, view-scoped cleanup
-- Location: `tests/integration/`
-
-**End-to-End Tests (NEW)**
-- Tests complete user journeys
-- Form submission workflows
-- Multi-step wizards
-- Form validation flows
-- Navigation between views
-- Dynamic content rendering
-- Location: `tests/e2e/`
-
-**Visual Regression Tests (NEW)**
-- Snapshot testing using Syrupy
-- Frame rendering with all border styles
-- Layout combinations (VStack, HStack, nested)
-- Text overflow modes (clip, wrap)
-- Content alignment (left, center, right)
-- Complex templates (login forms, dashboards)
-- Location: `tests/test_visual_regression.py`
-
-**Performance Benchmarks (NEW)**
-- Layout calculation performance
-- Template rendering speed
-- State update efficiency
-- Large dataset handling (1000+ items)
-- ANSI code processing
-- Complete render cycles
-- Location: `tests/benchmarks/`
-
-#### Test Infrastructure
-
-**Shared Fixtures (`tests/conftest.py`)**
-- `mock_element` - Factory for creating mock elements
-- `test_element` - Factory for test elements
-- `app` - Wijjit application instance
-- `app_with_state` - App with sample state
-- `renderer` - Template renderer
-- `state` - Reactive state object
-- `frame_builder` - Fluent API for building frames
-- `temp_dir`, `temp_file` - Temporary file fixtures
-
-**Custom Assertions (`tests/helpers.py`)**
-- `assert_renders_correctly()` - Validate element dimensions
-- `assert_ansi_preserved()` - Check ANSI codes intact
-- `assert_layout_bounds()` - Verify element positioning
-- `assert_has_border()` - Check for border characters
-- `assert_contains_text()` - Find text in output
-- `assert_matches_golden()` - Compare to golden files
-- `assert_focusable()` - Check focusability
-
-#### Coverage Goals
-
-- Overall: 85%+ (currently maintained)
-- Core modules: 95%+
-- Critical paths: 100%
-- Integration scenarios: 50+ tests
-- Visual snapshots: 30+ golden files
-- Performance baselines: Established for all critical operations
-
-
-### CI/CD Pipeline
-
-
-```yaml
-
-# .github/workflows/test.yml
-
-- Run pytest with coverage
-
-- Type check with mypy
-
-- Format check with black
-
-- Build documentation
-
-- Publish to PyPI on release tags
-
-```
-
-
----
-
-
-## Risk Assessment
-
-
-| Risk | Impact | Likelihood | Mitigation |
-
-|------|--------|------------|------------|
-
-| Terminal compatibility issues | High | Medium | Use prompt\_toolkit, test on multiple platforms |
-
-| Performance with large datasets | Medium | Medium | Implement virtual scrolling, render caching |
-
-| Complex layout edge cases | Medium | High | Comprehensive test suite, clear error messages |
-
-| Adoption/competition | High | Medium | Focus on unique value prop, excellent docs |
-
-| Scope creep | Medium | High | Strict MVP definition, save features for v2 |
-
-
----
-
-
-## Success Criteria
-
-
-### MVP Completion (Week 8)
-
-- \[ ] All Phase 1-4 features implemented
-
-- \[ ] 3 working demo applications
-
-- \[ ] Basic documentation published
-
-- \[ ] Core API stable
-
-
-### v1.0 Release (Week 10)
-
-- \[ ] All Phase 5-6 features implemented
-
-- \[ ] 5 example applications
-
-- \[ ] Comprehensive documentation
-
-- \[ ] PyPI package published
-
-- \[ ] GitHub repository public
-
-
-### Post-Launch (3 months)
-
-- \[ ] 100+ GitHub stars
-
-- \[ ] 10+ community contributions
-
-- \[ ] Featured in Python newsletter/podcast
-
-- \[ ] 3+ real-world applications built
-
-
----
-
-
-## Future Roadmap (Post-MVP)
-
-
-### v1.1 - Enhanced Interactions
-
-- Drag and drop support
-
-- Context menus
-
-- Tooltips/hover text
-
-- Animations and transitions
-
-- Sound effects (terminal bell)
-
-
-### v1.2 - Advanced Components
-
-- Data grid with sorting/filtering
-
-- Charts and graphs
-
-- Markdown renderer
-
-- Code editor with syntax highlighting
-
-- File picker dialog
-
-
-### v1.3 - Developer Experience
-
-- Hot reload for templates
-
-- Interactive debugger
-
-- Visual layout inspector
-
-- Template linting
-
-- IDE extensions (VS Code)
-
-
-### v2.0 - Async and Streaming
-
-- Async/await support
-- WebSocket integration
-- Streaming data updates
-- Background tasks
-- Real-time collaboration
-
-
-### Community Extensions
-
-- Plugin system for custom elements
-
-- Theme marketplace
-
-- Component library (wijjit-ui)
-
-- Integrations (Django, FastAPI)
-
-
----
-
-
-## Team Roles \& Responsibilities
-
-
-### Core Development
-
-- **Lead Developer**: Architecture, core API, code review
-
-- **UI/Layout Developer**: Frame rendering, layout engine, scrolling
-
-- **Component Developer**: Input/display elements, Rich integration
-
-- **Terminal Expert**: Cross-platform compatibility, ANSI handling
-
-
-### Supporting Roles
-
-- **Technical Writer**: Documentation, tutorials, API reference
-
-- **QA Engineer**: Test suite, compatibility testing, performance
-
-- **DevOps**: CI/CD, PyPI publishing, release management
-
-- **Community Manager**: GitHub issues, discussions, examples
-
-
----
-
-
-## Communication Plan
-
-
-### Internal
-
-- **Daily standups** (async in Slack)
-
-- **Weekly demos** (Friday showcase)
-
-- **Bi-weekly planning** (Sprint planning)
-
-- **Shared document** for design decisions
-
-
-### External
-
-- **GitHub Discussions** for community questions
-
-- **Discord server** for real-time help
-
-- **Monthly blog posts** on progress
-
-- **Twitter** for announcements
-
-
----
-
-
-## Budget \& Resources
-
-
-### Development Time
-
-- **8 weeks × 4 developers** = 32 person-weeks
-
-- Average 30 hours/week = 960 hours total
-
-
-### Infrastructure
-
-- GitHub (free for open source)
-
-- PyPI hosting (free)
-
-- Documentation hosting (ReadTheDocs, free)
-
-- CI/CD (GitHub Actions, free tier)
-
-
-### Estimated Cost
-
-- Developer time: $960 hours × $75/hr = $72,000
-
-- Infrastructure: $0 (using free tiers)
-
-- **Total**: $72,000
-
-
----
-
-
-## Conclusion
-
-
-Wijjit addresses a clear gap in the Python ecosystem: there's no Flask-equivalent for building TUIs. By combining familiar web patterns (Jinja templates, view decorators) with modern terminal capabilities, we can dramatically reduce the friction of building rich console applications.
-
-
-The 8-10 week timeline to MVP is aggressive but achievable given the modular architecture and clear phase boundaries. The framework's value proposition—"Flask for the console"—should resonate immediately with Python web developers looking to build CLI tools.
-
-
-**Next Steps:**
-
-1. Review and approve project plan
-
-2. Set up repository and development environment
-
-3. Begin Phase 1: Core foundation
-
-4. Schedule weekly check-ins
-
-
-**Questions for Discussion:**
-
-- Resource allocation: Do we have 4 developers available?
-
-- Timeline: Is 8-10 weeks realistic for our team?
-
-- Scope: Any Phase 1-4 features that should be deprioritized?
-
-- Naming: Final approval on "wijjit" branding?
-
-
----
-
-
-*Document Version: 1.0*  
-
-*Date: 2025-10-30*  
-
-*Author: Architecture Team*
-
+**W**ijjit **I**s **J**ust **J**inja **I**n **T**erminal

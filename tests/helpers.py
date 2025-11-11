@@ -227,7 +227,9 @@ def assert_lines_equal(
         f"Actual:\n{actual}\n\nExpected:\n{expected}"
     )
 
-    for i, (actual_line, expected_line) in enumerate(zip(actual_lines, expected_lines, strict=True)):
+    for i, (actual_line, expected_line) in enumerate(
+        zip(actual_lines, expected_lines, strict=True)
+    ):
         assert actual_line == expected_line, (
             f"Line {i} mismatch:\n"
             f"  Actual:   {repr(actual_line)}\n"
