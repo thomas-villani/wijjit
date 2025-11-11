@@ -1,5 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 import textwrap
+from ast import literal_eval
 from typing import Any
 
 from jinja2 import nodes
@@ -258,7 +259,7 @@ class VStackExtension(Extension):
         # Parse margin
         if isinstance(margin, str) and margin.startswith("("):
             try:
-                margin = eval(margin)
+                margin = literal_eval(margin)
             except (ValueError, SyntaxError, NameError):
                 margin = 0
         elif isinstance(margin, str):
@@ -411,7 +412,7 @@ class HStackExtension(Extension):
         # Parse margin
         if isinstance(margin, str) and margin.startswith("("):
             try:
-                margin = eval(margin)
+                margin = literal_eval(margin)
             except (ValueError, SyntaxError, NameError):
                 margin = 0
         elif isinstance(margin, str):
@@ -590,7 +591,7 @@ class FrameExtension(Extension):
         if isinstance(margin, str) and margin.startswith("("):
             # Parse tuple string
             try:
-                margin = eval(margin)
+                margin = literal_eval(margin)
             except (ValueError, SyntaxError, NameError):
                 margin = 0
         elif isinstance(margin, str):
@@ -615,7 +616,7 @@ class FrameExtension(Extension):
         elif isinstance(padding, str) and padding.startswith("("):
             # Parse tuple string
             try:
-                padding = eval(padding)
+                padding = literal_eval(padding)
             except (ValueError, SyntaxError, NameError):
                 padding = (1, 1, 1, 1)
         elif isinstance(padding, str):

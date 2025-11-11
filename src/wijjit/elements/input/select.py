@@ -31,6 +31,8 @@ class Select(ScrollableMixin, Element):
         Number of visible rows in the list (default: 5)
     disabled_values : list, optional
         List of values that are disabled (cannot be selected)
+    placeholder : str, optional
+        Text to display when options list is empty (default: "No options")
     item_renderer : callable, optional
         Custom renderer function: (option, selected, highlighted, disabled) -> str
     border_style : BorderStyle or {"single", "double", "rounded"} or None, optional
@@ -59,6 +61,8 @@ class Select(ScrollableMixin, Element):
         Number of visible rows
     disabled_values : set
         Set of disabled values
+    placeholder : str
+        Text to display when options list is empty
     item_renderer : callable or None
         Custom renderer function
     scroll_manager : ScrollManager
@@ -90,6 +94,7 @@ class Select(ScrollableMixin, Element):
         width: int = 20,
         visible_rows: int = 5,
         disabled_values: list | None = None,
+        placeholder: str = "No options",
         item_renderer: Callable | None = None,
         on_change: Callable[[str | None, str | None], None] | None = None,
         border_style: (
@@ -117,6 +122,9 @@ class Select(ScrollableMixin, Element):
 
         # Disabled options
         self.disabled_values = set(disabled_values) if disabled_values else set()
+
+        # Placeholder text for empty state
+        self.placeholder = placeholder
 
         # Custom renderer
         self.item_renderer = item_renderer

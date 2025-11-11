@@ -292,6 +292,11 @@ class OverlayManager:
             if overlay.layer_type == layer_type:
                 self.pop(overlay)
                 removed.append(overlay)
+
+        # Reset z-index if this layer is now empty
+        if not any(o.layer_type == layer_type for o in self.overlays):
+            self._next_z_index[layer_type] = layer_type
+
         return removed
 
     def clear(self) -> list[Overlay]:
@@ -305,6 +310,14 @@ class OverlayManager:
         removed = list(self.overlays)
         for overlay in removed:
             self.pop(overlay)
+
+        # Reset all z-index counters
+        self._next_z_index = {
+            LayerType.MODAL: LayerType.MODAL,
+            LayerType.DROPDOWN: LayerType.DROPDOWN,
+            LayerType.TOOLTIP: LayerType.TOOLTIP,
+        }
+
         return removed
 
     def get_at_position(self, x: int, y: int) -> Overlay | None:

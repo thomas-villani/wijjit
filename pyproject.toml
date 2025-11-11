@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Thomas.Villani", email = "thomas.villani@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "jinja2>=3.1.6",
     "prompt-toolkit>=3.0.52",

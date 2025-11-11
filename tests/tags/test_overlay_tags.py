@@ -4,7 +4,6 @@ Tests verify that overlay template tags properly create overlay_info structures
 and integrate with the OverlayManager.
 """
 
-
 from wijjit.core.app import Wijjit
 from wijjit.core.overlay import LayerType
 from wijjit.core.renderer import Renderer

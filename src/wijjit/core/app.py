@@ -304,20 +304,27 @@ class Wijjit:
             return  # Already initialized
 
         if hasattr(view_config, "_view_func"):
-            # Call the view function to get the config dict
+            # Call the view function ONCE to get the config dict
             config_dict = view_config._view_func()
 
-            # Extract config components
+            # Extract static config components
             view_config.template = config_dict.get("template", "")
             view_config.on_enter = config_dict.get("on_enter")
             view_config.on_exit = config_dict.get("on_exit")
 
-            # Create data function wrapper
-            def data_func(**kwargs):
-                result = view_config._view_func(**kwargs)
-                return result.get("data", {})
+            # Extract data - could be a dict or a callable
+            data_value = config_dict.get("data", {})
 
-            view_config.data = data_func
+            if callable(data_value):
+                # User provided a data callback - use it directly
+                view_config.data = data_value
+            else:
+                # User provided static data dict - wrap in lambda
+                def data_func(**kwargs):
+                    return data_value
+
+                view_config.data = data_func
+
             view_config._initialized = True
 
     def navigate(self, view_name: str, **params) -> None:
@@ -555,6 +562,10 @@ class Wijjit:
             self.screen_manager.enter_alternate_buffer()
             logger.debug("Entered alternate screen buffer")
 
+            # Hide cursor for better TUI appearance
+            self.screen_manager.hide_cursor()
+            logger.debug("Hidden cursor")
+
             # Enable mouse tracking
             self.input_handler.enable_mouse_tracking()
             logger.debug("Enabled mouse tracking")
@@ -681,6 +692,9 @@ class Wijjit:
 
         finally:
             logger.info("Exiting application, cleaning up")
+            # Show cursor before exiting
+            self.screen_manager.show_cursor()
+            logger.debug("Shown cursor")
             # Always exit alternate screen on cleanup
             self.screen_manager.exit_alternate_buffer()
             logger.debug("Exited alternate screen buffer")
@@ -805,7 +819,7 @@ class Wijjit:
                 output += ANSIStyle.RESET
 
             self.screen_manager.clear()
-            self.screen_manager.move_cursor(0, 0)
+            self.screen_manager.move_cursor(1, 1)
             # Handle encoding for Windows console
             try:
                 print(output, end="", flush=True)

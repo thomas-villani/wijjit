@@ -349,7 +349,7 @@ class TextArea(Element):
                 self.height = new_height
 
                 # Update scroll manager with new viewport size
-                self.scroll_manager.viewport_size = self.height
+                self.scroll_manager.update_viewport_size(self.height)
 
     def _normalize_border_style(
         self, style: BorderStyle | Literal["single", "double", "rounded"] | None

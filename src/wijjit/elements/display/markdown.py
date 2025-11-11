@@ -125,8 +125,8 @@ class MarkdownView(ScrollableMixin, Element):
                 self._render_content()
 
                 # Update scroll manager with new viewport size
-                self.scroll_manager.content_size = len(self.rendered_lines)
-                self.scroll_manager.viewport_size = self._get_content_height()
+                self.scroll_manager.update_content_size(len(self.rendered_lines))
+                self.scroll_manager.update_viewport_size(self._get_content_height())
 
     def _get_content_height(self) -> int:
         """Calculate content area height accounting for borders.
