@@ -10,7 +10,7 @@ This module tests the logging configuration functionality, including:
 import logging
 
 from wijjit.logging_config import (
-    configure_from_environment,
+    configure_logging_from_environment,
     configure_logging,
     get_logger,
 )
@@ -134,7 +134,7 @@ class TestConfigureLogging:
 
 class TestConfigureFromEnvironment:
     """
-    Tests for the configure_from_environment function.
+    Tests for the configure_logging_from_environment function.
     """
 
     def test_configure_from_env_with_file_set(self, tmp_path, monkeypatch):
@@ -152,7 +152,7 @@ class TestConfigureFromEnvironment:
         monkeypatch.setenv("WIJJIT_LOG_FILE", str(log_file))
         monkeypatch.setenv("WIJJIT_LOG_LEVEL", "DEBUG")
 
-        configure_from_environment()
+        configure_logging_from_environment()
 
         logger = get_logger("wijjit.env_test")
         logger.debug("Environment config test")
@@ -163,7 +163,7 @@ class TestConfigureFromEnvironment:
 
     def test_configure_from_env_without_file_disables(self, monkeypatch):
         """
-        Test that configure_from_environment disables logging when WIJJIT_LOG_FILE not set.
+        Test that configure_logging_from_environment disables logging when WIJJIT_LOG_FILE not set.
 
         Parameters
         ----------
@@ -173,7 +173,7 @@ class TestConfigureFromEnvironment:
         # Ensure WIJJIT_LOG_FILE is not set
         monkeypatch.delenv("WIJJIT_LOG_FILE", raising=False)
 
-        configure_from_environment()
+        configure_logging_from_environment()
 
         # Check the parent wijjit logger
         parent_logger = logging.getLogger("wijjit")
@@ -182,7 +182,7 @@ class TestConfigureFromEnvironment:
 
     def test_configure_from_env_defaults_to_info_level(self, tmp_path, monkeypatch):
         """
-        Test that configure_from_environment defaults to INFO level.
+        Test that configure_logging_from_environment defaults to INFO level.
 
         Parameters
         ----------
@@ -195,7 +195,7 @@ class TestConfigureFromEnvironment:
         monkeypatch.setenv("WIJJIT_LOG_FILE", str(log_file))
         monkeypatch.delenv("WIJJIT_LOG_LEVEL", raising=False)
 
-        configure_from_environment()
+        configure_logging_from_environment()
 
         # Check the parent wijjit logger
         parent_logger = logging.getLogger("wijjit")
@@ -254,7 +254,7 @@ class TestNoSideEffectsOnImport:
         from wijjit import logging_config
 
         assert hasattr(logging_config, "configure_logging")
-        assert hasattr(logging_config, "configure_from_environment")
+        assert hasattr(logging_config, "configure_logging_from_environment")
         assert hasattr(logging_config, "get_logger")
         # Module should be importable without errors
         assert logging_config is not None
