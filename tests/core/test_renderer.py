@@ -39,8 +39,8 @@ class TestRenderer:
     def test_render_string_with_loop(self):
         """Test rendering with a loop."""
         renderer = Renderer()
-        template = "{% for item in items %}{{ item }}{% endfor %}"
-        result = renderer.render_string(template, {"items": [1, 2, 3]})
+        template = "{% for item in numbers %}{{ item }}{% endfor %}"
+        result = renderer.render_string(template, {"numbers": [1, 2, 3]})
         assert result == "123"
 
     def test_render_string_with_conditional(self):

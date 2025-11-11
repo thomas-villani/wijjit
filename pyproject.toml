@@ -18,7 +18,10 @@ dev = [
     "black>=25.9.0",
     "mypy>=1.18.2",
     "pytest>=8.4.2",
+    "pytest-cov>=6.0.0",
+    "pytest-benchmark>=5.1.0",
     "ruff>=0.14.2",
+    "syrupy>=4.0.0",
 ]
 
 [build-system]

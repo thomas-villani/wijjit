@@ -920,36 +920,127 @@ wijjit/
 
 ### Testing Strategy
 
+Wijjit employs a comprehensive multi-layered testing strategy to ensure reliability and maintain code quality.
 
-**Unit Tests:**
+#### Test Organization
 
-- Layout calculation algorithms
+Tests are organized into multiple categories, each serving a specific purpose:
 
-- State change detection
+```
+tests/
+├── unit/                  # Unit tests (existing core/, elements/, layout/, terminal/)
+├── integration/           # Integration tests (NEW)
+├── e2e/                   # End-to-end tests (NEW)
+├── benchmarks/            # Performance benchmarks (NEW)
+├── golden/                # Golden files for visual regression (NEW)
+├── conftest.py           # Shared pytest fixtures (NEW)
+└── helpers.py            # Custom test assertions (NEW)
+```
 
-- Text clipping with ANSI
+#### Running Tests
 
-- Focus navigation
+**Run all tests:**
+```bash
+pytest
+```
 
+**Run specific test categories:**
+```bash
+pytest -m unit              # Unit tests only
+pytest -m integration       # Integration tests only
+pytest -m e2e              # End-to-end tests only
+pytest -m visual           # Visual regression tests only
+pytest -m benchmark        # Performance benchmarks only
+```
 
-**Integration Tests:**
+**Run with coverage:**
+```bash
+pytest --cov=src/wijjit --cov-report=html
+```
 
-- Full render pipeline
+**Update visual regression snapshots:**
+```bash
+pytest tests/test_visual_regression.py --snapshot-update
+```
 
-- View navigation
+**Run performance benchmarks:**
+```bash
+pytest tests/benchmarks/ --benchmark-only
+```
 
-- Input handling
+#### Test Categories
 
-- Resize behavior
+**Unit Tests (95% of test suite)**
+- ✅ Terminal I/O (ANSI codes, screen management, input handling)
+- ✅ Core functionality (state, rendering, events, focus)
+- ✅ Layout engine (frames, bounds, constraints, scrolling)
+- ✅ Elements (input components, display components)
+- Location: `tests/core/`, `tests/elements/`, `tests/layout/`, `tests/terminal/`
 
+**Integration Tests (NEW)**
+- Tests component interactions and data flow
+- App lifecycle: initialization, view registration, navigation
+- State-rendering pipeline: state changes trigger re-renders
+- Template pipeline: parsing, layout, rendering
+- Event handling: action handlers, key handlers, view-scoped cleanup
+- Location: `tests/integration/`
 
-**Manual Tests:**
+**End-to-End Tests (NEW)**
+- Tests complete user journeys
+- Form submission workflows
+- Multi-step wizards
+- Form validation flows
+- Navigation between views
+- Dynamic content rendering
+- Location: `tests/e2e/`
 
-- Visual regression (screenshot comparison)
+**Visual Regression Tests (NEW)**
+- Snapshot testing using Syrupy
+- Frame rendering with all border styles
+- Layout combinations (VStack, HStack, nested)
+- Text overflow modes (clip, wrap)
+- Content alignment (left, center, right)
+- Complex templates (login forms, dashboards)
+- Location: `tests/test_visual_regression.py`
 
-- Terminal compatibility (multiple emulators)
+**Performance Benchmarks (NEW)**
+- Layout calculation performance
+- Template rendering speed
+- State update efficiency
+- Large dataset handling (1000+ items)
+- ANSI code processing
+- Complete render cycles
+- Location: `tests/benchmarks/`
 
-- Performance benchmarks
+#### Test Infrastructure
+
+**Shared Fixtures (`tests/conftest.py`)**
+- `mock_element` - Factory for creating mock elements
+- `test_element` - Factory for test elements
+- `app` - Wijjit application instance
+- `app_with_state` - App with sample state
+- `renderer` - Template renderer
+- `state` - Reactive state object
+- `frame_builder` - Fluent API for building frames
+- `temp_dir`, `temp_file` - Temporary file fixtures
+
+**Custom Assertions (`tests/helpers.py`)**
+- `assert_renders_correctly()` - Validate element dimensions
+- `assert_ansi_preserved()` - Check ANSI codes intact
+- `assert_layout_bounds()` - Verify element positioning
+- `assert_has_border()` - Check for border characters
+- `assert_contains_text()` - Find text in output
+- `assert_matches_golden()` - Compare to golden files
+- `assert_focusable()` - Check focusability
+
+#### Coverage Goals
+
+- Overall: 85%+ (currently maintained)
+- Core modules: 95%+
+- Critical paths: 100%
+- Integration scenarios: 50+ tests
+- Visual snapshots: 30+ golden files
+- Performance baselines: Established for all critical operations
 
 
 ### CI/CD Pipeline

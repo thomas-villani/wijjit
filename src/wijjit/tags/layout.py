@@ -652,10 +652,17 @@ class FrameExtension(Extension):
             int(height) if isinstance(height, str) and height.isdigit() else height
         )
 
-        # Default frame size if auto/fill
+        # Default frame size if auto/fill/percentage
         if frame_width == "auto" or frame_width == "fill":
             frame_width = 40
+        elif isinstance(frame_width, str) and frame_width.endswith("%"):
+            # Percentage widths get placeholder value - layout engine will calculate actual value
+            frame_width = 40
+
         if frame_height == "auto" or frame_height == "fill":
+            frame_height = 10
+        elif isinstance(frame_height, str) and frame_height.endswith("%"):
+            # Percentage heights get placeholder value - layout engine will calculate actual value
             frame_height = 10
 
         frame = Frame(

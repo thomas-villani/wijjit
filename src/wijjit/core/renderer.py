@@ -254,7 +254,7 @@ class Renderer:
         if width is None or height is None:
             term_size = shutil.get_terminal_size()
             width = width or term_size.columns
-            height = height or term_size.height
+            height = height or term_size.lines
 
         logger.debug(f"Rendering template with layout (width={width}, height={height})")
 
