@@ -125,7 +125,7 @@ class TestTemplateLayoutIntegration:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=10)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=10)
 
         # Should produce output
         assert output
@@ -150,7 +150,7 @@ class TestTemplateLayoutIntegration:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=60, height=15)
+        output, elements, _ = renderer.render_with_layout(template, width=60, height=15)
 
         # Should produce non-empty output
         assert output
@@ -170,7 +170,7 @@ class TestTemplateLayoutIntegration:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template, width=30, height=5, context=dict(state)
         )
 
@@ -192,7 +192,7 @@ class TestStateElementIntegration:
 
         template = """{% textinput id="username" value=username %}{% endtextinput %}"""
 
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template, width=40, height=3, context=dict(state)
         )
 
@@ -210,7 +210,7 @@ class TestStateElementIntegration:
 
         template = """{% button id="btn" %}{{ button_label }}{% endbutton %}"""
 
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template, width=20, height=3, context=dict(state)
         )
 
@@ -234,13 +234,13 @@ class TestStateElementIntegration:
 
         # Render with form shown
         state_shown = State({"show_form": True})
-        output_shown, elements_shown = renderer.render_with_layout(
+        output_shown, elements_shown, _ = renderer.render_with_layout(
             template, width=40, height=10, context=dict(state_shown)
         )
 
         # Render with form hidden
         state_hidden = State({"show_form": False})
-        output_hidden, elements_hidden = renderer.render_with_layout(
+        output_hidden, elements_hidden, _ = renderer.render_with_layout(
             template, width=40, height=10, context=dict(state_hidden)
         )
 

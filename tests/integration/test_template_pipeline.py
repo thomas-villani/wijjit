@@ -55,7 +55,7 @@ class TestCompletePipeline:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=30, height=5)
+        output, elements, _ = renderer.render_with_layout(template, width=30, height=5)
 
         # Should produce bordered output
         assert output
@@ -77,7 +77,7 @@ class TestCompletePipeline:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=10)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=10)
 
         assert "Line 1" in output
         assert "Line 2" in output
@@ -99,7 +99,7 @@ class TestElementCreation:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=20, height=5)
+        output, elements, _ = renderer.render_with_layout(template, width=20, height=5)
 
         # Should collect frame element as a list
         assert isinstance(elements, list)
@@ -112,7 +112,7 @@ class TestElementCreation:
         renderer = Renderer()
         template = """{% textinput id="username" placeholder="Enter name" %}{% endtextinput %}"""
 
-        output, elements = renderer.render_with_layout(template, width=40, height=3)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=3)
 
         # Should create textinput element - check by ID in elements list
         element_ids = [e.id for e in elements if hasattr(e, "id") and e.id]
@@ -126,7 +126,7 @@ class TestElementCreation:
         renderer = Renderer()
         template = """{% button id="submit" %}Submit{% endbutton %}"""
 
-        output, elements = renderer.render_with_layout(template, width=20, height=3)
+        output, elements, _ = renderer.render_with_layout(template, width=20, height=3)
 
         # Should create button - check by ID in elements list
         element_ids = [e.id for e in elements if hasattr(e, "id") and e.id]
@@ -146,7 +146,7 @@ class TestElementCreation:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=15)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=15)
 
         # Should create all elements as a list
         assert isinstance(elements, list)
@@ -171,7 +171,7 @@ class TestLayoutCalculation:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=30, height=15)
+        output, elements, _ = renderer.render_with_layout(template, width=30, height=15)
 
         # All frames should be rendered
         assert "Top" in output
@@ -192,7 +192,7 @@ class TestLayoutCalculation:
         {% endhstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=60, height=10)
+        output, elements, _ = renderer.render_with_layout(template, width=60, height=10)
 
         # All frames should be rendered
         assert "Left" in output
@@ -215,7 +215,7 @@ class TestLayoutCalculation:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=60, height=20)
+        output, elements, _ = renderer.render_with_layout(template, width=60, height=20)
 
         assert output
         lines = output.split("\n")
@@ -234,7 +234,7 @@ class TestLayoutCalculation:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=20)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=20)
 
         # Both frames should render
         assert "Fixed" in output
@@ -256,7 +256,7 @@ class TestOutputComposition:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=20, height=5)
+        output, elements, _ = renderer.render_with_layout(template, width=20, height=5)
 
         lines = output.split("\n")
 
@@ -277,7 +277,7 @@ class TestOutputComposition:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=30, height=5)
+        output, elements, _ = renderer.render_with_layout(template, width=30, height=5)
 
         # Title should appear in output
         assert "My Title" in output
@@ -294,7 +294,7 @@ class TestOutputComposition:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=10)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=10)
 
         assert "test content" in output
 
@@ -316,7 +316,7 @@ class TestOutputComposition:
         """
         )
 
-        output, elements = renderer.render_with_layout(template, width=30, height=5)
+        output, elements, _ = renderer.render_with_layout(template, width=30, height=5)
 
         # ANSI codes should be in output
         assert ANSIColor.RED in output or "Colored Text" in output
@@ -339,7 +339,7 @@ class TestAutoIDGeneration:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=15)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=15)
 
         # Elements should be collected as a list (with auto IDs or explicit rendering)
         assert isinstance(elements, list)
@@ -357,7 +357,7 @@ class TestAutoIDGeneration:
         {% endvstack %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=10)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=10)
 
         # Explicit IDs should be in elements list
         element_ids = [e.id for e in elements if hasattr(e, "id") and e.id]
@@ -391,7 +391,7 @@ class TestComplexTemplates:
         {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=40, height=15)
+        output, elements, _ = renderer.render_with_layout(template, width=40, height=15)
 
         # Should render form elements
         assert "Login" in output
@@ -426,7 +426,7 @@ class TestComplexTemplates:
 
         context = {"user": "Alice", "message_count": 5, "task_count": 12}
 
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template, width=80, height=24, context=context
         )
 
@@ -459,7 +459,7 @@ class TestComplexTemplates:
             ]
         }
 
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template, width=50, height=20, context=context
         )
 

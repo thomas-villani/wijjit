@@ -216,6 +216,10 @@ class Wijjit:
         self.refresh_interval: float | None = None  # None = no auto-refresh
         self._last_refresh_time: float = 0.0
 
+        # Terminal size tracking for resize detection
+        term_size = shutil.get_terminal_size()
+        self._last_terminal_size = (term_size.columns, term_size.lines)
+
         # Hook state changes to trigger re-render
         self.state.on_change(self._on_state_change)
 
@@ -590,6 +594,20 @@ class Wijjit:
                             self.needs_render = True
                             self._last_refresh_time = current_time
 
+                    # Check for terminal resize
+                    term_size = shutil.get_terminal_size()
+                    current_size = (term_size.columns, term_size.lines)
+                    if current_size != self._last_terminal_size:
+                        logger.debug(
+                            f"Terminal resized from {self._last_terminal_size} to {current_size}"
+                        )
+                        # Recalculate overlay positions
+                        self.overlay_manager.recalculate_centered_overlays(
+                            term_size.columns, term_size.lines
+                        )
+                        self._last_terminal_size = current_size
+                        self.needs_render = True
+
                     # Read input - use short timeout if refresh_interval is set
                     # This allows animations to run smoothly
                     # Note: InputHandler.read_input() is blocking, so we check refresh
@@ -747,7 +765,7 @@ class Wijjit:
 
                 # Render with layout (elements will be created with correct focus state)
                 term_size = shutil.get_terminal_size()
-                output, elements = self.renderer.render_with_layout(
+                output, elements, layout_ctx = self.renderer.render_with_layout(
                     view.template,
                     context=data,
                     width=term_size.columns,
@@ -773,7 +791,7 @@ class Wijjit:
 
                     # Render again with focused element
                     self.renderer.add_global("_wijjit_focused_id", focused_id)
-                    output, elements = self.renderer.render_with_layout(
+                    output, elements, layout_ctx = self.renderer.render_with_layout(
                         view.template,
                         context=data,
                         width=term_size.columns,
@@ -785,6 +803,11 @@ class Wijjit:
                 # Clean up globals
                 self.renderer.add_global("_wijjit_current_context", None)
                 self.renderer.add_global("_wijjit_focused_id", None)
+
+                # Process template-declared overlays from layout context
+                # Remove any template-declared overlays that are no longer visible
+                # and add new ones based on current template state
+                self._sync_template_overlays(layout_ctx)
 
                 # Wire up element callbacks for actions and state binding
                 self._wire_element_callbacks(self.positioned_elements)
@@ -884,6 +907,68 @@ class Wijjit:
 
         # Update focus manager with all focusable elements
         self.focus_manager.set_elements(focusable_elements)
+
+    def _sync_template_overlays(self, layout_ctx: Any) -> None:
+        """Synchronize template-declared overlays with overlay manager.
+
+        This method processes overlays declared in templates (via {% overlay %},
+        {% modal %}, {% confirmdialog %}, etc.) and syncs them with the overlay
+        manager, while preserving programmatically-created overlays.
+
+        Parameters
+        ----------
+        layout_ctx : LayoutContext
+            Layout context containing overlay information from template rendering
+        """
+        from wijjit.core.overlay import LayerType
+
+        # Get template-declared overlays from layout context
+        template_overlays = getattr(layout_ctx, "_overlays", [])
+
+        # Build set of template overlay element IDs for tracking
+        template_overlay_ids = {
+            id(overlay_info["element"]) for overlay_info in template_overlays
+        }
+
+        # Remove template-declared overlays that are no longer in the template
+        # (but keep programmatic overlays)
+        if not hasattr(self, "_template_overlay_ids"):
+            self._template_overlay_ids = set()
+
+        overlays_to_remove = []
+        for overlay in self.overlay_manager.overlays:
+            overlay_id = id(overlay.element)
+            # If this was a template overlay but is no longer in the new template
+            if (
+                overlay_id in self._template_overlay_ids
+                and overlay_id not in template_overlay_ids
+            ):
+                overlays_to_remove.append(overlay)
+
+        for overlay in overlays_to_remove:
+            self.overlay_manager.pop(overlay)
+
+        # Add new template-declared overlays
+        for overlay_info in template_overlays:
+            element = overlay_info["element"]
+            overlay_id = id(element)
+
+            # Skip if already added
+            if any(id(o.element) == overlay_id for o in self.overlay_manager.overlays):
+                continue
+
+            # Push overlay to manager
+            self.overlay_manager.push(
+                element=element,
+                layer_type=overlay_info.get("layer_type", LayerType.MODAL),
+                close_on_escape=overlay_info.get("close_on_escape", True),
+                close_on_click_outside=overlay_info.get("close_on_click_outside", True),
+                trap_focus=overlay_info.get("trap_focus", False),
+                dimmed_background=overlay_info.get("dim_background", False),
+            )
+
+        # Update tracking set
+        self._template_overlay_ids = template_overlay_ids
 
     def _wire_element_callbacks(self, elements: list) -> None:
         """Wire up element callbacks for actions and state binding.

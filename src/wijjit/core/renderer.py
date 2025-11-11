@@ -227,7 +227,7 @@ class Renderer:
         width: int | None = None,
         height: int | None = None,
         overlay_manager: Optional["OverlayManager"] = None,
-    ) -> tuple[str, list[Element]]:
+    ) -> tuple[str, list[Element], "LayoutContext"]:
         """Render a template with layout engine support.
 
         This method handles the full pipeline for layout-based templates:
@@ -247,12 +247,13 @@ class Renderer:
         height : int, optional
             Available height (default: terminal height)
         overlay_manager : OverlayManager, optional
-            Overlay manager to process template-declared overlays
+            Overlay manager (deprecated, no longer used - overlays handled by caller)
 
         Returns
         -------
-        tuple of (str, list of Element)
-            Rendered output and list of elements with bounds
+        tuple of (str, list of Element, LayoutContext)
+            Rendered output, list of elements with bounds, and layout context
+            containing overlay information from template tags
         """
         context = context or {}
 
@@ -290,7 +291,7 @@ class Renderer:
         if layout_ctx.root is None:
             # No layout tags used, fall back to simple rendering
             output = template.render(**context)
-            return output, []
+            return output, [], layout_ctx
 
         # Run layout engine
         logger.debug("Running layout engine")
@@ -301,27 +302,10 @@ class Renderer:
         # Compose output from positioned elements
         output = self._compose_output(elements, width, height, layout_ctx.root)
 
-        # Process template-declared overlays
-        if overlay_manager is not None:
-            # Clear existing overlays (simple rebuild strategy)
-            # This happens on every render to ensure overlays match template state
-            overlay_manager.clear()
-
-            # Push each template overlay to the overlay manager
-            if hasattr(layout_ctx, "_overlays"):
-                for overlay_info in layout_ctx._overlays:
-                    overlay_manager.push(
-                        element=overlay_info["element"],
-                        layer_type=overlay_info["layer_type"],
-                        close_on_escape=overlay_info.get("close_on_escape", True),
-                        close_on_click_outside=overlay_info.get(
-                            "close_on_click_outside", True
-                        ),
-                        trap_focus=overlay_info.get("trap_focus", False),
-                        dimmed_background=overlay_info.get("dim_background", False),
-                    )
-
-        return output, elements
+        # Return layout context so caller can process overlays
+        # This allows app._render() to manage overlay lifecycle properly
+        # (separating template-declared overlays from programmatic ones)
+        return output, elements, layout_ctx
 
     def _compose_output(
         self,

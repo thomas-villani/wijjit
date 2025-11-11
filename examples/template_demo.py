@@ -35,7 +35,7 @@ def main():
 
     try:
         # Render with layout engine
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template,
             context={},
             width=80,

@@ -19,13 +19,16 @@ def render_template(app: Wijjit, template: str, width: int = 80, height: int = 2
     app.renderer.add_global("_wijjit_current_context", data)
 
     # Render with layout engine and overlay_manager
-    output, elements = app.renderer.render_with_layout(
+    output, elements, layout_ctx = app.renderer.render_with_layout(
         template,
         context=data,
         width=width,
         height=height,
         overlay_manager=app.overlay_manager,
     )
+
+    # Process template-declared overlays (mimic app._render behavior)
+    app._sync_template_overlays(layout_ctx)
 
     # Clean up globals
     app.renderer.add_global("_wijjit_current_context", None)
@@ -287,13 +290,16 @@ class TestRendererOverlayIntegration:
         data = {"state": app.state}
         renderer.add_global("_wijjit_current_context", data)
 
-        output, elements = renderer.render_with_layout(
+        output, elements, layout_ctx = renderer.render_with_layout(
             template,
             context=data,
             width=80,
             height=24,
             overlay_manager=app.overlay_manager,
         )
+
+        # Process template-declared overlays (this is now done by app, not renderer)
+        app._sync_template_overlays(layout_ctx)
 
         renderer.add_global("_wijjit_current_context", None)
 
@@ -318,7 +324,7 @@ class TestRendererOverlayIntegration:
         """
 
         # Should not crash when overlay_manager is None
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template, context={}, width=80, height=24, overlay_manager=None
         )
 

@@ -63,9 +63,12 @@ def render_view(
     app.renderer.add_global("_wijjit_current_context", context)
 
     # Render with layout engine
-    output, elements = app.renderer.render_with_layout(
+    output, elements, layout_ctx = app.renderer.render_with_layout(
         view.template, context, width, height, overlay_manager=app.overlay_manager
     )
+
+    # Process template-declared overlays (mimic app._render behavior)
+    app._sync_template_overlays(layout_ctx)
 
     # Clean up globals
     app.renderer.add_global("_wijjit_current_context", None)

@@ -214,7 +214,7 @@ class TestRenderer:
 {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=80, height=24)
+        output, elements, _ = renderer.render_with_layout(template, width=80, height=24)
 
         # Should have 3 button elements
         buttons = [
@@ -244,7 +244,7 @@ class TestRenderer:
 {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=80, height=24)
+        output, elements, _ = renderer.render_with_layout(template, width=80, height=24)
 
         # Should have 3 text input elements
         text_inputs = [
@@ -283,7 +283,7 @@ class TestRenderer:
 {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=80, height=24)
+        output, elements, _ = renderer.render_with_layout(template, width=80, height=24)
 
         # Should have 3 select elements
         selects = [
@@ -318,7 +318,7 @@ class TestRenderer:
 {% endframe %}
         """
 
-        output, elements = renderer.render_with_layout(template, width=80, height=24)
+        output, elements, _ = renderer.render_with_layout(template, width=80, height=24)
 
         # Find each element type
         buttons = [

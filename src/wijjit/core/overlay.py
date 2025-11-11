@@ -207,6 +207,24 @@ class OverlayManager:
             previous_focus_state=previous_focus_state,
         )
 
+        # Auto-calculate bounds for centered overlays that don't have bounds
+        if element.bounds is None and hasattr(element, "centered") and element.centered:
+            import shutil
+
+            from wijjit.layout.bounds import Bounds
+
+            term_size = shutil.get_terminal_size()
+
+            # Get element dimensions (width/height attributes)
+            elem_width = getattr(element, "width", 50)
+            elem_height = getattr(element, "height", 10)
+
+            # Center on screen
+            x = max(0, (term_size.columns - elem_width) // 2)
+            y = max(0, (term_size.lines - elem_height) // 2)
+
+            element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)
+
         # Add to stack (maintain sorted order by z-index)
         self.overlays.append(overlay)
         self.overlays.sort(key=lambda o: o.z_index)
@@ -476,3 +494,34 @@ class OverlayManager:
             True if at least one visible overlay has dimmed_background=True
         """
         return any(overlay.dimmed_background for overlay in self.overlays)
+
+    def recalculate_centered_overlays(self, term_width: int, term_height: int) -> None:
+        """Recalculate positions for centered overlays after terminal resize.
+
+        This method repositions all overlays that are marked as centered
+        to ensure they remain centered after the terminal size changes.
+
+        Parameters
+        ----------
+        term_width : int
+            New terminal width in columns
+        term_height : int
+            New terminal height in lines
+        """
+        from wijjit.layout.bounds import Bounds
+
+        for overlay in self.overlays:
+            element = overlay.element
+
+            # Only recalculate for centered elements
+            if hasattr(element, "centered") and element.centered and element.bounds:
+                # Get element dimensions
+                elem_width = getattr(element, "width", element.bounds.width)
+                elem_height = getattr(element, "height", element.bounds.height)
+
+                # Recalculate centered position
+                x = max(0, (term_width - elem_width) // 2)
+                y = max(0, (term_height - elem_height) // 2)
+
+                # Update bounds
+                element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)

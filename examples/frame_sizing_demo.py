@@ -100,30 +100,30 @@ def main():
 
     try:
         # Render with layout engine
-        # output, _ = renderer.render_with_layout(
+        # output, _, _ = renderer.render_with_layout(
         #     template,
         #     context={},
         #     width=80,
         #     height=20
         # )
-        # output_spacing, _ = renderer.render_with_layout(
+        # output_spacing, _, _ = renderer.render_with_layout(
         #     template_more_spacing, context={}, width=80, height=20
         # )
-        # output_stacks, _ = renderer.render_with_layout(
+        # output_stacks, _, _ = renderer.render_with_layout(
         #     template_with_stacks,
         #     context={},
         #     width=80,
         #     height=20
         # )
 
-        output_markdown, _ = renderer.render_with_layout(
+        output_markdown, _, _ = renderer.render_with_layout(
             template_markdown,
             context={},
             width=80,
             height=20
         )
 
-        output_textarea, _ = renderer.render_with_layout(template_textarea,
+        output_textarea, _, _ = renderer.render_with_layout(template_textarea,
                                                           context={},
                                                           width=80,
                                                           height=20)

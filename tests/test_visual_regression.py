@@ -124,7 +124,7 @@ class TestLayoutSnapshots:
 {% endvstack %}
         """.strip()
 
-        output, _ = renderer.render_with_layout(template, width=50, height=15)
+        output, _, _ = renderer.render_with_layout(template, width=50, height=15)
         assert output == snapshot
 
     def test_simple_hstack_layout(self, snapshot):
@@ -150,7 +150,7 @@ class TestLayoutSnapshots:
 {% endhstack %}
         """.strip()
 
-        output, _ = renderer.render_with_layout(template, width=60, height=10)
+        output, _, _ = renderer.render_with_layout(template, width=60, height=10)
         assert output == snapshot
 
     def test_nested_layout(self, snapshot):
@@ -178,7 +178,7 @@ class TestLayoutSnapshots:
 {% endvstack %}
         """.strip()
 
-        output, _ = renderer.render_with_layout(template, width=70, height=20)
+        output, _, _ = renderer.render_with_layout(template, width=70, height=20)
         assert output == snapshot
 
     def test_percentage_width_layout(self, snapshot):
@@ -201,7 +201,7 @@ class TestLayoutSnapshots:
 {% endhstack %}
         """.strip()
 
-        output, _ = renderer.render_with_layout(template, width=60, height=10)
+        output, _, _ = renderer.render_with_layout(template, width=60, height=10)
         assert output == snapshot
 
 
@@ -331,7 +331,7 @@ class TestComplexTemplateSnapshots:
 {% endvstack %}
         """.strip()
 
-        output, _ = renderer.render_with_layout(template, width=80, height=24)
+        output, _, _ = renderer.render_with_layout(template, width=80, height=24)
         assert output == snapshot
 
 

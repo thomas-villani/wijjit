@@ -112,7 +112,7 @@ This is a **markdown** viewer that automatically fills available space.
         renderer = Renderer()
 
         # Render the complex layout
-        output, elements = renderer.render_with_layout(
+        output, elements, _ = renderer.render_with_layout(
             template,
             context={},
             width=120,

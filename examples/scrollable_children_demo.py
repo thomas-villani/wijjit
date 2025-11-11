@@ -79,7 +79,7 @@ def main():
     """Run the scrollable children demo application."""
     if len(sys.argv) >= 2:
         renderer = Renderer()
-        output, _ = renderer.render_with_layout(
+        output, _, _ = renderer.render_with_layout(
             TEMPLATE,
             context={
                 "item_list": [f"Item {i + 1}: Lorem ipsum dolor sit amet" for i in range(30)]
