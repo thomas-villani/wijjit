@@ -56,10 +56,19 @@ def render_view(
     if view.data:
         context.update(view.data(**app.current_view_params))
 
+    # Add state to context for overlay visibility checks
+    context["state"] = app.state
+
+    # Set up global context for template extensions (needed for visibility checks)
+    app.renderer.add_global("_wijjit_current_context", context)
+
     # Render with layout engine
     output, elements = app.renderer.render_with_layout(
         view.template, context, width, height, overlay_manager=app.overlay_manager
     )
+
+    # Clean up globals
+    app.renderer.add_global("_wijjit_current_context", None)
 
     # Store positioned elements on app (simulating what run() does)
     app.positioned_elements = elements

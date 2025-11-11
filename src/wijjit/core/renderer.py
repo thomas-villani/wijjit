@@ -302,22 +302,24 @@ class Renderer:
         output = self._compose_output(elements, width, height, layout_ctx.root)
 
         # Process template-declared overlays
-        if overlay_manager is not None and hasattr(layout_ctx, "_overlays"):
+        if overlay_manager is not None:
             # Clear existing overlays (simple rebuild strategy)
+            # This happens on every render to ensure overlays match template state
             overlay_manager.clear()
 
             # Push each template overlay to the overlay manager
-            for overlay_info in layout_ctx._overlays:
-                overlay_manager.push(
-                    element=overlay_info["element"],
-                    layer_type=overlay_info["layer_type"],
-                    close_on_escape=overlay_info.get("close_on_escape", True),
-                    close_on_click_outside=overlay_info.get(
-                        "close_on_click_outside", True
-                    ),
-                    trap_focus=overlay_info.get("trap_focus", False),
-                    dimmed_background=overlay_info.get("dim_background", False),
-                )
+            if hasattr(layout_ctx, "_overlays"):
+                for overlay_info in layout_ctx._overlays:
+                    overlay_manager.push(
+                        element=overlay_info["element"],
+                        layer_type=overlay_info["layer_type"],
+                        close_on_escape=overlay_info.get("close_on_escape", True),
+                        close_on_click_outside=overlay_info.get(
+                            "close_on_click_outside", True
+                        ),
+                        trap_focus=overlay_info.get("trap_focus", False),
+                        dimmed_background=overlay_info.get("dim_background", False),
+                    )
 
         return output, elements
 
