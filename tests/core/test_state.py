@@ -294,14 +294,65 @@ class TestState:
 
     def test_change_detection_with_complex_types(self):
         """Test change detection with lists and dicts."""
-        state = State({"items": [1, 2, 3]})
+        state = State({"my_list": [1, 2, 3]})
         callback = Mock()
         state.on_change(callback)
 
         # Modifying the list in place doesn't trigger change
-        state["items"].append(4)
+        state["my_list"].append(4)
         callback.assert_not_called()
 
         # Reassigning triggers change
-        state["items"] = [1, 2, 3, 4, 5]
+        state["my_list"] = [1, 2, 3, 4, 5]
         callback.assert_called_once()
+
+    def test_reserved_name_in_init(self):
+        """Test that using reserved dict method names in init raises error."""
+        with pytest.raises(
+            ValueError, match="State keys cannot use reserved dict method names"
+        ):
+            State({"items": []})
+
+        with pytest.raises(
+            ValueError, match="State keys cannot use reserved dict method names"
+        ):
+            State({"keys": {}})
+
+        with pytest.raises(
+            ValueError, match="State keys cannot use reserved dict method names"
+        ):
+            State({"values": 123})
+
+    def test_reserved_name_in_setitem(self):
+        """Test that setting reserved dict method names raises error."""
+        state = State()
+
+        with pytest.raises(ValueError, match="State key 'items' is reserved"):
+            state["items"] = []
+
+        with pytest.raises(ValueError, match="State key 'keys' is reserved"):
+            state["keys"] = {}
+
+        with pytest.raises(ValueError, match="State key 'values' is reserved"):
+            state["values"] = 123
+
+    def test_non_reserved_names_work(self):
+        """Test that non-reserved names work fine."""
+        # These should all work without error
+        state = State(
+            {
+                "items_list": [],
+                "my_keys": {},
+                "data_values": 123,
+                "count": 0,
+                "message": "hello",
+            }
+        )
+
+        assert state["items_list"] == []
+        assert state["my_keys"] == {}
+        assert state["data_values"] == 123
+
+        # Setting new non-reserved keys should also work
+        state["new_key"] = "test"
+        assert state["new_key"] == "test"

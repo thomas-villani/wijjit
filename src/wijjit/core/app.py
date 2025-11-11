@@ -209,6 +209,9 @@ class Wijjit:
         # Action handlers
         self._action_handlers: dict[str, Callable] = {}
 
+        # Key handlers
+        self._key_handlers: dict[str, Callable] = {}
+
         # Auto-refresh for animations (e.g., spinners)
         self.refresh_interval: float | None = None  # None = no auto-refresh
         self._last_refresh_time: float = 0.0
@@ -413,6 +416,34 @@ class Wijjit:
             priority=priority,
         )
 
+    def on_key(self, key: str) -> Callable:
+        """Decorator to register a key press handler.
+
+        Use this to handle specific key presses globally in your application.
+
+        Parameters
+        ----------
+        key : str
+            The key to handle (e.g., "d", "q", "enter", "space")
+
+        Returns
+        -------
+        Callable
+            Decorator function
+
+        Examples
+        --------
+        >>> @app.on_key("d")
+        ... def delete_handler(event):
+        ...     print("Delete key pressed!")
+        """
+
+        def decorator(func: Callable) -> Callable:
+            self._key_handlers[key.lower()] = func
+            return func
+
+        return decorator
+
     def on_action(self, action_id: str) -> Callable:
         """Decorator to register an action handler.
 
@@ -590,6 +621,21 @@ class Wijjit:
                             key_obj=input_event,  # Store original Key object
                         )
                         self.handler_registry.dispatch(event)
+
+                        # Check for registered key handlers
+                        if not event.cancelled:
+                            key_name = (
+                                input_event.name.lower() if input_event.name else ""
+                            )
+                            if key_name in self._key_handlers:
+                                try:
+                                    self._key_handlers[key_name](event)
+                                    self.needs_render = True
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in key handler for '{key_name}': {e}",
+                                        exc_info=True,
+                                    )
 
                         # Route key to focused element if not handled by other handlers
                         # If focus is trapped in an overlay, only route to overlay elements

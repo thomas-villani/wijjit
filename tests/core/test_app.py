@@ -614,3 +614,53 @@ class TestRun:
 
                         # Should still exit screen
                         mock_exit.assert_called_once()
+
+
+class TestKeyHandlers:
+    """Tests for on_key decorator."""
+
+    def test_on_key_decorator(self):
+        """Test registering a key handler with decorator."""
+        app = Wijjit()
+        called = []
+
+        @app.on_key("d")
+        def handle_d(event):
+            called.append(event)
+
+        # Verify handler was registered
+        assert "d" in app._key_handlers
+        assert app._key_handlers["d"] == handle_d
+
+    def test_on_key_normalizes_case(self):
+        """Test that key names are normalized to lowercase."""
+        app = Wijjit()
+
+        @app.on_key("D")
+        def handle_d(event):
+            pass
+
+        # Should be stored as lowercase
+        assert "d" in app._key_handlers
+        assert "D" not in app._key_handlers
+
+    def test_multiple_key_handlers(self):
+        """Test registering multiple key handlers."""
+        app = Wijjit()
+
+        @app.on_key("d")
+        def handle_d(event):
+            pass
+
+        @app.on_key("q")
+        def handle_q(event):
+            pass
+
+        @app.on_key("enter")
+        def handle_enter(event):
+            pass
+
+        assert "d" in app._key_handlers
+        assert "q" in app._key_handlers
+        assert "enter" in app._key_handlers
+        assert len(app._key_handlers) == 3

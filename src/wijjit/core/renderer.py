@@ -15,11 +15,18 @@ from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import render_vertical_scrollbar
 from wijjit.logging_config import get_logger
+from wijjit.tags.dialogs import (
+    AlertDialogExtension,
+    ConfirmDialogExtension,
+    TextInputDialogExtension,
+)
 from wijjit.tags.display import (
     CodeBlockExtension,
     ListViewExtension,
     LogViewExtension,
     MarkdownExtension,
+    ModalExtension,
+    OverlayExtension,
     ProgressBarExtension,
     SpinnerExtension,
     TableExtension,
@@ -102,6 +109,11 @@ class Renderer:
                 MarkdownExtension,
                 CodeBlockExtension,
                 TextAreaExtension,
+                OverlayExtension,
+                ModalExtension,
+                ConfirmDialogExtension,
+                AlertDialogExtension,
+                TextInputDialogExtension,
             ],
         )
 

@@ -224,6 +224,86 @@ class Container(Element):
         return "\n".join(child.render() for child in self.children)
 
 
+class OverlayElement(Container):
+    """Base class for overlay content elements.
+
+    This class provides a foundation for elements displayed in overlays
+    (modals, dropdowns, tooltips). It extends Container to support child
+    elements and adds overlay-specific properties.
+
+    Parameters
+    ----------
+    id : str, optional
+        Unique identifier
+    width : int, optional
+        Desired width in characters
+    height : int, optional
+        Desired height in lines
+    centered : bool, optional
+        Whether to center the overlay (default: True)
+
+    Attributes
+    ----------
+    width : int or None
+        Overlay width
+    height : int or None
+        Overlay height
+    centered : bool
+        Whether overlay should be centered
+    """
+
+    def __init__(
+        self,
+        id: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        centered: bool = True,
+    ):
+        super().__init__(id)
+        self.width = width
+        self.height = height
+        self.centered = centered
+
+    def handle_key(self, key: Key) -> bool:
+        """Handle key press by routing to focused child.
+
+        Parameters
+        ----------
+        key : Key
+            The key that was pressed
+
+        Returns
+        -------
+        bool
+            True if the key was handled, False otherwise
+        """
+        # Route to focused child
+        for child in self.children:
+            if child.focused and child.handle_key(key):
+                return True
+        return False
+
+    def handle_mouse(self, event: MouseEvent) -> bool:
+        """Handle mouse event by routing to children.
+
+        Parameters
+        ----------
+        event : MouseEvent
+            The mouse event that occurred
+
+        Returns
+        -------
+        bool
+            True if the event was handled, False otherwise
+        """
+        # Route to children based on position
+        for child in self.children:
+            if child.bounds and child.bounds.contains(event.x, event.y):
+                if child.handle_mouse(event):
+                    return True
+        return False
+
+
 class TextElement(Element):
     """Simple text display element.
 

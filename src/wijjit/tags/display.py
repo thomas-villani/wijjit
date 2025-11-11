@@ -2,6 +2,8 @@
 from jinja2 import nodes
 from jinja2.ext import Extension
 
+from wijjit.core.overlay import LayerType
+from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.display.table import Table
 from wijjit.elements.display.tree import Tree
 from wijjit.layout.engine import ElementNode
@@ -1592,5 +1594,343 @@ class ListViewExtension(Extension):
 
         # Add to layout context
         context.add_element(node)
+
+        return ""
+
+
+class OverlayExtension(Extension):
+    """Jinja2 extension for {% overlay %} tag.
+
+    Creates a generic overlay that can be shown/hidden based on state.
+
+    Syntax:
+        {% overlay visible="show_popup"
+                   layer="modal"
+                   width=50
+                   height=10
+                   close_on_escape=true
+                   close_on_click_outside=false
+                   trap_focus=true
+                   dim_background=false %}
+          Overlay content here
+        {% endoverlay %}
+    """
+
+    tags = {"overlay"}
+
+    def parse(self, parser):
+        """Parse the overlay tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endoverlay"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (overlay content)
+        node = nodes.CallBlock(
+            self.call_method("_render_overlay", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endoverlay"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_overlay(
+        self,
+        caller,
+        id=None,
+        visible=None,
+        layer="modal",
+        width=50,
+        height=10,
+        close_on_escape=True,
+        close_on_click_outside=False,
+        trap_focus=True,
+        dim_background=False,
+    ) -> str:
+        """Render the overlay tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        visible : str, optional
+            State key name for visibility control (e.g., "show_popup")
+        layer : str
+            Overlay layer: "base", "modal", "dropdown", "tooltip" (default: "modal")
+        width : int
+            Overlay width (default: 50)
+        height : int
+            Overlay height (default: 10)
+        close_on_escape : bool
+            Close on ESC key (default: True)
+        close_on_click_outside : bool
+            Close on click outside (default: False)
+        trap_focus : bool
+            Trap keyboard focus (default: True)
+        dim_background : bool
+            Dim background (default: False)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Check visibility state
+        is_visible = False
+        if visible:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    # Check if state variable is truthy
+                    is_visible = bool(state.get(visible, False))
+            except Exception as e:
+                logger.warning(f"Failed to check visibility state: {e}")
+
+        # If not visible, don't create the overlay
+        if not is_visible:
+            # Still consume body
+            caller()
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+        close_on_escape = bool(close_on_escape)
+        close_on_click_outside = bool(close_on_click_outside)
+        trap_focus = bool(trap_focus)
+        dim_background = bool(dim_background)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("overlay")
+
+        # Map layer string to LayerType
+        layer_map = {
+            "base": LayerType.BASE,
+            "modal": LayerType.MODAL,
+            "dropdown": LayerType.DROPDOWN,
+            "tooltip": LayerType.TOOLTIP,
+        }
+        layer_type = layer_map.get(layer.lower(), LayerType.MODAL)
+
+        # Get body content
+        body_content = caller().strip()
+
+        # Create overlay element (using base OverlayElement)
+        from wijjit.elements.base import OverlayElement, TextElement
+
+        overlay_element = OverlayElement(
+            id=id,
+            width=width,
+            height=height,
+            centered=True,
+        )
+
+        # Add text content if provided
+        if body_content:
+            text_elem = TextElement(text=body_content)
+            overlay_element.add_child(text_elem)
+
+        # Store overlay info for app to register
+        # We'll add this to a special list in the context
+        overlay_info = {
+            "element": overlay_element,
+            "layer_type": layer_type,
+            "close_on_escape": close_on_escape,
+            "close_on_click_outside": close_on_click_outside,
+            "trap_focus": trap_focus,
+            "dim_background": dim_background,
+            "visible_state_key": visible,
+        }
+
+        # Add to context's overlay list (app will process these)
+        if not hasattr(context, "_overlays"):
+            context._overlays = []
+        context._overlays.append(overlay_info)
+
+        return ""
+
+
+class ModalExtension(Extension):
+    """Jinja2 extension for {% modal %} tag.
+
+    Creates a modal dialog with frame and content.
+
+    Syntax:
+        {% modal visible="show_confirm"
+                 title="Confirm"
+                 width=50
+                 height=12
+                 border="single" %}
+          Modal content here
+        {% endmodal %}
+    """
+
+    tags = {"modal"}
+
+    def parse(self, parser):
+        """Parse the modal tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endmodal"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (modal content)
+        node = nodes.CallBlock(
+            self.call_method("_render_modal", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endmodal"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_modal(
+        self,
+        caller,
+        id=None,
+        visible=None,
+        title=None,
+        width=50,
+        height=12,
+        border="single",
+    ) -> str:
+        """Render the modal tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        visible : str, optional
+            State key name for visibility control
+        title : str, optional
+            Modal title
+        width : int
+            Modal width (default: 50)
+        height : int
+            Modal height (default: 12)
+        border : str
+            Border style: "single", "double", "rounded" (default: "single")
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Check visibility state
+        is_visible = False
+        if visible:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    is_visible = bool(state.get(visible, False))
+            except Exception as e:
+                logger.warning(f"Failed to check visibility state: {e}")
+
+        # If not visible, don't create the modal
+        if not is_visible:
+            # Still consume body
+            caller()
+            return ""
+
+        # Convert numeric parameters
+        width = int(width)
+        height = int(height)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("modal")
+
+        # Get body content
+        body_content = caller().strip()
+
+        # Create modal element
+        modal_element = ModalElement(
+            id=id,
+            title=title,
+            width=width,
+            height=height,
+            border=border,
+            centered=True,
+        )
+
+        # Set content
+        if body_content:
+            modal_element.set_content(body_content)
+
+        # Store overlay info for app to register
+        overlay_info = {
+            "element": modal_element,
+            "layer_type": LayerType.MODAL,
+            "close_on_escape": True,
+            "close_on_click_outside": False,
+            "trap_focus": True,
+            "dim_background": True,
+            "visible_state_key": visible,
+        }
+
+        # Add to context's overlay list
+        if not hasattr(context, "_overlays"):
+            context._overlays = []
+        context._overlays.append(overlay_info)
 
         return ""

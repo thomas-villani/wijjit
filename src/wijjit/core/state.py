@@ -44,10 +44,38 @@ class State(UserDict):
     2
     """
 
+    # Reserved names that conflict with dict methods
+    # These cannot be used as state keys because they will cause issues in templates
+    _RESERVED_NAMES = {
+        "items",
+        "keys",
+        "values",
+        "get",
+        "pop",
+        "update",
+        "clear",
+        "copy",
+        "setdefault",
+        "popitem",
+        "fromkeys",
+    }
+
     def __init__(self, data: dict[str, Any] | None = None):
         # Initialize internal attributes first, before UserDict.__init__
         object.__setattr__(self, "_change_callbacks", [])
         object.__setattr__(self, "_watchers", {})
+
+        # Validate keys don't conflict with dict methods
+        if data:
+            reserved_keys = set(data.keys()) & self._RESERVED_NAMES
+            if reserved_keys:
+                raise ValueError(
+                    f"State keys cannot use reserved dict method names: {sorted(reserved_keys)}. "
+                    f"These names conflict with dict methods and will cause issues in Jinja2 templates. "
+                    f"Please use different key names, such as: "
+                    f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_keys))}"
+                )
+
         super().__init__(data or {})
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -59,7 +87,20 @@ class State(UserDict):
             The state key
         value : Any
             The new value
+
+        Raises
+        ------
+        ValueError
+            If key is a reserved dict method name
         """
+        # Validate key doesn't conflict with dict methods
+        if key in self._RESERVED_NAMES:
+            raise ValueError(
+                f"State key '{key}' is reserved (conflicts with dict method). "
+                f"Please use a different key name such as '{key}_list' or '{key}_data'. "
+                f"In templates, use state['{key}_list'] instead of state.{key}."
+            )
+
         old_value = self.data.get(key)
         super().__setitem__(key, value)
 
