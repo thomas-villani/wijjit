@@ -501,3 +501,35 @@ class TestNotificationManager:
 
         # Callback should be called
         callback.assert_called_once()
+
+    def test_dismiss_oldest(self):
+        """Test dismiss_oldest removes the oldest notification.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        overlay_manager = MagicMock(spec=OverlayManager)
+        overlay_manager.overlays = []
+        manager = NotificationManager(overlay_manager, 80, 24)
+
+        # Add three notifications
+        id1 = manager.add(NotificationElement("First"), duration=3.0)
+        overlay_manager.overlays.append(manager.notifications[0].overlay)
+        id2 = manager.add(NotificationElement("Second"), duration=3.0)
+        overlay_manager.overlays.append(manager.notifications[1].overlay)
+        id3 = manager.add(NotificationElement("Third"), duration=3.0)
+        overlay_manager.overlays.append(manager.notifications[2].overlay)
+
+        # Dismiss oldest
+        result = manager.dismiss_oldest()
+
+        assert result is True
+        assert len(manager.notifications) == 2
+        # First (oldest) should be removed, second and third remain
+        assert manager.notifications[0].id == id2
+        assert manager.notifications[1].id == id3

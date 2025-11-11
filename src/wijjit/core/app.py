@@ -661,8 +661,15 @@ class Wijjit:
                             f"(modifiers={input_event.modifiers})"
                         )
 
-                        # Check for ESC key to close overlays
+                        # Check for ESC key to close overlays/notifications
                         if input_event.name == "escape":
+                            # If there are notifications, dismiss oldest first
+                            if self.notification_manager.notifications:
+                                if self.notification_manager.dismiss_oldest():
+                                    self.needs_render = True
+                                    continue  # Don't process event further
+
+                            # Otherwise, handle normal overlay escape
                             if self.overlay_manager.handle_escape():
                                 # Overlay was closed, trigger re-render
                                 self.needs_render = True

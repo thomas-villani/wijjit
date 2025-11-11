@@ -192,7 +192,7 @@ class NotificationManager:
         overlay = self.overlay_manager.push(
             element,
             LayerType.TOOLTIP,  # Highest z-index
-            close_on_escape=True,  # Close on ESC key
+            close_on_escape=False,  # ESC handled by app to dismiss oldest first
             close_on_click_outside=False,  # Don't close on outside click
             trap_focus=has_button,  # Trap focus if there's a button to interact with
             dimmed_background=False,  # Don't dim background
@@ -338,6 +338,21 @@ class NotificationManager:
 
         logger.debug(f"Cleared {count} notification(s)")
         return count
+
+    def dismiss_oldest(self) -> bool:
+        """Dismiss the oldest notification.
+
+        Returns
+        -------
+        bool
+            True if a notification was dismissed, False if none exist
+        """
+        if not self.notifications:
+            return False
+
+        # Remove the first notification (oldest)
+        oldest = self.notifications[0]
+        return self.remove(oldest.id)
 
     def dismiss_topmost(self) -> bool:
         """Dismiss the topmost (most recent) notification.
