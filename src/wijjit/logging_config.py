@@ -5,12 +5,10 @@ This module provides centralized logging configuration for Wijjit applications.
 Since Wijjit apps are terminal-based, logging to stderr can interfere with the UI.
 This module configures logging to files instead.
 
-Environment Variables
----------------------
-WIJJIT_LOG_FILE : str
-    Path to log file. If not set, logging is disabled.
-WIJJIT_LOG_LEVEL : str
-    Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL). Default is INFO.
+Usage
+-----
+Consumers should explicitly call configure_logging() or configure_from_environment()
+to set up logging. Logging is not configured automatically on import.
 
 Examples
 --------
@@ -29,6 +27,10 @@ Disable logging:
 
 Configure via environment variables:
 
+    >>> from wijjit.logging_config import configure_logging_from_environment
+    >>> configure_logging_from_environment()
+
+    Or set environment variables before running:
     $ export WIJJIT_LOG_FILE=debug.log
     $ export WIJJIT_LOG_LEVEL=DEBUG
     $ python app.py
@@ -93,7 +95,7 @@ def configure_logging(
 
     # Convert string level to logging constant if needed
     if isinstance(level, str):
-        level = getattr(logging, level.upper())
+        level = getattr(logging, level.upper(), logging.INFO)
 
     # Set logger level
     logger.setLevel(level)
@@ -152,7 +154,7 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def configure_from_environment() -> None:
+def configure_logging_from_environment() -> None:
     """
     Configure logging from environment variables.
 
@@ -160,12 +162,16 @@ def configure_from_environment() -> None:
     variables and configures logging accordingly. If WIJJIT_LOG_FILE is not set,
     logging is disabled.
 
+    Consumers should call this function explicitly - it is not called automatically
+    on module import.
+
     Environment Variables
     ---------------------
     WIJJIT_LOG_FILE : str
         Path to log file. If not set, logging is disabled.
     WIJJIT_LOG_LEVEL : str
         Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL). Default is INFO.
+        Invalid levels will fall back to INFO.
 
     Returns
     -------
@@ -173,9 +179,10 @@ def configure_from_environment() -> None:
 
     Examples
     --------
-    This function is called automatically when the module is imported:
+    Call this function explicitly in your application startup:
 
-        >>> import wijjit.logging_config  # Automatically configures from env vars
+        >>> from wijjit.logging_config import configure_logging_from_environment
+        >>> configure_logging_from_environment()  # Reads WIJJIT_LOG_FILE and WIJJIT_LOG_LEVEL
     """
     log_file = os.environ.get("WIJJIT_LOG_FILE")
     log_level = os.environ.get("WIJJIT_LOG_LEVEL", "INFO")
@@ -183,8 +190,4 @@ def configure_from_environment() -> None:
     if log_file:
         configure_logging(log_file, level=log_level)
     else:
-        configure_logging(None)
-
-
-# Configure logging from environment variables on module import
-configure_from_environment()
+        configure_logging(None, level=log_level)
