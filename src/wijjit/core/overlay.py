@@ -12,14 +12,19 @@ Design Philosophy
 - Clean separation from base layout system
 """
 
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING, Optional
 
+from wijjit.elements.menu import ContextMenu, DropdownMenu
+
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
     from wijjit.elements.base import Element
+
+from wijjit.layout.bounds import Bounds
 
 
 class LayerType(IntEnum):
@@ -209,9 +214,6 @@ class OverlayManager:
 
         # Auto-calculate bounds for centered overlays that don't have bounds
         if element.bounds is None and hasattr(element, "centered") and element.centered:
-            import shutil
-
-            from wijjit.layout.bounds import Bounds
 
             term_size = shutil.get_terminal_size()
 
@@ -224,6 +226,12 @@ class OverlayManager:
             y = max(0, (term_size.lines - elem_height) // 2)
 
             element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)
+
+        # Auto-position menus (dropdown and context menus)
+        if element.bounds is None:
+
+            if isinstance(element, (DropdownMenu, ContextMenu)):
+                element.bounds = self._calculate_menu_position(element)
 
         # Add to stack (maintain sorted order by z-index)
         self.overlays.append(overlay)
@@ -508,7 +516,6 @@ class OverlayManager:
         term_height : int
             New terminal height in lines
         """
-        from wijjit.layout.bounds import Bounds
 
         for overlay in self.overlays:
             element = overlay.element
@@ -525,3 +532,108 @@ class OverlayManager:
 
                 # Update bounds
                 element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)
+
+    def _calculate_menu_position(self, menu_element: "Element") -> Bounds:
+        """Calculate position for a menu element (dropdown or context menu).
+
+        This method auto-positions menus relative to their trigger element
+        or mouse cursor, ensuring they stay within screen bounds.
+
+        Parameters
+        ----------
+        menu_element : Element
+            The menu element to position (DropdownMenu or ContextMenu)
+
+        Returns
+        -------
+        Bounds
+            Calculated bounds for the menu
+
+        Notes
+        -----
+        Dropdown positioning:
+        - Default: Below trigger element
+        - If off-screen bottom: Flip above trigger
+        - If off-screen right: Shift left
+        - If off-screen left: Shift right
+
+        Context menu positioning:
+        - Default: At mouse cursor
+        - Adjust to stay fully on-screen
+        """
+        import shutil
+
+        from wijjit.elements.menu import ContextMenu, DropdownMenu
+        from wijjit.layout.bounds import Bounds
+
+        term_size = shutil.get_terminal_size()
+        term_width = term_size.columns
+        term_height = term_size.lines
+
+        # Get menu dimensions
+        # Note: menu_element.width is the INNER width (content area)
+        # The actual rendered width includes 2 chars for borders (left + right)
+        inner_width = getattr(menu_element, "width", 30)
+        menu_width = inner_width + 2  # Add borders
+        menu_height = getattr(menu_element, "height", 10)
+
+        if isinstance(menu_element, DropdownMenu):
+            # Dropdown menu - position relative to trigger
+            trigger_bounds = menu_element.trigger_bounds
+
+            if trigger_bounds:
+                # Position below trigger by default
+                x = trigger_bounds.x
+                y = trigger_bounds.y + trigger_bounds.height
+
+                # Check if menu would go off bottom of screen
+                if y + menu_height > term_height:
+                    # Flip above trigger
+                    y = trigger_bounds.y - menu_height
+                    # Still off-screen? Clamp to top
+                    if y < 0:
+                        y = 0
+
+                # Check if menu would go off right of screen
+                if x + menu_width > term_width:
+                    # Shift left to fit
+                    x = term_width - menu_width
+
+                # Check if menu would go off left of screen
+                if x < 0:
+                    x = 0
+            else:
+                # No trigger bounds, center on screen as fallback
+                x = max(0, (term_width - menu_width) // 2)
+                y = max(0, (term_height - menu_height) // 2)
+
+        elif isinstance(menu_element, ContextMenu):
+            # Context menu - position at mouse cursor
+            mouse_pos = menu_element.mouse_position
+
+            if mouse_pos:
+                x, y = mouse_pos
+
+                # Check if menu would go off bottom of screen
+                if y + menu_height > term_height:
+                    # Shift up to fit
+                    y = term_height - menu_height
+
+                # Check if menu would go off right of screen
+                if x + menu_width > term_width:
+                    # Shift left to fit
+                    x = term_width - menu_width
+
+                # Clamp to screen bounds
+                x = max(0, min(x, term_width - menu_width))
+                y = max(0, min(y, term_height - menu_height))
+            else:
+                # No mouse position, center on screen as fallback
+                x = max(0, (term_width - menu_width) // 2)
+                y = max(0, (term_height - menu_height) // 2)
+        else:
+            # Unknown menu type, center on screen
+            x = max(0, (term_width - menu_width) // 2)
+            y = max(0, (term_height - menu_height) // 2)
+
+        return Bounds(x=x, y=y, width=menu_width, height=menu_height)

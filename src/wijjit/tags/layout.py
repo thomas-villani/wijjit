@@ -9,6 +9,9 @@ from jinja2.ext import Extension
 from wijjit.elements.base import TextElement
 from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def process_body_content(body_output: str, raw: bool = False) -> str:

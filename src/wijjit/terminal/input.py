@@ -280,6 +280,9 @@ class InputHandler:
         # Input buffer for handling ANSI sequences
         self._input_buffer = bytearray()
 
+        # Queue for handling lookahead keys
+        self._key_queue = []
+
     def read_input(self) -> Union[Key, "MouseEvent", None]:
         """Read a single input event (keyboard or mouse).
 
@@ -298,12 +301,53 @@ class InputHandler:
                 self._raw_mode = self._input.raw_mode()
                 self._raw_mode.__enter__()
 
-            # Read one event from prompt_toolkit
-            keys = self._input.read_keys()
-            if not keys:
-                return None
+            # Check if we have a queued key from previous lookahead
+            if self._key_queue:
+                key_press = self._key_queue.pop(0)
+                logger.debug(f"Processing queued key: {key_press.key!r}")
+            else:
+                # Read one event from prompt_toolkit
+                keys = self._input.read_keys()
+                if not keys:
+                    return None
 
-            key_press = keys[0]
+                logger.debug(
+                    f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"
+                )
+
+                # Check for Alt+key (escape followed immediately by a character in same read)
+                if (
+                    len(keys) >= 2
+                    and keys[0].key == "escape"
+                    and len(keys[1].key) == 1
+                    and keys[1].key.isalpha()
+                ):
+                    alt_char = keys[1].key.lower()
+                    logger.debug(f"Detected Alt+{alt_char} from multi-key sequence")
+                    return Key(f"alt+{alt_char}", KeyType.CONTROL)
+
+                key_press = keys[0]
+
+                # If this is Escape, lookahead to check for Alt+key
+                if key_press.key == "escape":
+                    logger.debug("Saw Escape, looking ahead for Alt+key...")
+                    # Try to read next key
+                    next_keys = self._input.read_keys()
+                    if next_keys:
+                        next_key = next_keys[0]
+                        logger.debug(f"Next key after Escape: {next_key.key!r}")
+                        # If next key is a letter, return Alt+letter
+                        if len(next_key.key) == 1 and next_key.key.isalpha():
+                            alt_char = next_key.key.lower()
+                            logger.debug(f"Detected Alt+{alt_char} via lookahead")
+                            return Key(f"alt+{alt_char}", KeyType.CONTROL)
+                        else:
+                            # Not Alt+key, queue the next key for later and return Escape
+                            logger.debug(
+                                f"Not Alt+key, queueing {next_key.key!r} for next read"
+                            )
+                            self._key_queue.append(next_key)
+                            # Fall through to return Escape normally
 
             # Check if this might be a mouse sequence
             # Mouse sequences start with ESC [ < (SGR format)
@@ -356,9 +400,22 @@ class InputHandler:
                             return mouse_event
 
             # Not a mouse event, process as keyboard input
-            # Check if it's a mapped special key
+            logger.debug(f"Processing key: {key_press.key!r}, data: {key_press.data!r}")
+
+            # Check if it's a mapped special key first
             if key_press.key in PROMPT_TOOLKIT_KEY_MAP:
-                return PROMPT_TOOLKIT_KEY_MAP[key_press.key]
+                mapped_key = PROMPT_TOOLKIT_KEY_MAP[key_press.key]
+
+                # Special handling for Escape: might be Alt+key sequence
+                if mapped_key == Keys.ESCAPE:
+                    logger.debug(
+                        "Detected Escape, setting pending flag for Alt+key detection"
+                    )
+                    # Mark that we saw escape, the next key might be Alt+key
+                    self._pending_escape = True
+                    return mapped_key
+
+                return mapped_key
 
             # Check for control characters
             if key_press.key.startswith("c-") and len(key_press.key) == 3:

@@ -21,7 +21,7 @@ Controls:
 import shutil
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
+from wijjit.core.events import ActionEvent, EventType, HandlerScope
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.radio import RadioGroup
 
@@ -100,8 +100,14 @@ def create_app():
     ])
 
     # Button click handler
-    def on_submit():
-        """Handle form submission."""
+    def on_submit(event: ActionEvent):
+        """Handle form submission.
+
+        Parameters
+        ----------
+        event : ActionEvent
+            The action event from the button click
+        """
         app.state["submitted"] = True
         app.refresh()
 

@@ -32,21 +32,26 @@ from wijjit.core.events import (
 )
 from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
-from wijjit.core.overlay import Overlay
+from wijjit.core.notification_manager import NotificationManager
+from wijjit.core.overlay import LayerType, Overlay, OverlayManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
 from wijjit.elements.base import Element, ScrollableMixin
+from wijjit.elements.display.notification import NotificationElement
+from wijjit.elements.display.spinner import Spinner
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextInput
+from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
+from wijjit.layout.bounds import Bounds
 from wijjit.logging_config import get_logger
-from wijjit.terminal.ansi import ANSIColor, ANSICursor, colorize
+from wijjit.terminal.ansi import ANSIColor, ANSICursor, ANSIStyle, colorize
 from wijjit.terminal.input import InputHandler, Key
+from wijjit.terminal.mouse import MouseButton, MouseEventType
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
-from wijjit.terminal.mouse import MouseEventType
 from wijjit.terminal.screen import ScreenManager
 
 # Get logger for this module
@@ -180,13 +185,9 @@ class Wijjit:
         self.hover_manager = HoverManager()
 
         # Initialize overlay manager
-        from wijjit.core.overlay import OverlayManager
-
         self.overlay_manager = OverlayManager(self)
 
         # Initialize notification manager
-        from wijjit.core.notification_manager import NotificationManager
-
         term_size = shutil.get_terminal_size()
         self.notification_manager = NotificationManager(
             overlay_manager=self.overlay_manager,
@@ -437,7 +438,7 @@ class Wijjit:
             priority=priority,
         )
 
-    def on_key(self, key: str) -> Callable:
+    def on_key(self, key: str, allow_ctrl_c: bool = False) -> Callable:
         """Decorator to register a key press handler.
 
         Use this to handle specific key presses globally in your application.
@@ -446,21 +447,40 @@ class Wijjit:
         ----------
         key : str
             The key to handle (e.g., "d", "q", "enter", "space")
+        allow_ctrl_c : bool, optional
+            Allow binding to Ctrl+C (default: False). Use with caution as
+            Ctrl+C is normally reserved for exiting the application.
 
         Returns
         -------
         Callable
             Decorator function
 
+        Raises
+        ------
+        ValueError
+            If attempting to bind Ctrl+C without allow_ctrl_c=True
+
         Examples
         --------
         >>> @app.on_key("d")
         ... def delete_handler(event):
         ...     print("Delete key pressed!")
+
+        >>> @app.on_key("ctrl+c", allow_ctrl_c=True)
+        ... def custom_exit(event):
+        ...     print("Custom Ctrl+C handler")
         """
+        # Validate that Ctrl+C is not being bound (reserved for app exit)
+        key_lower = key.lower()
+        if not allow_ctrl_c and key_lower in ("ctrl+c", "c-c"):
+            raise ValueError(
+                "Cannot bind Ctrl+C: it is reserved for exiting the application. "
+                "Use allow_ctrl_c=True to override this restriction."
+            )
 
         def decorator(func: Callable) -> Callable:
-            self._key_handlers[key.lower()] = func
+            self._key_handlers[key_lower] = func
             return func
 
         return decorator
@@ -675,6 +695,16 @@ class Wijjit:
                                 self.needs_render = True
                                 continue  # Don't process event further
 
+                        # Route keyboard events to overlay if trap_focus is active
+                        top_overlay = self.overlay_manager.get_top_overlay()
+                        if top_overlay and top_overlay.trap_focus:
+                            overlay_elem = top_overlay.element
+                            if hasattr(overlay_elem, "handle_key"):
+                                if overlay_elem.handle_key(input_event):
+                                    # Overlay handled the key, trigger re-render
+                                    self.needs_render = True
+                                    continue  # Don't process event further
+
                         # Create and dispatch key event
                         event = KeyEvent(
                             key=input_event.name,
@@ -868,7 +898,6 @@ class Wijjit:
 
             # Clear screen and display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)
-            from wijjit.terminal.ansi import ANSIStyle
 
             if not output.endswith(ANSIStyle.RESET):
                 output += ANSIStyle.RESET
@@ -880,8 +909,6 @@ class Wijjit:
                 print(output, end="", flush=True)
             except UnicodeEncodeError:
                 # Fall back to encoding with error handling
-                import sys
-
                 sys.stdout.buffer.write(output.encode("utf-8", errors="replace"))
                 sys.stdout.flush()
 
@@ -952,14 +979,17 @@ class Wijjit:
         layout_ctx : LayoutContext
             Layout context containing overlay information from template rendering
         """
-        from wijjit.core.overlay import LayerType
 
         # Get template-declared overlays from layout context
         template_overlays = getattr(layout_ctx, "_overlays", [])
 
         # Build set of template overlay element IDs for tracking
+        # Use element.id (user/auto-generated ID) instead of id() (Python object ID)
+        # so that re-rendered elements with same ID are recognized as the same overlay
         template_overlay_ids = {
-            id(overlay_info["element"]) for overlay_info in template_overlays
+            overlay_info["element"].id
+            for overlay_info in template_overlays
+            if hasattr(overlay_info["element"], "id") and overlay_info["element"].id
         }
 
         # Remove template-declared overlays that are no longer in the template
@@ -969,11 +999,12 @@ class Wijjit:
 
         overlays_to_remove = []
         for overlay in self.overlay_manager.overlays:
-            overlay_id = id(overlay.element)
+            element_id = overlay.element.id if hasattr(overlay.element, "id") else None
             # If this was a template overlay but is no longer in the new template
             if (
-                overlay_id in self._template_overlay_ids
-                and overlay_id not in template_overlay_ids
+                element_id
+                and element_id in self._template_overlay_ids
+                and element_id not in template_overlay_ids
             ):
                 overlays_to_remove.append(overlay)
 
@@ -983,24 +1014,106 @@ class Wijjit:
         # Add new template-declared overlays
         for overlay_info in template_overlays:
             element = overlay_info["element"]
-            overlay_id = id(element)
+            element_id = element.id if hasattr(element, "id") else None
 
-            # Skip if already added
-            if any(id(o.element) == overlay_id for o in self.overlay_manager.overlays):
-                continue
+            # Get visibility state first
+            is_visible = overlay_info.get("is_visible", True)
+            visible_state_key = overlay_info.get("visible_state_key")
 
-            # Push overlay to manager
-            self.overlay_manager.push(
-                element=element,
-                layer_type=overlay_info.get("layer_type", LayerType.MODAL),
-                close_on_escape=overlay_info.get("close_on_escape", True),
-                close_on_click_outside=overlay_info.get("close_on_click_outside", True),
-                trap_focus=overlay_info.get("trap_focus", False),
-                dimmed_background=overlay_info.get("dim_background", False),
-            )
+            # Check current visibility from state if state key is provided
+            if visible_state_key:
+                is_visible = bool(self.state.get(visible_state_key, False))
+                if isinstance(element, ContextMenu):
+                    logger.debug(
+                        f"ContextMenu visibility check: state[{visible_state_key!r}] = {is_visible}"
+                    )
+
+            # Restore state on the element BEFORE using it anywhere
+            if isinstance(element, (DropdownMenu, ContextMenu)) and visible_state_key:
+                # Set up state persistence for menu highlight
+                highlight_key = f"_menu_highlight_{visible_state_key}"
+                element._state_dict = self.state
+                element._highlight_state_key = highlight_key
+
+                # Restore highlighted_index from state
+                if highlight_key in self.state:
+                    element.highlighted_index = self.state[highlight_key]
+
+                # For context menus, restore mouse position too
+                if isinstance(element, ContextMenu):
+                    position_key = f"_context_menu_pos_{visible_state_key}"
+                    if position_key in self.state:
+                        element.mouse_position = self.state[position_key]
+
+            # Check if this overlay already exists
+            existing_overlay = None
+            if element_id:
+                for o in self.overlay_manager.overlays:
+                    if hasattr(o.element, "id") and o.element.id == element_id:
+                        existing_overlay = o
+                        break
+
+            if existing_overlay:
+                # Overlay exists - update element reference and check visibility
+                # Replace old element with new one (template re-creates elements each render)
+                existing_overlay.element = element
+
+                if not is_visible:
+                    # Should not be visible, remove it
+                    self.overlay_manager.pop(existing_overlay)
+                else:
+                    # Still visible - update bounds if it's a menu
+                    if isinstance(element, (DropdownMenu, ContextMenu)):
+                        element.bounds = self.overlay_manager._calculate_menu_position(
+                            element
+                        )
+                        logger.debug(
+                            f"Updated bounds for existing {type(element).__name__}: {element.bounds}"
+                        )
+
+                    # If overlay traps focus, update focus manager with new element
+                    if existing_overlay.trap_focus and element.focusable:
+                        # Update focus manager's elements list with the new element
+                        self.focus_manager.set_elements([element])
+                        self.focus_manager.focus_element(element)
+            else:
+                # Overlay doesn't exist yet
+                if is_visible:
+                    # Should be visible, add it
+                    def on_close(key=visible_state_key):
+                        # Update state to hide the menu
+                        if key:
+                            self.state[key] = False
+
+                    # Push overlay to manager
+                    self.overlay_manager.push(
+                        element=element,
+                        layer_type=overlay_info.get("layer_type", LayerType.MODAL),
+                        close_on_escape=overlay_info.get("close_on_escape", True),
+                        close_on_click_outside=overlay_info.get(
+                            "close_on_click_outside", True
+                        ),
+                        trap_focus=overlay_info.get("trap_focus", False),
+                        dimmed_background=overlay_info.get("dim_background", False),
+                        on_close=on_close,
+                    )
+
+                    # Calculate bounds for menu elements (dropdowns and context menus)
+                    if isinstance(element, (DropdownMenu, ContextMenu)):
+                        element.bounds = self.overlay_manager._calculate_menu_position(
+                            element
+                        )
+                        logger.debug(
+                            f"Calculated bounds for {type(element).__name__}: {element.bounds}"
+                        )
+
+                # If not visible, don't add it (but it was created for shortcut registration)
 
         # Update tracking set
         self._template_overlay_ids = template_overlay_ids
+
+        # Store overlay info for menu shortcut registration
+        self._last_template_overlays = template_overlays
 
     def _wire_element_callbacks(self, elements: list) -> None:
         """Wire up element callbacks for actions and state binding.
@@ -1214,6 +1327,157 @@ class Wijjit:
 
                     elem.on_highlight_change = on_highlight_handler
 
+        # Wire up menu callbacks (for overlay menus)
+        # Process ALL menu elements from template overlays, not just visible ones
+        # This ensures shortcuts are registered even when menu is initially hidden
+        # Build a map of element IDs to overlay info for menu shortcut registration
+        overlay_info_map = {}
+        if hasattr(self, "_last_template_overlays"):
+            for info in self._last_template_overlays:
+                elem = info["element"]
+                if hasattr(elem, "id") and elem.id:
+                    overlay_info_map[elem.id] = info
+
+        # Process ALL menu elements from template overlays (visible or not)
+        menu_elements_to_process = []
+        if hasattr(self, "_last_template_overlays"):
+            for overlay_info in self._last_template_overlays:
+                elem = overlay_info["element"]
+                if isinstance(elem, MenuElement):
+                    menu_elements_to_process.append((elem, overlay_info))
+
+        for elem, overlay_info in menu_elements_to_process:
+            # Wire up menu item selection callback
+            def on_item_select_handler(action_id: str, item):
+                # Dispatch action
+                self._dispatch_action(action_id)
+
+            elem.on_item_select = on_item_select_handler
+
+            # Wire up close callback - set visibility state to False
+            visible_state_key = overlay_info.get("visible_state_key")
+
+            def make_close_callback(state_key):
+                def close_menu():
+                    if state_key:
+                        self.state[state_key] = False
+
+                return close_menu
+
+            elem.close_callback = make_close_callback(visible_state_key)
+
+            # Register global keyboard shortcuts for menu items (e.g., Ctrl+N)
+            for item in elem.items:
+                if item.key and item.action and not item.disabled:
+                    shortcut_key = item.key.lower()
+                    action_id = item.action
+
+                    # Validate that Ctrl+C is not being bound (reserved for app exit)
+                    if shortcut_key in ("ctrl+c", "c-c"):
+                        raise ValueError(
+                            f"Cannot bind Ctrl+C to action '{action_id}': "
+                            "Ctrl+C is reserved for exiting the application"
+                        )
+
+                    # Check if we already registered this shortcut
+                    handler_id = f"menuitem_shortcut_{action_id}_{shortcut_key}"
+                    if not hasattr(self, "_registered_menuitem_shortcuts"):
+                        self._registered_menuitem_shortcuts = set()
+
+                    if handler_id not in self._registered_menuitem_shortcuts:
+                        self._registered_menuitem_shortcuts.add(handler_id)
+
+                        def make_shortcut_handler(act_id, key_combo):
+                            def handle_shortcut(event):
+                                # Check if this is the right key
+                                if event.key.lower() == key_combo:
+                                    # Dispatch the action
+                                    self._dispatch_action(act_id)
+
+                            return handle_shortcut
+
+                        # Register the key handler
+                        self.on(
+                            EventType.KEY,
+                            make_shortcut_handler(action_id, shortcut_key),
+                            scope=HandlerScope.GLOBAL,
+                        )
+
+            # For context menus, check if we need to update mouse position
+            if isinstance(elem, ContextMenu):
+                # Mouse position will be set by right-click handler
+                # But we need to recalculate bounds if position was set
+                if elem.mouse_position:
+                    elem.bounds = self.overlay_manager._calculate_menu_position(elem)
+
+            # For dropdowns, try to find trigger button and set bounds
+            if isinstance(elem, DropdownMenu):
+                logger.debug(
+                    f"Found DropdownMenu: id={elem.id}, trigger_text={elem.trigger_text}, "
+                    f"trigger_key={elem.trigger_key}"
+                )
+                trigger_text = elem.trigger_text
+                # Look for a button with matching label
+                for el in elements:
+                    if isinstance(el, Button) and hasattr(el, "label"):
+                        if el.label == trigger_text and el.bounds:
+                            elem.trigger_bounds = el.bounds
+                            # Recalculate menu position
+                            elem.bounds = self.overlay_manager._calculate_menu_position(
+                                elem
+                            )
+                            break
+
+                # Register keyboard shortcut if specified (e.g., Alt+F)
+                if elem.trigger_key and hasattr(elem, "id") and elem.id:
+                    visible_state_key = overlay_info.get("visible_state_key")
+                    if visible_state_key:
+                        trigger_key = elem.trigger_key.lower()
+
+                        # Validate that Ctrl+C is not being bound (reserved for app exit)
+                        if trigger_key in ("ctrl+c", "c-c"):
+                            raise ValueError(
+                                f"Cannot bind Ctrl+C to dropdown menu '{elem.id}': "
+                                "Ctrl+C is reserved for exiting the application"
+                            )
+
+                        # Check if we already registered this handler
+                        handler_id = f"menu_shortcut_{elem.id}"
+                        if not hasattr(self, "_registered_menu_shortcuts"):
+                            self._registered_menu_shortcuts = set()
+
+                        if handler_id not in self._registered_menu_shortcuts:
+                            self._registered_menu_shortcuts.add(handler_id)
+
+                            # Debug logging
+                            logger.debug(
+                                f"Registering menu trigger shortcut: {trigger_key} "
+                                f"for menu {elem.id} (state: {visible_state_key})"
+                            )
+
+                            def make_key_handler(state_key, key_combo):
+                                def toggle_menu(event):
+                                    # Debug logging
+                                    logger.debug(
+                                        f"Key event: {event.key!r}, "
+                                        f"comparing to {key_combo!r}"
+                                    )
+                                    # Check if this is the right key
+                                    if event.key.lower() == key_combo:
+                                        logger.debug(f"Matched! Toggling {state_key}")
+                                        # Toggle menu visibility
+                                        current = self.state.get(state_key, False)
+                                        self.state[state_key] = not current
+
+                                return toggle_menu
+
+                            # Register the key handler
+                            self.on(
+                                EventType.KEY,
+                                make_key_handler(visible_state_key, trigger_key),
+                                scope=HandlerScope.GLOBAL,
+                            )
+
     def _handle_tab_key(self, event: KeyEvent) -> None:
         """Handle Tab/Shift+Tab for focus navigation.
 
@@ -1324,6 +1588,64 @@ class Wijjit:
             # Find element at mouse coordinates
             target_element = self._find_element_at(terminal_event.x, terminal_event.y)
 
+            # Check for right-click to open context menus (AFTER elements have bounds)
+            if (
+                terminal_event.button == MouseButton.RIGHT
+                and terminal_event.type == MouseEventType.CLICK
+            ):
+                logger.debug(
+                    f"Right-click detected at ({terminal_event.x}, {terminal_event.y})"
+                )
+                logger.debug(
+                    f"Target element: {target_element.id if target_element and hasattr(target_element, 'id') else None}"
+                )
+
+                # Check if any context menu targets this element
+                if target_element and hasattr(target_element, "id"):
+                    logger.debug(
+                        f"Has _last_template_overlays: {hasattr(self, '_last_template_overlays')}"
+                    )
+                    # Check template overlays for context menus targeting this element
+                    if hasattr(self, "_last_template_overlays"):
+                        logger.debug(
+                            f"Number of template overlays: {len(self._last_template_overlays)}"
+                        )
+                        for overlay_info in self._last_template_overlays:
+                            elem = overlay_info["element"]
+                            if isinstance(elem, ContextMenu):
+                                logger.debug(
+                                    f"Found ContextMenu targeting: {elem.target_element_id}"
+                                )
+                                if elem.target_element_id == target_element.id:
+                                    logger.debug(
+                                        f"Match! Showing context menu at ({terminal_event.x}, {terminal_event.y})"
+                                    )
+                                    # Get visibility state key
+                                    visible_state_key = overlay_info.get(
+                                        "visible_state_key"
+                                    )
+                                    if visible_state_key:
+                                        # Store mouse position in state using visible_state_key
+                                        # This is stable across renders (unlike auto-generated IDs)
+                                        position_key = (
+                                            f"_context_menu_pos_{visible_state_key}"
+                                        )
+                                        self.state[position_key] = (
+                                            terminal_event.x,
+                                            terminal_event.y,
+                                        )
+                                        logger.debug(
+                                            f"Stored position in state[{position_key!r}] = {self.state[position_key]}"
+                                        )
+
+                                        # Show the context menu
+                                        logger.debug(
+                                            f"Setting state[{visible_state_key!r}] = True"
+                                        )
+                                        self.state[visible_state_key] = True
+                                        self.needs_render = True
+                                        return False
+
             # Track whether hover changed
             hover_changed = False
 
@@ -1416,8 +1738,13 @@ class Wijjit:
         Element or None
             Element at coordinates, or None if no element found
         """
+        from wijjit.elements.base import TextElement
+
         # Search in reverse order (top-to-bottom)
+        # Skip TextElements as they are just content holders, not interactive targets
         for elem in reversed(self.positioned_elements):
+            if isinstance(elem, TextElement):
+                continue
             if elem.bounds and elem.bounds.contains_point(x, y):
                 return elem
         return None
@@ -1455,8 +1782,6 @@ class Wijjit:
         spinners, advances their frame counters, and updates state.
         Called periodically when refresh_interval is set.
         """
-        from wijjit.elements.display.spinner import Spinner
-
         for elem in self.positioned_elements:
             if isinstance(elem, Spinner) and elem.active:
                 # Advance to next frame
@@ -1520,8 +1845,6 @@ class Wijjit:
             )
             app.show_modal(dialog)
         """
-        from wijjit.core.overlay import LayerType
-
         return self.overlay_manager.push(
             element,
             LayerType.MODAL,
@@ -1585,12 +1908,9 @@ class Wijjit:
                 y=button.bounds.y + button.bounds.height
             )
         """
-        from wijjit.core.overlay import LayerType
 
         # Set element position
         if element.bounds is None:
-            from wijjit.layout.bounds import Bounds
-
             # Estimate size (will be rendered at specified position)
             element.bounds = Bounds(x=x, y=y, width=20, height=5)
         else:
@@ -1650,12 +1970,8 @@ class Wijjit:
             tooltip = Tooltip(text="Click to open file")
             app.show_tooltip(tooltip, x=mouse_x + 1, y=mouse_y + 1)
         """
-        from wijjit.core.overlay import LayerType
-
         # Set element position
         if element.bounds is None:
-            from wijjit.layout.bounds import Bounds
-
             element.bounds = Bounds(x=x, y=y, width=30, height=3)
         else:
             element.bounds.x = x
@@ -1734,7 +2050,6 @@ class Wijjit:
                 bell=True
             )
         """
-        from wijjit.elements.display.notification import NotificationElement
 
         # Play bell if requested
         if bell:

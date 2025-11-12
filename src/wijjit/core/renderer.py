@@ -51,6 +51,11 @@ from wijjit.tags.layout import (
     LayoutContext,
     VStackExtension,
 )
+from wijjit.tags.menu import (
+    ContextMenuExtension,
+    DropdownExtension,
+    MenuItemExtension,
+)
 from wijjit.terminal.ansi import clip_to_width
 
 # Get logger for this module
@@ -117,6 +122,9 @@ class Renderer:
                 ConfirmDialogExtension,
                 AlertDialogExtension,
                 TextInputDialogExtension,
+                MenuItemExtension,
+                DropdownExtension,
+                ContextMenuExtension,
             ],
         )
 
@@ -536,6 +544,12 @@ class Renderer:
                 # Clip line to fit
                 clipped_line = clip_to_width(line, remaining_width, ellipsis="")
 
+                # IMPORTANT: Append RESET after clipping to ensure any active styles
+                # (like REVERSE, colors, etc.) are terminated, preventing style leakage
+                # This is crucial because clipping might remove the original RESET codes
+                if not clipped_line.endswith(ANSIStyle.RESET):
+                    clipped_line += ANSIStyle.RESET
+
                 # Write line to buffer (ANSI-aware positioning)
                 visible_pos = 0
                 i_char = 0
@@ -563,6 +577,14 @@ class Renderer:
                                 pending_ansi = ""
                             visible_pos += 1
                         i_char += 1
+
+                # IMPORTANT: If there are pending ANSI codes (like final RESET),
+                # we need to write them to prevent style leakage to the next cell
+                if pending_ansi and visible_pos > 0:
+                    # Append to the last written cell to ensure the codes are present
+                    last_x = x_start + visible_pos - 1
+                    if 0 <= last_x < width and y < height:
+                        buffer[y][last_x] += pending_ansi
 
         # Convert buffer back to string
         return "\n".join("".join(row) for row in buffer)

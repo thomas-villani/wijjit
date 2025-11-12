@@ -12,7 +12,7 @@ Press ESC to cancel/close modal
 import shutil
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
+from wijjit.core.events import ActionEvent, EventType, HandlerScope
 from wijjit.elements.input.button import Button
 from wijjit.layout.bounds import Bounds
 from wijjit.terminal.ansi import ANSIStyle, supports_unicode
@@ -94,11 +94,13 @@ class ModalWithButton:
         # Store children for focus manager
         self.children = [self.button]
 
-    def _handle_button_click(self):
+    def _handle_button_click(self, event: ActionEvent):
         """Handle button click.
 
-        Note: Button.on_click currently doesn't pass any arguments,
-        so this callback takes no parameters.
+        Parameters
+        ----------
+        event : ActionEvent
+            The action event containing button context
         """
         if self.on_confirm:
             self.on_confirm()

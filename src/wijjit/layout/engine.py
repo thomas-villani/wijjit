@@ -1091,7 +1091,8 @@ class FrameNode(Container):
         -----
         Includes the Frame object if:
         - It has text content set, OR
-        - It's scrollable and needs scrolling (to receive focus and keyboard input)
+        - It's scrollable and needs scrolling (to receive focus and keyboard input), OR
+        - It has an explicit id (for mouse event targeting, e.g., context menus)
 
         Otherwise, frame borders are rendered via the legacy _render_frames() path.
         """
@@ -1099,10 +1100,11 @@ class FrameNode(Container):
 
         # Include Frame object if:
         # - It has text content, OR
-        # - It's scrollable (needs to receive mouse/keyboard input for scrolling)
+        # - It's scrollable (needs to receive mouse/keyboard input for scrolling), OR
+        # - It has an explicit id (for mouse event targeting)
         # Note: Scrollable frames must be in elements list even when _needs_scroll is False
         # to receive mouse wheel events
-        if self.frame.content or self.frame.style.scrollable:
+        if self.frame.content or self.frame.style.scrollable or self.frame.id:
             elements.append(self.frame)
 
         # Add children elements and set parent_frame reference if frame is scrollable

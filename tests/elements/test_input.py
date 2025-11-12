@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock
 
+from wijjit.core.events import ActionEvent
 from wijjit.elements.base import ElementType
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.select import Select
@@ -193,30 +194,48 @@ class TestButton:
         assert button.on_click is None
 
     def test_button_with_callback(self):
-        """Test button with click callback."""
+        """Test button with click callback receives ActionEvent."""
         callback = Mock()
-        button = Button(label="Click me", on_click=callback)
+        button = Button(label="Click me", id="test_btn", on_click=callback)
 
         button.activate()
         callback.assert_called_once()
 
+        # Verify ActionEvent was passed
+        call_args = callback.call_args[0]
+        assert len(call_args) == 1
+        event = call_args[0]
+        assert isinstance(event, ActionEvent)
+        assert event.source_element_id == "test_btn"
+        assert event.data == {"label": "Click me"}
+
     def test_activate_with_enter(self):
-        """Test activating button with Enter key."""
+        """Test activating button with Enter key passes ActionEvent."""
         callback = Mock()
-        button = Button(label="Submit", on_click=callback)
+        button = Button(label="Submit", id="submit_btn", on_click=callback)
 
         result = button.handle_key(Keys.ENTER)
         assert result
         callback.assert_called_once()
 
+        # Verify ActionEvent was passed
+        event = callback.call_args[0][0]
+        assert isinstance(event, ActionEvent)
+        assert event.source_element_id == "submit_btn"
+
     def test_activate_with_space(self):
-        """Test activating button with Space key."""
+        """Test activating button with Space key passes ActionEvent."""
         callback = Mock()
-        button = Button(label="Submit", on_click=callback)
+        button = Button(label="Submit", id="space_btn", on_click=callback)
 
         result = button.handle_key(Keys.SPACE)
         assert result
         callback.assert_called_once()
+
+        # Verify ActionEvent was passed
+        event = callback.call_args[0][0]
+        assert isinstance(event, ActionEvent)
+        assert event.source_element_id == "space_btn"
 
     def test_other_keys_ignored(self):
         """Test that other keys don't activate button."""
@@ -253,11 +272,11 @@ class TestButton:
         button.activate()
 
     def test_activate_with_mouse_click(self):
-        """Test activating button with mouse click."""
+        """Test activating button with mouse click passes ActionEvent."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
         callback = Mock()
-        button = Button(label="Submit", on_click=callback)
+        button = Button(label="Submit", id="mouse_btn", on_click=callback)
 
         event = MouseEvent(
             type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=5
@@ -267,12 +286,17 @@ class TestButton:
         assert result
         callback.assert_called_once()
 
+        # Verify ActionEvent was passed
+        action_event = callback.call_args[0][0]
+        assert isinstance(action_event, ActionEvent)
+        assert action_event.source_element_id == "mouse_btn"
+
     def test_activate_with_mouse_double_click(self):
-        """Test activating button with mouse double-click."""
+        """Test activating button with mouse double-click passes ActionEvent."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
         callback = Mock()
-        button = Button(label="Submit", on_click=callback)
+        button = Button(label="Submit", id="dbl_click_btn", on_click=callback)
 
         event = MouseEvent(
             type=MouseEventType.DOUBLE_CLICK,
@@ -285,6 +309,27 @@ class TestButton:
         result = button.handle_mouse(event)
         assert result
         callback.assert_called_once()
+
+        # Verify ActionEvent was passed
+        action_event = callback.call_args[0][0]
+        assert isinstance(action_event, ActionEvent)
+        assert action_event.source_element_id == "dbl_click_btn"
+
+    def test_action_event_with_action_id(self):
+        """Test that ActionEvent includes action_id when button has action attribute."""
+        callback = Mock()
+        button = Button(label="Save", id="save_btn", on_click=callback)
+        button.action = "save_data"
+
+        button.activate()
+        callback.assert_called_once()
+
+        # Verify ActionEvent has action_id populated
+        event = callback.call_args[0][0]
+        assert isinstance(event, ActionEvent)
+        assert event.action_id == "save_data"
+        assert event.source_element_id == "save_btn"
+        assert event.data == {"label": "Save"}
 
     def test_mouse_press_doesnt_activate(self):
         """Test that mouse press alone doesn't activate button."""

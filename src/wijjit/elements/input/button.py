@@ -1,6 +1,7 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
 
+from wijjit.core.events import ActionEvent
 from wijjit.elements.base import Element, ElementType
 from wijjit.terminal.ansi import ANSIColor, ANSIStyle
 from wijjit.terminal.input import Key, Keys
@@ -17,21 +18,25 @@ class Button(Element):
     label : str
         Button label text
     on_click : callable, optional
-        Callback when button is activated
+        Callback when button is activated, receives ActionEvent
 
     Attributes
     ----------
     label : str
         Button label
     on_click : callable or None
-        Click callback
+        Click callback that receives ActionEvent
+    on_activate : callable or None
+        Action callback that receives ActionEvent
+    action : str or None
+        Action ID set by template extension
     """
 
     def __init__(
         self,
         label: str,
         id: str | None = None,
-        on_click: Callable | None = None,
+        on_click: Callable[[ActionEvent], None] | None = None,
     ):
         super().__init__(id)
         self.element_type = ElementType.BUTTON
@@ -40,7 +45,7 @@ class Button(Element):
         self.on_click = on_click
 
         # Action callback (called when button is activated)
-        self.on_activate: Callable[[], None] | None = None
+        self.on_activate: Callable[[ActionEvent], None] | None = None
 
         # Action ID (set by template extension)
         self.action: str | None = None
@@ -86,12 +91,23 @@ class Button(Element):
         return False
 
     def activate(self) -> None:
-        """Activate the button (trigger click callback and action callback)."""
+        """Activate the button (trigger click callback and action callback).
+
+        Creates an ActionEvent with the button's action_id and element id,
+        and passes it to both on_click and on_activate callbacks.
+        """
+        # Create ActionEvent with button context
+        event = ActionEvent(
+            action_id=self.action or "",
+            source_element_id=self.id,
+            data={"label": self.label},
+        )
+
         if self.on_click:
-            self.on_click()
+            self.on_click(event)
 
         if self.on_activate:
-            self.on_activate()
+            self.on_activate(event)
 
     def render(self) -> str:
         """Render the button.
