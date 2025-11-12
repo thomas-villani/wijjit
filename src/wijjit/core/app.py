@@ -1128,7 +1128,10 @@ class Wijjit:
             # Wire up action callbacks for buttons
             if isinstance(elem, Button) and hasattr(elem, "action") and elem.action:
                 action_id = elem.action
-                elem.on_activate = lambda aid=action_id: self._dispatch_action(aid)
+                # Pass the ActionEvent through, but use the action from the element
+                elem.on_activate = lambda event, aid=action_id: self._dispatch_action(
+                    aid, event=event
+                )
 
             # Wire up TextInput callbacks
             if isinstance(elem, TextInput):
@@ -1749,7 +1752,9 @@ class Wijjit:
                 return elem
         return None
 
-    def _dispatch_action(self, action_id: str, data: Any = None) -> None:
+    def _dispatch_action(
+        self, action_id: str, data: Any = None, event: ActionEvent | None = None
+    ) -> None:
         """Dispatch an action event to registered action handlers.
 
         Parameters
@@ -1757,12 +1762,19 @@ class Wijjit:
         action_id : str
             The action ID to dispatch
         data : Any, optional
-            Additional data to include with the action event
+            Additional data to include with the action event (used only if event is None)
+        event : ActionEvent, optional
+            Pre-created ActionEvent to pass through (takes precedence over creating new one)
         """
         if action_id in self._action_handlers:
             logger.info(f"Dispatching action: '{action_id}' (data={data})")
-            # Create action event with optional data
-            action_event = ActionEvent(action_id=action_id, data=data)
+
+            # Use provided event or create a new one
+            if event is not None:
+                action_event = event
+            else:
+                # Create action event with optional data
+                action_event = ActionEvent(action_id=action_id, data=data)
 
             # Call the handler
             try:

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from wijjit.core.events import ActionEvent
 from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.input.button import Button
@@ -101,7 +102,9 @@ class ConfirmDialog(ModalElement):
         self.add_child(self.confirm_button)
         self.add_child(self.cancel_button)
 
-    def _wrap_callback(self, callback: Callable[[], None] | None) -> Callable[[], None]:
+    def _wrap_callback(
+        self, callback: Callable[[], None] | None
+    ) -> Callable[[ActionEvent], None]:
         """Wrap user callback to auto-close dialog after execution.
 
         Parameters
@@ -112,10 +115,10 @@ class ConfirmDialog(ModalElement):
         Returns
         -------
         callable
-            Wrapped callback that closes dialog then executes user callback
+            Wrapped callback that receives ActionEvent, closes dialog, then executes user callback
         """
 
-        def wrapped():
+        def wrapped(event: ActionEvent):
             # Close dialog first
             if self.close_callback:
                 self.close_callback()
@@ -197,7 +200,9 @@ class AlertDialog(ModalElement):
         # Add button to children
         self.add_child(self.ok_button)
 
-    def _wrap_callback(self, callback: Callable[[], None] | None) -> Callable[[], None]:
+    def _wrap_callback(
+        self, callback: Callable[[], None] | None
+    ) -> Callable[[ActionEvent], None]:
         """Wrap user callback to auto-close dialog after execution.
 
         Parameters
@@ -208,10 +213,10 @@ class AlertDialog(ModalElement):
         Returns
         -------
         callable
-            Wrapped callback that closes dialog then executes user callback
+            Wrapped callback that receives ActionEvent, closes dialog, then executes user callback
         """
 
-        def wrapped():
+        def wrapped(event: ActionEvent):
             # Close dialog first
             if self.close_callback:
                 self.close_callback()
@@ -327,7 +332,7 @@ class TextInputDialog(ModalElement):
         self.submit_button = Button(
             label=submit_label,
             id="submit_btn",
-            on_click=lambda: self._handle_submit(on_submit),
+            on_click=lambda event: self._handle_submit(on_submit),
         )
         self.submit_button.focusable = True
 
@@ -358,7 +363,9 @@ class TextInputDialog(ModalElement):
         if callback:
             callback(self.text_input.value)
 
-    def _wrap_callback(self, callback: Callable[[], None] | None) -> Callable[[], None]:
+    def _wrap_callback(
+        self, callback: Callable[[], None] | None
+    ) -> Callable[[ActionEvent], None]:
         """Wrap user callback to auto-close dialog after execution.
 
         Parameters
@@ -369,10 +376,10 @@ class TextInputDialog(ModalElement):
         Returns
         -------
         callable
-            Wrapped callback that closes dialog then executes user callback
+            Wrapped callback that receives ActionEvent, closes dialog, then executes user callback
         """
 
-        def wrapped():
+        def wrapped(event: ActionEvent):
             # Close dialog first
             if self.close_callback:
                 self.close_callback()
