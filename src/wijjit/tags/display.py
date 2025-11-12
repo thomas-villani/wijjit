@@ -1934,3 +1934,156 @@ class ModalExtension(Extension):
         context._overlays.append(overlay_info)
 
         return ""
+
+
+class StatusBarExtension(Extension):
+    """Jinja2 extension for {% statusbar %} tag.
+
+    Creates a status bar that displays at the bottom of the screen with
+    left, center, and right-aligned sections.
+
+    Syntax:
+        {% statusbar left="File: app.py"
+                     center="Ready"
+                     right="Line 42"
+                     bg_color="blue"
+                     text_color="white" %}
+        {% endstatusbar %}
+    """
+
+    tags = {"statusbar"}
+
+    def parse(self, parser):
+        """Parse the statusbar tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endstatusbar"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endstatusbar)
+        node = nodes.CallBlock(
+            self.call_method("_render_statusbar", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(["name:endstatusbar"], drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_statusbar(
+        self,
+        caller,
+        id=None,
+        left="",
+        center="",
+        right="",
+        bg_color=None,
+        text_color=None,
+        bind=True,
+    ) -> str:
+        """Render the statusbar tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        left : str
+            Left-aligned content (default: "")
+        center : str
+            Center-aligned content (default: "")
+        right : str
+            Right-aligned content (default: "")
+        bg_color : str, optional
+            Background color name (default: None)
+        text_color : str, optional
+            Text color name (default: None)
+        bind : bool
+            Whether to auto-bind sections to state (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from environment globals
+        context = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            # Still consume body
+            caller()
+            return ""
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("statusbar")
+
+        # Convert to strings
+        left = str(left) if left else ""
+        center = str(center) if center else ""
+        right = str(right) if right else ""
+
+        # If binding is enabled and id is provided, try to get content from state
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    # Check for individual section keys
+                    left_key = f"{id}_left"
+                    center_key = f"{id}_center"
+                    right_key = f"{id}_right"
+
+                    if left_key in state:
+                        left = str(state[left_key])
+                    if center_key in state:
+                        center = str(state[center_key])
+                    if right_key in state:
+                        right = str(state[right_key])
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
+
+        # Create StatusBar element
+        from wijjit.elements.display.statusbar import StatusBar
+
+        statusbar = StatusBar(
+            id=id,
+            left=left,
+            center=center,
+            right=right,
+            bg_color=bg_color,
+            text_color=text_color,
+        )
+
+        # Store bind setting
+        statusbar.bind = bind
+
+        # Store statusbar in context for app to extract
+        # Similar to how overlays are stored
+        context._statusbar = statusbar
+
+        # Consume body (should be empty)
+        caller()
+
+        return ""

@@ -8,7 +8,6 @@ Tests cover integration between:
 - Focus management
 """
 
-
 import pytest
 
 from wijjit.core.app import Wijjit

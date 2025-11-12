@@ -871,6 +871,9 @@ class Wijjit:
                 # and add new ones based on current template state
                 self._sync_template_overlays(layout_ctx)
 
+                # Extract statusbar from layout context if present
+                current_statusbar = getattr(layout_ctx, "_statusbar", None)
+
                 # Wire up element callbacks for actions and state binding
                 self._wire_element_callbacks(self.positioned_elements)
             else:
@@ -881,6 +884,8 @@ class Wijjit:
                 # Wire up element callbacks if elements were positioned
                 if self.positioned_elements:
                     self._wire_element_callbacks(self.positioned_elements)
+                # No statusbar for non-layout templates
+                current_statusbar = None
 
             # Composite overlays if any are active
             if self.overlay_manager.overlays:
@@ -894,6 +899,16 @@ class Wijjit:
                     term_size.columns,
                     term_size.lines,
                     apply_dimming=apply_dimming,
+                )
+
+            # Composite statusbar if present
+            if current_statusbar is not None:
+                term_size = shutil.get_terminal_size()
+                output = self.renderer.composite_statusbar(
+                    output,
+                    current_statusbar,
+                    term_size.columns,
+                    term_size.lines,
                 )
 
             # Clear screen and display output

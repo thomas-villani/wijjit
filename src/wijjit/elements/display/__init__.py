@@ -9,5 +9,12 @@ from wijjit.elements.display.notification import (
     NotificationElement,
     NotificationSeverity,
 )
+from wijjit.elements.display.statusbar import StatusBar
 
-__all__ = ["LogView", "ModalElement", "NotificationElement", "NotificationSeverity"]
+__all__ = [
+    "LogView",
+    "ModalElement",
+    "NotificationElement",
+    "NotificationSeverity",
+    "StatusBar",
+]

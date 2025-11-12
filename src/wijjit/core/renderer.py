@@ -32,6 +32,7 @@ from wijjit.tags.display import (
     OverlayExtension,
     ProgressBarExtension,
     SpinnerExtension,
+    StatusBarExtension,
     TableExtension,
     TreeExtension,
 )
@@ -112,6 +113,7 @@ class Renderer:
                 TreeExtension,
                 ProgressBarExtension,
                 SpinnerExtension,
+                StatusBarExtension,
                 ListViewExtension,
                 LogViewExtension,
                 MarkdownExtension,
@@ -301,14 +303,25 @@ class Renderer:
             output = template.render(**context)
             return output, [], layout_ctx
 
+        # Check if a statusbar was created during template rendering
+        # If yes, reduce available height by 1 to make room for it
+        layout_height = height
+        has_statusbar = (
+            hasattr(layout_ctx, "_statusbar") and layout_ctx._statusbar is not None
+        )
+        if has_statusbar:
+            layout_height = height - 1
+            logger.debug("StatusBar detected, reducing layout height by 1")
+
         # Run layout engine
-        logger.debug("Running layout engine")
-        engine = LayoutEngine(layout_ctx.root, width, height)
+        logger.debug(f"Running layout engine (height={layout_height})")
+        engine = LayoutEngine(layout_ctx.root, width, layout_height)
         elements = engine.layout()
         logger.debug(f"Layout calculated for {len(elements)} elements")
 
         # Compose output from positioned elements
-        output = self._compose_output(elements, width, height, layout_ctx.root)
+        # Use layout_height (not full height) so output doesn't extend into statusbar area
+        output = self._compose_output(elements, width, layout_height, layout_ctx.root)
 
         # Return layout context so caller can process overlays
         # This allows app._render() to manage overlay lifecycle properly
@@ -588,6 +601,73 @@ class Renderer:
 
         # Convert buffer back to string
         return "\n".join("".join(row) for row in buffer)
+
+    def composite_statusbar(
+        self,
+        base_output: str,
+        statusbar_element: Element,
+        width: int,
+        height: int,
+    ) -> str:
+        """Composite a status bar at the bottom of the output.
+
+        This method renders a status bar element at the bottom line of the
+        screen output, replacing the last line.
+
+        Parameters
+        ----------
+        base_output : str
+            Base UI output (newline-separated lines)
+        statusbar_element : Element
+            StatusBar element to render
+        width : int
+            Screen width
+        height : int
+            Screen height
+
+        Returns
+        -------
+        str
+            Output with statusbar composited at the bottom
+
+        Notes
+        -----
+        The statusbar replaces the last line of the output. If the base
+        output has fewer lines than the screen height, it will be padded.
+        """
+        from wijjit.layout.bounds import Bounds
+        from wijjit.terminal.ansi import clip_to_width
+
+        # Convert base output to lines
+        lines = base_output.split("\n")
+
+        # Ensure we have height-1 lines (reserve last line for statusbar)
+        while len(lines) < height - 1:
+            lines.append(" " * width)
+
+        # Trim to height-1 lines
+        lines = lines[: height - 1]
+
+        # Set bounds for statusbar element
+        statusbar_bounds = Bounds(x=0, y=height - 1, width=width, height=1)
+        statusbar_element.set_bounds(statusbar_bounds)
+
+        # Render statusbar
+        statusbar_line = statusbar_element.render()
+
+        # Ensure statusbar line is exactly width characters (clip or pad)
+        from wijjit.terminal.ansi import visible_length
+
+        statusbar_len = visible_length(statusbar_line)
+        if statusbar_len > width:
+            statusbar_line = clip_to_width(statusbar_line, width, ellipsis="")
+        elif statusbar_len < width:
+            statusbar_line += " " * (width - statusbar_len)
+
+        # Append statusbar line
+        lines.append(statusbar_line)
+
+        return "\n".join(lines)
 
     def _render_frames(
         self, node: "LayoutNode", buffer: list[list[str]], width: int, height: int
