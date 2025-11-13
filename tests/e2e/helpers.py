@@ -88,6 +88,27 @@ def render_view(
     return output, elements
 
 
+def get_rendered_text(app: Wijjit) -> str:
+    """Get the plain text of the last rendered view (for assertions).
+
+    Parameters
+    ----------
+    app : Wijjit
+        The application instance
+
+    Returns
+    -------
+    str
+        Plain text representation of the last render
+
+    Notes
+    -----
+    This is useful for test assertions where you want to check for visible
+    text content in the rendered output.
+    """
+    return app.renderer.get_buffer_as_text()
+
+
 def get_element_by_id(elements: list[Element], element_id: str) -> Element | None:
     """Find an element by its ID in the positioned elements list.
 

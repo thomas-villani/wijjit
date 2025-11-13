@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
@@ -13,6 +13,9 @@ from wijjit.terminal.ansi import (
 )
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
 
 
 class Checkbox(Element):
@@ -142,12 +145,18 @@ class Checkbox(Element):
         return False
 
     def render(self) -> str:
-        """Render the checkbox.
+        """Render the checkbox (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered checkbox with label
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         # Determine checkbox characters based on unicode support
         if supports_unicode():
@@ -176,6 +185,55 @@ class Checkbox(Element):
         else:
             # Not focused: plain style
             return f"{ANSIStyle.RESET}{output}{ANSIStyle.RESET}"
+
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render checkbox using cell-based rendering.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method. The legacy render()
+        method is kept for backward compatibility.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'checkbox': Base style
+        - 'checkbox:focus': When element has focus
+        - 'checkbox:checked': When checkbox is checked
+        """
+
+        # Determine checkbox characters based on unicode support
+        if supports_unicode():
+            unchecked = "\u2610"  # Empty checkbox
+            checked_mark = "\u2611"  # Checkbox with check mark
+        else:
+            unchecked = "[ ]"
+            checked_mark = "[X]"
+
+        # Select the appropriate box
+        box = checked_mark if self.checked else unchecked
+
+        # Build the full output
+        if self.label:
+            text = f"{box} {self.label}"
+        else:
+            text = box
+
+        # Resolve style based on state
+        if self.focused:
+            resolved_style = ctx.style_resolver.resolve_style(self, "checkbox:focus")
+        elif self.checked:
+            resolved_style = ctx.style_resolver.resolve_style(self, "checkbox:checked")
+        else:
+            resolved_style = ctx.style_resolver.resolve_style(self, "checkbox")
+
+        # Render text to buffer
+        ctx.write_text(0, 0, text, resolved_style)
 
 
 class CheckboxGroup(Element):
@@ -414,7 +472,19 @@ class CheckboxGroup(Element):
         return False
 
     def render(self) -> str:
-        """Render the checkbox group."""
+        """Render the checkbox group (LEGACY ANSI rendering).
+
+        Returns
+        -------
+        str
+            Rendered checkbox group with optional borders
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
+        """
         chars = BORDER_CHARS[self.border_style] if self.border_style else None
 
         lines = []
@@ -506,3 +576,192 @@ class CheckboxGroup(Element):
         else:
             # No borders
             return "\n".join(lines)
+
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render checkbox group using cell-based rendering.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method. The legacy render()
+        method is kept for backward compatibility.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'checkbox': For individual checkbox items
+        - 'checkbox:checked': For checked checkbox items
+        - 'frame.border': For the border (when border_style is not None)
+        - 'text.title': For the title text in border
+        """
+        from wijjit.styling.style import Style
+
+        # Determine if we have borders
+        has_border = self.border_style is not None
+        chars = BORDER_CHARS[self.border_style] if has_border else None
+
+        # Resolve border style
+        if has_border:
+            if self.focused:
+                # Cyan bold border when focused
+                border_style = Style(fg_color=(0, 255, 255), bold=True)
+            else:
+                border_style = ctx.style_resolver.resolve_style(self, "frame.border")
+
+        # Track current y position
+        y_pos = 0
+
+        # Draw top border with optional title
+        if has_border and chars:
+            if self.title:
+                title_text = f" {self.title} "
+                title_len = len(title_text)
+                remaining = self.width - title_len
+
+                if remaining >= 0:
+                    left_len = 1
+                    right_len = remaining - left_len
+                    # Draw top-left corner + left horizontal
+                    ctx.write_text(
+                        0, y_pos, chars["tl"] + chars["h"] * left_len, border_style
+                    )
+                    # Draw title
+                    title_style = ctx.style_resolver.resolve_style(self, "text.title")
+                    ctx.write_text(1 + left_len, y_pos, title_text, title_style)
+                    # Draw right horizontal + top-right corner
+                    ctx.write_text(
+                        1 + left_len + title_len,
+                        y_pos,
+                        chars["h"] * right_len + chars["tr"],
+                        border_style,
+                    )
+                else:
+                    # Title too long, clip it
+                    title_text = title_text[: self.width]
+                    ctx.write_text(0, y_pos, chars["tl"], border_style)
+                    title_style = ctx.style_resolver.resolve_style(self, "text.title")
+                    ctx.write_text(1, y_pos, title_text, title_style)
+                    ctx.write_text(
+                        1 + len(title_text), y_pos, chars["tr"], border_style
+                    )
+            else:
+                # No title, simple top border
+                top_border = chars["tl"] + chars["h"] * self.width + chars["tr"]
+                ctx.write_text(0, y_pos, top_border, border_style)
+
+            y_pos += 1
+
+        # Render checkboxes
+        if self.orientation == "vertical":
+            # Each checkbox on its own line
+            for i, opt in enumerate(self.options):
+                is_selected = opt["value"] in self.selected_values
+                is_highlighted = i == self.highlighted_index
+
+                # Determine checkbox character
+                if supports_unicode():
+                    box = "\u2611" if is_selected else "\u2610"
+                else:
+                    box = "[X]" if is_selected else "[ ]"
+
+                checkbox_text = f"{box} {opt['label']}"
+
+                # Resolve style
+                if is_highlighted and self.focused:
+                    # Highlighted: use reverse video
+                    base_style = ctx.style_resolver.resolve_style(self, "checkbox")
+                    checkbox_style = Style(
+                        fg_color=base_style.bg_color or (0, 0, 0),
+                        bg_color=base_style.fg_color or (255, 255, 255),
+                        reverse=True,
+                    )
+                elif is_selected:
+                    checkbox_style = ctx.style_resolver.resolve_style(
+                        self, "checkbox:checked"
+                    )
+                else:
+                    checkbox_style = ctx.style_resolver.resolve_style(self, "checkbox")
+
+                # Clip or pad to width
+                if len(checkbox_text) > self.width:
+                    checkbox_text = checkbox_text[: self.width]
+                else:
+                    checkbox_text = checkbox_text.ljust(self.width)
+
+                # Draw left border if present
+                x_offset = 0
+                if has_border and chars:
+                    ctx.write_text(0, y_pos, chars["v"], border_style)
+                    x_offset = 1
+
+                # Draw checkbox text
+                ctx.write_text(x_offset, y_pos, checkbox_text, checkbox_style)
+
+                # Draw right border if present
+                if has_border and chars:
+                    ctx.write_text(
+                        x_offset + self.width, y_pos, chars["v"], border_style
+                    )
+
+                y_pos += 1
+
+        else:
+            # Horizontal orientation - all on one line
+            x_offset = 0
+
+            # Draw left border if present
+            if has_border and chars:
+                ctx.write_text(0, y_pos, chars["v"], border_style)
+                x_offset = 1
+
+            # Render each checkbox side by side
+            for i, opt in enumerate(self.options):
+                is_selected = opt["value"] in self.selected_values
+                is_highlighted = i == self.highlighted_index
+
+                # Determine checkbox character
+                if supports_unicode():
+                    box = "\u2611" if is_selected else "\u2610"
+                else:
+                    box = "[X]" if is_selected else "[ ]"
+
+                checkbox_text = f"{box} {opt['label']}"
+
+                # Resolve style
+                if is_highlighted and self.focused:
+                    base_style = ctx.style_resolver.resolve_style(self, "checkbox")
+                    checkbox_style = Style(
+                        fg_color=base_style.bg_color or (0, 0, 0),
+                        bg_color=base_style.fg_color or (255, 255, 255),
+                        reverse=True,
+                    )
+                elif is_selected:
+                    checkbox_style = ctx.style_resolver.resolve_style(
+                        self, "checkbox:checked"
+                    )
+                else:
+                    checkbox_style = ctx.style_resolver.resolve_style(self, "checkbox")
+
+                # Render checkbox
+                ctx.write_text(x_offset, y_pos, checkbox_text, checkbox_style)
+                x_offset += len(checkbox_text) + 1  # +1 for space
+
+            # Pad remaining space and draw right border
+            if has_border and chars:
+                remaining = self.width - (x_offset - 1)
+                if remaining > 0:
+                    default_style = ctx.style_resolver.resolve_style(self, "checkbox")
+                    ctx.write_text(x_offset, y_pos, " " * remaining, default_style)
+                    x_offset += remaining
+                ctx.write_text(x_offset, y_pos, chars["v"], border_style)
+
+            y_pos += 1
+
+        # Draw bottom border
+        if has_border and chars:
+            bottom_border = chars["bl"] + chars["h"] * self.width + chars["br"]
+            ctx.write_text(0, y_pos, bottom_border, border_style)

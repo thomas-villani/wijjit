@@ -32,7 +32,7 @@ git clone https://github.com/yourusername/wijjit.git
 cd wijjit
 
 # Install in development mode with uv (recommended)
-uv pip install -e .
+uv sync --all-extras
 
 # Or with pip
 pip install -e .
@@ -54,15 +54,11 @@ app = Wijjit()
 def main_view():
     return {
         "template": "Hello, World! Press 'q' to quit.",
-        "on_enter": setup_handlers,
     }
 
-def setup_handlers():
-    def on_quit(event):
-        if event.key == "q":
-            app.quit()
-
-    app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
+@app.on_key("q")
+def on_quit():
+    app.quit()
 
 if __name__ == "__main__":
     app.run()

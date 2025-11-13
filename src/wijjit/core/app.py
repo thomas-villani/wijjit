@@ -911,14 +911,21 @@ class Wijjit:
                     term_size.lines,
                 )
 
-            # Clear screen and display output
+            # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)
 
             if not output.endswith(ANSIStyle.RESET):
                 output += ANSIStyle.RESET
 
-            self.screen_manager.clear()
-            self.screen_manager.move_cursor(1, 1)
+            # IMPORTANT: Don't clear screen when using cell-based rendering
+            # Cell-based rendering uses DiffRenderer which handles screen clearing internally:
+            # - When use_diff_rendering=True: Clears on first render, then only outputs diffs
+            # - When use_diff_rendering=False: Clears on every render (via DiffRenderer)
+            # Legacy ANSI rendering needs manual clear
+            if not self.renderer.use_cell_rendering:
+                self.screen_manager.clear()
+                self.screen_manager.move_cursor(1, 1)
+
             # Handle encoding for Windows console
             try:
                 print(output, end="", flush=True)

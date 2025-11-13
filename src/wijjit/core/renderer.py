@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
+from wijjit.layout.bounds import Bounds
+
 if TYPE_CHECKING:
     from wijjit.core.overlay import OverlayManager
 
@@ -18,6 +20,10 @@ from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import render_vertical_scrollbar
 from wijjit.logging_config import get_logger
+from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+from wijjit.rendering.paint_context import PaintContext
+from wijjit.styling.resolver import StyleResolver
+from wijjit.styling.theme import ThemeManager
 from wijjit.tags.dialogs import (
     AlertDialogExtension,
     ConfirmDialogExtension,
@@ -58,6 +64,7 @@ from wijjit.tags.menu import (
     MenuItemExtension,
 )
 from wijjit.terminal.ansi import clip_to_width
+from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -132,6 +139,33 @@ class Renderer:
 
         # Cache for string templates
         self._string_templates: dict[str, Template] = {}
+
+        # Theme management for cell-based rendering
+        self.theme_manager = ThemeManager()
+
+        # Feature flag for cell-based rendering (can be disabled for debugging)
+        self.use_cell_rendering = (
+            os.environ.get("WIJJIT_CELL_RENDERING", "true").lower() == "true"
+        )
+
+        # Feature flag for diff rendering (disabled by default until element migration completes)
+        # When False, forces full screen re-renders on every frame
+        # When True, only renders changed cells (more efficient but requires careful state management)
+        #
+        # TODO: Enable diff rendering by default once element migration is complete
+        # The issue is not with ANSI->cell conversion (that works), but with terminal state
+        # synchronization. Diff rendering assumes terminal preserves old content, but without
+        # proper dirty region tracking (Stage 4 in migration plan), we can't guarantee which
+        # cells need updating. Full renders work reliably for now.
+        self.use_diff_rendering = (
+            os.environ.get("WIJJIT_DIFF_RENDERING", "false").lower() == "true"
+        )
+
+        # Last rendered buffer for diff rendering
+        self._last_buffer: ScreenBuffer | None = None
+
+        # Diff renderer for efficient incremental updates
+        self._diff_renderer = DiffRenderer()
 
         # Add custom filters
         self._setup_filters()
@@ -321,7 +355,17 @@ class Renderer:
 
         # Compose output from positioned elements
         # Use layout_height (not full height) so output doesn't extend into statusbar area
-        output = self._compose_output(elements, width, layout_height, layout_ctx.root)
+        # Choose rendering path based on feature flag
+        if self.use_cell_rendering:
+            logger.debug("Using cell-based rendering")
+            output = self._compose_output_cells(
+                elements, width, layout_height, layout_ctx.root
+            )
+        else:
+            logger.debug("Using legacy ANSI rendering")
+            output = self._compose_output(
+                elements, width, layout_height, layout_ctx.root
+            )
 
         # Return layout context so caller can process overlays
         # This allows app._render() to manage overlay lifecycle properly
@@ -464,6 +508,416 @@ class Renderer:
             "".join(cell if cell else " " for cell in row) for row in buffer
         )
 
+    def _compose_output_cells(
+        self,
+        elements: list[Element],
+        width: int,
+        height: int,
+        root: Optional["LayoutNode"] = None,
+    ) -> str:
+        """Compose final output using cell-based rendering.
+
+        This method implements the NEW cell-based rendering pipeline with
+        theme support and efficient diff rendering capabilities.
+
+        Parameters
+        ----------
+        elements : list of Element
+            Elements with assigned bounds
+        width : int
+            Output width
+        height : int
+            Output height
+        root : LayoutNode, optional
+            Root of layout tree (for frame rendering)
+
+        Returns
+        -------
+        str
+            Composed ANSI output for terminal
+
+        Notes
+        -----
+        This method creates a ScreenBuffer, renders all elements to cells,
+        and converts the buffer to ANSI output. Elements are rendered in
+        z-order (first to last).
+
+        Elements can implement render_to(ctx) for cell-based rendering,
+        or fall back to render() for legacy ANSI string rendering.
+        """
+        # Create screen buffer
+        buffer = ScreenBuffer(width, height)
+        style_resolver = StyleResolver(self.theme_manager.get_theme())
+
+        # First pass: Render frame borders if we have a layout tree
+        if root is not None:
+            self._render_frames_to_buffer(root, buffer, style_resolver)
+
+        # Second pass: Render elements to the buffer
+        for element in elements:
+            if element.bounds is None:
+                continue
+
+            # Check if element is inside a scrollable frame
+            scroll_offset = 0
+            frame_clip_top = None
+            frame_clip_bottom = None
+
+            if hasattr(element, "parent_frame") and element.parent_frame is not None:
+                parent = element.parent_frame
+                if parent.style.scrollable and parent._needs_scroll:
+                    scroll_offset = parent.get_scroll_offset()
+
+                    # Calculate frame's visible content area for clipping
+                    if parent.bounds is not None:
+                        padding_top, _, padding_bottom, _ = parent.style.padding
+                        frame_clip_top = (
+                            parent.bounds.y + 1 + padding_top
+                        )  # +1 for top border
+                        frame_clip_bottom = (
+                            parent.bounds.y + parent.bounds.height - padding_bottom
+                        )
+
+            # Adjust element bounds for scroll offset
+            from wijjit.layout.bounds import Bounds
+
+            adjusted_bounds = Bounds(
+                x=element.bounds.x,
+                y=element.bounds.y - scroll_offset,
+                width=element.bounds.width,
+                height=element.bounds.height,
+            )
+
+            # Skip if element is completely outside visible area
+            if frame_clip_top is not None:
+                if adjusted_bounds.y + adjusted_bounds.height <= frame_clip_top:
+                    continue
+                if adjusted_bounds.y >= frame_clip_bottom:
+                    continue
+
+            # Create paint context for this element
+            ctx = PaintContext(
+                buffer=buffer,
+                style_resolver=style_resolver,
+                bounds=adjusted_bounds,
+            )
+
+            # Try NEW cell-based rendering path first
+            try:
+                if hasattr(element, "render_to") and callable(element.render_to):
+                    element.render_to(ctx)
+                    continue
+            except (NotImplementedError, AttributeError):
+                pass
+
+            # LEGACY PATH: Fall back to render() + ANSI conversion
+            ansi_content = element.render()
+            self._write_ansi_to_buffer(
+                ansi_content, buffer, adjusted_bounds, frame_clip_top, frame_clip_bottom
+            )
+
+        # Convert buffer to ANSI string for terminal output
+        # IMPORTANT: Do this BEFORE storing buffer, so diff renderer compares
+        # old buffer (or None) with new buffer, not new buffer with itself!
+        output = self._buffer_to_ansi(buffer)
+
+        # Store buffer for next render's diff (after converting!)
+        self._last_buffer = buffer
+
+        return output
+
+    def _render_frames_to_buffer(
+        self, node: "LayoutNode", buffer: ScreenBuffer, style_resolver: StyleResolver
+    ) -> None:
+        """Recursively render frame borders to cell buffer.
+
+        Parameters
+        ----------
+        node : LayoutNode
+            Current layout node
+        buffer : ScreenBuffer
+            Target buffer
+        style_resolver : StyleResolver
+            Style resolver for theme styles
+
+        Notes
+        -----
+        This recursively walks the layout tree and renders frame borders
+        to the cell buffer. Frame content is not rendered here - only
+        the border decorations.
+        """
+        # Render this frame's border if it's a FrameNode
+        if isinstance(node, FrameNode) and node.frame.bounds is not None:
+            frame = node.frame
+            bounds = frame.bounds
+            style = frame.style
+
+            # Resolve frame border style from theme
+            border_style = style_resolver.resolve_style_by_class("frame.border")
+
+            # Get border characters
+            border_chars = BORDER_CHARS.get(
+                style.border, BORDER_CHARS[BorderStyle.SINGLE]
+            )
+
+            # Create paint context for frame
+            ctx = PaintContext(buffer, style_resolver, bounds)
+
+            # Draw frame border
+            ctx.draw_border(
+                0, 0, bounds.width, bounds.height, border_style, border_chars
+            )
+
+            # Draw title if present
+            if style.title:
+                from wijjit.terminal.ansi import visible_length
+
+                title_text = f" {style.title} "
+                title_len = visible_length(title_text)
+
+                # Position title on top border
+                title_x = max(1, (bounds.width - title_len) // 2)
+                if title_x + title_len < bounds.width - 1:
+                    # Resolve title style
+                    title_style = style_resolver.resolve_style_by_class("text.title")
+                    ctx.write_text(title_x, 0, title_text, title_style, clip=True)
+
+        # Recursively render children
+        if isinstance(node, Container):
+            for child in node.children:
+                self._render_frames_to_buffer(child, buffer, style_resolver)
+
+    def _write_ansi_to_buffer(
+        self,
+        ansi_str: str,
+        buffer: ScreenBuffer,
+        bounds: Bounds,
+        clip_top: int | None = None,
+        clip_bottom: int | None = None,
+    ) -> None:
+        """Write ANSI string to cell buffer (legacy element support).
+
+        Parameters
+        ----------
+        ansi_str : str
+            ANSI string from legacy render() method
+        buffer : ScreenBuffer
+            Target buffer
+        bounds : Bounds
+            Element bounds
+        clip_top : int, optional
+            Top clipping boundary (for scrollable frames)
+        clip_bottom : int, optional
+            Bottom clipping boundary (for scrollable frames)
+
+        Notes
+        -----
+        This method converts ANSI strings to cells and writes them to the
+        buffer. Used for elements that haven't been migrated to cell-based
+        rendering yet.
+        """
+        lines = ansi_str.split("\n")
+
+        for i, line in enumerate(lines):
+            y = bounds.y + i
+            if y >= buffer.height:
+                break
+
+            # Apply clipping if specified
+            if clip_top is not None and (y < clip_top or y >= clip_bottom):
+                continue
+
+            # Convert line to cells
+            line_cells = ansi_string_to_cells(line)
+
+            # Write cells to buffer
+            x_offset = 0
+            for cell in line_cells:
+                if x_offset >= bounds.width:
+                    break
+
+                buffer.set_cell(bounds.x + x_offset, y, cell)
+                x_offset += 1
+
+    def _buffer_to_ansi(self, buffer: ScreenBuffer) -> str:
+        """Convert cell buffer to ANSI string for terminal output.
+
+        Parameters
+        ----------
+        buffer : ScreenBuffer
+            Source buffer
+
+        Returns
+        -------
+        str
+            ANSI string representation
+
+        Notes
+        -----
+        This method uses DiffRenderer for efficient output generation.
+
+        When use_diff_rendering is True:
+            First render is full (with screen clear), subsequent renders
+            only output changes (diffs).
+
+        When use_diff_rendering is False:
+            Always does full render with screen clear. This is more
+            reliable but less efficient.
+        """
+        if self.use_diff_rendering:
+            # Diff mode: compare with last buffer and only output changes
+            return self._diff_renderer.render_diff(self._last_buffer, buffer)
+        else:
+            # Full render mode: always clear and redraw everything
+            return self._diff_renderer.render_diff(None, buffer)
+
+    def get_last_buffer(self) -> ScreenBuffer | None:
+        """Get the last rendered buffer for external diff rendering.
+
+        Returns
+        -------
+        ScreenBuffer or None
+            Last rendered buffer, or None if not yet rendered
+        """
+        return self._last_buffer
+
+    def get_buffer_as_text(self) -> str:
+        """Get the last rendered buffer as plain text (for testing).
+
+        Returns
+        -------
+        str
+            Plain text representation of the last buffer
+
+        Notes
+        -----
+        This is primarily used for test assertions where you want to check
+        for visible text content without parsing ANSI escape sequences.
+        Returns empty string if no buffer has been rendered yet.
+
+        Examples
+        --------
+        >>> renderer = Renderer()
+        >>> output, _, _ = renderer.render_with_layout(template, 80, 24)
+        >>> text = renderer.get_buffer_as_text()
+        >>> 'Welcome' in text
+        True
+        """
+        if self._last_buffer is None:
+            return ""
+        return self._last_buffer.to_text()
+
+    def _composite_overlays_cells(
+        self,
+        overlay_elements: list[Element],
+        width: int,
+        height: int,
+        apply_dimming: bool = False,
+        dim_factor: float = 0.6,
+    ) -> str:
+        """Composite overlay elements on cell buffer.
+
+        Parameters
+        ----------
+        overlay_elements : list of Element
+            Overlay elements to render
+        width : int
+            Screen width
+        height : int
+            Screen height
+        apply_dimming : bool
+            Whether to dim the base
+        dim_factor : float
+            Dimming intensity
+
+        Returns
+        -------
+        str
+            ANSI output with overlays composited
+
+        Notes
+        -----
+        This method composites overlays directly on the cell buffer,
+        then renders the entire result. This is cell-aware and works
+        correctly with diff rendering.
+        """
+
+        # Create a new buffer for compositing (copy last buffer to preserve base)
+        composite_buffer = ScreenBuffer(width, height)
+
+        # Copy cells from last buffer (deep copy to avoid mutating original)
+        if self._last_buffer:
+            from copy import copy
+
+            for y in range(min(height, self._last_buffer.height)):
+                for x in range(min(width, self._last_buffer.width)):
+                    # Create a copy of the cell to avoid mutating the original
+                    original_cell = self._last_buffer.cells[y][x]
+                    composite_buffer.cells[y][x] = copy(original_cell)
+
+        # Apply dimming to base if requested
+        if apply_dimming:
+            for y in range(height):
+                for x in range(width):
+                    cell = composite_buffer.cells[y][x]
+                    # Dim by reducing RGB values
+                    if cell.fg_color:
+                        r, g, b = cell.fg_color
+                        cell.fg_color = (
+                            int(r * dim_factor),
+                            int(g * dim_factor),
+                            int(b * dim_factor),
+                        )
+                    if cell.bg_color:
+                        r, g, b = cell.bg_color
+                        cell.bg_color = (
+                            int(r * dim_factor),
+                            int(g * dim_factor),
+                            int(b * dim_factor),
+                        )
+
+        # Render overlays onto composite buffer
+        style_resolver = StyleResolver(self.theme_manager.get_theme())
+
+        for element in overlay_elements:
+            if element.bounds is None:
+                continue
+
+            # Create paint context for overlay element
+            ctx = PaintContext(
+                buffer=composite_buffer,
+                style_resolver=style_resolver,
+                bounds=element.bounds,
+            )
+
+            # Try cell-based rendering
+            try:
+                if hasattr(element, "render_to") and callable(element.render_to):
+                    element.render_to(ctx)
+                    continue
+            except (NotImplementedError, AttributeError):
+                pass
+
+            # Fall back to legacy ANSI rendering
+            ansi_content = element.render()
+            self._write_ansi_to_buffer(
+                ansi_content, composite_buffer, element.bounds, None, None
+            )
+
+        # Now render the composite buffer
+        # Since overlays change the buffer, we need to update _last_buffer
+        # and render the diff (respecting the use_diff_rendering flag)
+        if self.use_diff_rendering:
+            output = self._diff_renderer.render_diff(
+                self._last_buffer, composite_buffer
+            )
+        else:
+            output = self._diff_renderer.render_diff(None, composite_buffer)
+
+        self._last_buffer = composite_buffer
+
+        return output
+
     def composite_overlays(
         self,
         base_output: str,
@@ -481,7 +935,7 @@ class Renderer:
         Parameters
         ----------
         base_output : str
-            Base UI output (newline-separated lines)
+            Base UI output (ANSI string or newline-separated lines)
         overlay_elements : list of Element
             Overlay elements with assigned bounds (in z-order, lowest first)
         width : int
@@ -503,7 +957,17 @@ class Renderer:
         Overlays are rendered in the order provided (first = bottom, last = top).
         If apply_dimming is True, the base output is dimmed before overlays
         are composited.
+
+        For cell-based rendering, overlays are composited directly on the buffer.
+        For legacy ANSI rendering, overlays are composited on string lines.
         """
+        # If using cell-based rendering and we have a buffer, composite on buffer
+        if self.use_cell_rendering and self._last_buffer is not None:
+            return self._composite_overlays_cells(
+                overlay_elements, width, height, apply_dimming, dim_factor
+            )
+
+        # Legacy ANSI string compositing
         from wijjit.terminal.ansi import apply_backdrop_dim, clip_to_width
 
         # Convert base output to buffer

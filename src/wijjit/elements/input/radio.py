@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
@@ -13,6 +13,9 @@ from wijjit.terminal.ansi import (
 )
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
 
 
 class Radio(Element):
@@ -186,12 +189,18 @@ class Radio(Element):
         return False
 
     def render(self) -> str:
-        """Render the radio button.
+        """Render the radio button (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered radio button with label
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         # Determine radio characters based on unicode support
         if supports_unicode():
@@ -220,6 +229,55 @@ class Radio(Element):
         else:
             # Not focused: plain style
             return f"{ANSIStyle.RESET}{output}{ANSIStyle.RESET}"
+
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render radio button using cell-based rendering.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method. The legacy render()
+        method is kept for backward compatibility.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'radio': Base style
+        - 'radio:focus': When element has focus
+        - 'radio:selected': When radio is selected
+        """
+
+        # Determine radio characters based on unicode support
+        if supports_unicode():
+            unchecked = "\u25cb"  # Empty circle
+            checked_mark = "\u25c9"  # Filled circle
+        else:
+            unchecked = "( )"
+            checked_mark = "(*)"
+
+        # Select the appropriate circle
+        circle = checked_mark if self.checked else unchecked
+
+        # Build the full output
+        if self.label:
+            text = f"{circle} {self.label}"
+        else:
+            text = circle
+
+        # Resolve style based on state
+        if self.focused:
+            resolved_style = ctx.style_resolver.resolve_style(self, "radio:focus")
+        elif self.checked:
+            resolved_style = ctx.style_resolver.resolve_style(self, "radio:selected")
+        else:
+            resolved_style = ctx.style_resolver.resolve_style(self, "radio")
+
+        # Render text to buffer
+        ctx.write_text(0, 0, text, resolved_style)
 
 
 class RadioGroup(Element):
@@ -479,7 +537,19 @@ class RadioGroup(Element):
         return False
 
     def render(self) -> str:
-        """Render the radio group."""
+        """Render the radio group (LEGACY ANSI rendering).
+
+        Returns
+        -------
+        str
+            Rendered radio group with optional borders
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
+        """
         chars = BORDER_CHARS[self.border_style] if self.border_style else None
 
         lines = []
@@ -573,3 +643,192 @@ class RadioGroup(Element):
         else:
             # No borders
             return "\n".join(lines)
+
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render radio group using cell-based rendering.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method. The legacy render()
+        method is kept for backward compatibility.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'radio': For individual radio button items
+        - 'radio:selected': For selected radio button
+        - 'frame.border': For the border (when border_style is not None)
+        - 'text.title': For the title text in border
+        """
+        from wijjit.styling.style import Style
+
+        # Determine if we have borders
+        has_border = self.border_style is not None
+        chars = BORDER_CHARS[self.border_style] if has_border else None
+
+        # Resolve border style
+        if has_border:
+            if self.focused:
+                # Cyan bold border when focused
+                border_style = Style(fg_color=(0, 255, 255), bold=True)
+            else:
+                border_style = ctx.style_resolver.resolve_style(self, "frame.border")
+
+        # Track current y position
+        y_pos = 0
+
+        # Draw top border with optional title
+        if has_border and chars:
+            if self.title:
+                title_text = f" {self.title} "
+                title_len = len(title_text)
+                remaining = self.width - title_len
+
+                if remaining >= 0:
+                    left_len = 1
+                    right_len = remaining - left_len
+                    # Draw top-left corner + left horizontal
+                    ctx.write_text(
+                        0, y_pos, chars["tl"] + chars["h"] * left_len, border_style
+                    )
+                    # Draw title
+                    title_style = ctx.style_resolver.resolve_style(self, "text.title")
+                    ctx.write_text(1 + left_len, y_pos, title_text, title_style)
+                    # Draw right horizontal + top-right corner
+                    ctx.write_text(
+                        1 + left_len + title_len,
+                        y_pos,
+                        chars["h"] * right_len + chars["tr"],
+                        border_style,
+                    )
+                else:
+                    # Title too long, clip it
+                    title_text = title_text[: self.width]
+                    ctx.write_text(0, y_pos, chars["tl"], border_style)
+                    title_style = ctx.style_resolver.resolve_style(self, "text.title")
+                    ctx.write_text(1, y_pos, title_text, title_style)
+                    ctx.write_text(
+                        1 + len(title_text), y_pos, chars["tr"], border_style
+                    )
+            else:
+                # No title, simple top border
+                top_border = chars["tl"] + chars["h"] * self.width + chars["tr"]
+                ctx.write_text(0, y_pos, top_border, border_style)
+
+            y_pos += 1
+
+        # Render radio buttons
+        if self.orientation == "vertical":
+            # Each radio button on its own line
+            for i, opt in enumerate(self.options):
+                is_selected = i == self.selected_index
+                is_highlighted = i == self.highlighted_index
+
+                # Determine radio character
+                if supports_unicode():
+                    circle = "\u25c9" if is_selected else "\u25cb"
+                else:
+                    circle = "(*)" if is_selected else "( )"
+
+                radio_text = f"{circle} {opt['label']}"
+
+                # Resolve style
+                if is_highlighted and self.focused:
+                    # Highlighted: use reverse video
+                    base_style = ctx.style_resolver.resolve_style(self, "radio")
+                    radio_style = Style(
+                        fg_color=base_style.bg_color or (0, 0, 0),
+                        bg_color=base_style.fg_color or (255, 255, 255),
+                        reverse=True,
+                    )
+                elif is_selected:
+                    radio_style = ctx.style_resolver.resolve_style(
+                        self, "radio:selected"
+                    )
+                else:
+                    radio_style = ctx.style_resolver.resolve_style(self, "radio")
+
+                # Clip or pad to width
+                if len(radio_text) > self.width:
+                    radio_text = radio_text[: self.width]
+                else:
+                    radio_text = radio_text.ljust(self.width)
+
+                # Draw left border if present
+                x_offset = 0
+                if has_border and chars:
+                    ctx.write_text(0, y_pos, chars["v"], border_style)
+                    x_offset = 1
+
+                # Draw radio text
+                ctx.write_text(x_offset, y_pos, radio_text, radio_style)
+
+                # Draw right border if present
+                if has_border and chars:
+                    ctx.write_text(
+                        x_offset + self.width, y_pos, chars["v"], border_style
+                    )
+
+                y_pos += 1
+
+        else:
+            # Horizontal orientation - all on one line
+            x_offset = 0
+
+            # Draw left border if present
+            if has_border and chars:
+                ctx.write_text(0, y_pos, chars["v"], border_style)
+                x_offset = 1
+
+            # Render each radio button side by side
+            for i, opt in enumerate(self.options):
+                is_selected = i == self.selected_index
+                is_highlighted = i == self.highlighted_index
+
+                # Determine radio character
+                if supports_unicode():
+                    circle = "\u25c9" if is_selected else "\u25cb"
+                else:
+                    circle = "(*)" if is_selected else "( )"
+
+                radio_text = f"{circle} {opt['label']}"
+
+                # Resolve style
+                if is_highlighted and self.focused:
+                    base_style = ctx.style_resolver.resolve_style(self, "radio")
+                    radio_style = Style(
+                        fg_color=base_style.bg_color or (0, 0, 0),
+                        bg_color=base_style.fg_color or (255, 255, 255),
+                        reverse=True,
+                    )
+                elif is_selected:
+                    radio_style = ctx.style_resolver.resolve_style(
+                        self, "radio:selected"
+                    )
+                else:
+                    radio_style = ctx.style_resolver.resolve_style(self, "radio")
+
+                # Render radio button
+                ctx.write_text(x_offset, y_pos, radio_text, radio_style)
+                x_offset += len(radio_text) + 1  # +1 for space
+
+            # Pad remaining space and draw right border
+            if has_border and chars:
+                remaining = self.width - (x_offset - 1)
+                if remaining > 0:
+                    default_style = ctx.style_resolver.resolve_style(self, "radio")
+                    ctx.write_text(x_offset, y_pos, " " * remaining, default_style)
+                    x_offset += remaining
+                ctx.write_text(x_offset, y_pos, chars["v"], border_style)
+
+            y_pos += 1
+
+        # Draw bottom border
+        if has_border and chars:
+            bottom_border = chars["bl"] + chars["h"] * self.width + chars["br"]
+            ctx.write_text(0, y_pos, bottom_border, border_style)

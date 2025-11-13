@@ -1,10 +1,12 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
+from enum import Enum, auto
 from typing import Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.rendering import PaintContext
 from wijjit.terminal.ansi import (
     ANSIColor,
     ANSIStyle,
@@ -16,6 +18,21 @@ from wijjit.terminal.ansi import (
 )
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+
+class InputStyle(Enum):
+    """Visual style for text input rendering.
+
+    This enum defines different border and decoration styles for text inputs.
+    Each style provides a distinct visual appearance while maintaining
+    single-line height.
+    """
+
+    BRACKETS = auto()  # [ text... ] - Square brackets
+    BOX = auto()  # ├─────────┤ - Box drawing characters
+    BLOCK = auto()  # ▐text    ▌ - Block characters
+    UNDERLINE = auto()  # text_____ - Underline only
+    MINIMAL = auto()  # text with styling only
 
 
 class TextInput(Element):
@@ -30,9 +47,11 @@ class TextInput(Element):
     value : str, optional
         Initial value
     width : int, optional
-        Display width (default: 20)
+        Display width for content (default: 20), excludes borders
     max_length : int, optional
         Maximum input length
+    style : InputStyle, optional
+        Visual style for input rendering (default: BRACKETS)
 
     Attributes
     ----------
@@ -43,9 +62,22 @@ class TextInput(Element):
     cursor_pos : int
         Cursor position in the text
     width : int
-        Display width
+        Display width for content (excludes borders)
     max_length : int or None
         Maximum input length
+    style : InputStyle
+        Visual style for rendering
+
+    Examples
+    --------
+    Create a basic text input:
+
+    >>> inp = TextInput(placeholder="Enter name...")
+
+    Create input with different styles:
+
+    >>> inp = TextInput(placeholder="Email", style=InputStyle.BOX, width=30)
+    >>> inp = TextInput(value="Default", style=InputStyle.UNDERLINE)
     """
 
     def __init__(
@@ -55,6 +87,7 @@ class TextInput(Element):
         value: str = "",
         width: int = 20,
         max_length: int | None = None,
+        style: InputStyle = InputStyle.BRACKETS,
     ):
         super().__init__(id)
         self.element_type = ElementType.INPUT
@@ -64,6 +97,7 @@ class TextInput(Element):
         self.cursor_pos = len(value)
         self.width = width
         self.max_length = max_length
+        self.style = style
 
         # Callbacks for value changes and actions
         self.on_change: Callable[[str, str], None] | None = (
@@ -181,39 +215,222 @@ class TextInput(Element):
         new_value : str
             New value
         """
-        if self.on_change and old_value != new_value:
+        if self.on_change is not None and old_value != new_value:
             self.on_change(old_value, new_value)
 
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render text input using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the reference implementation for text input cell-based rendering.
+        It demonstrates how to:
+        1. Handle text that exceeds display width (scrolling)
+        2. Render cursor position with proper styling
+        3. Show placeholder text when empty
+        4. Apply different border styles
+        5. Resolve styles based on focus state
+
+        The input renders as a single line with decorative borders and cursor
+        indication when focused.
+        """
+        from wijjit.styling.style import Style
+
+        # Resolve style based on input state
+        if self.focused:
+            resolved_style = ctx.style_resolver.resolve_style(self, "input:focus")
+        else:
+            resolved_style = ctx.style_resolver.resolve_style(self, "input")
+
+        # Determine display text (value or placeholder)
+        display_text = self.value if self.value else self.placeholder
+        # use_placeholder = not self.value
+
+        # Calculate scroll offset for long text
+        scroll_offset = 0
+        if len(display_text) > self.width:
+            # Scroll to keep cursor visible
+            if self.cursor_pos >= self.width:
+                scroll_offset = self.cursor_pos - self.width + 1
+
+        # Get visible portion of text
+        visible_text = display_text[scroll_offset : scroll_offset + self.width]
+
+        # Pad to width
+        if len(visible_text) < self.width:
+            visible_text = visible_text.ljust(self.width)
+
+        # Calculate visible cursor position
+        visible_cursor_pos = self.cursor_pos - scroll_offset
+
+        # Apply cursor if focused
+        if self.focused and 0 <= visible_cursor_pos <= len(visible_text):
+            # Apply reverse video to cursor position
+            before = visible_text[:visible_cursor_pos]
+            cursor_char = (
+                visible_text[visible_cursor_pos]
+                if visible_cursor_pos < len(visible_text)
+                else " "
+            )
+            after = visible_text[visible_cursor_pos + 1 :]
+
+            # Create style with reverse video for cursor
+            cursor_style = Style(
+                fg_color=resolved_style.bg_color or (0, 0, 0),
+                bg_color=resolved_style.fg_color or (255, 255, 255),
+                bold=resolved_style.bold,
+                italic=resolved_style.italic,
+            )
+
+            # Render based on visual style
+            x_offset = 0
+
+            if self.style == InputStyle.BRACKETS:
+                # [ text... ]
+                ctx.write_text(0, 0, "[", resolved_style)
+                x_offset = 1
+
+                # Render text with cursor
+                ctx.write_text(x_offset, 0, before, resolved_style)
+                ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
+                ctx.write_text(x_offset + len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(x_offset + self.width, 0, "]", resolved_style)
+
+            elif self.style == InputStyle.BOX:
+                # ├─────────┤
+                ctx.write_text(0, 0, "\u251c", resolved_style)  # ├
+                x_offset = 1
+
+                # Render text with cursor
+                ctx.write_text(x_offset, 0, before, resolved_style)
+                ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
+                ctx.write_text(x_offset + len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(x_offset + self.width, 0, "\u2524", resolved_style)  # ┤
+
+            elif self.style == InputStyle.BLOCK:
+                # ▐text    ▌
+                ctx.write_text(0, 0, "\u258c", resolved_style)  # ▌
+                x_offset = 1
+
+                # Render text with cursor
+                ctx.write_text(x_offset, 0, before, resolved_style)
+                ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
+                ctx.write_text(x_offset + len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(x_offset + self.width, 0, "\u2590", resolved_style)  # ▐
+
+            elif self.style == InputStyle.UNDERLINE:
+                # text with underline
+                underline_style = Style(
+                    fg_color=resolved_style.fg_color,
+                    bg_color=resolved_style.bg_color,
+                    bold=resolved_style.bold,
+                    italic=resolved_style.italic,
+                    underline=True,
+                )
+
+                # Render text with cursor
+                ctx.write_text(0, 0, before, underline_style)
+                ctx.write_text(len(before), 0, cursor_char, cursor_style)
+                ctx.write_text(len(before) + 1, 0, after, underline_style)
+
+            elif self.style == InputStyle.MINIMAL:
+                # Just text with styling
+                # Render text with cursor
+                ctx.write_text(0, 0, before, resolved_style)
+                ctx.write_text(len(before), 0, cursor_char, cursor_style)
+                ctx.write_text(len(before) + 1, 0, after, resolved_style)
+
+        else:
+            # Not focused or cursor out of bounds - render without cursor
+            x_offset = 0
+
+            if self.style == InputStyle.BRACKETS:
+                ctx.write_text(0, 0, "[", resolved_style)
+                x_offset = 1
+                ctx.write_text(x_offset, 0, visible_text, resolved_style)
+                ctx.write_text(x_offset + self.width, 0, "]", resolved_style)
+
+            elif self.style == InputStyle.BOX:
+                ctx.write_text(0, 0, "\u251c", resolved_style)  # ├
+                x_offset = 1
+                ctx.write_text(x_offset, 0, visible_text, resolved_style)
+                ctx.write_text(x_offset + self.width, 0, "\u2524", resolved_style)  # ┤
+
+            elif self.style == InputStyle.BLOCK:
+                ctx.write_text(0, 0, "\u258c", resolved_style)  # ▌
+                x_offset = 1
+                ctx.write_text(x_offset, 0, visible_text, resolved_style)
+                ctx.write_text(x_offset + self.width, 0, "\u2590", resolved_style)  # ▐
+
+            elif self.style == InputStyle.UNDERLINE:
+                underline_style = Style(
+                    fg_color=resolved_style.fg_color,
+                    bg_color=resolved_style.bg_color,
+                    bold=resolved_style.bold,
+                    italic=resolved_style.italic,
+                    underline=True,
+                )
+                ctx.write_text(0, 0, visible_text, underline_style)
+
+            elif self.style == InputStyle.MINIMAL:
+                ctx.write_text(0, 0, visible_text, resolved_style)
+
     def render(self) -> str:
-        """Render the text input.
+        """Render the text input (LEGACY ANSI rendering).
 
         Returns
         -------
         str
-            Rendered input field
+            Rendered input field with ANSI styling
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         display_text = self.value if self.value else self.placeholder
 
-        # Truncate or pad to width
+        # Calculate scroll offset for long text
+        scroll_offset = 0
         if len(display_text) > self.width:
-            # Show end of text if cursor is there
-            if self.cursor_pos >= self.width - 3:
-                display_text = "..." + display_text[-(self.width - 3) :]
-            else:
-                display_text = display_text[: self.width - 3] + "..."
-        else:
-            display_text = display_text.ljust(self.width)
+            # Scroll to keep cursor visible
+            if self.cursor_pos >= self.width:
+                scroll_offset = self.cursor_pos - self.width + 1
+
+        # Get visible portion and pad
+        visible_text = display_text[scroll_offset : scroll_offset + self.width]
+        visible_text = visible_text.ljust(self.width)
 
         # Style based on focus
         if self.focused:
-            # Focused: show cursor with proper ANSI isolation
-            # Reset at start to clear any previous styling, and at end to prevent bleeding
-            result = f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.CYAN}[{display_text}]{ANSIStyle.RESET}"
+            styles = f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.CYAN}"
+            reset = ANSIStyle.RESET
         else:
-            # Not focused: plain style with explicit reset to prevent inheriting styles
-            result = f"{ANSIStyle.RESET}[{display_text}]{ANSIStyle.RESET}"
+            styles = ANSIStyle.RESET
+            reset = ANSIStyle.RESET
 
-        return result
+        # Render based on visual style
+        if self.style == InputStyle.BRACKETS:
+            text = f"[{visible_text}]"
+        elif self.style == InputStyle.BOX:
+            text = f"\u251c{visible_text}\u2524"  # ├ and ┤
+        elif self.style == InputStyle.BLOCK:
+            text = f"\u258c{visible_text}\u2590"  # ▌ and ▐
+        elif self.style == InputStyle.UNDERLINE:
+            # Use underline ANSI code
+            text = f"{ANSIStyle.UNDERLINE}{visible_text}"
+        elif self.style == InputStyle.MINIMAL:
+            text = visible_text
+        else:
+            text = f"[{visible_text}]"  # Default fallback
+
+        return f"{styles}{text}{reset}"
 
 
 class TextArea(Element):

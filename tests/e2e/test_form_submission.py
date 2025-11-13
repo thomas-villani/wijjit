@@ -12,6 +12,7 @@ from wijjit.core.events import ActionEvent
 from .helpers import (
     assert_element_focused,
     get_element_by_id,
+    get_rendered_text,
     render_view,
     simulate_button_click,
     simulate_tab_navigation,
@@ -138,7 +139,8 @@ class TestLoginFormJourney:
 
         # Step 9: Verify dashboard renders correctly
         output, _ = render_view(app, "dashboard")
-        assert "Welcome, admin" in output
+        rendered_text = get_rendered_text(app)
+        assert "Welcome, admin" in rendered_text
 
     def test_failed_login_flow(self):
         """Test end-to-end failed login flow.
@@ -216,7 +218,8 @@ class TestLoginFormJourney:
 
         # Verify error message appears when re-rendered
         output, _ = render_view(app, "login")
-        assert "Invalid credentials" in output
+        rendered_text = get_rendered_text(app)
+        assert "Invalid credentials" in rendered_text
 
 
 class TestRegistrationFormJourney:
@@ -292,7 +295,13 @@ class TestRegistrationFormJourney:
 
         @app.view("success")
         def success_view():
-            return {"template": "Registration successful for {{ new_user }}!"}
+            return {
+                "template": """
+{% frame width=50 height=10 title="Success" %}
+    Registration successful for {{ new_user }}!
+{% endframe %}
+                """
+            }
 
         # Step 1: Verify initial state
         assert app.current_view == "register"
@@ -325,7 +334,8 @@ class TestRegistrationFormJourney:
 
         # Verify success message renders
         output, _ = render_view(app, "success")
-        assert "Registration successful for newuser" in output
+        rendered_text = get_rendered_text(app)
+        assert "Registration successful for newuser" in rendered_text
 
 
 class TestMultiStepFormJourney:
@@ -380,14 +390,21 @@ class TestMultiStepFormJourney:
 
         @app.view("confirmation")
         def confirmation_view():
-            return {"template": "Thank you! Your submission is complete."}
+            return {
+                "template": """
+{% frame width=50 height=10 title="Confirmation" %}
+    Thank you! Your submission is complete.
+{% endframe %}
+                """
+            }
 
         # Step 1: Verify initial state
         assert app.state["wizard_step"] == 1
 
         # Step 2: Render step 1 and click Next
         output, elements = render_view(app, "wizard")
-        assert "Step 1: Personal Info" in output
+        rendered_text = get_rendered_text(app)
+        assert "Step 1: Personal Info" in rendered_text
         next1_button = get_element_by_id(elements, "next1_btn")
         assert next1_button is not None
         simulate_button_click(next1_button)
@@ -397,7 +414,8 @@ class TestMultiStepFormJourney:
 
         # Step 3: Re-render for step 2 and click Next
         output, elements = render_view(app, "wizard")
-        assert "Step 2: Address" in output
+        rendered_text = get_rendered_text(app)
+        assert "Step 2: Address" in rendered_text
         next2_button = get_element_by_id(elements, "next2_btn")
         assert next2_button is not None
         simulate_button_click(next2_button)
@@ -407,7 +425,8 @@ class TestMultiStepFormJourney:
 
         # Step 4: Re-render for step 3 and click Submit
         output, elements = render_view(app, "wizard")
-        assert "Step 3: Review" in output
+        rendered_text = get_rendered_text(app)
+        assert "Step 3: Review" in rendered_text
         submit_button = get_element_by_id(elements, "submit_btn")
         assert submit_button is not None
         simulate_button_click(submit_button)
@@ -418,7 +437,8 @@ class TestMultiStepFormJourney:
 
         # Verify confirmation message
         output, _ = render_view(app, "confirmation")
-        assert "Thank you! Your submission is complete." in output
+        rendered_text = get_rendered_text(app)
+        assert "Thank you! Your submission is complete." in rendered_text
 
 
 class TestFormValidationJourney:
@@ -486,7 +506,8 @@ class TestFormValidationJourney:
 
         # Re-render to verify error message appears
         output, _ = render_view(app, "form")
-        assert "Invalid email format" in output
+        rendered_text = get_rendered_text(app)
+        assert "Invalid email format" in rendered_text
 
         # Step 4-5: User corrects email (clear and retype)
         email_input.value = ""  # Clear the field
@@ -501,7 +522,8 @@ class TestFormValidationJourney:
 
         # Re-render to verify no error shown
         output, _ = render_view(app, "form")
-        assert "Invalid email format" not in output
+        rendered_text = get_rendered_text(app)
+        assert "Invalid email format" not in rendered_text
 
 
 class TestFormNavigationJourney:
@@ -611,10 +633,11 @@ class TestFormNavigationJourney:
 
         # Step 5: Verify all data persists in review
         output, _ = render_view(app, "review")
-        assert "Alice" in output
-        assert "alice@example.com" in output
-        assert "dark" in output
-        assert "yes" in output
+        rendered_text = get_rendered_text(app)
+        assert "Alice" in rendered_text
+        assert "alice@example.com" in rendered_text
+        assert "dark" in rendered_text
+        assert "yes" in rendered_text
 
 
 class TestFormWithDynamicContent:
@@ -665,7 +688,8 @@ class TestFormWithDynamicContent:
 
         # Step 1: Render initial form (no account type selected)
         output, elements = render_view(app, "signup")
-        assert "Not selected" in output
+        rendered_text = get_rendered_text(app)
+        assert "Not selected" in rendered_text
         business_button = get_element_by_id(elements, "business_btn")
         assert business_button is not None
 
@@ -675,8 +699,9 @@ class TestFormWithDynamicContent:
 
         # Step 2: Re-render to show business fields
         output, elements = render_view(app, "signup")
-        assert "Business Name:" in output
-        assert "Tax ID:" in output
+        rendered_text = get_rendered_text(app)
+        assert "Business Name:" in rendered_text
+        assert "Tax ID:" in rendered_text
 
         # Verify business fields are now available
         business_name_input = get_element_by_id(elements, "business_name")

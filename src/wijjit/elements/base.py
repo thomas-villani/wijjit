@@ -15,6 +15,7 @@ from wijjit.terminal.mouse import MouseEvent
 
 if TYPE_CHECKING:
     from wijjit.layout.bounds import Bounds
+    from wijjit.rendering.paint_context import PaintContext
 
 
 class ElementType(Enum):
@@ -67,8 +68,72 @@ class Element(ABC):
         -------
         str
             Rendered element content
+
+        Notes
+        -----
+        This method is used for legacy ANSI string-based rendering.
+        New elements should implement render_to() instead for cell-based
+        rendering with proper theme support.
         """
         pass
+
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render the element to a cell-based buffer (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the NEW cell-based rendering API. Elements that implement
+        this method can take advantage of:
+        - Theme-based styling via ctx.style_resolver
+        - Efficient diff rendering via cell buffer
+        - Better compositing and effects
+
+        The default implementation bridges to the legacy render() method
+        by converting ANSI strings to cells. New elements should override
+        this method instead of render() for better performance and styling.
+
+        Examples
+        --------
+        Implement cell-based rendering in a custom element:
+
+        >>> def render_to(self, ctx):
+        ...     style = ctx.style_resolver.resolve_style(self, 'button')
+        ...     ctx.write_text(0, 0, self.label, style)
+        """
+        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+        # Default implementation: bridge to legacy render()
+        ansi_str = self.render()
+        # cells = ansi_string_to_cells(ansi_str)
+
+        # Write cells to buffer at element's bounds
+        lines = ansi_str.split("\n")
+        y_offset = 0
+
+        for line in lines:
+            if y_offset >= ctx.bounds.height:
+                break
+
+            # Convert this line to cells
+            line_cells = ansi_string_to_cells(line)
+
+            # Write cells to buffer
+            x_offset = 0
+            for cell in line_cells:
+                if x_offset >= ctx.bounds.width:
+                    break
+
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x_offset, ctx.bounds.y + y_offset, cell
+                )
+                x_offset += 1
+
+            y_offset += 1
 
     def handle_key(self, key: Key) -> bool:
         """Handle a key press.
