@@ -268,6 +268,7 @@ TEMPLATE = """
 {% endframe %}
 """
 
+
 def create_app():
     """Create the template demo application.
 

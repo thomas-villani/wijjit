@@ -13,21 +13,61 @@ from wijjit.core.events import EventType, HandlerScope
 
 # Sample data
 users_data = [
-    {"name": "Alice Johnson", "email": "alice@example.com", "status": "Active", "age": 28},
+    {
+        "name": "Alice Johnson",
+        "email": "alice@example.com",
+        "status": "Active",
+        "age": 28,
+    },
     {"name": "Bob Smith", "email": "bob@example.com", "status": "Inactive", "age": 34},
-    {"name": "Carol White", "email": "carol@example.com", "status": "Active", "age": 42},
-    {"name": "David Brown", "email": "david@example.com", "status": "Active", "age": 31},
+    {
+        "name": "Carol White",
+        "email": "carol@example.com",
+        "status": "Active",
+        "age": 42,
+    },
+    {
+        "name": "David Brown",
+        "email": "david@example.com",
+        "status": "Active",
+        "age": 31,
+    },
     {"name": "Eve Davis", "email": "eve@example.com", "status": "Pending", "age": 25},
-    {"name": "Frank Miller", "email": "frank@example.com", "status": "Active", "age": 39},
-    {"name": "Grace Wilson", "email": "grace@example.com", "status": "Inactive", "age": 29},
-    {"name": "Henry Moore", "email": "henry@example.com", "status": "Active", "age": 45},
+    {
+        "name": "Frank Miller",
+        "email": "frank@example.com",
+        "status": "Active",
+        "age": 39,
+    },
+    {
+        "name": "Grace Wilson",
+        "email": "grace@example.com",
+        "status": "Inactive",
+        "age": 29,
+    },
+    {
+        "name": "Henry Moore",
+        "email": "henry@example.com",
+        "status": "Active",
+        "age": 45,
+    },
     {"name": "Ivy Taylor", "email": "ivy@example.com", "status": "Active", "age": 33},
-    {"name": "Jack Anderson", "email": "jack@example.com", "status": "Pending", "age": 27},
+    {
+        "name": "Jack Anderson",
+        "email": "jack@example.com",
+        "status": "Pending",
+        "age": 27,
+    },
     {"name": "Kate Thomas", "email": "kate@example.com", "status": "Active", "age": 36},
     {"name": "Leo Jackson", "email": "leo@example.com", "status": "Active", "age": 41},
     {"name": "Mia Martin", "email": "mia@example.com", "status": "Inactive", "age": 30},
     {"name": "Noah Lee", "email": "noah@example.com", "status": "Active", "age": 38},
-    {"name": "Olivia Harris", "email": "olivia@example.com", "status": "Active", "age": 26},
+    {
+        "name": "Olivia Harris",
+        "email": "olivia@example.com",
+        "status": "Active",
+        "age": 26,
+    },
 ]
 
 # Create app with initial state

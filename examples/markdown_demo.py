@@ -132,7 +132,7 @@ You can focus on your application logic instead of wrestling with terminal contr
 This MarkdownView component is perfect for displaying documentation, help text, release notes, or any formatted content in your terminal applications.
 
 Happy coding with Wijjit!
-""" # noqa: E501
+"""  # noqa: E501
 
 SHORT_MARKDOWN = """# Quick Start
 
@@ -176,11 +176,13 @@ def create_app():
     panel_height = min(30, term_size.lines - 8)
 
     # Initialize app with state
-    app = Wijjit(initial_state={
-        "doc1": SAMPLE_MARKDOWN,
-        "doc2": SHORT_MARKDOWN,
-        "active_panel": "left",
-    })
+    app = Wijjit(
+        initial_state={
+            "doc1": SAMPLE_MARKDOWN,
+            "doc2": SHORT_MARKDOWN,
+            "active_panel": "left",
+        }
+    )
 
     # Create MarkdownView elements
     markdown1 = MarkdownView(
@@ -208,6 +210,7 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main view with dual markdown panels."""
+
         def render_data():
             # Render markdown panels side by side
             lines1 = markdown1.render().split("\n")
@@ -225,17 +228,19 @@ def create_app():
             for l1, l2 in zip(lines1, lines2, strict=True):
                 combined_lines.append(f"{l1}  {l2}")
 
-            content_text = "\n".join([
-                "=" * term_size.columns,
-                "  MARKDOWN DEMO - Dual Panel Viewer".center(term_size.columns),
-                "=" * term_size.columns,
-                "",
-                *combined_lines,
-                "",
-                "=" * term_size.columns,
-                "  [Tab] Switch Panel  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [q] Quit",
-                "=" * term_size.columns,
-            ])
+            content_text = "\n".join(
+                [
+                    "=" * term_size.columns,
+                    "  MARKDOWN DEMO - Dual Panel Viewer".center(term_size.columns),
+                    "=" * term_size.columns,
+                    "",
+                    *combined_lines,
+                    "",
+                    "=" * term_size.columns,
+                    "  [Tab] Switch Panel  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [q] Quit",
+                    "=" * term_size.columns,
+                ]
+            )
 
             return {"content": content_text}
 
@@ -249,6 +254,7 @@ def create_app():
 
     def setup_handlers():
         """Set up keyboard handlers."""
+
         def on_key(event):
             """Handle keyboard events."""
             # Quit with 'q'
@@ -258,7 +264,13 @@ def create_app():
                 return
 
         # Register key handler
-        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
+        app.on(
+            EventType.KEY,
+            on_key,
+            scope=HandlerScope.VIEW,
+            view_name="main",
+            priority=100,
+        )
 
     return app
 
@@ -274,6 +286,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -206,7 +206,10 @@ class TreeExtension(Extension):
                 height=20
                 on_select="file_selected"
                 show_scrollbar=true
-                show_root=true %}
+                show_root=true
+                border="rounded"
+                title="File Tree"
+                indicator_style="triangles_large" %}
         {% endtree %}
     """
 
@@ -263,6 +266,9 @@ class TreeExtension(Extension):
         on_select=None,
         expanded=None,
         bind=True,
+        border="none",
+        title=None,
+        indicator_style="triangles_large",
     ) -> str:
         """Render the tree tag.
 
@@ -295,6 +301,13 @@ class TreeExtension(Extension):
                 expanded=["node1", "node2"]  # One-time initialization
         bind : bool
             Whether to auto-bind data to state[id] (default: True)
+        border : str
+            Border style: "single", "double", "rounded", or "none" (default: "none")
+        title : str, optional
+            Title to display in top border
+        indicator_style : str
+            Indicator style: "triangles_large", "triangles", "circles", "squares",
+            "brackets", or "minimal" (default: "triangles_large")
 
         Returns
         -------
@@ -313,6 +326,21 @@ class TreeExtension(Extension):
         indent_size = int(indent_size)
         show_scrollbar = bool(show_scrollbar)
         show_root = bool(show_root)
+
+        # Convert indicator_style string to enum
+        from wijjit.elements.display.tree import TreeIndicatorStyle
+
+        indicator_style_map = {
+            "triangles_large": TreeIndicatorStyle.TRIANGLES_LARGE,
+            "triangles": TreeIndicatorStyle.TRIANGLES,
+            "circles": TreeIndicatorStyle.CIRCLES,
+            "squares": TreeIndicatorStyle.SQUARES,
+            "brackets": TreeIndicatorStyle.BRACKETS,
+            "minimal": TreeIndicatorStyle.MINIMAL,
+        }
+        indicator_style_enum = indicator_style_map.get(
+            str(indicator_style).lower(), TreeIndicatorStyle.TRIANGLES_LARGE
+        )
 
         # Auto-generate ID if not provided
         if id is None:
@@ -338,6 +366,9 @@ class TreeExtension(Extension):
             show_scrollbar=show_scrollbar,
             show_root=show_root,
             indent_size=indent_size,
+            indicator_style=indicator_style_enum,
+            border_style=border,
+            title=title,
         )
 
         # Check if this element should be focused

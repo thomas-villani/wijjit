@@ -1,11 +1,49 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
+from enum import Enum, auto
+from typing import TYPE_CHECKING
 
 from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
+    from wijjit.styling.style import Style
+
+
+class TreeIndicatorStyle(Enum):
+    """Visual styles for tree expand/collapse indicators.
+
+    Attributes
+    ----------
+    BRACKETS : auto
+        Square brackets with plus/minus: [+] / [-]
+    TRIANGLES : auto
+        Small Unicode triangles: ▸ / ▾
+    TRIANGLES_LARGE : auto
+        Large Unicode triangles: ▶ / ▼ (default)
+    CIRCLES : auto
+        Circled plus/minus: ⊕ / ⊖
+    MINIMAL : auto
+        Minimal plus/minus: + / -
+    SQUARES : auto
+        Squared plus/minus: ⊞ / ⊟
+
+    Notes
+    -----
+    When Unicode styles are selected but not supported by the terminal,
+    automatically falls back to BRACKETS style.
+    """
+
+    BRACKETS = auto()
+    TRIANGLES = auto()
+    TRIANGLES_LARGE = auto()
+    CIRCLES = auto()
+    MINIMAL = auto()
+    SQUARES = auto()
 
 
 class Tree(ScrollableMixin, Element):
@@ -34,6 +72,12 @@ class Tree(ScrollableMixin, Element):
         Whether to show root node (default: True)
     indent_size : int, optional
         Number of spaces per indentation level (default: 2)
+    indicator_style : TreeIndicatorStyle, optional
+        Style for expand/collapse indicators (default: TRIANGLES_LARGE)
+    border_style : str, optional
+        Border style: "single", "double", "rounded", or "none" (default: "none")
+    title : str, optional
+        Title to display in top border (default: None)
 
     Attributes
     ----------
@@ -51,6 +95,12 @@ class Tree(ScrollableMixin, Element):
         Whether root node is shown
     indent_size : int
         Indentation per level
+    indicator_style : TreeIndicatorStyle
+        Style for expand/collapse indicators
+    border_style : str
+        Border style
+    title : str or None
+        Border title
     expanded_nodes : set
         Set of expanded node IDs
     selected_node_id : str or None
@@ -84,6 +134,9 @@ class Tree(ScrollableMixin, Element):
         show_scrollbar: bool = True,
         show_root: bool = True,
         indent_size: int = 2,
+        indicator_style: TreeIndicatorStyle = TreeIndicatorStyle.TRIANGLES_LARGE,
+        border_style: str = "none",
+        title: str | None = None,
     ):
         ScrollableMixin.__init__(self)
         Element.__init__(self, id)
@@ -96,6 +149,9 @@ class Tree(ScrollableMixin, Element):
         self.show_scrollbar = show_scrollbar
         self.show_root = show_root
         self.indent_size = indent_size
+        self.indicator_style = indicator_style
+        self.border_style = border_style
+        self.title = title
 
         # Tree data
         self._raw_data = data
@@ -515,15 +571,60 @@ class Tree(ScrollableMixin, Element):
         Returns
         -------
         str
-            Expand indicator: "[+]", "[-]", or "   "
-        """
-        if not node_info["has_children"]:
-            return "   "  # No children, no indicator
+            Expand indicator based on indicator_style
 
-        if node_info["is_expanded"]:
-            return "[-]"  # Expanded
+        Notes
+        -----
+        Automatically falls back to BRACKETS style if Unicode is not
+        supported by the terminal.
+        """
+        from wijjit.terminal.ansi import supports_unicode
+
+        if not node_info["has_children"]:
+            # No children - return empty space matching indicator width
+            if self.indicator_style == TreeIndicatorStyle.BRACKETS:
+                return "   "
+            elif self.indicator_style in (
+                TreeIndicatorStyle.TRIANGLES,
+                TreeIndicatorStyle.TRIANGLES_LARGE,
+            ):
+                return " "
+            elif self.indicator_style == TreeIndicatorStyle.CIRCLES:
+                return " "
+            elif self.indicator_style == TreeIndicatorStyle.MINIMAL:
+                return " "
+            elif self.indicator_style == TreeIndicatorStyle.SQUARES:
+                return " "
+            else:
+                return "   "
+
+        is_expanded = node_info["is_expanded"]
+
+        # Check Unicode support and fallback if needed
+        use_unicode = supports_unicode()
+        style = self.indicator_style
+
+        # Fallback to brackets if Unicode not supported
+        if not use_unicode and style != TreeIndicatorStyle.BRACKETS:
+            if style != TreeIndicatorStyle.MINIMAL:
+                style = TreeIndicatorStyle.BRACKETS
+
+        # Return appropriate indicator based on style
+        if style == TreeIndicatorStyle.BRACKETS:
+            return "[-]" if is_expanded else "[+]"
+        elif style == TreeIndicatorStyle.TRIANGLES:
+            return "▾" if is_expanded else "▸"
+        elif style == TreeIndicatorStyle.TRIANGLES_LARGE:
+            return "▼" if is_expanded else "▶"
+        elif style == TreeIndicatorStyle.CIRCLES:
+            return "⊖" if is_expanded else "⊕"
+        elif style == TreeIndicatorStyle.MINIMAL:
+            return "-" if is_expanded else "+"
+        elif style == TreeIndicatorStyle.SQUARES:
+            return "⊟" if is_expanded else "⊞"
         else:
-            return "[+]"  # Collapsed
+            # Default fallback
+            return "[-]" if is_expanded else "[+]"
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input for tree navigation.
@@ -733,10 +834,19 @@ class Tree(ScrollableMixin, Element):
             relative_x = event.x - self.bounds.x
             relative_y = event.y - self.bounds.y
 
-            # Check if click is within tree area
-            if 0 <= relative_y < self.height and 0 <= relative_x < self.width:
+            # Account for borders if present
+            border_offset = 1 if self.border_style != "none" else 0
+            content_x = relative_x - border_offset
+            content_y = relative_y - border_offset
+
+            # Calculate content dimensions
+            content_width = self.width - (2 * border_offset)
+            content_height = self.height - (2 * border_offset)
+
+            # Check if click is within tree content area
+            if 0 <= content_y < content_height and 0 <= content_x < content_width:
                 visible_start, visible_end = self.scroll_manager.get_visible_range()
-                clicked_index = visible_start + relative_y
+                clicked_index = visible_start + content_y
 
                 if 0 <= clicked_index < len(self.nodes):
                     node_info = self.nodes[clicked_index]
@@ -755,7 +865,7 @@ class Tree(ScrollableMixin, Element):
 
                     if (
                         node_info["has_children"]
-                        and expand_start <= relative_x < expand_end
+                        and expand_start <= content_x < expand_end
                     ):
                         # Clicked on expand indicator
                         self.toggle_node(node_id)
@@ -767,13 +877,454 @@ class Tree(ScrollableMixin, Element):
 
         return False
 
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render tree using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method implements cell-based rendering for tree views with:
+        - Tree drawing characters (├─, └─, │) for hierarchy visualization
+        - Expand/collapse indicators ([+], [-])
+        - Node selection markers (">")
+        - Highlight styling for focused nodes
+        - Theme-based styling for all states
+        - Scrollbar integration
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'tree': Base tree style
+        - 'tree:focus': When tree has focus
+        - 'tree.node': Default node style
+        - 'tree.node:highlight': Highlighted node (keyboard focus)
+        - 'tree.node:selected': Selected node with marker
+        - 'tree.indicator': Expand/collapse indicators
+        - 'tree.border': Border characters
+        - 'tree.border:focus': Border when focused
+        """
+
+        # Resolve base styles
+        if self.focused:
+            border_style = ctx.style_resolver.resolve_style(self, "tree.border:focus")
+        else:
+            border_style = ctx.style_resolver.resolve_style(self, "tree.border")
+
+        # Determine if we need borders
+        has_borders = self.border_style != "none"
+
+        if has_borders:
+            # Render with borders
+            self._render_to_with_border(ctx, border_style)
+        else:
+            # Render without borders
+            self._render_to_content(ctx, 0, 0, self.width, self.height)
+
+    def _render_to_with_border(
+        self, ctx: "PaintContext", border_style: "Style"
+    ) -> None:
+        """Render tree with border using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        border_style : Style
+            Border style
+        """
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.terminal.cell import Cell
+
+        # Get border characters
+        border_map = {
+            "single": BorderStyle.SINGLE,
+            "double": BorderStyle.DOUBLE,
+            "rounded": BorderStyle.ROUNDED,
+        }
+        style = border_map.get(self.border_style, BorderStyle.SINGLE)
+        chars = BORDER_CHARS[style]
+
+        # Ensure borders don't inherit background from content cells
+        # If border style doesn't have explicit bg, use None to clear
+        border_attrs = border_style.to_cell_attrs()
+        # Explicitly set bg_color to None if not defined to ensure transparency
+        if "bg_color" not in border_attrs or border_attrs["bg_color"] is None:
+            border_attrs = {**border_attrs, "bg_color": None}
+
+        # Calculate dimensions
+        content_width = self.width - 2  # Subtract borders
+        content_height = self.height - 2  # Subtract borders
+        total_width = self.width  # Total width includes borders and content
+
+        # Render borders FIRST to establish baseline, then content on top
+        # This prevents content backgrounds from bleeding into border area
+
+        # Render top border with optional title
+        if self.title:
+            title_text = f" {self.title} "
+            title_len = visible_length(title_text)
+            border_width = total_width - 2  # Width without corners
+
+            if title_len < border_width:
+                remaining = border_width - title_len
+                left_len = remaining // 2
+                right_len = remaining - left_len
+
+                # Top-left corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+
+                # Left line
+                for i in range(left_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Title
+                for i, char in enumerate(title_text):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + left_len + i,
+                        ctx.bounds.y,
+                        Cell(char=char, **border_attrs),
+                    )
+
+                # Right line
+                for i in range(right_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + left_len + title_len + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Top-right corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + total_width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+            else:
+                # Title too long
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+                for i in range(border_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + total_width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+        else:
+            # No title
+            ctx.buffer.set_cell(
+                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+            )
+            for i in range(1, total_width - 1):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + i,
+                    ctx.bounds.y,
+                    Cell(char=chars["h"], **border_attrs),
+                )
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y,
+                Cell(char=chars["tr"], **border_attrs),
+            )
+
+        # Render content area (inside borders)
+        content_ctx = ctx.sub_context(1, 1, content_width, content_height)
+        self._render_to_content(
+            content_ctx, 0, 0, content_width, content_height, has_border=True
+        )
+
+        # Render side borders
+        for y in range(content_height):
+            # Left border
+            ctx.buffer.set_cell(
+                ctx.bounds.x,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+            # Right border
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+
+        # Render bottom border
+        bottom_y = content_height + 1
+        ctx.buffer.set_cell(
+            ctx.bounds.x,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["bl"], **border_attrs),
+        )
+        for i in range(1, total_width - 1):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + i,
+                ctx.bounds.y + bottom_y,
+                Cell(char=chars["h"], **border_attrs),
+            )
+        ctx.buffer.set_cell(
+            ctx.bounds.x + total_width - 1,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["br"], **border_attrs),
+        )
+
+    def _render_to_content(
+        self,
+        ctx: "PaintContext",
+        start_x: int,
+        start_y: int,
+        content_width: int,
+        content_height: int,
+        has_border: bool = False,
+    ) -> None:
+        """Render tree content using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        start_x : int
+            Starting X position
+        start_y : int
+            Starting Y position
+        content_width : int
+            Content area width
+        content_height : int
+            Content area height
+        has_border : bool, optional
+            Whether tree has borders (affects right padding), by default False
+        """
+        from wijjit.styling.style import Style
+        from wijjit.terminal.cell import Cell
+
+        if not self.nodes:
+            # Empty tree - show message
+            empty_style = ctx.style_resolver.resolve_style(self, "tree")
+            ctx.write_text(0, 0, "Empty tree", empty_style)
+            return
+
+        # Calculate effective width for tree rendering
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+        # Reserve space for scrollbar if needed, and for border if present
+        tree_width = (
+            content_width - (1 if needs_scrollbar else 0) - (1 if has_border else 0)
+        )
+
+        # Get visible nodes
+        visible_start, visible_end = self.scroll_manager.get_visible_range()
+        visible_nodes = self.nodes[visible_start:visible_end]
+
+        # Resolve base style
+        if self.focused:
+            base_style = ctx.style_resolver.resolve_style(self, "tree:focus")
+        else:
+            base_style = ctx.style_resolver.resolve_style(self, "tree")
+
+        # Resolve indicator style
+        indicator_style = ctx.style_resolver.resolve_style(self, "tree.indicator")
+        if not indicator_style.fg_color and not indicator_style.bg_color:
+            indicator_style = base_style
+
+        # Render each visible node
+        for i, node_info in enumerate(visible_nodes):
+            if i >= content_height:
+                break
+
+            node_index = visible_start + i
+            is_highlighted = node_index == self.highlighted_index
+            is_selected = node_info["node"]["id"] == self.selected_node_id
+
+            # Determine node style - highlighted takes precedence for main content
+            if is_highlighted and self.focused:
+                # Highlighted node: use highlight style
+                node_style = ctx.style_resolver.resolve_style(
+                    self, "tree.node:highlight"
+                )
+                # If the theme style doesn't have colors, create fallback
+                if not node_style.bg_color:
+                    node_style = Style(
+                        fg_color=base_style.bg_color or (0, 0, 0),
+                        bg_color=base_style.fg_color or (255, 255, 255),
+                        bold=base_style.bold,
+                        reverse=False,
+                    )
+            elif is_selected:
+                node_style = ctx.style_resolver.resolve_style(
+                    self, "tree.node:selected"
+                )
+            else:
+                node_style = ctx.style_resolver.resolve_style(self, "tree.node")
+                # Fall back to base style if node style is empty
+                if not node_style.fg_color and not node_style.bg_color:
+                    node_style = base_style
+
+            # Selection marker style - use selected style for marker even when highlighted
+            if is_selected:
+                selection_marker_style = ctx.style_resolver.resolve_style(
+                    self, "tree.node:selected"
+                )
+                # If highlighted, blend selected fg with highlighted bg
+                if is_highlighted and self.focused:
+                    selection_marker_style = Style(
+                        fg_color=selection_marker_style.fg_color,
+                        bg_color=node_style.bg_color,
+                        bold=selection_marker_style.bold,
+                        reverse=False,
+                    )
+            else:
+                selection_marker_style = node_style
+
+            # Build line components with styled parts
+            selection_marker = "> " if is_selected else "  "
+            tree_prefix = self._get_tree_prefix(node_info)
+            expand_indicator = self._get_expand_indicator(node_info)
+            label = node_info["node"]["label"]
+
+            # Calculate available width for label
+            prefix_len = (
+                visible_length(selection_marker)
+                + visible_length(tree_prefix)
+                + visible_length(expand_indicator)
+                + 1  # space after indicator
+            )
+            label_width = tree_width - prefix_len
+
+            # Clip label if too long
+            if visible_length(label) > label_width:
+                label = clip_to_width(label, label_width, ellipsis="...")
+
+            # Write line parts with appropriate styles
+            x_offset = 0
+
+            # Get node attributes
+            node_attrs = node_style.to_cell_attrs()
+            selection_marker_attrs = selection_marker_style.to_cell_attrs()
+
+            # For highlighted nodes, indicator should inherit the node's background
+            # for visual consistency across the entire line
+            if is_highlighted and self.focused:
+                # Use node style but keep indicator foreground color if it exists
+                indicator_attrs_for_line = Style(
+                    fg_color=indicator_style.fg_color or node_style.fg_color,
+                    bg_color=node_style.bg_color,
+                    bold=node_style.bold,
+                    reverse=False,  # Explicitly disable reverse
+                ).to_cell_attrs()
+            else:
+                indicator_attrs_for_line = indicator_style.to_cell_attrs()
+
+            # Selection marker (use selection marker style to show selected state)
+            for char in selection_marker:
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x_offset,
+                    ctx.bounds.y + start_y + i,
+                    Cell(char=char, **selection_marker_attrs),
+                )
+                x_offset += 1
+
+            # Tree prefix (use node style)
+            for char in tree_prefix:
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x_offset,
+                    ctx.bounds.y + start_y + i,
+                    Cell(char=char, **node_attrs),
+                )
+                x_offset += 1
+
+            # Expand indicator (use indicator style with node background if highlighted)
+            for char in expand_indicator:
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x_offset,
+                    ctx.bounds.y + start_y + i,
+                    Cell(char=char, **indicator_attrs_for_line),
+                )
+                x_offset += 1
+
+            # Space after indicator (use node style)
+            ctx.buffer.set_cell(
+                ctx.bounds.x + x_offset,
+                ctx.bounds.y + start_y + i,
+                Cell(char=" ", **node_attrs),
+            )
+            x_offset += 1
+
+            # Label (use node style)
+            for char in label:
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x_offset,
+                    ctx.bounds.y + start_y + i,
+                    Cell(char=char, **node_attrs),
+                )
+                x_offset += 1
+
+            # Pad remaining width with spaces (use node style)
+            # Leave space for scrollbar if present
+            # Only fill if node has a background color (otherwise inherit from parent)
+            if node_style.bg_color or is_highlighted:
+                while x_offset < tree_width:
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x_offset,
+                        ctx.bounds.y + start_y + i,
+                        Cell(char=" ", **node_attrs),
+                    )
+                    x_offset += 1
+
+        # Pad remaining lines to height
+        rendered_lines = len(visible_nodes)
+        if base_style.bg_color:
+            # Only fill empty lines if tree has explicit background color
+            for i in range(rendered_lines, content_height):
+                # Fill with spaces using base style
+                for x in range(tree_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + start_y + i,
+                        Cell(char=" ", **base_style.to_cell_attrs()),
+                    )
+
+        # Add scrollbar if needed
+        if needs_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, content_height
+            )
+
+            for i in range(content_height):
+                scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + tree_width,
+                    ctx.bounds.y + start_y + i,
+                    Cell(char=scrollbar_char, **base_style.to_cell_attrs()),
+                )
+
     def render(self) -> str:
-        """Render the tree.
+        """Render the tree (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered tree as multi-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         if not self.nodes:
             # Empty tree

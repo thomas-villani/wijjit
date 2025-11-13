@@ -33,10 +33,12 @@ Features:
 - Clean rendering"""  # noqa: E501
 
     # Initialize app
-    app = Wijjit(initial_state={
-        "sample_text": sample_text,
-        "message": "Compare the three overflow modes below",
-    })
+    app = Wijjit(
+        initial_state={
+            "sample_text": sample_text,
+            "message": "Compare the three overflow modes below",
+        }
+    )
 
     @app.view("main", default=True)
     def main_view():
@@ -99,6 +101,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

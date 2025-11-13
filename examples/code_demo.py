@@ -94,7 +94,7 @@ if __name__ == "__main__":
     print(f"Sequence: {sequence}")
 '''
 
-JAVASCRIPT_CODE = '''// Async/await example with error handling
+JAVASCRIPT_CODE = """// Async/await example with error handling
 async function fetchUserData(userId) {
     try {
         const response = await fetch(`/api/users/${userId}`);
@@ -161,9 +161,9 @@ function UserProfile({ userId }) {
 }
 
 export default UserProfile;
-'''
+"""
 
-RUST_CODE = '''use std::collections::HashMap;
+RUST_CODE = """use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::task;
 
@@ -247,9 +247,9 @@ mod tests {
         assert_eq!(cache.get(&"key".to_string()), None);
     }
 }
-'''
+"""
 
-GO_CODE = '''package main
+GO_CODE = """package main
 
 import (
     "context"
@@ -378,7 +378,7 @@ func main() {
         }
     }
 }
-'''
+"""
 
 
 def create_app():
@@ -395,15 +395,17 @@ def create_app():
     code_height = min(35, term_size.lines - 8)
 
     # Initialize app with state
-    app = Wijjit(initial_state={
-        "current_example": 0,
-        "examples": [
-            {"name": "Python", "code": PYTHON_CODE, "lang": "python"},
-            {"name": "JavaScript", "code": JAVASCRIPT_CODE, "lang": "javascript"},
-            {"name": "Rust", "code": RUST_CODE, "lang": "rust"},
-            {"name": "Go", "code": GO_CODE, "lang": "go"},
-        ],
-    })
+    app = Wijjit(
+        initial_state={
+            "current_example": 0,
+            "examples": [
+                {"name": "Python", "code": PYTHON_CODE, "lang": "python"},
+                {"name": "JavaScript", "code": JAVASCRIPT_CODE, "lang": "javascript"},
+                {"name": "Rust", "code": RUST_CODE, "lang": "rust"},
+                {"name": "Go", "code": GO_CODE, "lang": "go"},
+            ],
+        }
+    )
 
     # Create CodeBlock element
     example = app.state["examples"][0]
@@ -426,6 +428,7 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main view with code display."""
+
         def render_data():
             # Update codeblock if example changed
             current_idx = app.state["current_example"]
@@ -442,18 +445,20 @@ def create_app():
                     menu_items.append(f"[{i+1}] {ex['name']}")
             menu_text = "  ".join(menu_items)
 
-            content_text = "\n".join([
-                "=" * term_size.columns,
-                "  CODE DEMO - Syntax Highlighting".center(term_size.columns),
-                "=" * term_size.columns,
-                "",
-                codeblock.render(),
-                "",
-                "=" * term_size.columns,
-                f"  {menu_text}",
-                "  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [1-4] Switch Example  [q] Quit",
-                "=" * term_size.columns,
-            ])
+            content_text = "\n".join(
+                [
+                    "=" * term_size.columns,
+                    "  CODE DEMO - Syntax Highlighting".center(term_size.columns),
+                    "=" * term_size.columns,
+                    "",
+                    codeblock.render(),
+                    "",
+                    "=" * term_size.columns,
+                    f"  {menu_text}",
+                    "  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [1-4] Switch Example  [q] Quit",
+                    "=" * term_size.columns,
+                ]
+            )
 
             return {"content": content_text}
 
@@ -467,6 +472,7 @@ def create_app():
 
     def setup_handlers():
         """Set up keyboard handlers."""
+
         def on_key(event):
             """Handle keyboard events."""
             # Quit with 'q'
@@ -485,7 +491,13 @@ def create_app():
                 return
 
         # Register key handler
-        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
+        app.on(
+            EventType.KEY,
+            on_key,
+            scope=HandlerScope.VIEW,
+            view_name="main",
+            priority=100,
+        )
 
     return app
 
@@ -501,6 +513,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

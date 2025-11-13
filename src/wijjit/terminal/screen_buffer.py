@@ -4,7 +4,6 @@ This module provides the ScreenBuffer class for managing 2D cell arrays and
 the DiffRenderer class for generating minimal ANSI output by comparing buffers.
 """
 
-
 from wijjit.terminal.cell import Cell
 
 

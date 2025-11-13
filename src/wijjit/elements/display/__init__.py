@@ -10,6 +10,7 @@ from wijjit.elements.display.notification import (
     NotificationSeverity,
 )
 from wijjit.elements.display.statusbar import StatusBar
+from wijjit.elements.display.tree import Tree, TreeIndicatorStyle
 
 __all__ = [
     "LogView",
@@ -17,4 +18,6 @@ __all__ = [
     "NotificationElement",
     "NotificationSeverity",
     "StatusBar",
+    "Tree",
+    "TreeIndicatorStyle",
 ]

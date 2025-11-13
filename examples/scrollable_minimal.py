@@ -56,18 +56,22 @@ def create_app():
 
             # Debug: print focus info
             if event.key == "d":
-                if hasattr(app, 'focus_manager'):
+                if hasattr(app, "focus_manager"):
                     focused = app.focus_manager.get_focused_element()
                     print(f"\nDEBUG - Focused element: {focused}")
                     print(f"Focusable elements: {len(app.focus_manager.elements)}")
                     for i, elem in enumerate(app.focus_manager.elements):
                         elem_type = type(elem).__name__
-                        elem_id = getattr(elem, 'id', 'no-id')
+                        elem_id = getattr(elem, "id", "no-id")
                         is_focused = elem == focused
                         print(f"  [{i}] {elem_type} id={elem_id} focused={is_focused}")
                         if elem_type == "Frame":
-                            print(f"      scrollable={elem.style.scrollable}, needs_scroll={elem._needs_scroll}")
-                            print(f"      has_children={elem._has_children}, content={len(elem.content)} lines")
+                            print(
+                                f"      scrollable={elem.style.scrollable}, needs_scroll={elem._needs_scroll}"
+                            )
+                            print(
+                                f"      has_children={elem._has_children}, content={len(elem.content)} lines"
+                            )
 
     app.on(EventType.KEY, handle_key, scope=HandlerScope.GLOBAL)
 
@@ -85,6 +89,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -15,13 +15,15 @@ from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
 
 # Create app with initial state
-app = Wijjit(initial_state={
-    "home_visits": 0,
-    "profile_visits": 0,
-    "home_message": "",
-    "profile_message": "",
-    "username": "Alice",
-})
+app = Wijjit(
+    initial_state={
+        "home_visits": 0,
+        "profile_visits": 0,
+        "home_message": "",
+        "profile_message": "",
+        "username": "Alice",
+    }
+)
 
 
 @app.view("home", default=True)
@@ -166,6 +168,7 @@ def setup_global_handlers():
 
     These handlers are scoped globally and work from any view.
     """
+
     def on_number_keys(event):
         """Handle number key navigation."""
         if event.key == "1":
@@ -183,7 +186,7 @@ def setup_global_handlers():
     app.on(EventType.KEY, on_quit_key, scope=HandlerScope.GLOBAL)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Set up global navigation handlers before running
     setup_global_handlers()
 
@@ -212,4 +215,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()

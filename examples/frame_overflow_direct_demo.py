@@ -125,8 +125,12 @@ def main():
             screen.write("\n")
             screen.write("CLIP: Text truncated at frame edge (clean borders)\n")
             screen.write("VISIBLE: Text extends beyond right border (shows overflow)\n")
-            screen.write("WRAP: Text wrapped to multiple lines (use arrows to scroll)\n")
-            screen.write("\nControls: Up/Down arrows to scroll WRAP frame | 'q' to quit\n")
+            screen.write(
+                "WRAP: Text wrapped to multiple lines (use arrows to scroll)\n"
+            )
+            screen.write(
+                "\nControls: Up/Down arrows to scroll WRAP frame | 'q' to quit\n"
+            )
 
             # Handle input
             event = input_handler.read_input()

@@ -34,11 +34,13 @@ def create_app():
     Wijjit
         Configured application instance
     """
-    app = Wijjit(initial_state={
-        "size": None,
-        "color": None,
-        "submitted": False,
-    })
+    app = Wijjit(
+        initial_state={
+            "size": None,
+            "color": None,
+            "submitted": False,
+        }
+    )
 
     # Create radio group for size selection
     size_group = RadioGroup(
@@ -93,11 +95,13 @@ def create_app():
     app.state["color"] = color_group.selected_value
 
     # Register elements with focus manager
-    app.focus_manager.set_elements([
-        size_group,
-        color_group,
-        submit_button,
-    ])
+    app.focus_manager.set_elements(
+        [
+            size_group,
+            color_group,
+            submit_button,
+        ]
+    )
 
     # Button click handler
     def on_submit(event: ActionEvent):
@@ -116,6 +120,7 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main form view."""
+
         def render_data():
             term_size = shutil.get_terminal_size()
             term_width = term_size.columns
@@ -137,26 +142,35 @@ def create_app():
             # Show submitted values if form was submitted
             if app.state["submitted"]:
                 # Map size codes to labels
-                size_labels = {"s": "Small", "m": "Medium", "l": "Large", "xl": "Extra Large"}
+                size_labels = {
+                    "s": "Small",
+                    "m": "Medium",
+                    "l": "Large",
+                    "xl": "Extra Large",
+                }
                 size_label = size_labels.get(app.state["size"], app.state["size"])
 
-                content_lines.extend([
-                    border,
-                    "  ORDER SUBMITTED:",
-                    border,
-                    f"  Size: {size_label}",
-                    f"  Color: {app.state['color']}",
-                    border,
-                    "",
-                ])
+                content_lines.extend(
+                    [
+                        border,
+                        "  ORDER SUBMITTED:",
+                        border,
+                        f"  Size: {size_label}",
+                        f"  Color: {app.state['color']}",
+                        border,
+                        "",
+                    ]
+                )
 
-            content_lines.extend([
-                "  Controls:",
-                "    [Tab/Shift+Tab] Navigate  [Space/Arrows] Select  [Enter] Submit",
-                "    [q] Quit",
-                "",
-                border,
-            ])
+            content_lines.extend(
+                [
+                    "  Controls:",
+                    "    [Tab/Shift+Tab] Navigate  [Space/Arrows] Select  [Enter] Submit",
+                    "    [q] Quit",
+                    "",
+                    border,
+                ]
+            )
 
             return {"content": "\n".join(content_lines)}
 
@@ -170,6 +184,7 @@ def create_app():
 
     def setup_handlers():
         """Set up keyboard handlers for the form view."""
+
         def on_key(event):
             """Handle custom keyboard events."""
             if event.key == "q":
@@ -192,6 +207,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

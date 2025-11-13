@@ -36,10 +36,7 @@ def main():
     try:
         # Render with layout engine
         output, elements, _ = renderer.render_with_layout(
-            template,
-            context={},
-            width=80,
-            height=20
+            template, context={}, width=80, height=20
         )
 
         # Print output
@@ -52,6 +49,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

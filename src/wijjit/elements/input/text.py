@@ -1,7 +1,7 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
@@ -18,6 +18,9 @@ from wijjit.terminal.ansi import (
 )
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+if TYPE_CHECKING:
+    from wijjit.styling.style import Style
 
 
 class InputStyle(Enum):
@@ -1776,6 +1779,317 @@ class TextArea(Element):
 
             return (actual_row, actual_col)
 
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render textarea using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method implements cell-based rendering for text areas with:
+        - Optional borders with focus indication
+        - Multi-line text content
+        - Cursor rendering with reverse video
+        - Line wrapping (none and soft modes)
+        - Scrollbar integration
+        - Theme-based styling
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'textarea': Base textarea style
+        - 'textarea:focus': When textarea has focus
+        - 'textarea.border': Border characters
+        - 'textarea.border:focus': Border when focused
+        """
+
+        # Resolve base styles
+        if self.focused:
+            content_style = ctx.style_resolver.resolve_style(self, "textarea:focus")
+            border_style = ctx.style_resolver.resolve_style(
+                self, "textarea.border:focus"
+            )
+        else:
+            content_style = ctx.style_resolver.resolve_style(self, "textarea")
+            border_style = ctx.style_resolver.resolve_style(self, "textarea.border")
+
+        # Determine if we need borders
+        has_borders = self.border_style is not None
+
+        if has_borders:
+            # Render with borders
+            self._render_to_with_border(ctx, content_style, border_style)
+        else:
+            # Render without borders
+            self._render_to_content(ctx, content_style, 0, 0, self.width, self.height)
+
+    def _render_to_with_border(
+        self, ctx: "PaintContext", content_style: "Style", border_style: "Style"
+    ) -> None:
+        """Render textarea with border using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        content_style : Style
+            Style for content text
+        border_style : Style
+            Style for border characters
+        """
+        from wijjit.layout.frames import BORDER_CHARS
+        from wijjit.terminal.cell import Cell
+
+        # Get border characters
+        chars = BORDER_CHARS[self.border_style]
+        border_attrs = border_style.to_cell_attrs()
+
+        # Calculate dimensions
+        content_width = self.width
+        content_height = self.height
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+
+        if needs_scrollbar:
+            scrollbar_width = 1
+        else:
+            scrollbar_width = 0
+
+        total_width = content_width + scrollbar_width + 2  # +2 for borders
+        total_height = content_height + 2  # +2 for borders
+
+        # Render top border
+        ctx.buffer.set_cell(
+            ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+        )
+        for x in range(1, total_width - 1):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + x, ctx.bounds.y, Cell(char=chars["h"], **border_attrs)
+            )
+        ctx.buffer.set_cell(
+            ctx.bounds.x + total_width - 1,
+            ctx.bounds.y,
+            Cell(char=chars["tr"], **border_attrs),
+        )
+
+        # Render content area
+        content_ctx = ctx.sub_context(
+            1, 1, content_width + scrollbar_width, content_height
+        )
+        self._render_to_content(
+            content_ctx, content_style, 0, 0, content_width, content_height
+        )
+
+        # Render side borders
+        for y in range(content_height):
+            ctx.buffer.set_cell(
+                ctx.bounds.x,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+
+        # Render bottom border
+        bottom_y = total_height - 1
+        ctx.buffer.set_cell(
+            ctx.bounds.x,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["bl"], **border_attrs),
+        )
+        for x in range(1, total_width - 1):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + x,
+                ctx.bounds.y + bottom_y,
+                Cell(char=chars["h"], **border_attrs),
+            )
+        ctx.buffer.set_cell(
+            ctx.bounds.x + total_width - 1,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["br"], **border_attrs),
+        )
+
+    def _render_to_content(
+        self,
+        ctx: "PaintContext",
+        content_style: "Style",
+        start_x: int,
+        start_y: int,
+        width: int,
+        height: int,
+    ) -> None:
+        """Render textarea content using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        content_style : Style
+            Style for content text
+        start_x : int
+            Starting X position
+        start_y : int
+            Starting Y position
+        width : int
+            Content width
+        height : int
+            Content height
+        """
+        from wijjit.styling.style import Style
+        from wijjit.terminal.cell import Cell
+
+        # Determine content width (account for scrollbar)
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+        content_width = width - 1 if needs_scrollbar else width
+
+        # Get cursor visual position for rendering
+        cursor_visual_row, cursor_visual_col = self._actual_to_visual_position(
+            self.cursor_row, self.cursor_col
+        )
+
+        # Get visible range (in visual lines for wrapping modes)
+        visible_start, visible_end = self.scroll_manager.get_visible_range()
+
+        # Create cursor style (reverse video)
+        cursor_style = Style(
+            fg_color=content_style.bg_color or (0, 0, 0),
+            bg_color=content_style.fg_color or (255, 255, 255),
+            bold=content_style.bold,
+            italic=content_style.italic,
+        )
+
+        content_attrs = content_style.to_cell_attrs()
+        cursor_attrs = cursor_style.to_cell_attrs()
+
+        if self.wrap_mode == "none":
+            # Original rendering logic for no wrapping
+            visible_lines = self.lines[visible_start:visible_end]
+
+            # Render each visible line
+            for i, line in enumerate(visible_lines):
+                if i >= height:
+                    break
+
+                # Calculate actual line index in content
+                actual_line_idx = visible_start + i
+
+                # Determine if cursor is on this line
+                show_cursor = self.focused and actual_line_idx == self.cursor_row
+
+                # Clip or pad line to content width
+                if len(line) > content_width:
+                    display_line = line[:content_width]
+                else:
+                    display_line = line.ljust(content_width)
+
+                # Write line cells
+                for x, char in enumerate(display_line):
+                    # Check if this is cursor position
+                    if show_cursor and x == self.cursor_col:
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + x,
+                            ctx.bounds.y + start_y + i,
+                            Cell(char=char, **cursor_attrs),
+                        )
+                    else:
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + x,
+                            ctx.bounds.y + start_y + i,
+                            Cell(char=char, **content_attrs),
+                        )
+
+            # Pad remaining lines to height
+            for i in range(len(visible_lines), height):
+                for x in range(content_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + start_y + i,
+                        Cell(char=" ", **content_attrs),
+                    )
+
+        else:
+            # Rendering with wrapping enabled
+            visual_line_idx = 0
+            rendered_line_count = 0
+
+            # Iterate through actual lines and render wrapped segments
+            for _actual_row, line in enumerate(self.lines):
+                if rendered_line_count >= height:
+                    break
+
+                wrapped_segments = wrap_text(line, content_width)
+
+                for _seg_idx, segment in enumerate(wrapped_segments):
+                    # Check if this visual line is in the visible range
+                    if visible_start <= visual_line_idx < visible_end:
+                        # Determine if cursor is on this visual line
+                        show_cursor = (
+                            self.focused and visual_line_idx == cursor_visual_row
+                        )
+
+                        # Pad segment to content width
+                        seg_len = visible_length(segment)
+                        if seg_len > content_width:
+                            display_line = clip_to_width(
+                                segment, content_width, ellipsis=""
+                            )
+                        else:
+                            display_line = segment + " " * (content_width - seg_len)
+
+                        # Write line cells
+                        for x, char in enumerate(display_line):
+                            # Check if this is cursor position
+                            if show_cursor and x == cursor_visual_col:
+                                ctx.buffer.set_cell(
+                                    ctx.bounds.x + x,
+                                    ctx.bounds.y + start_y + rendered_line_count,
+                                    Cell(char=char, **cursor_attrs),
+                                )
+                            else:
+                                ctx.buffer.set_cell(
+                                    ctx.bounds.x + x,
+                                    ctx.bounds.y + start_y + rendered_line_count,
+                                    Cell(char=char, **content_attrs),
+                                )
+
+                        rendered_line_count += 1
+                        if rendered_line_count >= height:
+                            break
+
+                    visual_line_idx += 1
+
+            # Pad remaining lines to height
+            for i in range(rendered_line_count, height):
+                for x in range(content_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + start_y + i,
+                        Cell(char=" ", **content_attrs),
+                    )
+
+        # Add scrollbar if needed
+        if needs_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, height
+            )
+
+            for i in range(height):
+                scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + content_width,
+                    ctx.bounds.y + start_y + i,
+                    Cell(char=scrollbar_char, **content_attrs),
+                )
+
     def _render_cursor_in_line(self, line: str, cursor_col: int) -> str:
         """Render a line with cursor at the specified column.
 
@@ -1816,7 +2130,7 @@ class TextArea(Element):
         return before_cursor + cursor_with_style + after_cursor
 
     def render(self) -> str:
-        """Render the text area.
+        """Render the text area (LEGACY ANSI rendering).
 
         Returns
         -------
@@ -1825,6 +2139,10 @@ class TextArea(Element):
 
         Notes
         -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
+
         Renders visible portion of content based on scroll position.
         Optionally shows scrollbar if content exceeds viewport.
         Shows cursor at current position when focused.

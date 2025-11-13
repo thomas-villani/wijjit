@@ -34,12 +34,14 @@ def create_app():
     Wijjit
         Configured application instance
     """
-    app = Wijjit(initial_state={
-        "newsletter": False,
-        "terms": False,
-        "features": [],
-        "submitted": False,
-    })
+    app = Wijjit(
+        initial_state={
+            "newsletter": False,
+            "terms": False,
+            "features": [],
+            "submitted": False,
+        }
+    )
 
     # Create individual checkbox elements
     newsletter_checkbox = Checkbox(
@@ -93,12 +95,14 @@ def create_app():
     features_group.on_change = sync_features
 
     # Register elements with focus manager
-    app.focus_manager.set_elements([
-        newsletter_checkbox,
-        terms_checkbox,
-        features_group,
-        submit_button,
-    ])
+    app.focus_manager.set_elements(
+        [
+            newsletter_checkbox,
+            terms_checkbox,
+            features_group,
+            submit_button,
+        ]
+    )
 
     # Button click handler
     def on_submit(event: ActionEvent):
@@ -117,6 +121,7 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main form view."""
+
         def render_data():
             term_size = shutil.get_terminal_size()
             term_width = term_size.columns
@@ -139,24 +144,28 @@ def create_app():
 
             # Show submitted values if form was submitted
             if app.state["submitted"]:
-                content_lines.extend([
-                    border,
-                    "  SUBMITTED:",
-                    border,
-                    f"  Newsletter: {app.state['newsletter']}",
-                    f"  Terms Accepted: {app.state['terms']}",
-                    f"  Selected Features: {', '.join(app.state['features']) if app.state['features'] else 'None'}",
-                    border,
-                    "",
-                ])
+                content_lines.extend(
+                    [
+                        border,
+                        "  SUBMITTED:",
+                        border,
+                        f"  Newsletter: {app.state['newsletter']}",
+                        f"  Terms Accepted: {app.state['terms']}",
+                        f"  Selected Features: {', '.join(app.state['features']) if app.state['features'] else 'None'}",
+                        border,
+                        "",
+                    ]
+                )
 
-            content_lines.extend([
-                "  Controls:",
-                "    [Tab/Shift+Tab] Navigate  [Space] Toggle  [Enter] Submit",
-                "    [q] Quit",
-                "",
-                border,
-            ])
+            content_lines.extend(
+                [
+                    "  Controls:",
+                    "    [Tab/Shift+Tab] Navigate  [Space] Toggle  [Enter] Submit",
+                    "    [q] Quit",
+                    "",
+                    border,
+                ]
+            )
 
             return {"content": "\n".join(content_lines)}
 
@@ -170,6 +179,7 @@ def create_app():
 
     def setup_handlers():
         """Set up keyboard handlers for the form view."""
+
         def on_key(event):
             """Handle custom keyboard events."""
             if event.key == "q":
@@ -192,6 +202,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

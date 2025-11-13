@@ -16,12 +16,14 @@ from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
 
 # Create app with click counters
-app = Wijjit(initial_state={
-    'button1_clicks': 0,
-    'button2_clicks': 0,
-    'button3_clicks': 0,
-    'status': 'Click buttons with mouse or keyboard (Tab + Enter/Space)',
-})
+app = Wijjit(
+    initial_state={
+        "button1_clicks": 0,
+        "button2_clicks": 0,
+        "button3_clicks": 0,
+        "status": "Click buttons with mouse or keyboard (Tab + Enter/Space)",
+    }
+)
 
 
 @app.view("main", default=True)
@@ -68,22 +70,22 @@ def main_view():
 @app.on_action("click1")
 def handle_click1(event):
     """Handle button 1 clicks."""
-    app.state['button1_clicks'] += 1
-    app.state['status'] = f"Button 1 clicked! Total: {app.state['button1_clicks']}"
+    app.state["button1_clicks"] += 1
+    app.state["status"] = f"Button 1 clicked! Total: {app.state['button1_clicks']}"
 
 
 @app.on_action("click2")
 def handle_click2(event):
     """Handle button 2 clicks."""
-    app.state['button2_clicks'] += 1
-    app.state['status'] = f"Button 2 clicked! Total: {app.state['button2_clicks']}"
+    app.state["button2_clicks"] += 1
+    app.state["status"] = f"Button 2 clicked! Total: {app.state['button2_clicks']}"
 
 
 @app.on_action("click3")
 def handle_click3(event):
     """Handle button 3 clicks."""
-    app.state['button3_clicks'] += 1
-    app.state['status'] = f"Button 3 clicked! Total: {app.state['button3_clicks']}"
+    app.state["button3_clicks"] += 1
+    app.state["status"] = f"Button 3 clicked! Total: {app.state['button3_clicks']}"
 
 
 @app.on_action("quit")
@@ -94,12 +96,15 @@ def handle_quit(event):
 
 def handle_key(event):
     """Handle keyboard shortcuts."""
-    if event.key == 'q':
+    if event.key == "q":
         app.quit()
         event.cancel()
 
+
 # Register key handler with high priority to intercept before TextArea
-app.on(EventType.KEY, handle_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
+app.on(
+    EventType.KEY, handle_key, scope=HandlerScope.VIEW, view_name="main", priority=100
+)
 
 if __name__ == "__main__":
     app.run()

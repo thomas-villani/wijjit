@@ -178,7 +178,9 @@ def setup_editor_handlers():
     # Update statusbar for editor view
     app.state["sb_left"] = f"{app.state['current_file']} [modified]"
     app.state["sb_center"] = "-- INSERT --"
-    app.state["sb_right"] = f"Ln {app.state['line_number']}, Col {app.state['column_number']}"
+    app.state["sb_right"] = (
+        f"Ln {app.state['line_number']}, Col {app.state['column_number']}"
+    )
 
     def on_arrow_keys(event):
         if event.key == "up":
@@ -191,7 +193,9 @@ def setup_editor_handlers():
             app.state["column_number"] += 1
 
         # Update statusbar
-        app.state["sb_right"] = f"Ln {app.state['line_number']}, Col {app.state['column_number']}"
+        app.state["sb_right"] = (
+            f"Ln {app.state['line_number']}, Col {app.state['column_number']}"
+        )
         app.refresh()
 
     app.on(EventType.KEY, on_arrow_keys, scope=HandlerScope.VIEW, view_name="editor")
@@ -204,14 +208,18 @@ def setup_stats_handlers():
     # Update statusbar for stats view
     app.state["sb_left"] = f"Document: {app.state['current_file']}"
     app.state["sb_center"] = "Statistics Mode"
-    app.state["sb_right"] = f"Chars: {app.state['char_count']} | Words: {app.state['word_count']}"
+    app.state["sb_right"] = (
+        f"Chars: {app.state['char_count']} | Words: {app.state['word_count']}"
+    )
 
     def on_a_key(event):
         if event.key == "a":
             app.state["word_count"] += 100
             app.state["char_count"] += 500
             # Update statusbar
-            app.state["sb_right"] = f"Chars: {app.state['char_count']} | Words: {app.state['word_count']}"
+            app.state["sb_right"] = (
+                f"Chars: {app.state['char_count']} | Words: {app.state['word_count']}"
+            )
             app.refresh()
 
     app.on(EventType.KEY, on_a_key, scope=HandlerScope.VIEW, view_name="stats")

@@ -640,15 +640,63 @@ class TestTreeRendering:
 
         output = tree.render()
 
-        # Should contain collapsed indicator
-        assert "[+]" in output
+        # Should contain collapsed indicator (default is large triangles)
+        assert "▶" in output or "[+]" in output  # Unicode or fallback
 
         # Expand and re-render
         tree.expand_node("root")
         output = tree.render()
 
         # Should contain expanded indicator
+        assert "▼" in output or "[-]" in output  # Unicode or fallback
+
+    def test_indicator_styles(self):
+        """Test different indicator styles."""
+        from wijjit.elements.display import TreeIndicatorStyle
+
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child", "value": "child"},
+            ],
+        }
+
+        # Test BRACKETS style
+        tree = Tree(
+            data=data, width=40, height=10, indicator_style=TreeIndicatorStyle.BRACKETS
+        )
+        output = tree.render()
+        assert "[+]" in output
+
+        tree.expand_node("root")
+        output = tree.render()
         assert "[-]" in output
+
+        # Test TRIANGLES_LARGE style (default)
+        tree = Tree(
+            data=data,
+            width=40,
+            height=10,
+            indicator_style=TreeIndicatorStyle.TRIANGLES_LARGE,
+        )
+        output = tree.render()
+        assert "▶" in output or "[+]" in output  # Unicode or fallback
+
+        tree.expand_node("root")
+        output = tree.render()
+        assert "▼" in output or "[-]" in output  # Unicode or fallback
+
+        # Test MINIMAL style
+        tree = Tree(
+            data=data, width=40, height=10, indicator_style=TreeIndicatorStyle.MINIMAL
+        )
+        output = tree.render()
+        assert "+" in output
+
+        tree.expand_node("root")
+        output = tree.render()
+        assert "-" in output
 
     def test_render_with_scrollbar(self):
         """Test rendering with scrollbar."""

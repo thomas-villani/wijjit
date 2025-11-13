@@ -2,9 +2,11 @@
 
 from wijjit import Wijjit
 
-app = Wijjit(initial_state={
-    'test': 'initial',
-})
+app = Wijjit(
+    initial_state={
+        "test": "initial",
+    }
+)
 
 
 @app.view("main", default=True)
@@ -19,7 +21,7 @@ def main_view():
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Starting app...")
     print(f"Focus navigation enabled: {app.focus_navigation_enabled}")
     app.run()

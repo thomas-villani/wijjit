@@ -34,12 +34,14 @@ def create_app():
         Configured application instance
     """
     # Initialize app with starting state
-    app = Wijjit(initial_state={
-        "name": "",
-        "email": "",
-        "submitted_name": None,
-        "submitted_email": None,
-    })
+    app = Wijjit(
+        initial_state={
+            "name": "",
+            "email": "",
+            "submitted_name": None,
+            "submitted_email": None,
+        }
+    )
 
     # Create UI elements (these persist across renders)
     name_input = TextInput(
@@ -98,6 +100,7 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main form view."""
+
         def render_data():
             # Get terminal size for responsive layout
             term_size = shutil.get_terminal_size()
@@ -120,28 +123,34 @@ def create_app():
 
             # Show submitted values if available
             if app.state["submitted_name"] or app.state["submitted_email"]:
-                content_lines.extend([
-                    border,
-                    "  SUBMITTED DATA:",
-                    border,
-                ])
+                content_lines.extend(
+                    [
+                        border,
+                        "  SUBMITTED DATA:",
+                        border,
+                    ]
+                )
                 if app.state["submitted_name"]:
                     content_lines.append(f"  Name:  {app.state['submitted_name']}")
                 if app.state["submitted_email"]:
                     content_lines.append(f"  Email: {app.state['submitted_email']}")
-                content_lines.extend([
-                    border,
-                    "",
-                ])
+                content_lines.extend(
+                    [
+                        border,
+                        "",
+                    ]
+                )
 
-            content_lines.extend([
-                "  Controls:",
-                "    [Tab] Next field  [Shift+Tab] Previous field",
-                "    [Enter/Space] Submit (when button focused)",
-                "    [q] Quit",
-                "",
-                border,
-            ])
+            content_lines.extend(
+                [
+                    "  Controls:",
+                    "    [Tab] Next field  [Shift+Tab] Previous field",
+                    "    [Enter/Space] Submit (when button focused)",
+                    "    [q] Quit",
+                    "",
+                    border,
+                ]
+            )
 
             content_text = "\n".join(content_lines)
 
@@ -185,6 +194,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

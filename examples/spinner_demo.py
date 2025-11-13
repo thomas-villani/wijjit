@@ -78,7 +78,7 @@ def main_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """, # noqa: E501
+        """,  # noqa: E501
         "data": {},
     }
 

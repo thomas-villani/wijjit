@@ -27,7 +27,6 @@ from wijjit.core.events import EventType, HandlerScope
 app = Wijjit()
 
 
-
 @app.view("main", default=True)
 def main_view():
     return {
@@ -144,7 +143,9 @@ def handle_key_press(event):
         # Clear all notifications
         count = app.notification_manager.clear()
         if count > 0:
-            app.notify(f"Cleared {count} notification(s)", severity="info", duration=2.0)
+            app.notify(
+                f"Cleared {count} notification(s)", severity="info", duration=2.0
+            )
 
     # Update active count
     app.state["active_count"] = len(app.notification_manager.notifications)

@@ -253,7 +253,11 @@ def handle_add_many(event):
     current_logs = app.state.get("stream_logs", [])
 
     all_messages = (
-        ERROR_MESSAGES + WARNING_MESSAGES + INFO_MESSAGES + DEBUG_MESSAGES + TRACE_MESSAGES
+        ERROR_MESSAGES
+        + WARNING_MESSAGES
+        + INFO_MESSAGES
+        + DEBUG_MESSAGES
+        + TRACE_MESSAGES
     )
 
     for i in range(50):

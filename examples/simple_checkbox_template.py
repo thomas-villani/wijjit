@@ -44,6 +44,7 @@ def create_app():
 
     def setup_handlers():
         """Set up handlers."""
+
         def on_key(event):
             if event.key == "q":
                 app.quit()

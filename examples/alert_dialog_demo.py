@@ -38,6 +38,7 @@ def main_view():
 
 def show_alert(title, message, border="single"):
     """Helper function to show an alert dialog."""
+
     def on_ok():
         """Handle alert dismissal."""
         state["_refresh"] = True

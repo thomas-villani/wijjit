@@ -174,7 +174,9 @@ def handle_toggle_processing(event):
     else:
         app.refresh_interval = None  # Disable auto-refresh
 
-    app.state["status"] = f"Processing spinner: {'ON' if app.state['processing'] else 'OFF'}"
+    app.state["status"] = (
+        f"Processing spinner: {'ON' if app.state['processing'] else 'OFF'}"
+    )
 
 
 @app.on_action("reset")

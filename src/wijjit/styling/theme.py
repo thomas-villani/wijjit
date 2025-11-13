@@ -4,7 +4,6 @@ This module provides the Theme and ThemeManager classes for defining and
 switching between visual themes (light, dark, custom, etc.).
 """
 
-
 from wijjit.styling.style import Style
 
 
@@ -120,7 +119,7 @@ class DefaultTheme(Theme):
             ),
             "button:focus": Style(
                 fg_color=(255, 255, 255),
-                bg_color=(0, 120, 255),
+                bg_color=(0, 150, 255),
                 bold=True,
             ),
             "button:hover": Style(
@@ -182,22 +181,47 @@ class DefaultTheme(Theme):
             "frame.border": Style(
                 fg_color=(100, 100, 100),
             ),
+            "frame.border:focus": Style(
+                fg_color=(0, 255, 255),
+                bold=True,
+            ),
             # Text styles
             "text": Style(),
             "text.title": Style(bold=True),
             "text.subtitle": Style(italic=True),
             "text.muted": Style(dim=True),
+            # ListView styles
+            "listview": Style(),
+            "listview:focus": Style(bold=True),
+            "listview.label": Style(),
+            "listview.details": Style(dim=True),
+            "listview.divider": Style(fg_color=(100, 100, 100)),
+            "listview.border": Style(fg_color=(100, 100, 100)),
+            "listview.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # Table styles
             "table": Style(),
+            "table:focus": Style(bold=True),
             "table.header": Style(bold=True),
             "table.row": Style(),
             "table.row:selected": Style(reverse=True),
             "table.row:hover": Style(bg_color=(30, 30, 30)),
+            "table.border": Style(fg_color=(100, 100, 100)),
+            "table.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # Tree styles
-            "tree": Style(),
-            "tree.node": Style(),
-            "tree.node:selected": Style(reverse=True),
+            "tree": Style(fg_color=(200, 200, 200)),
+            "tree:focus": Style(fg_color=(255, 255, 255)),
+            "tree.node": Style(fg_color=(200, 200, 200)),
+            "tree.node:highlight": Style(fg_color=(0, 255, 255), bg_color=(0, 0, 0)),
+            "tree.node:selected": Style(fg_color=(0, 255, 255), bold=True),
             "tree.node:hover": Style(bg_color=(30, 30, 30)),
+            "tree.indicator": Style(fg_color=(180, 180, 180)),
+            "tree.border": Style(fg_color=(100, 100, 100)),
+            "tree.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # TextArea styles
+            "textarea": Style(fg_color=(255, 255, 255)),
+            "textarea:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "textarea.border": Style(fg_color=(100, 100, 100)),
+            "textarea.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # Status bar styles
             "statusbar": Style(
                 fg_color=(255, 255, 255),
@@ -229,7 +253,7 @@ class DefaultTheme(Theme):
             "notification.error": Style(
                 fg_color=(255, 255, 255),
                 bg_color=(200, 0, 0),
-            )
+            ),
         }
         super().__init__("default", styles)
 
@@ -303,22 +327,47 @@ class DarkTheme(Theme):
             "frame.border": Style(
                 fg_color=(80, 80, 100),
             ),
+            "frame.border:focus": Style(
+                fg_color=(100, 200, 255),
+                bold=True,
+            ),
             # Text styles
             "text": Style(fg_color=(200, 200, 220)),
             "text.title": Style(fg_color=(255, 255, 255), bold=True),
             "text.subtitle": Style(fg_color=(180, 180, 200), italic=True),
             "text.muted": Style(fg_color=(120, 120, 140)),
+            # ListView styles
+            "listview": Style(fg_color=(200, 200, 220)),
+            "listview:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "listview.label": Style(fg_color=(200, 200, 220)),
+            "listview.details": Style(fg_color=(140, 140, 160), dim=True),
+            "listview.divider": Style(fg_color=(80, 80, 100)),
+            "listview.border": Style(fg_color=(80, 80, 100)),
+            "listview.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # Table styles
             "table": Style(fg_color=(200, 200, 220)),
+            "table:focus": Style(fg_color=(220, 220, 255), bold=True),
             "table.header": Style(fg_color=(255, 255, 255), bold=True),
             "table.row": Style(),
             "table.row:selected": Style(bg_color=(60, 60, 100)),
             "table.row:hover": Style(bg_color=(40, 40, 60)),
+            "table.border": Style(fg_color=(80, 80, 100)),
+            "table.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # Tree styles
             "tree": Style(fg_color=(200, 200, 220)),
-            "tree.node": Style(),
-            "tree.node:selected": Style(bg_color=(60, 60, 100)),
+            "tree:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "tree.node": Style(fg_color=(200, 200, 220)),
+            "tree.node:highlight": Style(fg_color=(0, 0, 0), bg_color=(220, 220, 255)),
+            "tree.node:selected": Style(fg_color=(100, 200, 255), bold=True),
             "tree.node:hover": Style(bg_color=(40, 40, 60)),
+            "tree.indicator": Style(fg_color=(140, 140, 160)),
+            "tree.border": Style(fg_color=(80, 80, 100)),
+            "tree.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # TextArea styles
+            "textarea": Style(fg_color=(200, 200, 220)),
+            "textarea:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "textarea.border": Style(fg_color=(80, 80, 100)),
+            "textarea.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # Status bar styles
             "statusbar": Style(
                 fg_color=(255, 255, 255),
@@ -424,22 +473,49 @@ class LightTheme(Theme):
             "frame.border": Style(
                 fg_color=(180, 180, 180),
             ),
+            "frame.border:focus": Style(
+                fg_color=(0, 100, 200),
+                bold=True,
+            ),
             # Text styles
             "text": Style(fg_color=(0, 0, 0)),
             "text.title": Style(fg_color=(0, 0, 0), bold=True),
             "text.subtitle": Style(fg_color=(80, 80, 80), italic=True),
             "text.muted": Style(fg_color=(120, 120, 120)),
+            # ListView styles
+            "listview": Style(fg_color=(0, 0, 0)),
+            "listview:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "listview.label": Style(fg_color=(0, 0, 0)),
+            "listview.details": Style(fg_color=(100, 100, 100)),
+            "listview.divider": Style(fg_color=(180, 180, 180)),
+            "listview.border": Style(fg_color=(180, 180, 180)),
+            "listview.border:focus": Style(fg_color=(0, 100, 200), bold=True),
             # Table styles
             "table": Style(fg_color=(0, 0, 0)),
+            "table:focus": Style(fg_color=(0, 0, 0), bold=True),
             "table.header": Style(fg_color=(0, 0, 0), bold=True, underline=True),
             "table.row": Style(),
             "table.row:selected": Style(bg_color=(200, 220, 255)),
             "table.row:hover": Style(bg_color=(230, 240, 255)),
+            "table.border": Style(fg_color=(180, 180, 180)),
+            "table.border:focus": Style(fg_color=(0, 100, 200), bold=True),
             # Tree styles
             "tree": Style(fg_color=(0, 0, 0)),
-            "tree.node": Style(),
-            "tree.node:selected": Style(bg_color=(200, 220, 255)),
+            "tree:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "tree.node": Style(fg_color=(0, 0, 0)),
+            "tree.node:highlight": Style(
+                fg_color=(255, 255, 255), bg_color=(0, 100, 200)
+            ),
+            "tree.node:selected": Style(fg_color=(0, 100, 200), bold=True),
             "tree.node:hover": Style(bg_color=(230, 240, 255)),
+            "tree.indicator": Style(fg_color=(100, 100, 100)),
+            "tree.border": Style(fg_color=(180, 180, 180)),
+            "tree.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # TextArea styles
+            "textarea": Style(fg_color=(0, 0, 0)),
+            "textarea:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "textarea.border": Style(fg_color=(180, 180, 180)),
+            "textarea.border:focus": Style(fg_color=(0, 100, 200), bold=True),
             # Status bar styles
             "statusbar": Style(
                 fg_color=(0, 0, 0),

@@ -1,6 +1,5 @@
 """Tests for ScreenBuffer and DiffRenderer classes."""
 
-
 from wijjit.terminal.cell import Cell
 from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 

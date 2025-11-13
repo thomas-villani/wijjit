@@ -20,7 +20,10 @@ fruits = ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig"]
 
 # Sample data - with details (tuples)
 programming_languages = [
-    ("Python", "High-level, interpreted language\nGreat for scripting and data science"),
+    (
+        "Python",
+        "High-level, interpreted language\nGreat for scripting and data science",
+    ),
     ("JavaScript", "Dynamic scripting language\nRuns in browsers and Node.js"),
     ("Rust", "Systems programming language\nMemory-safe without garbage collection"),
     ("Go", "Compiled language by Google\nDesigned for concurrency and simplicity"),
@@ -28,10 +31,22 @@ programming_languages = [
 
 # Sample data - tasks with details (dicts)
 tasks = [
-    {"label": "Design API", "details": "Create RESTful API design\nDefine endpoints and schemas"},
-    {"label": "Implement backend", "details": "Build server with FastAPI\nConnect to database"},
-    {"label": "Create frontend", "details": "Build React components\nIntegrate with API"},
-    {"label": "Write tests", "details": "Unit tests for all modules\nIntegration tests for API"},
+    {
+        "label": "Design API",
+        "details": "Create RESTful API design\nDefine endpoints and schemas",
+    },
+    {
+        "label": "Implement backend",
+        "details": "Build server with FastAPI\nConnect to database",
+    },
+    {
+        "label": "Create frontend",
+        "details": "Build React components\nIntegrate with API",
+    },
+    {
+        "label": "Write tests",
+        "details": "Unit tests for all modules\nIntegration tests for API",
+    },
     {"label": "Deploy", "details": "Set up CI/CD pipeline\nDeploy to production"},
 ]
 
@@ -51,14 +66,9 @@ def main_view():
     """Main view showcasing ListView elements."""
     return {
         "template": """
-{% frame title="ListView Demo - Multiple Styles" border="double" width=110 height=30 %}
-  {% vstack spacing=1 padding=1 %}
-    {% vstack spacing=0 %}
-      {{ state.message }}
-    {% endvstack %}
-
-    {% hstack spacing=2 %}
-      {% vstack spacing=1 %}
+{% frame title="ListView Demo - Multiple Styles" border="double" height="auto" %}
+    {{ state.message }}
+    {% hstack spacing=1 %}
         {% listview id="fruits_bullet"
                     items=state.fruits
                     bullet="bullet"
@@ -78,9 +88,6 @@ def main_view():
                     title="Numbered"
                     show_scrollbar=true %}
         {% endlistview %}
-      {% endvstack %}
-
-      {% vstack spacing=1 %}
         {% listview id="fruits_dash"
                     items=state.fruits
                     bullet="dash"
@@ -90,7 +97,6 @@ def main_view():
                     title="Dashes"
                     show_scrollbar=true %}
         {% endlistview %}
-
         {% listview id="fruits_plain"
                     items=state.fruits
                     bullet=none
@@ -100,9 +106,9 @@ def main_view():
                     title="Plain"
                     show_scrollbar=true %}
         {% endlistview %}
-      {% endvstack %}
+    {% endhstack %}
 
-      {% vstack spacing=1 %}
+    {% hstack spacing=1 %}
         {% listview id="languages"
                     items=state.languages
                     bullet="bullet"
@@ -128,8 +134,7 @@ def main_view():
                     indent_details=2
                     dim_details=true %}
         {% endlistview %}
-      {% endvstack %}
-    {% endhstack %}
+      {% endhstack %}
 
     {% hstack spacing=2 %}
       {% button id="add_fruit_btn" action="add_fruit" %}Add Fruit{% endbutton %}
@@ -138,7 +143,7 @@ def main_view():
       {% button id="reset_btn" action="reset_lists" %}Reset{% endbutton %}
       {% button id="quit_btn" action="quit" %}Quit{% endbutton %}
     {% endhstack %}
-  {% endvstack %}
+
 {% endframe %}
         """,
         "data": {},

@@ -349,9 +349,11 @@ def create_app():
     panel_height = term_size.lines - 8
 
     # Initialize app
-    app = Wijjit(initial_state={
-        "focused_panel": "docs",
-    })
+    app = Wijjit(
+        initial_state={
+            "focused_panel": "docs",
+        }
+    )
 
     # Create elements
     markdown = MarkdownView(
@@ -382,6 +384,7 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main view with side-by-side panels."""
+
         def render_data():
             # Render both panels
             markdown_lines = markdown.render().split("\n")
@@ -400,17 +403,21 @@ def create_app():
                 combined_lines.append(f"{md_line}  {code_line}")
 
             # Build full UI
-            content_text = "\n".join([
-                "=" * term_size.columns,
-                "  RICH CONTENT DEMO - Documentation + Code".center(term_size.columns),
-                "=" * term_size.columns,
-                "",
-                *combined_lines,
-                "",
-                "=" * term_size.columns,
-                "  [Tab] Switch Panel  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [q] Quit",
-                "=" * term_size.columns,
-            ])
+            content_text = "\n".join(
+                [
+                    "=" * term_size.columns,
+                    "  RICH CONTENT DEMO - Documentation + Code".center(
+                        term_size.columns
+                    ),
+                    "=" * term_size.columns,
+                    "",
+                    *combined_lines,
+                    "",
+                    "=" * term_size.columns,
+                    "  [Tab] Switch Panel  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [q] Quit",
+                    "=" * term_size.columns,
+                ]
+            )
 
             return {"content": content_text}
 
@@ -424,6 +431,7 @@ def create_app():
 
     def setup_handlers():
         """Set up keyboard handlers."""
+
         def on_key(event):
             """Handle keyboard events."""
             # Quit with 'q'
@@ -433,7 +441,13 @@ def create_app():
                 return
 
         # Register key handler
-        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
+        app.on(
+            EventType.KEY,
+            on_key,
+            scope=HandlerScope.VIEW,
+            view_name="main",
+            priority=100,
+        )
 
     return app
 
@@ -449,6 +463,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

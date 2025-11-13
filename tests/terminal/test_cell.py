@@ -1,6 +1,5 @@
 """Tests for Cell class."""
 
-
 from wijjit.terminal.cell import Cell
 
 

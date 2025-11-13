@@ -113,10 +113,7 @@ This is a **markdown** viewer that automatically fills available space.
 
         # Render the complex layout
         output, elements, _ = renderer.render_with_layout(
-            template,
-            context={},
-            width=120,
-            height=40
+            template, context={}, width=120, height=40
         )
 
         # Print element bounds for debugging
@@ -125,9 +122,9 @@ This is a **markdown** viewer that automatically fills available space.
             elem_type = elem.__class__.__name__
             print(f"{elem_type:20s} {elem.bounds}")
 
-        print("\n" + "="*120)
+        print("\n" + "=" * 120)
         print("=== Complex Layout Rendering ===")
-        print("="*120 + "\n")
+        print("=" * 120 + "\n")
 
         # Save to file to avoid Windows encoding issues
         with open("complex_layout_output.txt", "w", encoding="utf-8") as f:
@@ -136,7 +133,7 @@ This is a **markdown** viewer that automatically fills available space.
 
         # Also print a simple ASCII version of structure
         print("\nLayout Structure:")
-        for line in output.split('\n')[:5]:
+        for line in output.split("\n")[:5]:
             try:
                 print(line)
             except UnicodeEncodeError:
@@ -144,9 +141,9 @@ This is a **markdown** viewer that automatically fills available space.
                 break
 
         # Print some insights
-        print("\n" + "="*120)
+        print("\n" + "=" * 120)
         print("=== Layout Insights ===")
-        print("="*120)
+        print("=" * 120)
         print(f"Total elements rendered: {len(elements)}")
         print(f"Output size: {len(output.split(chr(10)))} lines × 120 columns")
         print("\nLayout Features Demonstrated:")
@@ -160,6 +157,7 @@ This is a **markdown** viewer that automatically fills available space.
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

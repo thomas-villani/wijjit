@@ -1,7 +1,7 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
 from io import StringIO
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import rich.box
 from rich.console import Console
@@ -12,6 +12,9 @@ from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
 
 BOX_STYLES = {
     "none": None,
@@ -375,13 +378,146 @@ class Table(ScrollableMixin, Element):
 
         return False
 
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render table using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method implements cell-based rendering for tables by:
+        1. Rendering the table using Rich library (for layout and formatting)
+        2. Converting the Rich ANSI output to cells using the ANSI adapter
+        3. Writing cells to the buffer
+
+        This approach leverages Rich's powerful table formatting while
+        benefiting from cell-based rendering performance.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'table': Base table style
+        - 'table:focus': When table has focus
+        - 'table.header': For column headers
+        - 'table.row': For table rows
+        - 'table.border': For table borders
+        - 'table.border:focus': For borders when focused
+        """
+        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+        from wijjit.terminal.cell import Cell
+
+        if not self.columns:
+            # No columns defined - show placeholder
+            empty_msg = "No columns defined"
+            empty_style = ctx.style_resolver.resolve_style(self, "table")
+            ctx.write_text(0, 0, empty_msg, empty_style)
+            return
+
+        # Calculate effective width for table rendering
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+        table_width = self.width - 1 if needs_scrollbar else self.width
+
+        # Create Rich table with focus-based border style
+        if self.focused:
+            box_style = rich.box.DOUBLE
+        else:
+            box_style = BOX_STYLES.get(self.border_style, rich.box.SQUARE)
+
+        table = RichTable(
+            show_header=self.show_header,
+            box=box_style,
+            width=table_width,
+            show_lines=False,
+            padding=(0, 1),
+        )
+
+        # Add columns with sort indicators
+        for col in self.columns:
+            label = col["label"]
+
+            if self.sortable and col["key"] == self.sort_column:
+                indicator = " ▲" if self.sort_direction == "asc" else " ▼"
+                label = label + indicator
+
+            table.add_column(label, width=col["width"], no_wrap=True)
+
+        # Get visible rows
+        visible_start, visible_end = self.scroll_manager.get_visible_range()
+        visible_data = self.data[visible_start:visible_end]
+
+        # Add rows
+        for row_data in visible_data:
+            row_values = []
+            for col in self.columns:
+                value = row_data.get(col["key"], "")
+                value_str = str(value)
+                row_values.append(value_str)
+
+            table.add_row(*row_values)
+
+        # Render table using Rich
+        console = Console(file=StringIO(), width=table_width, legacy_windows=False)
+        console.print(table)
+        output = console.file.getvalue()
+
+        # Split into lines
+        lines = output.rstrip("\n").split("\n")
+
+        # Pad or trim to exact height
+        if len(lines) < self.height:
+            lines.extend(["" for _ in range(self.height - len(lines))])
+        else:
+            lines = lines[: self.height]
+
+        # Generate scrollbar if needed
+        scrollbar_chars = []
+        if needs_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, self.height
+            )
+
+        # Convert each line from ANSI to cells and write to buffer
+        for y, line in enumerate(lines):
+            # Convert ANSI string to cells
+            cells = ansi_string_to_cells(line)
+
+            # Write cells to buffer
+            for x, cell in enumerate(cells):
+                if x >= table_width:
+                    break
+                ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, cell)
+
+            # Pad remaining width with empty cells if needed
+            for x in range(len(cells), table_width):
+                ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, Cell(char=" "))
+
+            # Add scrollbar character if needed
+            if needs_scrollbar:
+                scrollbar_char = scrollbar_chars[y] if y < len(scrollbar_chars) else " "
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + table_width,
+                    ctx.bounds.y + y,
+                    Cell(char=scrollbar_char),
+                )
+
     def render(self) -> str:
-        """Render the table.
+        """Render the table (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered table as multi-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         if not self.columns:
             # No columns defined - show placeholder

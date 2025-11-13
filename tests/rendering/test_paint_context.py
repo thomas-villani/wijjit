@@ -4,7 +4,6 @@ This module tests the PaintContext class which provides the rendering
 environment for cell-based element rendering.
 """
 
-
 from wijjit.layout.bounds import Bounds
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver

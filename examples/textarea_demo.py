@@ -71,16 +71,18 @@ LINE WRAPPING MODES (F1/F2/F3):
 
 Try typing a very long line to see how wrapping works! For example: This is a deliberately long line that will demonstrate the wrapping behavior when it exceeds the width of the text area, showing how the different wrap modes handle text that is too wide to fit.
 
-Press 'q' to quit. Happy editing!""" #  # noqa: E501
+Press 'q' to quit. Happy editing!"""  #  # noqa: E501
 
     # Initialize app
-    app = Wijjit(initial_state={
-        "content": initial_content,
-        "cursor_pos": "0:0",
-        "lines": 0,
-        "chars": 0,
-        "wrap_mode": "none",
-    })
+    app = Wijjit(
+        initial_state={
+            "content": initial_content,
+            "cursor_pos": "0:0",
+            "lines": 0,
+            "chars": 0,
+            "wrap_mode": "none",
+        }
+    )
 
     # Create TextArea element
     term_size = shutil.get_terminal_size()
@@ -112,6 +114,7 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
     @app.view("main", default=True)
     def main_view():
         """Main textarea view."""
+
         def render_data():
             term_size = shutil.get_terminal_size()
             term_width = term_size.columns
@@ -119,12 +122,9 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
             # Set bounds for the textarea so mouse events can find it
             # The textarea top border renders at row 2 (after header border, title, header border)
             # Content starts at row 3, so bounds.y points to the top border at row 2
-            textarea.set_bounds(Bounds(
-                x=0,
-                y=2,
-                width=textarea_width,
-                height=textarea_height + 2
-            ))
+            textarea.set_bounds(
+                Bounds(x=0, y=2, width=textarea_width, height=textarea_height + 2)
+            )
 
             # Add textarea to positioned_elements so _find_element_at can find it
             # Must do this on every render since app clears positioned_elements
@@ -137,7 +137,7 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
 
             # Build UI
             border = "=" * term_width
-            wrap_mode_display = app.state.get('wrap_mode', 'none').upper()
+            wrap_mode_display = app.state.get("wrap_mode", "none").upper()
             content_lines = [
                 border,
                 "  TEXTAREA DEMO",
@@ -166,10 +166,13 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
 
     def setup_handlers():
         """Set up keyboard handlers."""
+
         def on_key(event):
             """Handle keyboard events."""
             # Handle quit with Escape or Ctrl+Q
-            if event.key == "escape" or (event.key == "q" and "ctrl" in event.modifiers):
+            if event.key == "escape" or (
+                event.key == "q" and "ctrl" in event.modifiers
+            ):
                 app.quit()
                 event.cancel()  # Prevent further handling
                 return
@@ -206,7 +209,13 @@ Press 'q' to quit. Happy editing!""" #  # noqa: E501
             # Focus manager and textarea handle other keys automatically
 
         # Register key handler with high priority to intercept before TextArea
-        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main", priority=100)
+        app.on(
+            EventType.KEY,
+            on_key,
+            scope=HandlerScope.VIEW,
+            view_name="main",
+            priority=100,
+        )
 
     return app
 
@@ -222,6 +231,7 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 

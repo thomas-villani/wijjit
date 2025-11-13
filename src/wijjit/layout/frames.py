@@ -7,13 +7,16 @@ exceeds the frame height.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length, wrap_text
 from wijjit.terminal.input import Key
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
 
 
 class BorderStyle(Enum):
@@ -935,3 +938,531 @@ class Frame:
         """
         if self.scroll_manager:
             self.scroll_manager.scroll_to(position)
+
+    def render_to(self, ctx: "PaintContext") -> None:
+        """Render frame using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method implements cell-based rendering for frames, supporting:
+        - Multiple border styles (single, double, rounded)
+        - Optional titles in borders
+        - Padding and content alignment
+        - Scrolling with scrollbar rendering
+        - Theme-based styling
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'frame': Base frame style for content
+        - 'frame:focus': When frame has focus
+        - 'frame.border': For border characters
+        - 'frame.title': For title text in border
+        """
+
+        # Resolve styles based on state
+        if self.focused:
+            content_style = ctx.style_resolver.resolve_style(self, "frame:focus")
+            border_style = ctx.style_resolver.resolve_style(self, "frame.border:focus")
+        else:
+            content_style = ctx.style_resolver.resolve_style(self, "frame")
+            border_style = ctx.style_resolver.resolve_style(self, "frame.border")
+
+        # Get border characters
+        chars = BORDER_CHARS[self.style.border]
+        border_attrs = border_style.to_cell_attrs()
+        content_attrs = content_style.to_cell_attrs()
+
+        # Calculate inner dimensions
+        padding_top, padding_right, padding_bottom, padding_left = self.style.padding
+        scrollbar_width = 1 if (self.style.show_scrollbar and self._needs_scroll) else 0
+        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width
+        inner_height = self.height - 2 - padding_top - padding_bottom
+
+        # Render top border with optional title
+        self._render_to_top_border(ctx, chars, border_attrs)
+
+        # Render content area
+        current_y = 1  # Start after top border
+
+        # Top padding
+        for _ in range(padding_top):
+            self._render_to_empty_line(
+                ctx,
+                current_y,
+                chars,
+                border_attrs,
+                padding_left,
+                inner_width,
+                padding_right,
+                scrollbar_width,
+            )
+            current_y += 1
+
+        # Render content based on mode
+        if self._has_children and not self.content:
+            # Scrollable frame with children - render empty content area with scrollbar
+            if self.style.scrollable and self._needs_scroll and self.scroll_manager:
+                scrollbar_chars = render_vertical_scrollbar(
+                    self.scroll_manager.state, inner_height, style="simple"
+                )
+                for i in range(inner_height):
+                    scrollbar_char = (
+                        scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+                    )
+                    self._render_to_content_line(
+                        ctx,
+                        current_y,
+                        "",
+                        chars,
+                        border_attrs,
+                        content_attrs,
+                        padding_left,
+                        inner_width,
+                        padding_right,
+                        scrollbar_char if self.style.show_scrollbar else None,
+                    )
+                    current_y += 1
+            else:
+                # Non-scrollable or no scrolling needed - render empty
+                for _ in range(inner_height):
+                    self._render_to_empty_line(
+                        ctx,
+                        current_y,
+                        chars,
+                        border_attrs,
+                        padding_left,
+                        inner_width,
+                        padding_right,
+                        scrollbar_width,
+                    )
+                    current_y += 1
+        elif self.style.scrollable and self._needs_scroll and self.scroll_manager:
+            # Scrollable frame with text content
+            start_line, end_line = self.scroll_manager.get_visible_range()
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, inner_height, style="simple"
+            )
+
+            for i in range(inner_height):
+                content_idx = start_line + i
+                line = ""
+                if content_idx < end_line and content_idx < len(self.content):
+                    line = self.content[content_idx]
+
+                scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+                self._render_to_content_line(
+                    ctx,
+                    current_y,
+                    line,
+                    chars,
+                    border_attrs,
+                    content_attrs,
+                    padding_left,
+                    inner_width,
+                    padding_right,
+                    scrollbar_char if self.style.show_scrollbar else None,
+                )
+                current_y += 1
+        else:
+            # Static (non-scrollable) frame with text content
+            # Handle vertical alignment
+            num_content_lines = len(self.content)
+            if (
+                self.style.content_align_v != "stretch"
+                and num_content_lines < inner_height
+            ):
+                empty_space = inner_height - num_content_lines
+                if self.style.content_align_v == "middle":
+                    top_empty = empty_space // 2
+                    bottom_empty = empty_space - top_empty
+                elif self.style.content_align_v == "bottom":
+                    top_empty = empty_space
+                    bottom_empty = 0
+                else:  # "top"
+                    top_empty = 0
+                    bottom_empty = empty_space
+            else:
+                top_empty = 0
+                bottom_empty = max(0, inner_height - num_content_lines)
+
+            # Top empty lines for alignment
+            for _ in range(top_empty):
+                self._render_to_empty_line(
+                    ctx,
+                    current_y,
+                    chars,
+                    border_attrs,
+                    padding_left,
+                    inner_width,
+                    padding_right,
+                    scrollbar_width,
+                )
+                current_y += 1
+
+            # Content lines
+            for i in range(min(num_content_lines, inner_height)):
+                line = self.content[i]
+                self._render_to_content_line(
+                    ctx,
+                    current_y,
+                    line,
+                    chars,
+                    border_attrs,
+                    content_attrs,
+                    padding_left,
+                    inner_width,
+                    padding_right,
+                    None,
+                )
+                current_y += 1
+
+            # Bottom empty lines
+            for _ in range(bottom_empty):
+                self._render_to_empty_line(
+                    ctx,
+                    current_y,
+                    chars,
+                    border_attrs,
+                    padding_left,
+                    inner_width,
+                    padding_right,
+                    scrollbar_width,
+                )
+                current_y += 1
+
+        # Bottom padding
+        for _ in range(padding_bottom):
+            self._render_to_empty_line(
+                ctx,
+                current_y,
+                chars,
+                border_attrs,
+                padding_left,
+                inner_width,
+                padding_right,
+                scrollbar_width,
+            )
+            current_y += 1
+
+        # Render bottom border
+        self._render_to_bottom_border(ctx, current_y, chars, border_attrs)
+
+    def _render_to_top_border(
+        self, ctx: "PaintContext", chars: dict, border_attrs: dict
+    ) -> None:
+        """Render top border with optional title using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        chars : dict
+            Border characters
+        border_attrs : dict
+            Border cell attributes
+        """
+        from wijjit.terminal.cell import Cell
+
+        if self.style.title:
+            # Border with title
+            title_text = f" {self.style.title} "
+            title_len = len(title_text)
+            remaining = self.width - 2 - title_len
+
+            if remaining >= 0:
+                # Write top-left corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+
+                # Write left horizontal line (1 char)
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["h"], **border_attrs),
+                )
+
+                # Write title
+                for i, char in enumerate(title_text):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 2 + i,
+                        ctx.bounds.y,
+                        Cell(char=char, **border_attrs),
+                    )
+
+                # Write right horizontal line
+                right_len = remaining - 1
+                for i in range(right_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 2 + title_len + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Write top-right corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + self.width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+            else:
+                # Title too long, truncate and show without extra lines
+                title_text = title_text[: self.width - 2]
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+                for i, char in enumerate(title_text):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=char, **border_attrs),
+                    )
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + self.width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+        else:
+            # Border without title
+            # Top-left corner
+            ctx.buffer.set_cell(
+                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+            )
+
+            # Horizontal line
+            for i in range(1, self.width - 1):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + i,
+                    ctx.bounds.y,
+                    Cell(char=chars["h"], **border_attrs),
+                )
+
+            # Top-right corner
+            ctx.buffer.set_cell(
+                ctx.bounds.x + self.width - 1,
+                ctx.bounds.y,
+                Cell(char=chars["tr"], **border_attrs),
+            )
+
+    def _render_to_bottom_border(
+        self, ctx: "PaintContext", y: int, chars: dict, border_attrs: dict
+    ) -> None:
+        """Render bottom border using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        y : int
+            Y position relative to bounds
+        chars : dict
+            Border characters
+        border_attrs : dict
+            Border cell attributes
+        """
+        from wijjit.terminal.cell import Cell
+
+        # Bottom-left corner
+        ctx.buffer.set_cell(
+            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["bl"], **border_attrs)
+        )
+
+        # Horizontal line
+        for i in range(1, self.width - 1):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + i,
+                ctx.bounds.y + y,
+                Cell(char=chars["h"], **border_attrs),
+            )
+
+        # Bottom-right corner
+        ctx.buffer.set_cell(
+            ctx.bounds.x + self.width - 1,
+            ctx.bounds.y + y,
+            Cell(char=chars["br"], **border_attrs),
+        )
+
+    def _render_to_empty_line(
+        self,
+        ctx: "PaintContext",
+        y: int,
+        chars: dict,
+        border_attrs: dict,
+        padding_left: int,
+        inner_width: int,
+        padding_right: int,
+        scrollbar_width: int,
+    ) -> None:
+        """Render empty line (padding) using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        y : int
+            Y position relative to bounds
+        chars : dict
+            Border characters
+        border_attrs : dict
+            Border cell attributes
+        padding_left : int
+            Left padding
+        inner_width : int
+            Inner content width
+        padding_right : int
+            Right padding
+        scrollbar_width : int
+            Scrollbar width
+        """
+        from wijjit.terminal.cell import Cell
+
+        # Left border
+        ctx.buffer.set_cell(
+            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
+        )
+
+        # Empty content (padding + inner + padding + scrollbar)
+        total_inner = padding_left + inner_width + padding_right + scrollbar_width
+        for i in range(total_inner):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + 1 + i, ctx.bounds.y + y, Cell(char=" ", **border_attrs)
+            )
+
+        # Right border
+        ctx.buffer.set_cell(
+            ctx.bounds.x + self.width - 1,
+            ctx.bounds.y + y,
+            Cell(char=chars["v"], **border_attrs),
+        )
+
+    def _render_to_content_line(
+        self,
+        ctx: "PaintContext",
+        y: int,
+        content: str,
+        chars: dict,
+        border_attrs: dict,
+        content_attrs: dict,
+        padding_left: int,
+        inner_width: int,
+        padding_right: int,
+        scrollbar_char: str | None = None,
+    ) -> None:
+        """Render content line using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        y : int
+            Y position relative to bounds
+        content : str
+            Content text
+        chars : dict
+            Border characters
+        border_attrs : dict
+            Border cell attributes
+        content_attrs : dict
+            Content cell attributes
+        padding_left : int
+            Left padding
+        inner_width : int
+            Inner content width
+        padding_right : int
+            Right padding
+        scrollbar_char : str, optional
+            Scrollbar character to append
+        """
+        from wijjit.terminal.ansi import clip_to_width, visible_length
+        from wijjit.terminal.cell import Cell
+
+        # Left border
+        ctx.buffer.set_cell(
+            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
+        )
+
+        # Left padding
+        for i in range(padding_left):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + 1 + i, ctx.bounds.y + y, Cell(char=" ", **content_attrs)
+            )
+
+        # Content with alignment
+        content_len = visible_length(content)
+
+        # Handle overflow_x mode
+        if self.style.overflow_x == "visible":
+            # Allow content to extend - don't clip
+            if content_len < inner_width:
+                content = content + " " * (inner_width - content_len)
+        elif content_len > inner_width:
+            # Clip content
+            content = clip_to_width(content, inner_width, ellipsis="")
+            content_len = inner_width
+
+        # Apply horizontal alignment
+        if self.style.overflow_x != "visible" or content_len <= inner_width:
+            if self.style.content_align_h == "stretch" or content_len == inner_width:
+                if content_len < inner_width:
+                    content = content + " " * (inner_width - content_len)
+            elif content_len < inner_width:
+                empty_space = inner_width - content_len
+                if self.style.content_align_h == "center":
+                    left_space = empty_space // 2
+                    right_space = empty_space - left_space
+                    content = " " * left_space + content + " " * right_space
+                elif self.style.content_align_h == "right":
+                    content = " " * empty_space + content
+                else:  # "left"
+                    content = content + " " * empty_space
+
+        # Write content (plain text without ANSI codes)
+        # Strip any ANSI codes from content before writing
+        from wijjit.terminal.ansi import strip_ansi
+
+        clean_content = strip_ansi(content)
+
+        for i, char in enumerate(clean_content[:inner_width]):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + 1 + padding_left + i,
+                ctx.bounds.y + y,
+                Cell(char=char, **content_attrs),
+            )
+
+        # Pad remaining content width if needed
+        actual_len = len(clean_content[:inner_width])
+        for i in range(actual_len, inner_width):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + 1 + padding_left + i,
+                ctx.bounds.y + y,
+                Cell(char=" ", **content_attrs),
+            )
+
+        # Right padding
+        for i in range(padding_right):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + 1 + padding_left + inner_width + i,
+                ctx.bounds.y + y,
+                Cell(char=" ", **content_attrs),
+            )
+
+        # Scrollbar (if present)
+        if scrollbar_char is not None:
+            ctx.buffer.set_cell(
+                ctx.bounds.x + 1 + padding_left + inner_width + padding_right,
+                ctx.bounds.y + y,
+                Cell(char=scrollbar_char, **border_attrs),
+            )
+
+        # Right border
+        ctx.buffer.set_cell(
+            ctx.bounds.x + self.width - 1,
+            ctx.bounds.y + y,
+            Cell(char=chars["v"], **border_attrs),
+        )

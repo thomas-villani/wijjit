@@ -28,10 +28,30 @@ file_tree_data = {
                     "value": "src/components",
                     "type": "folder",
                     "children": [
-                        {"label": "Button.py", "value": "src/components/Button.py", "type": "file", "size": "2.3 KB"},
-                        {"label": "Input.py", "value": "src/components/Input.py", "type": "file", "size": "3.1 KB"},
-                        {"label": "Tree.py", "value": "src/components/Tree.py", "type": "file", "size": "5.2 KB"},
-                        {"label": "Table.py", "value": "src/components/Table.py", "type": "file", "size": "4.8 KB"},
+                        {
+                            "label": "Button.py",
+                            "value": "src/components/Button.py",
+                            "type": "file",
+                            "size": "2.3 KB",
+                        },
+                        {
+                            "label": "Input.py",
+                            "value": "src/components/Input.py",
+                            "type": "file",
+                            "size": "3.1 KB",
+                        },
+                        {
+                            "label": "Tree.py",
+                            "value": "src/components/Tree.py",
+                            "type": "file",
+                            "size": "5.2 KB",
+                        },
+                        {
+                            "label": "Table.py",
+                            "value": "src/components/Table.py",
+                            "type": "file",
+                            "size": "4.8 KB",
+                        },
                     ],
                 },
                 {
@@ -39,13 +59,32 @@ file_tree_data = {
                     "value": "src/utils",
                     "type": "folder",
                     "children": [
-                        {"label": "helpers.py", "value": "src/utils/helpers.py", "type": "file", "size": "1.5 KB"},
-                        {"label": "validators.py", "value": "src/utils/validators.py",
-                         "type": "file", "size": "2.0 KB"},
+                        {
+                            "label": "helpers.py",
+                            "value": "src/utils/helpers.py",
+                            "type": "file",
+                            "size": "1.5 KB",
+                        },
+                        {
+                            "label": "validators.py",
+                            "value": "src/utils/validators.py",
+                            "type": "file",
+                            "size": "2.0 KB",
+                        },
                     ],
                 },
-                {"label": "main.py", "value": "src/main.py", "type": "file", "size": "1.2 KB"},
-                {"label": "config.py", "value": "src/config.py", "type": "file", "size": "0.8 KB"},
+                {
+                    "label": "main.py",
+                    "value": "src/main.py",
+                    "type": "file",
+                    "size": "1.2 KB",
+                },
+                {
+                    "label": "config.py",
+                    "value": "src/config.py",
+                    "type": "file",
+                    "size": "0.8 KB",
+                },
             ],
         },
         {
@@ -53,8 +92,18 @@ file_tree_data = {
             "value": "tests",
             "type": "folder",
             "children": [
-                {"label": "test_components.py", "value": "tests/test_components.py", "type": "file", "size": "4.5 KB"},
-                {"label": "test_utils.py", "value": "tests/test_utils.py", "type": "file", "size": "2.1 KB"},
+                {
+                    "label": "test_components.py",
+                    "value": "tests/test_components.py",
+                    "type": "file",
+                    "size": "4.5 KB",
+                },
+                {
+                    "label": "test_utils.py",
+                    "value": "tests/test_utils.py",
+                    "type": "file",
+                    "size": "2.1 KB",
+                },
             ],
         },
         {
@@ -62,23 +111,47 @@ file_tree_data = {
             "value": "docs",
             "type": "folder",
             "children": [
-                {"label": "README.md", "value": "docs/README.md", "type": "file", "size": "3.2 KB"},
-                {"label": "API.md", "value": "docs/API.md", "type": "file", "size": "6.7 KB"},
+                {
+                    "label": "README.md",
+                    "value": "docs/README.md",
+                    "type": "file",
+                    "size": "3.2 KB",
+                },
+                {
+                    "label": "API.md",
+                    "value": "docs/API.md",
+                    "type": "file",
+                    "size": "6.7 KB",
+                },
                 {
                     "label": "examples",
                     "value": "docs/examples",
                     "type": "folder",
                     "children": [
-                        {"label": "basic.md", "value": "docs/examples/basic.md", "type": "file", "size": "1.8 KB"},
-                        {"label": "advanced.md", "value": "docs/examples/advanced.md",
-                         "type": "file", "size": "3.4 KB"},
+                        {
+                            "label": "basic.md",
+                            "value": "docs/examples/basic.md",
+                            "type": "file",
+                            "size": "1.8 KB",
+                        },
+                        {
+                            "label": "advanced.md",
+                            "value": "docs/examples/advanced.md",
+                            "type": "file",
+                            "size": "3.4 KB",
+                        },
                     ],
                 },
             ],
         },
         {"label": "README.md", "value": "README.md", "type": "file", "size": "2.1 KB"},
         {"label": "setup.py", "value": "setup.py", "type": "file", "size": "1.4 KB"},
-        {"label": ".gitignore", "value": ".gitignore", "type": "file", "size": "0.3 KB"},
+        {
+            "label": ".gitignore",
+            "value": ".gitignore",
+            "type": "file",
+            "size": "0.3 KB",
+        },
     ],
 }
 
@@ -89,7 +162,7 @@ app = Wijjit(
         "expanded_nodes": ["project", "src"],  # User-controlled expansion state
         "selected_file": None,
         "message": "Welcome to Tree Demo! Use arrow keys to navigate, "
-                   "Left/Right to collapse/expand, Enter/Space to toggle.",
+        "Left/Right to collapse/expand, Enter/Space to toggle.",
     }
 )
 
@@ -107,17 +180,17 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" height=22 %}
       {% vstack spacing=0 width=48 %}
-        {% frame title="File Tree" border="single" width="fill" height=18 %}
-          {% tree id="filetree"
-                  data=state.file_tree
-                  width=44
-                  height=16
-                  show_scrollbar=true
-                  show_root=true
-                  expanded="expanded_nodes"
-                  on_select="file_selected" %}
-          {% endtree %}
-        {% endframe %}
+        {% tree id="filetree"
+                data=state.file_tree
+                width=46
+                height=18
+                show_scrollbar=true
+                show_root=true
+                border="rounded"
+                title="File Tree"
+                expanded="expanded_nodes"
+                on_select="file_selected" %}
+        {% endtree %}
       {% endvstack %}
 
       {% vstack spacing=0 width=48 %}

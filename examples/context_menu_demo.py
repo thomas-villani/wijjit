@@ -113,7 +113,9 @@ def handle_mouse(event):
             if event.mouse_event.button == MouseButton.LEFT:
                 # Determine which file was clicked based on y position
                 # This is a simplified approach - real apps would track line positions
-                file_y = event.mouse_event.y - elem.bounds.y - 2  # Account for frame border and title
+                file_y = (
+                    event.mouse_event.y - elem.bounds.y - 2
+                )  # Account for frame border and title
                 files = [
                     "document.txt",
                     "image.png",

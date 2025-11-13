@@ -11,6 +11,7 @@ Controls:
 - Arrow keys: Scroll when frame is focused
 - q: Quit
 """
+
 import sys
 
 from wijjit import Wijjit
@@ -38,6 +39,7 @@ TEMPLATE = """
 {% endframe %}
 """
 
+
 def create_app():
     """Create and configure the scrollable children demo application.
 
@@ -47,9 +49,11 @@ def create_app():
         Configured application instance
     """
     # Initialize app with sample data
-    app = Wijjit(initial_state={
-        "title": "Scrollable Frame with Children Demo",
-    })
+    app = Wijjit(
+        initial_state={
+            "title": "Scrollable Frame with Children Demo",
+        }
+    )
 
     @app.view("main", default=True)
     def main_view():
@@ -57,7 +61,9 @@ def create_app():
         return {
             "template": TEMPLATE,
             "data": {
-                "item_list": [f"Item {i+1}: Lorem ipsum dolor sit amet" for i in range(30)]
+                "item_list": [
+                    f"Item {i+1}: Lorem ipsum dolor sit amet" for i in range(30)
+                ]
             },
         }
 
@@ -82,10 +88,12 @@ def main():
         output, _, _ = renderer.render_with_layout(
             TEMPLATE,
             context={
-                "item_list": [f"Item {i + 1}: Lorem ipsum dolor sit amet" for i in range(30)]
+                "item_list": [
+                    f"Item {i + 1}: Lorem ipsum dolor sit amet" for i in range(30)
+                ]
             },
             width=80,
-            height=40
+            height=40,
         )
         # Write to file to avoid encoding issues
         with open("scrollable_demo_output.txt", "w", encoding="utf-8") as f:
@@ -102,9 +110,9 @@ def main():
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()
 
 
 if __name__ == "__main__":
     main()
-

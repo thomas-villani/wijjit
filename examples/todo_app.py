@@ -16,17 +16,19 @@ from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
 
 # Create app with initial state
-app = Wijjit(initial_state={
-    "todos": [
-        {"id": 1, "text": "Learn Wijjit", "done": False},
-        {"id": 2, "text": "Build a TUI app", "done": False},
-        {"id": 3, "text": "Share with the world", "done": False},
-    ],
-    "next_id": 4,
-    "new_todo": "",
-    "selected_index": 0,
-    "adding_todo": False,  # Controls whether input field is visible
-})
+app = Wijjit(
+    initial_state={
+        "todos": [
+            {"id": 1, "text": "Learn Wijjit", "done": False},
+            {"id": 2, "text": "Build a TUI app", "done": False},
+            {"id": 3, "text": "Share with the world", "done": False},
+        ],
+        "next_id": 4,
+        "new_todo": "",
+        "selected_index": 0,
+        "adding_todo": False,  # Controls whether input field is visible
+    }
+)
 
 
 @app.view("main", default=True)
@@ -85,6 +87,7 @@ def main_view():
 
 def setup_handlers():
     """Set up keyboard handlers for the main view."""
+
     # Handler for 'a' key - enter add mode
     def on_add_key(event):
         if event.key == "a" and not app.state.get("adding_todo", False):
@@ -149,15 +152,17 @@ def setup_handlers():
 @app.on_action("add_todo")
 def handle_add_todo(event):
     """Handle add todo action from button or Enter key in input."""
-    todo_text = app.state.get('new_todo', '').strip()
+    todo_text = app.state.get("new_todo", "").strip()
 
     if todo_text:
         new_id = app.state["next_id"]
-        app.state["todos"].append({
-            "id": new_id,
-            "text": todo_text,
-            "done": False,
-        })
+        app.state["todos"].append(
+            {
+                "id": new_id,
+                "text": todo_text,
+                "done": False,
+            }
+        )
         app.state["next_id"] = new_id + 1
         app.state["new_todo"] = ""  # Clear input field
         app.state["adding_todo"] = False  # Exit add mode
@@ -170,7 +175,7 @@ def handle_cancel_add(event):
     app.state["new_todo"] = ""  # Clear input field
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run the app
     # Press 'a' to enter add mode (shows input field)
     # Type your todo and press Enter or click Add button
@@ -183,4 +188,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Error running app: {e}")
         import traceback
+
         traceback.print_exc()

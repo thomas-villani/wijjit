@@ -124,7 +124,7 @@ def create_app():
     Controls: [Tab] Navigate  [Space/Enter] Toggle/Select  [q] Quit
 
 {% endvstack %}
-""" # noqa: E501
+"""  # noqa: E501
 
         return {
             "template": template,
@@ -159,9 +159,7 @@ def create_app():
                 app.quit()
 
         # Register handlers
-        app.on(
-            EventType.ACTION, on_action, scope=HandlerScope.VIEW, view_name="main"
-        )
+        app.on(EventType.ACTION, on_action, scope=HandlerScope.VIEW, view_name="main")
         app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
 
     return app

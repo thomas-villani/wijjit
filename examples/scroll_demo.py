@@ -57,7 +57,7 @@ def main():
             padding=(1, 2, 1, 2),
             scrollable=True,
             show_scrollbar=True,
-            overflow_y="auto"
+            overflow_y="auto",
         )
 
         frame = Frame(width=70, height=20, style=frame_style)
@@ -91,7 +91,9 @@ def main():
                 status = "\nNo scrolling needed - content fits in frame"
 
             screen.write(status)
-            screen.write("\nControls: Arrows, PgUp/PgDn, Home/End, Mouse Wheel  |  'q' to quit")
+            screen.write(
+                "\nControls: Arrows, PgUp/PgDn, Home/End, Mouse Wheel  |  'q' to quit"
+            )
 
             # Clear any remaining content from previous render
             screen.write("\n" + " " * 70)  # Clear extra line if needed
@@ -104,9 +106,10 @@ def main():
 
             # Check for keyboard input
             from wijjit.terminal.input import Key
+
             if isinstance(event, Key):
                 # Check for quit
-                if event.name == 'q':
+                if event.name == "q":
                     running = False
                     continue
 
@@ -115,6 +118,7 @@ def main():
 
             # Check for mouse input
             from wijjit.terminal.mouse import MouseEvent
+
             if isinstance(event, MouseEvent):
                 frame.handle_mouse(event)
 

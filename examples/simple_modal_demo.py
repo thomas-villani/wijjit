@@ -66,37 +66,25 @@ class SimpleModalElement:
     def render(self):
         """Render the modal content."""
         border_top = (
-            self.chars["tl"]
-            + self.chars["h"] * (self.width - 2)
-            + self.chars["tr"]
+            self.chars["tl"] + self.chars["h"] * (self.width - 2) + self.chars["tr"]
         )
         border_bottom = (
-            self.chars["bl"]
-            + self.chars["h"] * (self.width - 2)
-            + self.chars["br"]
+            self.chars["bl"] + self.chars["h"] * (self.width - 2) + self.chars["br"]
         )
 
         content_lines = []
         content_lines.append(border_top)
+        content_lines.append(self.chars["v"] + " " * (self.width - 2) + self.chars["v"])
         content_lines.append(
-            self.chars["v"] + " " * (self.width - 2) + self.chars["v"]
+            self.chars["v"] + "Modal Dialog".center(self.width - 2) + self.chars["v"]
         )
-        content_lines.append(
-            self.chars["v"]
-            + "Modal Dialog".center(self.width - 2)
-            + self.chars["v"]
-        )
-        content_lines.append(
-            self.chars["v"] + " " * (self.width - 2) + self.chars["v"]
-        )
+        content_lines.append(self.chars["v"] + " " * (self.width - 2) + self.chars["v"])
         content_lines.append(
             self.chars["v"]
             + "Press ESC to close".center(self.width - 2)
             + self.chars["v"]
         )
-        content_lines.append(
-            self.chars["v"] + " " * (self.width - 2) + self.chars["v"]
-        )
+        content_lines.append(self.chars["v"] + " " * (self.width - 2) + self.chars["v"])
 
         # Fill remaining height
         for _ in range(self.height - len(content_lines) - 1):
@@ -135,11 +123,11 @@ def open_modal(event):
     app.show_modal(modal_element, on_close=on_close, dim_background=True)
 
 
-
 # Register key handler for 'o' key to open modal
 def handle_key(event):
     if event.key == "o":
         open_modal(None)
+
 
 app.on(EventType.KEY, handle_key, scope=HandlerScope.GLOBAL)
 

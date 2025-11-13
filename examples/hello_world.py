@@ -28,6 +28,7 @@ Press 'q' to quit.
 
     def setup_handlers():
         """Set up keyboard handlers."""
+
         def on_quit(event):
             if event.key == "q":
                 app.quit()
@@ -41,6 +42,7 @@ Press 'q' to quit.
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 

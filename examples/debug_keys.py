@@ -20,12 +20,13 @@ def main():
                 print(f"Received: {event}")
                 sys.stdout.flush()
 
-                if hasattr(event, 'key') and event.key == 'q':
+                if hasattr(event, "key") and event.key == "q":
                     break
     except KeyboardInterrupt:
         pass
 
     print("\nDone")
+
 
 if __name__ == "__main__":
     main()

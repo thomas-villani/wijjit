@@ -11,7 +11,9 @@ Controls:
 from wijjit.core.app import Wijjit
 from wijjit.elements.modal import ConfirmDialog
 
-app = Wijjit(initial_state={"files": ["File1.txt", "File2.txt", "File3.txt"], "message": ""})
+app = Wijjit(
+    initial_state={"files": ["File1.txt", "File2.txt", "File3.txt"], "message": ""}
+)
 state = app.state
 
 

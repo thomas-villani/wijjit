@@ -10,51 +10,50 @@ def main():
     renderer = Renderer()
 
     # Define template with layout tags
-#     template = """
-# {% frame title="Template Spacing/Sizing Demo" border="double" width=100 height=60 %}
-#   {% hstack spacing=1 padding=1 width=fill height=10 %}
-#     {% frame %}
-#         Some stuff here
-#     {% endframe %}
-#     {% frame %}
-#         More stuff here
-#     {% endframe %}
-#     {% frame %}
-#         Third stuff here
-#     {% endframe %}
-#   {% endhstack %}
-# {% endframe %}"""
-#
-#     template_more_spacing = """
-#     {% frame title="Template Demo" border="double" width=100 height=60 %}
-#       {% hstack spacing=3 padding=1 width=fill height=10 %}
-#         {% frame %}
-#             Some stuff here
-#         {% endframe %}
-#         {% frame %}
-#             More stuff here
-#         {% endframe %}
-#         {% frame %}
-#             Third stuff here
-#         {% endframe %}
-#       {% endhstack %}
-#     {% endframe %}"""
-#
-#     template_with_stacks = """
-#     {% frame title="Template Spacing/Sizing Demo" border="double" width=100 height=60 %}
-#       {% hstack spacing=5 padding=1 width=fill height=auto %}
-#             {% hstack %}
-#                 Some stuff here
-#             {% endhstack %}
-#             {% hstack %}
-#                 More stuff here
-#             {% endhstack %}
-#             {% hstack %}
-#                 Third stuff here
-#             {% endhstack %}
-#       {% endhstack %}
-#     {% endframe %}"""
-
+    #     template = """
+    # {% frame title="Template Spacing/Sizing Demo" border="double" width=100 height=60 %}
+    #   {% hstack spacing=1 padding=1 width=fill height=10 %}
+    #     {% frame %}
+    #         Some stuff here
+    #     {% endframe %}
+    #     {% frame %}
+    #         More stuff here
+    #     {% endframe %}
+    #     {% frame %}
+    #         Third stuff here
+    #     {% endframe %}
+    #   {% endhstack %}
+    # {% endframe %}"""
+    #
+    #     template_more_spacing = """
+    #     {% frame title="Template Demo" border="double" width=100 height=60 %}
+    #       {% hstack spacing=3 padding=1 width=fill height=10 %}
+    #         {% frame %}
+    #             Some stuff here
+    #         {% endframe %}
+    #         {% frame %}
+    #             More stuff here
+    #         {% endframe %}
+    #         {% frame %}
+    #             Third stuff here
+    #         {% endframe %}
+    #       {% endhstack %}
+    #     {% endframe %}"""
+    #
+    #     template_with_stacks = """
+    #     {% frame title="Template Spacing/Sizing Demo" border="double" width=100 height=60 %}
+    #       {% hstack spacing=5 padding=1 width=fill height=auto %}
+    #             {% hstack %}
+    #                 Some stuff here
+    #             {% endhstack %}
+    #             {% hstack %}
+    #                 More stuff here
+    #             {% endhstack %}
+    #             {% hstack %}
+    #                 Third stuff here
+    #             {% endhstack %}
+    #       {% endhstack %}
+    #     {% endframe %}"""
 
     template_markdown = """
 {% frame title="Rich Content Template Demo" border="double" width=80 height=60 %}
@@ -117,16 +116,12 @@ def main():
         # )
 
         output_markdown, _, _ = renderer.render_with_layout(
-            template_markdown,
-            context={},
-            width=80,
-            height=20
+            template_markdown, context={}, width=80, height=20
         )
 
-        output_textarea, _, _ = renderer.render_with_layout(template_textarea,
-                                                          context={},
-                                                          width=80,
-                                                          height=20)
+        output_textarea, _, _ = renderer.render_with_layout(
+            template_textarea, context={}, width=80, height=20
+        )
 
         # Print output
         # print("=== Template Layout Demo ===")
@@ -146,6 +141,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
 
 
