@@ -8,6 +8,8 @@ import re
 
 from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.rendering import PaintContext
+from wijjit.styling.style import Style
 from wijjit.terminal.ansi import (
     ANSIColor,
     ANSIStyle,
@@ -267,7 +269,7 @@ class LogView(ScrollableMixin, Element):
         return None
 
     def _colorize_line(self, line: str) -> str:
-        """Apply color to a log line based on detected level.
+        """Apply color to a log line based on detected level (LEGACY).
 
         Parameters
         ----------
@@ -278,6 +280,12 @@ class LogView(ScrollableMixin, Element):
         -------
         str
             Colorized line with ANSI codes (or original if no level detected)
+
+        Notes
+        -----
+        This is the legacy ANSI string-based colorization method.
+        New code should use _get_log_level_style() for cell-based rendering.
+        Kept for backward compatibility.
         """
         level = self._detect_log_level(line)
 
@@ -294,6 +302,38 @@ class LogView(ScrollableMixin, Element):
         else:
             # No level detected, return as-is (preserves existing ANSI)
             return line
+
+    def _get_log_level_style_class(self, line: str) -> str:
+        """Get theme style class for a log line based on detected level.
+
+        Parameters
+        ----------
+        line : str
+            Log line to analyze
+
+        Returns
+        -------
+        str
+            Theme style class name (e.g., 'logview.error', 'logview.info')
+
+        Notes
+        -----
+        Returns 'logview' for lines with no detected log level.
+        """
+        level = self._detect_log_level(line)
+
+        if level == "ERROR":
+            return "logview.error"
+        elif level == "WARNING":
+            return "logview.warning"
+        elif level == "INFO":
+            return "logview.info"
+        elif level == "DEBUG":
+            return "logview.debug"
+        elif level == "TRACE":
+            return "logview.trace"
+        else:
+            return "logview"
 
     def _format_line_number(self, line_num: int) -> str:
         """Format line number with padding.
@@ -631,12 +671,18 @@ class LogView(ScrollableMixin, Element):
         return bordered_lines
 
     def render(self) -> str:
-        """Render the log view.
+        """Render the log view (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered log view as multi-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         content_height = self._get_content_height()
         content_width = self._get_content_width()
@@ -681,3 +727,424 @@ class LogView(ScrollableMixin, Element):
             final_lines = visible_lines
 
         return "\n".join(final_lines)
+
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render log view using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method implements cell-based rendering for log views, supporting:
+        - Log level detection and theme-based coloring (ERROR, WARNING, INFO, DEBUG, TRACE)
+        - Optional line numbers with theme styling
+        - Soft-wrap for long lines
+        - Auto-scroll behavior
+        - Scrolling with scrollbar
+        - Borders with titles and focus styling
+        - Theme-based styling throughout
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'logview': Base logview style (for lines without detected log level)
+        - 'logview:focus': When logview has focus
+        - 'logview.error': For ERROR/FATAL/CRITICAL log lines
+        - 'logview.warning': For WARNING/WARN log lines
+        - 'logview.info': For INFO log lines
+        - 'logview.debug': For DEBUG log lines
+        - 'logview.trace': For TRACE log lines
+        - 'logview.line_number': For line number column
+        - 'logview.border': For border characters
+        - 'logview.border:focus': For border when focused
+        """
+        # Resolve border style based on focus
+        if self.focused:
+            border_style = ctx.style_resolver.resolve_style(
+                self, "logview.border:focus"
+            )
+        else:
+            border_style = ctx.style_resolver.resolve_style(self, "logview.border")
+
+        content_height = self._get_content_height()
+        content_width = self._get_content_width()
+
+        # Render borders if needed
+        if self.border_style != "none":
+            self._render_to_with_border(
+                ctx, border_style, content_height, content_width
+            )
+        else:
+            # No borders - render content directly
+            self._render_to_content(ctx, 0, content_height, content_width)
+
+    def _render_to_with_border(
+        self,
+        ctx: PaintContext,
+        border_style: Style,
+        content_height: int,
+        content_width: int,
+    ) -> None:
+        """Render logview with border using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        border_style : Style
+            Border style resolved from theme
+        content_height : int
+            Content area height
+        content_width : int
+            Content area width
+        """
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.terminal.cell import Cell
+
+        # Get border characters
+        border_map = {
+            "single": BorderStyle.SINGLE,
+            "double": BorderStyle.DOUBLE,
+            "rounded": BorderStyle.ROUNDED,
+        }
+        style = border_map.get(self.border_style, BorderStyle.SINGLE)
+        chars = BORDER_CHARS[style]
+        border_attrs = border_style.to_cell_attrs()
+
+        # Calculate total width (content + borders + optional scrollbar)
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+        scrollbar_width = 1 if needs_scrollbar else 0
+        total_width = content_width + scrollbar_width + 2  # +2 for borders
+
+        # Render top border with optional title
+        if self.title:
+            title_text = f" {self.title} "
+            title_len = visible_length(title_text)
+            border_width = total_width - 2  # Width without corners
+
+            if title_len < border_width:
+                remaining = border_width - title_len
+                left_len = remaining // 2
+                right_len = remaining - left_len
+
+                # Top-left corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+
+                # Left line
+                for i in range(left_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Title
+                for i, char in enumerate(title_text):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + left_len + i,
+                        ctx.bounds.y,
+                        Cell(char=char, **border_attrs),
+                    )
+
+                # Right line
+                for i in range(right_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + left_len + title_len + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Top-right corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + total_width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+            else:
+                # Title too long
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+                for i in range(border_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + total_width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+        else:
+            # No title
+            ctx.buffer.set_cell(
+                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+            )
+            for i in range(1, total_width - 1):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + i,
+                    ctx.bounds.y,
+                    Cell(char=chars["h"], **border_attrs),
+                )
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y,
+                Cell(char=chars["tr"], **border_attrs),
+            )
+
+        # Render content area (starting at y=1, inside border)
+        # Create sub-context for content (inside borders)
+        content_ctx = ctx.sub_context(
+            1, 1, content_width + scrollbar_width, content_height
+        )
+        self._render_to_content(
+            content_ctx,
+            0,
+            content_height,
+            content_width,
+        )
+
+        # Render side borders for content area
+        for y in range(content_height):
+            # Left border
+            ctx.buffer.set_cell(
+                ctx.bounds.x,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+            # Right border
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+
+        # Render bottom border
+        bottom_y = content_height + 1
+        ctx.buffer.set_cell(
+            ctx.bounds.x,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["bl"], **border_attrs),
+        )
+        for i in range(1, total_width - 1):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + i,
+                ctx.bounds.y + bottom_y,
+                Cell(char=chars["h"], **border_attrs),
+            )
+        ctx.buffer.set_cell(
+            ctx.bounds.x + total_width - 1,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["br"], **border_attrs),
+        )
+
+    def _render_to_content(
+        self,
+        ctx: PaintContext,
+        start_y: int,
+        content_height: int,
+        content_width: int,
+    ) -> None:
+        """Render logview content using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        start_y : int
+            Starting Y position
+        content_height : int
+            Content area height
+        content_width : int
+            Content area width
+        """
+        from wijjit.terminal.cell import Cell
+
+        # Get base style for padding (to properly reset dim/other attributes)
+        base_style = ctx.style_resolver.resolve_style(self, "logview")
+        base_attrs = base_style.to_cell_attrs()
+
+        # Get line number style
+        line_num_style = ctx.style_resolver.resolve_style(self, "logview.line_number")
+        line_num_attrs = line_num_style.to_cell_attrs()
+
+        # Get visible range from scroll manager
+        visible_start, visible_end = self.scroll_manager.get_visible_range()
+
+        # Determine if scrollbar is needed
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+
+        # Generate scrollbar if needed
+        scrollbar_chars = []
+        if needs_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, content_height
+            )
+
+        # Calculate line number column width if needed
+        line_num_width = 0
+        if self.show_line_numbers:
+            max_line_num = self.line_number_start + len(self.lines) - 1
+            line_num_width = len(str(max_line_num)) + 2  # +2 for space and separator
+
+        # Render visible log lines
+        current_y = start_y
+        rendered_line_idx = visible_start
+
+        while current_y < start_y + content_height and rendered_line_idx < visible_end:
+            if rendered_line_idx >= len(self.rendered_lines):
+                # Pad with empty lines
+                for x in range(content_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + current_y,
+                        Cell(char=" "),
+                    )
+                current_y += 1
+                rendered_line_idx += 1
+                continue
+
+            rendered_line = self.rendered_lines[rendered_line_idx]
+
+            # Strip ANSI from rendered line (which has old ANSI coloring)
+            from wijjit.terminal.ansi import strip_ansi
+
+            clean_line = strip_ansi(rendered_line)
+
+            # Determine which original line this corresponds to
+            # For non-wrapped content, this is straightforward
+            # For wrapped content, we need to track which original line we're on
+            # For simplicity, we'll detect log level from the rendered line itself
+            style_class = self._get_log_level_style_class(clean_line)
+            line_style = ctx.style_resolver.resolve_style(self, style_class)
+            line_attrs = line_style.to_cell_attrs()
+
+            # Render the line content
+            x_offset = 0
+
+            # If line numbers are shown and this line has a line number
+            # (check if it starts with digits)
+            if self.show_line_numbers:
+                # Extract line number from the rendered line if present
+                # The rendered_lines already have line numbers added by _render_content
+                # We need to separate the line number part from content
+                # This is a bit tricky - let's render it directly
+                line_num_part = (
+                    clean_line[:line_num_width]
+                    if len(clean_line) >= line_num_width
+                    else clean_line.ljust(line_num_width)
+                )
+                content_part = (
+                    clean_line[line_num_width:]
+                    if len(clean_line) > line_num_width
+                    else ""
+                )
+
+                # Write line number
+                for i, char in enumerate(line_num_part[:line_num_width]):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + i,
+                        ctx.bounds.y + current_y,
+                        Cell(char=char, **line_num_attrs),
+                    )
+                x_offset = line_num_width
+
+                # Write content
+                content_width_remaining = content_width - line_num_width
+                for i, char in enumerate(content_part[:content_width_remaining]):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x_offset + i,
+                        ctx.bounds.y + current_y,
+                        Cell(char=char, **line_attrs),
+                    )
+
+                # Pad remaining (use base style to properly reset dim/other attributes)
+                for x in range(
+                    x_offset + len(content_part[:content_width_remaining]),
+                    content_width,
+                ):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + current_y,
+                        Cell(char=" ", **base_attrs),
+                    )
+            else:
+                # No line numbers - render full line
+                for i, char in enumerate(clean_line[:content_width]):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + i,
+                        ctx.bounds.y + current_y,
+                        Cell(char=char, **line_attrs),
+                    )
+
+                # Pad remaining width (use base style to properly reset dim/other attributes)
+                for x in range(len(clean_line[:content_width]), content_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + current_y,
+                        Cell(char=" ", **base_attrs),
+                    )
+
+            # Add scrollbar character if needed
+            if needs_scrollbar:
+                scrollbar_idx = current_y - start_y
+                if scrollbar_idx < len(scrollbar_chars):
+                    # Resolve scrollbar style (use border style)
+                    if self.focused:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "logview.border:focus"
+                        )
+                    else:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "logview.border"
+                        )
+                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
+
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + content_width,
+                        ctx.bounds.y + current_y,
+                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
+                    )
+
+            current_y += 1
+            rendered_line_idx += 1
+
+        # Fill remaining rows if any
+        while current_y < start_y + content_height:
+            for x in range(content_width):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x,
+                    ctx.bounds.y + current_y,
+                    Cell(char=" "),
+                )
+
+            if needs_scrollbar:
+                scrollbar_idx = current_y - start_y
+                if scrollbar_idx < len(scrollbar_chars):
+                    if self.focused:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "logview.border:focus"
+                        )
+                    else:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "logview.border"
+                        )
+                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
+
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + content_width,
+                        ctx.bounds.y + current_y,
+                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
+                    )
+
+            current_y += 1

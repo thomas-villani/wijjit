@@ -349,18 +349,22 @@ def parse_color(color_str: str) -> tuple[int, int, int] | None:
     # Hex format: #RGB or #RRGGBB
     if color_str.startswith("#"):
         hex_str = color_str[1:]
-        if len(hex_str) == 3:
-            # Short form: #RGB -> #RRGGBB
-            r = int(hex_str[0] * 2, 16)
-            g = int(hex_str[1] * 2, 16)
-            b = int(hex_str[2] * 2, 16)
-            return (r, g, b)
-        elif len(hex_str) == 6:
-            # Long form: #RRGGBB
-            r = int(hex_str[0:2], 16)
-            g = int(hex_str[2:4], 16)
-            b = int(hex_str[4:6], 16)
-            return (r, g, b)
+        try:
+            if len(hex_str) == 3:
+                # Short form: #RGB -> #RRGGBB
+                r = int(hex_str[0] * 2, 16)
+                g = int(hex_str[1] * 2, 16)
+                b = int(hex_str[2] * 2, 16)
+                return (r, g, b)
+            elif len(hex_str) == 6:
+                # Long form: #RRGGBB
+                r = int(hex_str[0:2], 16)
+                g = int(hex_str[2:4], 16)
+                b = int(hex_str[4:6], 16)
+                return (r, g, b)
+        except ValueError:
+            # Invalid hex digits
+            return None
 
     # RGB format: rgb(R, G, B)
     if color_str.startswith("rgb(") and color_str.endswith(")"):

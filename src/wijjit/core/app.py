@@ -836,10 +836,20 @@ class Wijjit:
                 )
 
                 # Store elements and update focus manager
-                # (but don't update focus manager if focus is trapped in an overlay)
                 self.positioned_elements = elements
                 if not self.overlay_manager.should_trap_focus():
+                    # Normal rendering - update with view elements
                     self._update_focus_manager(elements)
+                else:
+                    # Focus is trapped in overlay - update with overlay's focusable elements
+                    overlay_focusable = self.overlay_manager.get_focus_trap_elements()
+                    # Filter by bounds (focusable elements must have bounds set)
+                    overlay_focusable = [
+                        elem
+                        for elem in overlay_focusable
+                        if hasattr(elem, "bounds") and elem.bounds
+                    ]
+                    self.focus_manager.set_elements(overlay_focusable)
 
                 # If this was the first render, re-render with focus now set
                 if (
@@ -901,8 +911,9 @@ class Wijjit:
                     apply_dimming=apply_dimming,
                 )
 
-            # Composite statusbar if present
-            if current_statusbar is not None:
+            # Composite statusbar if present (only for legacy ANSI rendering)
+            # Cell-based rendering already includes statusbar in the buffer
+            if current_statusbar is not None and not self.renderer.use_cell_rendering:
                 term_size = shutil.get_terminal_size()
                 output = self.renderer.composite_statusbar(
                     output,
@@ -1371,6 +1382,14 @@ class Wijjit:
                 if isinstance(elem, MenuElement):
                     menu_elements_to_process.append((elem, overlay_info))
 
+        # Track all dropdown menu visible state keys for mutual exclusion
+        dropdown_state_keys = []
+        for elem, overlay_info in menu_elements_to_process:
+            if isinstance(elem, DropdownMenu):
+                visible_state_key = overlay_info.get("visible_state_key")
+                if visible_state_key:
+                    dropdown_state_keys.append(visible_state_key)
+
         for elem, overlay_info in menu_elements_to_process:
             # Wire up menu item selection callback
             def on_item_select_handler(action_id: str, item):
@@ -1480,7 +1499,9 @@ class Wijjit:
                                 f"for menu {elem.id} (state: {visible_state_key})"
                             )
 
-                            def make_key_handler(state_key, key_combo):
+                            def make_key_handler(
+                                state_key, key_combo, all_dropdown_keys
+                            ):
                                 def toggle_menu(event):
                                     # Debug logging
                                     logger.debug(
@@ -1490,7 +1511,12 @@ class Wijjit:
                                     # Check if this is the right key
                                     if event.key.lower() == key_combo:
                                         logger.debug(f"Matched! Toggling {state_key}")
-                                        # Toggle menu visibility
+                                        # Close all other dropdown menus first
+                                        for other_key in all_dropdown_keys:
+                                            if other_key != state_key:
+                                                self.state[other_key] = False
+
+                                        # Toggle current menu visibility
                                         current = self.state.get(state_key, False)
                                         self.state[state_key] = not current
 
@@ -1499,7 +1525,9 @@ class Wijjit:
                             # Register the key handler
                             self.on(
                                 EventType.KEY,
-                                make_key_handler(visible_state_key, trigger_key),
+                                make_key_handler(
+                                    visible_state_key, trigger_key, dropdown_state_keys
+                                ),
                                 scope=HandlerScope.GLOBAL,
                             )
 

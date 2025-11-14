@@ -49,7 +49,7 @@ TEMPLATE = """
     {% menuitem action="redo" key="Ctrl+Y" %}Redo{% endmenuitem %}
     {% menuitem divider=true %}{% endmenuitem %}
     {% menuitem action="cut" key="Ctrl+X" %}Cut{% endmenuitem %}
-    {% menuitem action="copy" key="Ctrl+C" %}Copy{% endmenuitem %}
+    {% menuitem action="copy" key="Ctrl+D" %}Copy{% endmenuitem %}
     {% menuitem action="paste" key="Ctrl+V" %}Paste{% endmenuitem %}
 {% enddropdown %}
 """

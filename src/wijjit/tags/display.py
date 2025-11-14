@@ -1101,9 +1101,23 @@ class CodeBlockExtension(Extension):
         if context is None:
             return ""
 
-        # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        # for initial element creation (will be resized on bounds assignment)
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 20  # Default for initial render
+        else:
+            element_height = int(height)
+
         show_line_numbers = bool(show_line_numbers)
         line_number_start = int(line_number_start)
         show_scrollbar = bool(show_scrollbar)
@@ -1139,8 +1153,8 @@ class CodeBlockExtension(Extension):
             id=id,
             code=code,
             language=language,
-            width=width,
-            height=height,
+            width=element_width,
+            height=element_height,
             show_line_numbers=show_line_numbers,
             line_number_start=line_number_start,
             show_scrollbar=show_scrollbar,
@@ -1171,11 +1185,25 @@ class CodeBlockExtension(Extension):
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
-        # Calculate total height accounting for borders
-        total_height = height + (2 if border_style != "none" else 0)
-        total_width = width + (2 if border_style != "none" else 0)
+        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
+        # Add border space if needed
+        if border_style != "none":
+            # For string specs like "fill", we can't add 2, so keep as-is
+            # The layout engine will handle this
+            if isinstance(width_spec, str):
+                node_width = width_spec
+            else:
+                node_width = width_spec + 2
 
-        node = ElementNode(codeblock, width=total_width, height=total_height)
+            if isinstance(height_spec, str):
+                node_height = height_spec
+            else:
+                node_height = height_spec + 2
+        else:
+            node_width = width_spec
+            node_height = height_spec
+
+        node = ElementNode(codeblock, width=node_width, height=node_height)
 
         # Add to layout context
         context.add_element(node)
@@ -1301,9 +1329,22 @@ class LogViewExtension(Extension):
         if context is None:
             return ""
 
-        # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 20  # Default for initial render
+        else:
+            element_height = int(height)
+
         auto_scroll = bool(auto_scroll)
         soft_wrap = bool(soft_wrap)
         show_line_numbers = bool(show_line_numbers)
@@ -1344,8 +1385,8 @@ class LogViewExtension(Extension):
         logview = LogView(
             id=id,
             lines=lines,
-            width=width,
-            height=height,
+            width=element_width,
+            height=element_height,
             auto_scroll=auto_scroll,
             soft_wrap=soft_wrap,
             show_line_numbers=show_line_numbers,
@@ -1397,11 +1438,23 @@ class LogViewExtension(Extension):
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
-        # Calculate total height accounting for borders
-        total_height = height + (2 if border_style != "none" else 0)
-        total_width = width + (2 if border_style != "none" else 0)
+        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
+        # Add border space if needed
+        if border_style != "none":
+            if isinstance(width_spec, str):
+                node_width = width_spec
+            else:
+                node_width = width_spec + 2
 
-        node = ElementNode(logview, width=total_width, height=total_height)
+            if isinstance(height_spec, str):
+                node_height = height_spec
+            else:
+                node_height = height_spec + 2
+        else:
+            node_width = width_spec
+            node_height = height_spec
+
+        node = ElementNode(logview, width=node_width, height=node_height)
 
         # Add to layout context
         context.add_element(node)
@@ -1534,9 +1587,22 @@ class ListViewExtension(Extension):
         if context is None:
             return ""
 
-        # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 20  # Default for initial render
+        else:
+            element_height = int(height)
+
         show_dividers = bool(show_dividers)
         show_scrollbar = bool(show_scrollbar)
         indent_details = int(indent_details)
@@ -1584,8 +1650,8 @@ class ListViewExtension(Extension):
         listview = ListView(
             id=id,
             items=items,
-            width=width,
-            height=height,
+            width=element_width,
+            height=element_height,
             bullet=bullet,
             show_dividers=show_dividers,
             show_scrollbar=show_scrollbar,
@@ -1617,11 +1683,23 @@ class ListViewExtension(Extension):
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
-        # Calculate total height accounting for borders
-        total_height = height + (2 if border_style != "none" else 0)
-        total_width = width + (2 if border_style != "none" else 0)
+        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
+        # Add border space if needed
+        if border_style != "none":
+            if isinstance(width_spec, str):
+                node_width = width_spec
+            else:
+                node_width = width_spec + 2
 
-        node = ElementNode(listview, width=total_width, height=total_height)
+            if isinstance(height_spec, str):
+                node_height = height_spec
+            else:
+                node_height = height_spec + 2
+        else:
+            node_width = width_spec
+            node_height = height_spec
+
+        node = ElementNode(listview, width=node_width, height=node_height)
 
         # Add to layout context
         context.add_element(node)

@@ -303,13 +303,109 @@ class ProgressBar(Element):
         else:
             return bar
 
+    def render_to(self, ctx) -> None:
+        """Render the progress bar using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method that uses theme styles
+        instead of hardcoded ANSI colors. It supports all progress bar styles:
+        filled, percentage, gradient, and custom.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'progress': Base progress bar style
+        - 'progress.fill': Filled portion style
+        - 'progress.empty': Empty portion style
+        - 'progress.text': Progress percentage text style
+        - 'progress.gradient.low': Gradient color for 0-33% (gradient style only)
+        - 'progress.gradient.medium': Gradient color for 33-66% (gradient style only)
+        - 'progress.gradient.high': Gradient color for 66-100% (gradient style only)
+        """
+
+        percentage = self.get_percentage()
+
+        # Calculate dimensions
+        if self.show_percentage and self.style != "percentage":
+            percentage_text = f" {percentage:.1f}%"
+            percentage_width = len(percentage_text)
+            bar_width = max(1, ctx.bounds.width - percentage_width)
+        else:
+            bar_width = ctx.bounds.width
+
+        # For percentage-only style
+        if self.style == "percentage":
+            text_style = ctx.style_resolver.resolve_style(self, "progress.text")
+            text = f"Progress: {percentage:5.1f}%"
+            # Pad or clip to width
+            if len(text) < ctx.bounds.width:
+                text = text.ljust(ctx.bounds.width)
+            else:
+                from wijjit.terminal.ansi import clip_to_width
+
+                text = clip_to_width(text, ctx.bounds.width)
+            ctx.write_text(0, 0, text, text_style)
+            return
+
+        # Calculate filled and empty portions
+        filled_width = int((percentage / 100.0) * bar_width)
+        empty_width = bar_width - filled_width
+
+        # Determine styles based on style type
+        if self.style == "gradient":
+            # Gradient style - color changes with percentage
+            if percentage < 33:
+                fill_style = ctx.style_resolver.resolve_style(
+                    self, "progress.gradient.low"
+                )
+            elif percentage < 66:
+                fill_style = ctx.style_resolver.resolve_style(
+                    self, "progress.gradient.medium"
+                )
+            else:
+                fill_style = ctx.style_resolver.resolve_style(
+                    self, "progress.gradient.high"
+                )
+        else:
+            # Filled or custom style
+            fill_style = ctx.style_resolver.resolve_style(self, "progress.fill")
+
+        empty_style = ctx.style_resolver.resolve_style(self, "progress.empty")
+        text_style = ctx.style_resolver.resolve_style(self, "progress.text")
+
+        # Render filled portion
+        if filled_width > 0:
+            filled_bar = self.fill_char * filled_width
+            ctx.write_text(0, 0, filled_bar, fill_style)
+
+        # Render empty portion
+        if empty_width > 0:
+            empty_bar = self.empty_char * empty_width
+            ctx.write_text(filled_width, 0, empty_bar, empty_style)
+
+        # Render percentage text if enabled
+        if self.show_percentage:
+            ctx.write_text(bar_width, 0, percentage_text, text_style)
+
     def render(self) -> str:
-        """Render the progress bar.
+        """Render the progress bar (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered progress bar as single-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility during migration.
         """
         if self.style == "filled":
             return self._render_filled_bar()

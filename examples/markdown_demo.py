@@ -1,29 +1,20 @@
 """Markdown Demo - Demonstrates markdown rendering with MarkdownView.
 
-This example shows the MarkdownView element with:
-- Markdown content rendering with Rich
-- Syntax highlighting in code blocks
-- Scrolling for large documents
-- Border styles and titles
-- Keyboard navigation
-- Mouse wheel scrolling
+This example shows the MarkdownView element with cell-based rendering,
+featuring Rich markdown formatting, syntax highlighting, and scrolling.
 
-Run with: python examples/markdown_demo.py
+Run with: python examples/markdown_demo_new.py
 
 Controls:
 - Arrow keys: Scroll up/down
 - Page Up/Down: Scroll by page
 - Home/End: Jump to top/bottom
 - Mouse wheel: Scroll content
-- Tab: Switch between markdown panels
 - q: Quit
 """
 
-import shutil
-
 from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
-from wijjit.elements.display.markdown import MarkdownView
 
 # Sample markdown content
 SAMPLE_MARKDOWN = """# Welcome to Wijjit MarkdownView
@@ -110,7 +101,6 @@ This markdown viewer supports scrolling, so you can view documents of any length
 
 ### Tips
 
-- Press **Tab** to switch between markdown panels
 - Press **Arrow keys** or **Page Up/Down** to scroll
 - Press **Home** or **End** to jump to top or bottom
 - Use your **mouse wheel** to scroll smoothly
@@ -127,6 +117,14 @@ Wijjit makes building terminal UIs as easy as building web UIs. With familiar pa
 
 You can focus on your application logic instead of wrestling with terminal control sequences!
 
+## Cell-Based Rendering
+
+This demo uses the new **cell-based rendering** system with:
+- Theme support for colors and styling
+- Efficient diff-based updates
+- Proper focus state handling
+- Smooth scrolling
+
 ## Conclusion
 
 This MarkdownView component is perfect for displaying documentation, help text, release notes, or any formatted content in your terminal applications.
@@ -134,121 +132,39 @@ This MarkdownView component is perfect for displaying documentation, help text, 
 Happy coding with Wijjit!
 """  # noqa: E501
 
-SHORT_MARKDOWN = """# Quick Start
 
-This is a shorter markdown document.
+def main():
+    """Run the markdown demo application."""
+    print("Starting markdown demo...")
+    print("Debug log will be written to: markdown_demo_debug.log")
 
-## Installation
-
-```bash
-pip install wijjit
-```
-
-## Usage
-
-```python
-from wijjit import Wijjit
-
-app = Wijjit()
-
-@app.view("main", default=True)
-def main_view():
-    return {"template": "Hello, World!"}
-
-app.run()
-```
-
-That's it!
-"""
-
-
-def create_app():
-    """Create and configure the markdown demo application.
-
-    Returns
-    -------
-    Wijjit
-        Configured application instance
-    """
-    # Get terminal size
-    term_size = shutil.get_terminal_size()
-    panel_width = min(70, (term_size.columns - 6) // 2)
-    panel_height = min(30, term_size.lines - 8)
-
-    # Initialize app with state
-    app = Wijjit(
-        initial_state={
-            "doc1": SAMPLE_MARKDOWN,
-            "doc2": SHORT_MARKDOWN,
-            "active_panel": "left",
-        }
-    )
-
-    # Create MarkdownView elements
-    markdown1 = MarkdownView(
-        id="markdown1",
-        content=SAMPLE_MARKDOWN,
-        width=panel_width,
-        height=panel_height,
-        border_style="double",
-        title="Full Documentation",
-    )
-
-    markdown2 = MarkdownView(
-        id="markdown2",
-        content=SHORT_MARKDOWN,
-        width=panel_width,
-        height=panel_height,
-        border_style="rounded",
-        title="Quick Start",
-    )
-
-    # Register elements with focus manager
-    app.focus_manager.set_elements([markdown1, markdown2])
-    markdown1.on_focus()  # Focus first panel by default
+    # Create app with initial state
+    app = Wijjit(initial_state={"markdown_text": SAMPLE_MARKDOWN})
+    print(f"App created with state keys: {list(app.state.keys())}")
 
     @app.view("main", default=True)
     def main_view():
-        """Main view with dual markdown panels."""
+        """Main view with markdown viewer."""
+        # IMPORTANT: Markdown must be wrapped in a layout container (frame/vstack/hstack)
+        # to get bounds assigned and render properly
+        template = """
+{% frame width="100%" height="100%" %}
+  {% markdown id="markdown"
+              width="fill"
+              height="fill"
+              border_style="double"
+              title="Markdown Viewer" %}
+{{ state.markdown_text }}
+  {% endmarkdown %}
+{% endframe %}
+        """.strip()
 
-        def render_data():
-            # Render markdown panels side by side
-            lines1 = markdown1.render().split("\n")
-            lines2 = markdown2.render().split("\n")
-
-            # Ensure both have same height
-            max_height = max(len(lines1), len(lines2))
-            while len(lines1) < max_height:
-                lines1.append(" " * panel_width)
-            while len(lines2) < max_height:
-                lines2.append(" " * panel_width)
-
-            # Combine side by side
-            combined_lines = []
-            for l1, l2 in zip(lines1, lines2, strict=True):
-                combined_lines.append(f"{l1}  {l2}")
-
-            content_text = "\n".join(
-                [
-                    "=" * term_size.columns,
-                    "  MARKDOWN DEMO - Dual Panel Viewer".center(term_size.columns),
-                    "=" * term_size.columns,
-                    "",
-                    *combined_lines,
-                    "",
-                    "=" * term_size.columns,
-                    "  [Tab] Switch Panel  [Arrows/PgUp/PgDn] Scroll  [Home/End] Jump  [q] Quit",
-                    "=" * term_size.columns,
-                ]
-            )
-
-            return {"content": content_text}
-
-        # data = render_data()  # Fixed: pass function directly
+        print(f"Rendering view with template length: {len(template)}")
+        print(f"State has markdown_text: {'markdown_text' in app.state}")
 
         return {
-            "template": "{{ content }}",
-            "data": render_data,  # Pass the function itself, not the result
+            "template": template,
+            "data": {},
             "on_enter": setup_handlers,
         }
 
@@ -271,13 +187,6 @@ def create_app():
             view_name="main",
             priority=100,
         )
-
-    return app
-
-
-def main():
-    """Run the markdown demo application."""
-    app = create_app()
 
     try:
         app.run()

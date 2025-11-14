@@ -306,13 +306,133 @@ class MenuElement(OverlayElement):
         if self.close_callback:
             self.close_callback()
 
+    def render_to(self, ctx) -> None:
+        """Render the menu using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method uses cell-based rendering with theme styles for menu
+        items, borders, and states. It properly handles highlights, disabled
+        items, and keyboard shortcuts.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'menu': Base menu style
+        - 'menu:focus': Focused menu style
+        - 'menu.border': Border style
+        - 'menu.border:focus': Focused border style
+        - 'menu.item': Menu item style
+        - 'menu.item:highlighted': Highlighted item style
+        - 'menu.item:disabled': Disabled item style
+        - 'menu.divider': Divider line style
+        - 'menu.shortcut': Keyboard shortcut hint style
+        """
+
+        if not self.bounds:
+            return
+
+        # Resolve border style
+        border_style_class = "menu.border:focus" if self.focused else "menu.border"
+        border_style = ctx.style_resolver.resolve_style(self, border_style_class)
+
+        # Get border characters for the style
+        border_chars = BORDER_CHARS[self.border_style]
+
+        # Draw border around menu
+        ctx.draw_border(
+            0, 0, ctx.bounds.width, ctx.bounds.height, border_style, border_chars
+        )
+
+        # Render each item inside the border
+        row = 1  # Start after top border
+        for i, item in enumerate(self.items):
+            if row >= ctx.bounds.height - 1:  # Don't exceed bottom border
+                break
+
+            is_highlighted = i == self.highlighted_index and self.focused
+
+            if item.divider:
+                # Render divider using border horizontal character
+                divider_style = ctx.style_resolver.resolve_style(self, "menu.divider")
+                chars = BORDER_CHARS[self.border_style]
+                divider_line = chars["h"] * self.width
+                ctx.write_text(1, row, divider_line, divider_style)
+            else:
+                # Render menu item
+                self._render_item_to_ctx(ctx, item, is_highlighted, row)
+
+            row += 1
+
+    def _render_item_to_ctx(
+        self, ctx, item: MenuItem, is_highlighted: bool, row: int
+    ) -> None:
+        """Render a single menu item to the context.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        item : MenuItem
+            The item to render
+        is_highlighted : bool
+            Whether this item is currently highlighted
+        row : int
+            Row index to render at
+        """
+        # Calculate available width for label (2 spaces for padding)
+        available_width = self.width - 2
+
+        # If item has shortcut, reserve space for it
+        shortcut_text = ""
+        label_width = available_width
+        if item.key:
+            shortcut_text = f" {item.key}"
+            shortcut_len = visible_length(shortcut_text)
+            label_width = available_width - shortcut_len
+
+        # Clip or pad label
+        label = item.label
+        label_len = visible_length(label)
+        if label_len > label_width:
+            label = clip_to_width(label, label_width, ellipsis="...")
+        else:
+            label = label + " " * (label_width - label_len)
+
+        # Combine label and shortcut
+        text = label + shortcut_text
+
+        # Determine style based on state
+        if item.disabled:
+            style = ctx.style_resolver.resolve_style(self, "menu.item:disabled")
+        elif is_highlighted:
+            style = ctx.style_resolver.resolve_style(self, "menu.item:highlighted")
+        else:
+            style = ctx.style_resolver.resolve_style(self, "menu.item")
+
+        # Render the item line: " {text} " (with padding)
+        x_offset = 1  # After left border
+        formatted_text = f" {text} "
+        ctx.write_text(x_offset, row, formatted_text, style)
+
     def render(self) -> str:
-        """Render the menu with borders and items.
+        """Render the menu with borders and items (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Multi-line string rendering of the menu
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility during migration.
         """
         if not self.bounds:
             return ""

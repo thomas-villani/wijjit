@@ -514,8 +514,189 @@ class Select(ScrollableMixin, Element):
         if self.on_scroll:
             self.on_scroll(self.scroll_manager.state.scroll_position)
 
+    def render_to(self, ctx) -> None:
+        """Render the select element using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method that uses theme styles
+        instead of hardcoded ANSI colors. It renders a scrollable list of options
+        with optional borders and title.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'select': Base select style
+        - 'select:focus': Focused select style
+        - 'select.border': Border style
+        - 'select.border:focus': Focused border style
+        - 'select.option': Option item style
+        - 'select.option:selected': Selected option style (marked with *)
+        - 'select.option:highlighted': Highlighted option style (keyboard focus)
+        - 'select.option:disabled': Disabled option style
+        - 'select.placeholder': Placeholder text style (empty state)
+        """
+
+        # Get visible range from scroll manager
+        visible_start, visible_end = self.scroll_manager.get_visible_range()
+        visible_options = self.options[visible_start:visible_end]
+
+        # Determine border offset (0 if no borders, 1 if borders)
+        border_offset = 1 if self.border_style else 0
+        top_row = border_offset  # First content row
+
+        # Render borders if enabled
+        if self.border_style:
+            border_style = ctx.style_resolver.resolve_style(
+                self, "select.border:focus" if self.focused else "select.border"
+            )
+
+            # Get border characters for the style
+            border_chars = BORDER_CHARS[self.border_style]
+
+            # Draw border around the entire select element
+            ctx.draw_border(
+                0, 0, ctx.bounds.width, ctx.bounds.height, border_style, border_chars
+            )
+
+            # Render title if provided
+            if self.title:
+                title_style = ctx.style_resolver.resolve_style(self, "select.title")
+                title_text = f" {self.title} "
+                ctx.write_text(2, 0, title_text, title_style)
+
+        # Render options or placeholder
+        if not visible_options:
+            # No options - show placeholder
+            placeholder_style = ctx.style_resolver.resolve_style(
+                self, "select.placeholder"
+            )
+            empty_text = self.placeholder if not self.options else "No options"
+
+            # Clip to inner width (accounting for borders and padding)
+            inner_width = self.width - 2 if self.width > 2 else self.width
+            empty_len = visible_length(empty_text)
+
+            if empty_len < inner_width:
+                empty_text = empty_text + " " * (inner_width - empty_len)
+            else:
+                empty_text = clip_to_width(empty_text, inner_width, ellipsis="...")
+
+            # Center the placeholder in the first content row
+            x_offset = border_offset + 1  # Account for border and padding
+            ctx.write_text(x_offset, top_row, empty_text, placeholder_style)
+        else:
+            # Render visible options
+            for i, opt in enumerate(visible_options):
+                option_index = visible_start + i
+                row = top_row + i
+
+                is_selected = option_index == self.selected_index
+                is_highlighted = option_index == self.highlighted_index
+                is_disabled = opt["value"] in self.disabled_values
+
+                # Use custom renderer if provided
+                if self.item_renderer:
+                    # Custom renderer returns ANSI string - we need to convert it
+                    # For now, use default rendering with theme styles
+                    self._render_option_to_ctx(
+                        ctx,
+                        opt,
+                        is_selected,
+                        is_highlighted,
+                        is_disabled,
+                        row,
+                        border_offset,
+                    )
+                else:
+                    self._render_option_to_ctx(
+                        ctx,
+                        opt,
+                        is_selected,
+                        is_highlighted,
+                        is_disabled,
+                        row,
+                        border_offset,
+                    )
+
+        # Fill remaining rows with empty space (padding to visible_rows)
+        content_height = ctx.bounds.height - (2 * border_offset)
+        for row_idx in range(len(visible_options), content_height):
+            row = top_row + row_idx
+            if row < ctx.bounds.height - border_offset:
+                # Fill empty row with base select style
+                base_style = ctx.style_resolver.resolve_style(self, "select")
+                empty_line = " " * self.width
+                x_offset = border_offset
+                ctx.write_text(x_offset, row, empty_line, base_style)
+
+    def _render_option_to_ctx(
+        self,
+        ctx,
+        option: dict,
+        is_selected: bool,
+        is_highlighted: bool,
+        is_disabled: bool,
+        row: int,
+        border_offset: int,
+    ) -> None:
+        """Render a single option to the context at the specified row.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        option : dict
+            Option with 'value' and 'label' keys
+        is_selected : bool
+            Whether this option is currently selected
+        is_highlighted : bool
+            Whether this option is highlighted (keyboard focus)
+        is_disabled : bool
+            Whether this option is disabled
+        row : int
+            Row index to render at
+        border_offset : int
+            Offset due to borders (0 or 1)
+        """
+        label = option["label"]
+
+        # Selection indicator
+        indicator = "*" if is_selected else " "
+
+        # Calculate available width for label (1 for indicator, 1 for space, 1 for padding)
+        label_width = self.width - 3
+
+        # Clip or pad label
+        label_len = visible_length(label)
+        if label_len > label_width:
+            label = clip_to_width(label, label_width, ellipsis="...")
+        else:
+            label = label + " " * (label_width - label_len)
+
+        # Determine style based on state
+        if is_disabled:
+            style = ctx.style_resolver.resolve_style(self, "select.option:disabled")
+        elif is_highlighted and self.focused:
+            style = ctx.style_resolver.resolve_style(self, "select.option:highlighted")
+        elif is_selected:
+            # Combine selected style with base option style
+            style = ctx.style_resolver.resolve_style(self, "select.option:selected")
+        else:
+            style = ctx.style_resolver.resolve_style(self, "select.option")
+
+        # Render the option line: " {indicator}{label} "
+        x_offset = border_offset
+        text = f" {indicator}{label} "
+        ctx.write_text(x_offset, row, text, style)
+
     def render(self) -> str:
-        """Render the select element as a scrollable list.
+        """Render the select element as a scrollable list (LEGACY ANSI rendering).
 
         Returns
         -------
@@ -524,6 +705,10 @@ class Select(ScrollableMixin, Element):
 
         Notes
         -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility during migration.
+
         Renders with box-drawing borders if border_style is set.
         """
         # Get border characters if borders are enabled

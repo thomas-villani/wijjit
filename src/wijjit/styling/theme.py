@@ -170,6 +170,16 @@ class DefaultTheme(Theme):
                 fg_color=(0, 255, 0),
                 bold=True,
             ),
+            # Select styles
+            "select": Style(fg_color=(255, 255, 255)),
+            "select:focus": Style(fg_color=(255, 255, 255)),
+            "select.border": Style(fg_color=(100, 100, 100)),
+            "select.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            "select.option": Style(fg_color=(255, 255, 255)),
+            "select.option:selected": Style(fg_color=(0, 255, 0)),
+            "select.option:highlighted": Style(reverse=True),
+            "select.option:disabled": Style(fg_color=(128, 128, 128), dim=True),
+            "select.placeholder": Style(fg_color=(128, 128, 128), dim=True),
             # Frame styles
             "frame": Style(
                 fg_color=(200, 200, 200),
@@ -222,8 +232,32 @@ class DefaultTheme(Theme):
             "textarea:focus": Style(fg_color=(255, 255, 255), bold=True),
             "textarea.border": Style(fg_color=(100, 100, 100)),
             "textarea.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # ProgressBar styles
+            "progress": Style(fg_color=(255, 255, 255)),
+            "progress.fill": Style(fg_color=(0, 255, 0)),
+            "progress.empty": Style(fg_color=(100, 100, 100)),
+            "progress.text": Style(fg_color=(255, 255, 255)),
+            "progress.gradient.low": Style(fg_color=(255, 0, 0)),
+            "progress.gradient.medium": Style(fg_color=(255, 255, 0)),
+            "progress.gradient.high": Style(fg_color=(0, 255, 0)),
+            # Spinner styles
+            "spinner": Style(fg_color=(0, 255, 255)),
+            "spinner.active": Style(fg_color=(0, 255, 255), bold=True),
+            "spinner.text": Style(fg_color=(255, 255, 255)),
             # Status bar styles
             "statusbar": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 100, 200),
+            ),
+            "statusbar.left": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 100, 200),
+            ),
+            "statusbar.center": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 100, 200),
+            ),
+            "statusbar.right": Style(
                 fg_color=(255, 255, 255),
                 bg_color=(0, 100, 200),
             ),
@@ -254,6 +288,37 @@ class DefaultTheme(Theme):
                 fg_color=(255, 255, 255),
                 bg_color=(200, 0, 0),
             ),
+            # Menu styles
+            "menu": Style(fg_color=(255, 255, 255)),
+            "menu:focus": Style(fg_color=(255, 255, 255)),
+            "menu.border": Style(fg_color=(100, 100, 100)),
+            "menu.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            "menu.item": Style(fg_color=(255, 255, 255)),
+            "menu.item:highlighted": Style(reverse=True),
+            "menu.item:disabled": Style(fg_color=(128, 128, 128), dim=True),
+            "menu.divider": Style(fg_color=(100, 100, 100)),
+            "menu.shortcut": Style(fg_color=(180, 180, 180), dim=True),
+            # LogView styles
+            "logview": Style(fg_color=(200, 200, 200)),
+            "logview:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "logview.error": Style(fg_color=(255, 0, 0), bold=True),
+            "logview.warning": Style(fg_color=(255, 255, 0)),
+            "logview.info": Style(fg_color=(255, 255, 255)),
+            "logview.debug": Style(fg_color=(255, 255, 255), dim=True),
+            "logview.trace": Style(fg_color=(128, 128, 128), dim=True),
+            "logview.line_number": Style(fg_color=(100, 100, 100)),
+            "logview.border": Style(fg_color=(100, 100, 100)),
+            "logview.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # MarkdownView styles
+            "markdown": Style(fg_color=(200, 200, 200)),
+            "markdown:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "markdown.border": Style(fg_color=(100, 100, 100)),
+            "markdown.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # CodeBlock styles
+            "code": Style(fg_color=(200, 200, 200)),
+            "code:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "code.border": Style(fg_color=(100, 100, 100)),
+            "code.border:focus": Style(fg_color=(0, 255, 255), bold=True),
         }
         super().__init__("default", styles)
 
@@ -315,6 +380,16 @@ class DarkTheme(Theme):
                 fg_color=(100, 255, 100),
                 bold=True,
             ),
+            # Select styles
+            "select": Style(fg_color=(200, 200, 220)),
+            "select:focus": Style(fg_color=(220, 220, 255)),
+            "select.border": Style(fg_color=(80, 80, 100)),
+            "select.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            "select.option": Style(fg_color=(200, 200, 220)),
+            "select.option:selected": Style(fg_color=(100, 255, 100)),
+            "select.option:highlighted": Style(reverse=True),
+            "select.option:disabled": Style(fg_color=(80, 80, 80), dim=True),
+            "select.placeholder": Style(fg_color=(80, 80, 80), dim=True),
             # Frame styles
             "frame": Style(
                 fg_color=(180, 180, 200),
@@ -368,8 +443,32 @@ class DarkTheme(Theme):
             "textarea:focus": Style(fg_color=(220, 220, 255), bold=True),
             "textarea.border": Style(fg_color=(80, 80, 100)),
             "textarea.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # ProgressBar styles
+            "progress": Style(fg_color=(220, 220, 255)),
+            "progress.fill": Style(fg_color=(100, 255, 100)),
+            "progress.empty": Style(fg_color=(60, 60, 80)),
+            "progress.text": Style(fg_color=(220, 220, 255)),
+            "progress.gradient.low": Style(fg_color=(255, 100, 100)),
+            "progress.gradient.medium": Style(fg_color=(255, 255, 100)),
+            "progress.gradient.high": Style(fg_color=(100, 255, 100)),
+            # Spinner styles
+            "spinner": Style(fg_color=(100, 200, 255)),
+            "spinner.active": Style(fg_color=(100, 200, 255), bold=True),
+            "spinner.text": Style(fg_color=(220, 220, 255)),
             # Status bar styles
             "statusbar": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(60, 60, 120),
+            ),
+            "statusbar.left": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(60, 60, 120),
+            ),
+            "statusbar.center": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(60, 60, 120),
+            ),
+            "statusbar.right": Style(
                 fg_color=(255, 255, 255),
                 bg_color=(60, 60, 120),
             ),
@@ -400,6 +499,37 @@ class DarkTheme(Theme):
                 fg_color=(255, 255, 255),
                 bg_color=(200, 40, 40),
             ),
+            # Menu styles
+            "menu": Style(fg_color=(200, 200, 220)),
+            "menu:focus": Style(fg_color=(220, 220, 255)),
+            "menu.border": Style(fg_color=(80, 80, 100)),
+            "menu.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            "menu.item": Style(fg_color=(200, 200, 220)),
+            "menu.item:highlighted": Style(reverse=True),
+            "menu.item:disabled": Style(fg_color=(80, 80, 80), dim=True),
+            "menu.divider": Style(fg_color=(60, 60, 80)),
+            "menu.shortcut": Style(fg_color=(140, 140, 160), dim=True),
+            # LogView styles
+            "logview": Style(fg_color=(200, 200, 220)),
+            "logview:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "logview.error": Style(fg_color=(255, 100, 100), bold=True),
+            "logview.warning": Style(fg_color=(255, 220, 100)),
+            "logview.info": Style(fg_color=(255, 255, 255)),
+            "logview.debug": Style(fg_color=(255, 255, 255), dim=True),
+            "logview.trace": Style(fg_color=(100, 100, 120), dim=True),
+            "logview.line_number": Style(fg_color=(100, 100, 120)),
+            "logview.border": Style(fg_color=(80, 80, 100)),
+            "logview.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # MarkdownView styles
+            "markdown": Style(fg_color=(200, 200, 220)),
+            "markdown:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "markdown.border": Style(fg_color=(80, 80, 100)),
+            "markdown.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # CodeBlock styles
+            "code": Style(fg_color=(200, 200, 220)),
+            "code:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "code.border": Style(fg_color=(80, 80, 100)),
+            "code.border:focus": Style(fg_color=(100, 200, 255), bold=True),
         }
         super().__init__("dark", styles)
 
@@ -461,6 +591,16 @@ class LightTheme(Theme):
                 fg_color=(0, 150, 0),
                 bold=True,
             ),
+            # Select styles
+            "select": Style(fg_color=(0, 0, 0)),
+            "select:focus": Style(fg_color=(0, 0, 0)),
+            "select.border": Style(fg_color=(180, 180, 180)),
+            "select.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            "select.option": Style(fg_color=(0, 0, 0)),
+            "select.option:selected": Style(fg_color=(0, 150, 0)),
+            "select.option:highlighted": Style(reverse=True),
+            "select.option:disabled": Style(fg_color=(180, 180, 180), dim=True),
+            "select.placeholder": Style(fg_color=(128, 128, 128), dim=True),
             # Frame styles
             "frame": Style(
                 fg_color=(50, 50, 50),
@@ -516,8 +656,32 @@ class LightTheme(Theme):
             "textarea:focus": Style(fg_color=(0, 0, 0), bold=True),
             "textarea.border": Style(fg_color=(180, 180, 180)),
             "textarea.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # ProgressBar styles
+            "progress": Style(fg_color=(0, 0, 0)),
+            "progress.fill": Style(fg_color=(0, 150, 0)),
+            "progress.empty": Style(fg_color=(180, 180, 180)),
+            "progress.text": Style(fg_color=(0, 0, 0)),
+            "progress.gradient.low": Style(fg_color=(200, 0, 0)),
+            "progress.gradient.medium": Style(fg_color=(200, 150, 0)),
+            "progress.gradient.high": Style(fg_color=(0, 150, 0)),
+            # Spinner styles
+            "spinner": Style(fg_color=(0, 100, 200)),
+            "spinner.active": Style(fg_color=(0, 100, 200), bold=True),
+            "spinner.text": Style(fg_color=(0, 0, 0)),
             # Status bar styles
             "statusbar": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(180, 200, 255),
+            ),
+            "statusbar.left": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(180, 200, 255),
+            ),
+            "statusbar.center": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(180, 200, 255),
+            ),
+            "statusbar.right": Style(
                 fg_color=(0, 0, 0),
                 bg_color=(180, 200, 255),
             ),
@@ -548,6 +712,37 @@ class LightTheme(Theme):
                 fg_color=(255, 255, 255),
                 bg_color=(255, 100, 100),
             ),
+            # Menu styles
+            "menu": Style(fg_color=(0, 0, 0)),
+            "menu:focus": Style(fg_color=(0, 0, 0)),
+            "menu.border": Style(fg_color=(180, 180, 180)),
+            "menu.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            "menu.item": Style(fg_color=(0, 0, 0)),
+            "menu.item:highlighted": Style(reverse=True),
+            "menu.item:disabled": Style(fg_color=(180, 180, 180), dim=True),
+            "menu.divider": Style(fg_color=(200, 200, 200)),
+            "menu.shortcut": Style(fg_color=(100, 100, 100), dim=True),
+            # LogView styles
+            "logview": Style(fg_color=(0, 0, 0)),
+            "logview:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "logview.error": Style(fg_color=(200, 0, 0), bold=True),
+            "logview.warning": Style(fg_color=(180, 120, 0)),
+            "logview.info": Style(fg_color=(0, 0, 0)),
+            "logview.debug": Style(fg_color=(0, 0, 0), dim=True),
+            "logview.trace": Style(fg_color=(140, 140, 140), dim=True),
+            "logview.line_number": Style(fg_color=(120, 120, 120)),
+            "logview.border": Style(fg_color=(180, 180, 180)),
+            "logview.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # MarkdownView styles
+            "markdown": Style(fg_color=(0, 0, 0)),
+            "markdown:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "markdown.border": Style(fg_color=(180, 180, 180)),
+            "markdown.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # CodeBlock styles
+            "code": Style(fg_color=(0, 0, 0)),
+            "code:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "code.border": Style(fg_color=(180, 180, 180)),
+            "code.border:focus": Style(fg_color=(0, 100, 200), bold=True),
         }
         super().__init__("light", styles)
 

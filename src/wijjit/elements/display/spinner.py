@@ -167,13 +167,63 @@ class Spinner(Element):
         frame_idx = self.frame_index % len(frames)
         return frames[frame_idx]
 
+    def render_to(self, ctx) -> None:
+        """Render the spinner using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method that uses theme styles
+        instead of hardcoded ANSI colors. It supports all spinner animation styles
+        and automatically handles Unicode detection with ASCII fallback.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'spinner': Base spinner style (inactive)
+        - 'spinner.active': Active/animating spinner style
+        - 'spinner.text': Label text style
+        """
+
+        # If not active, render label only (if present)
+        if not self.active:
+            if self.label:
+                text_style = ctx.style_resolver.resolve_style(self, "spinner.text")
+                ctx.write_text(0, 0, self.label, text_style)
+            return
+
+        # Get current frame
+        frame = self._get_current_frame()
+
+        # Resolve style for active spinner
+        spinner_style = ctx.style_resolver.resolve_style(self, "spinner.active")
+        text_style = ctx.style_resolver.resolve_style(self, "spinner.text")
+
+        # Render spinner frame
+        ctx.write_text(0, 0, frame, spinner_style)
+
+        # Render label if present
+        if self.label:
+            # Frame + space + label
+            ctx.write_text(len(frame) + 1, 0, self.label, text_style)
+
     def render(self) -> str:
-        """Render the spinner.
+        """Render the spinner (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered spinner with optional label as single-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility during migration.
         """
         from wijjit.terminal.ansi import ANSIColor, colorize
 

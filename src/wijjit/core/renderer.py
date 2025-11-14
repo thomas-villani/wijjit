@@ -353,16 +353,22 @@ class Renderer:
         elements = engine.layout()
         logger.debug(f"Layout calculated for {len(elements)} elements")
 
+        # Get statusbar if present
+        statusbar = getattr(layout_ctx, "_statusbar", None)
+
         # Compose output from positioned elements
-        # Use layout_height (not full height) so output doesn't extend into statusbar area
+        # For cell-based rendering with statusbar, use full height and let statusbar render at bottom
+        # For legacy rendering, use layout_height and composite statusbar separately
         # Choose rendering path based on feature flag
         if self.use_cell_rendering:
             logger.debug("Using cell-based rendering")
+            # Use full height for buffer, statusbar will render to last row
             output = self._compose_output_cells(
-                elements, width, layout_height, layout_ctx.root
+                elements, width, height, layout_ctx.root, statusbar
             )
         else:
             logger.debug("Using legacy ANSI rendering")
+            # Use layout_height (statusbar composited separately by caller)
             output = self._compose_output(
                 elements, width, layout_height, layout_ctx.root
             )
@@ -514,6 +520,7 @@ class Renderer:
         width: int,
         height: int,
         root: Optional["LayoutNode"] = None,
+        statusbar: Element | None = None,
     ) -> str:
         """Compose final output using cell-based rendering.
 
@@ -530,6 +537,8 @@ class Renderer:
             Output height
         root : LayoutNode, optional
             Root of layout tree (for frame rendering)
+        statusbar : Element, optional
+            StatusBar element to render at bottom of screen
 
         Returns
         -------
@@ -615,6 +624,25 @@ class Renderer:
             self._write_ansi_to_buffer(
                 ansi_content, buffer, adjusted_bounds, frame_clip_top, frame_clip_bottom
             )
+
+        # Third pass: Render statusbar if present
+        if statusbar is not None:
+            from wijjit.layout.bounds import Bounds
+
+            # Position statusbar at bottom of screen
+            statusbar_bounds = Bounds(x=0, y=height - 1, width=width, height=1)
+            statusbar.set_bounds(statusbar_bounds)
+
+            # Create paint context for statusbar
+            statusbar_ctx = PaintContext(
+                buffer=buffer,
+                style_resolver=style_resolver,
+                bounds=statusbar_bounds,
+            )
+
+            # Render statusbar using cell-based rendering
+            if hasattr(statusbar, "render_to") and callable(statusbar.render_to):
+                statusbar.render_to(statusbar_ctx)
 
         # Convert buffer to ANSI string for terminal output
         # IMPORTANT: Do this BEFORE storing buffer, so diff renderer compares

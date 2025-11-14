@@ -478,7 +478,10 @@ class DiffRenderer:
             )
 
             if style_sig != current_style:
-                # Style changed, emit style codes then character
+                # Style changed, emit reset first to clear previous attributes,
+                # then emit new style codes and character
+                if current_style is not None:
+                    commands.append("\x1b[0m")
                 commands.append(cell.get_style_codes())
                 commands.append(cell.char)
                 current_style = style_sig

@@ -102,8 +102,149 @@ class StatusBar(Element):
         color_name = self.text_color.upper()
         return getattr(ANSIColor, color_name, None)
 
+    def render_to(self, ctx) -> None:
+        """Render the status bar using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This is the new cell-based rendering method that uses theme styles
+        instead of hardcoded ANSI colors. It properly aligns left, center,
+        and right sections with intelligent space distribution.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'statusbar': Base status bar style
+        - 'statusbar.left': Left section style
+        - 'statusbar.center': Center section style
+        - 'statusbar.right': Right section style
+        """
+        from wijjit.styling.style import Style
+
+        bar_width = ctx.bounds.width
+
+        # Resolve styles from theme
+        left_style = ctx.style_resolver.resolve_style(self, "statusbar.left")
+        center_style = ctx.style_resolver.resolve_style(self, "statusbar.center")
+        right_style = ctx.style_resolver.resolve_style(self, "statusbar.right")
+        base_style = ctx.style_resolver.resolve_style(self, "statusbar")
+
+        # Override with instance-specific colors if provided
+        if self.bg_color or self.text_color:
+            # Map color names to RGB tuples (basic colors)
+            color_map = {
+                "black": (0, 0, 0),
+                "red": (255, 0, 0),
+                "green": (0, 255, 0),
+                "yellow": (255, 255, 0),
+                "blue": (0, 0, 255),
+                "magenta": (255, 0, 255),
+                "cyan": (0, 255, 255),
+                "white": (255, 255, 255),
+            }
+
+            # Create custom style with overridden colors
+            fg_color = None
+            bg_color = None
+
+            if self.text_color:
+                fg_color = color_map.get(self.text_color.lower())
+
+            if self.bg_color:
+                bg_color = color_map.get(self.bg_color.lower())
+
+            # Override all section styles with custom colors
+            if fg_color or bg_color:
+                base_style = Style(
+                    fg_color=fg_color or base_style.fg_color,
+                    bg_color=bg_color or base_style.bg_color,
+                )
+                left_style = Style(
+                    fg_color=fg_color or left_style.fg_color,
+                    bg_color=bg_color or left_style.bg_color,
+                )
+                center_style = Style(
+                    fg_color=fg_color or center_style.fg_color,
+                    bg_color=bg_color or center_style.bg_color,
+                )
+                right_style = Style(
+                    fg_color=fg_color or right_style.fg_color,
+                    bg_color=bg_color or right_style.bg_color,
+                )
+
+        # Get visible lengths of each section
+        left_len = visible_length(self.left)
+        center_len = visible_length(self.center)
+        right_len = visible_length(self.right)
+
+        # Calculate available space
+        total_content_len = left_len + center_len + right_len
+
+        if total_content_len > bar_width:
+            # Content too long - prioritize sections and clip
+            # Priority: left > right > center
+
+            # Reserve space for right section (up to 1/3 of width)
+            right_max = min(right_len, bar_width // 3)
+            right_section = (
+                clip_to_width(self.right, right_max)
+                if right_len > right_max
+                else self.right
+            )
+            right_len = visible_length(right_section)
+
+            # Reserve space for left section (up to 1/3 of width)
+            remaining = bar_width - right_len
+            left_max = min(left_len, remaining // 2)
+            left_section = (
+                clip_to_width(self.left, left_max) if left_len > left_max else self.left
+            )
+            left_len = visible_length(left_section)
+
+            # Center gets whatever is left
+            remaining = bar_width - left_len - right_len
+            center_section = (
+                clip_to_width(self.center, remaining)
+                if center_len > remaining
+                else self.center
+            )
+            center_len = visible_length(center_section)
+        else:
+            left_section = self.left
+            center_section = self.center
+            right_section = self.right
+
+        # Fill entire background with base style
+        ctx.fill_rect(0, 0, bar_width, 1, " ", base_style)
+
+        # Calculate positions
+        center_pos = (bar_width - center_len) // 2
+        right_pos = bar_width - right_len
+
+        # Render left section
+        if left_section:
+            ctx.write_text(0, 0, left_section, left_style)
+
+        # Render center section
+        if center_section:
+            # Adjust center position if it would overlap with left
+            if center_pos < left_len + 1:
+                center_pos = left_len + 1
+            # Only render if there's room
+            if center_pos + center_len <= right_pos - 1:
+                ctx.write_text(center_pos, 0, center_section, center_style)
+
+        # Render right section
+        if right_section:
+            ctx.write_text(right_pos, 0, right_section, right_style)
+
     def render(self) -> str:
-        """Render the status bar.
+        """Render the status bar (LEGACY ANSI rendering).
 
         Renders a single line with left, center, and right sections properly
         aligned and padded to the full width.
@@ -112,6 +253,12 @@ class StatusBar(Element):
         -------
         str
             Rendered status bar as single-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility during migration.
         """
         # Use bounds width if available, otherwise use specified width
         bar_width = self.bounds.width if self.bounds else self.width

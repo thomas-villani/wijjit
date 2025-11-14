@@ -2,6 +2,8 @@
 
 from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.rendering import PaintContext
+from wijjit.styling.style import Style
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent
@@ -406,12 +408,18 @@ class CodeBlock(ScrollableMixin, Element):
         return bordered_lines
 
     def render(self) -> str:
-        """Render the code block.
+        """Render the code block (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered code block as multi-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility.
         """
         content_height = self._get_content_height()
         content_width = self._get_content_width()
@@ -456,3 +464,367 @@ class CodeBlock(ScrollableMixin, Element):
             final_lines = visible_lines
 
         return "\n".join(final_lines)
+
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render code block using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method implements cell-based rendering for code blocks, supporting:
+        - Syntax highlighting via Rich (preserves colors for different code elements)
+        - Optional line numbers (via Rich Syntax)
+        - Scrolling with scrollbar
+        - Borders with titles and focus styling
+        - Theme-based styling for borders and background
+
+        The code is rendered by Rich Syntax, which generates ANSI codes for
+        syntax highlighting. These ANSI codes are converted to cells, preserving
+        all syntax highlighting.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'code': Base code style (for background/fallback)
+        - 'code:focus': When code block has focus
+        - 'code.border': For border characters
+        - 'code.border:focus': For border when focused
+        """
+        # Resolve border style based on focus
+        if self.focused:
+            border_style = ctx.style_resolver.resolve_style(self, "code.border:focus")
+        else:
+            border_style = ctx.style_resolver.resolve_style(self, "code.border")
+
+        content_height = self._get_content_height()
+        content_width = self._get_content_width()
+
+        # Render borders if needed
+        if self.border_style != "none":
+            self._render_to_with_border(
+                ctx, border_style, content_height, content_width
+            )
+        else:
+            # No borders - render content directly
+            self._render_to_content(ctx, 0, content_height, content_width)
+
+    def _render_to_with_border(
+        self,
+        ctx: PaintContext,
+        border_style: Style,
+        content_height: int,
+        content_width: int,
+    ) -> None:
+        """Render code block with border using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        border_style : Style
+            Border style resolved from theme
+        content_height : int
+            Content area height
+        content_width : int
+            Content area width
+        """
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.terminal.cell import Cell
+
+        # Get border characters
+        border_map = {
+            "single": BorderStyle.SINGLE,
+            "double": BorderStyle.DOUBLE,
+            "rounded": BorderStyle.ROUNDED,
+        }
+        style = border_map.get(self.border_style, BorderStyle.SINGLE)
+        chars = BORDER_CHARS[style]
+        border_attrs = border_style.to_cell_attrs()
+
+        # Calculate total width (content + borders + optional scrollbar)
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+        scrollbar_width = 1 if needs_scrollbar else 0
+        total_width = content_width + scrollbar_width + 2  # +2 for borders
+
+        # Render top border with optional title
+        if self.title:
+            title_text = f" {self.title} "
+            title_len = visible_length(title_text)
+            border_width = total_width - 2  # Width without corners
+
+            if title_len < border_width:
+                remaining = border_width - title_len
+                left_len = remaining // 2
+                right_len = remaining - left_len
+
+                # Top-left corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+
+                # Left line
+                for i in range(left_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Title
+                for i, char in enumerate(title_text):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + left_len + i,
+                        ctx.bounds.y,
+                        Cell(char=char, **border_attrs),
+                    )
+
+                # Right line
+                for i in range(right_len):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + left_len + title_len + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+
+                # Top-right corner
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + total_width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+            else:
+                # Title too long
+                ctx.buffer.set_cell(
+                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+                )
+                for i in range(border_width):
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + 1 + i,
+                        ctx.bounds.y,
+                        Cell(char=chars["h"], **border_attrs),
+                    )
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + total_width - 1,
+                    ctx.bounds.y,
+                    Cell(char=chars["tr"], **border_attrs),
+                )
+        else:
+            # No title
+            ctx.buffer.set_cell(
+                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+            )
+            for i in range(1, total_width - 1):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + i,
+                    ctx.bounds.y,
+                    Cell(char=chars["h"], **border_attrs),
+                )
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y,
+                Cell(char=chars["tr"], **border_attrs),
+            )
+
+        # Render content area (starting at y=1, inside border)
+        # Create sub-context for content (inside borders)
+        content_ctx = ctx.sub_context(
+            1, 1, content_width + scrollbar_width, content_height
+        )
+        self._render_to_content(
+            content_ctx,
+            0,
+            content_height,
+            content_width,
+        )
+
+        # Render side borders for content area
+        for y in range(content_height):
+            # Left border
+            ctx.buffer.set_cell(
+                ctx.bounds.x,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+            # Right border
+            ctx.buffer.set_cell(
+                ctx.bounds.x + total_width - 1,
+                ctx.bounds.y + 1 + y,
+                Cell(char=chars["v"], **border_attrs),
+            )
+
+        # Render bottom border
+        bottom_y = content_height + 1
+        ctx.buffer.set_cell(
+            ctx.bounds.x,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["bl"], **border_attrs),
+        )
+        for i in range(1, total_width - 1):
+            ctx.buffer.set_cell(
+                ctx.bounds.x + i,
+                ctx.bounds.y + bottom_y,
+                Cell(char=chars["h"], **border_attrs),
+            )
+        ctx.buffer.set_cell(
+            ctx.bounds.x + total_width - 1,
+            ctx.bounds.y + bottom_y,
+            Cell(char=chars["br"], **border_attrs),
+        )
+
+    def _render_to_content(
+        self,
+        ctx: PaintContext,
+        start_y: int,
+        content_height: int,
+        content_width: int,
+    ) -> None:
+        """Render code content using cells.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        start_y : int
+            Starting Y position
+        content_height : int
+            Content area height
+        content_width : int
+            Content area width
+
+        Notes
+        -----
+        Rich Syntax-generated ANSI codes are converted to cells, preserving
+        all syntax highlighting (keywords, strings, comments, etc.).
+        """
+        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+        # Get visible range from scroll manager
+        visible_start, visible_end = self.scroll_manager.get_visible_range()
+
+        # Determine if scrollbar is needed
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+
+        # Generate scrollbar if needed
+        scrollbar_chars = []
+        if needs_scrollbar:
+            scrollbar_chars = render_vertical_scrollbar(
+                self.scroll_manager.state, content_height
+            )
+
+        # Render visible code lines
+        current_y = start_y
+        rendered_line_idx = visible_start
+
+        while current_y < start_y + content_height and rendered_line_idx < visible_end:
+            if rendered_line_idx >= len(self.rendered_lines):
+                # Pad with empty lines
+                for x in range(content_width):
+                    from wijjit.terminal.cell import Cell
+
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + x,
+                        ctx.bounds.y + current_y,
+                        Cell(char=" "),
+                    )
+                current_y += 1
+                rendered_line_idx += 1
+                continue
+
+            ansi_line = self.rendered_lines[rendered_line_idx]
+
+            # Convert ANSI string to cells (preserves Rich syntax highlighting)
+            cells = ansi_string_to_cells(ansi_line)
+
+            # Write cells to buffer
+            for x, cell in enumerate(cells[:content_width]):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x,
+                    ctx.bounds.y + current_y,
+                    cell,
+                )
+
+            # Pad remaining width with spaces
+            for x in range(len(cells), content_width):
+                from wijjit.terminal.cell import Cell
+
+                # Use last cell's style for padding if available, otherwise empty
+                if cells:
+                    # Preserve background color from last cell
+                    last_bg = cells[-1].bg_color if cells else None
+                    pad_cell = Cell(char=" ", bg_color=last_bg)
+                else:
+                    pad_cell = Cell(char=" ")
+
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x,
+                    ctx.bounds.y + current_y,
+                    pad_cell,
+                )
+
+            # Add scrollbar character if needed
+            if needs_scrollbar:
+                scrollbar_idx = current_y - start_y
+                if scrollbar_idx < len(scrollbar_chars):
+                    # Resolve scrollbar style (use border style)
+                    if self.focused:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "code.border:focus"
+                        )
+                    else:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "code.border"
+                        )
+                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
+
+                    from wijjit.terminal.cell import Cell
+
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + content_width,
+                        ctx.bounds.y + current_y,
+                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
+                    )
+
+            current_y += 1
+            rendered_line_idx += 1
+
+        # Fill remaining rows if any
+        while current_y < start_y + content_height:
+            for x in range(content_width):
+                from wijjit.terminal.cell import Cell
+
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + x,
+                    ctx.bounds.y + current_y,
+                    Cell(char=" "),
+                )
+
+            if needs_scrollbar:
+                scrollbar_idx = current_y - start_y
+                if scrollbar_idx < len(scrollbar_chars):
+                    if self.focused:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "code.border:focus"
+                        )
+                    else:
+                        scrollbar_style = ctx.style_resolver.resolve_style(
+                            self, "code.border"
+                        )
+                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
+
+                    from wijjit.terminal.cell import Cell
+
+                    ctx.buffer.set_cell(
+                        ctx.bounds.x + content_width,
+                        ctx.bounds.y + current_y,
+                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
+                    )
+
+            current_y += 1

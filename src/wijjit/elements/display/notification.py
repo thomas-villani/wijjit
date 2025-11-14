@@ -185,13 +185,113 @@ class NotificationElement(OverlayElement):
         else:  # INFO
             return ANSIColor.CYAN
 
+    def render_to(self, ctx) -> None:
+        """Render the notification using cell-based rendering (NEW API).
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method uses cell-based rendering with theme styles for severity-based
+        coloring. It delegates to Frame's render_to() method for the container
+        and handles icon/message/button layout.
+
+        Theme Styles
+        ------------
+        This element uses the following theme style classes:
+        - 'notification.info': Info notification style
+        - 'notification.success': Success notification style
+        - 'notification.warning': Warning notification style
+        - 'notification.error': Error notification style
+        - 'frame.border': Border style (inherited from Frame)
+        """
+
+        if not self.bounds:
+            return
+
+        # Update frame size to match bounds
+        self.frame.width = self.bounds.width
+        self.frame.height = self.bounds.height
+
+        # Get icon (unicode or ASCII fallback)
+        icon = self._get_icon()
+
+        # Resolve style based on severity
+        severity_style_map = {
+            NotificationSeverity.INFO: "notification.info",
+            NotificationSeverity.SUCCESS: "notification.success",
+            NotificationSeverity.WARNING: "notification.warning",
+            NotificationSeverity.ERROR: "notification.error",
+        }
+        severity_class = severity_style_map.get(self.severity, "notification.info")
+
+        # Resolve styles for icon and message using cell-based theming
+        icon_style = ctx.style_resolver.resolve_style(self, f"{severity_class}.icon")
+        message_style = ctx.style_resolver.resolve_style(self, severity_class)
+
+        # Set frame properties (empty content - we'll write directly)
+        self.frame.content = []
+        self.frame.bounds = self.bounds
+
+        # Delegate to frame's cell-based rendering to draw border and background
+        self.frame.render_to(ctx)
+
+        # Now write styled icon and message directly into the frame's content area
+        # Frame has border (1) + padding_left (1) = 2 offset
+        padding_top, padding_right, padding_bottom, padding_left = (
+            self.frame.style.padding
+        )
+        content_x = 1 + padding_left  # Border + left padding
+        content_y = 1 + padding_top  # Border + top padding
+
+        # Write icon with severity-based styling
+        ctx.write_text(content_x, content_y, icon, icon_style)
+
+        # Write message next to icon
+        icon_width = visible_length(icon)
+        ctx.write_text(
+            content_x + icon_width + 1, content_y, self.message, message_style
+        )
+
+        # Add action button if present
+        if self.action_button:
+            # Set button bounds for rendering (center it horizontally)
+            button_text = self.action_button.render()
+            button_width = visible_length(button_text)
+            # Account for border (2) + padding (2) = 4
+            inner_width = self.bounds.width - 2 - padding_left - padding_right
+            button_x = max(0, (inner_width - button_width) // 2)
+
+            # Write button (with spacing row above)
+            button_y = content_y + 2  # Message + spacing row
+            ctx.write_text(content_x + button_x, button_y, button_text, message_style)
+
+            # Update button bounds for click handling
+            if self.bounds:
+                button_bounds = Bounds(
+                    x=self.bounds.x + 1 + padding_left + button_x,
+                    y=self.bounds.y + button_y,
+                    width=button_width,
+                    height=1,
+                )
+                self.action_button.set_bounds(button_bounds)
+
     def render(self) -> str:
-        """Render the notification.
+        """Render the notification (LEGACY ANSI rendering).
 
         Returns
         -------
         str
             Rendered notification as multi-line string
+
+        Notes
+        -----
+        This is the legacy ANSI string-based rendering method.
+        New code should use render_to() for cell-based rendering.
+        Kept for backward compatibility during migration.
         """
         if not self.bounds:
             return ""
