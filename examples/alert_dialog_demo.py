@@ -12,9 +12,12 @@ Controls:
 
 from wijjit.core.app import Wijjit
 from wijjit.elements.modal import AlertDialog
+from wijjit.logging_config import configure_logging
 
 app = Wijjit(initial_state={"counter": 0})
 state = app.state
+
+configure_logging("alert-demo.log", level="DEBUG")
 
 
 @app.view("main", default=True)
@@ -36,7 +39,7 @@ def main_view():
     }
 
 
-def show_alert(title, message, border="single"):
+def show_alert(title, message, border="single", severity=None):
     """Helper function to show an alert dialog."""
 
     def on_ok():
@@ -49,8 +52,9 @@ def show_alert(title, message, border="single"):
         on_ok=on_ok,
         ok_label="OK",
         width=50,
-        height=9,
+        height=None,  # Auto-size based on content
         border=border,
+        severity=severity,
     )
 
     # Set bounds for centered position
@@ -83,6 +87,7 @@ def show_success(event):
         "Success",
         f"Operation completed successfully! This is a longer message to test text wrapping functionality. The text should wrap automatically within the dialog boundaries. (Count: {state['counter']})",
         border="double",
+        severity="success",
     )
 
 
@@ -95,6 +100,7 @@ def show_error(event):
         "Error",
         f"An error occurred! Something went wrong and we need to display a detailed error message that will automatically wrap to fit within the dialog width. (Count: {state['counter']})",
         border="single",
+        severity="error",
     )
 
 
@@ -107,6 +113,7 @@ def show_info(event):
         "Information",
         f"This is an informational message for you that contains quite a bit of text. The text wrapping feature will automatically break this into multiple lines to ensure it fits nicely within the dialog frame. (Count: {state['counter']})",
         border="rounded",
+        severity="info",
     )
 
 

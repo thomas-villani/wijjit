@@ -64,7 +64,9 @@ def show_delete_dialog(event):
     # Create and show confirm dialog
     dialog = ConfirmDialog(
         title="Confirm Delete",
-        message=f"Are you sure you want to delete {state['files'][-1]}? This action cannot be undone and will permanently remove the file from your system. Please confirm that you want to proceed with this deletion.",
+        message=f"Are you sure you want to delete {state['files'][-1]}?\n"
+        f"This action cannot be undone and will permanently remove the file from your system.\n"
+        f"Please confirm that you want to proceed with this deletion.",
         on_confirm=on_confirm,
         on_cancel=on_cancel,
         confirm_label="Delete",

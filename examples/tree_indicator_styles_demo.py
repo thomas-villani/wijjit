@@ -5,7 +5,7 @@ available for the Tree element, including Unicode triangles, circles,
 squares, and ASCII fallbacks.
 """
 
-from wijjit.core.app import App
+from wijjit.core.app import Wijjit
 from wijjit.elements.display import Tree, TreeIndicatorStyle
 
 # Sample tree data
@@ -43,7 +43,7 @@ tree_data = {
 
 def main():
     """Main application entry point."""
-    app = App()
+    app = Wijjit()
 
     # Create multiple trees with different indicator styles
     styles = [

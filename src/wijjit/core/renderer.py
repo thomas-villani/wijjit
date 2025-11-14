@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from jinja2 import DictLoader, Environment, FileSystemLoader, Template
 
 from wijjit.layout.bounds import Bounds
+from wijjit.layout.dirty import DirtyRegionManager
 
 if TYPE_CHECKING:
     from wijjit.core.overlay import OverlayManager
@@ -148,17 +149,14 @@ class Renderer:
             os.environ.get("WIJJIT_CELL_RENDERING", "true").lower() == "true"
         )
 
-        # Feature flag for diff rendering (disabled by default until element migration completes)
+        # Feature flag for diff rendering (now enabled by default with dirty region tracking)
         # When False, forces full screen re-renders on every frame
-        # When True, only renders changed cells (more efficient but requires careful state management)
+        # When True, only renders changed cells (more efficient with dirty region tracking)
         #
-        # TODO: Enable diff rendering by default once element migration is complete
-        # The issue is not with ANSI->cell conversion (that works), but with terminal state
-        # synchronization. Diff rendering assumes terminal preserves old content, but without
-        # proper dirty region tracking (Stage 4 in migration plan), we can't guarantee which
-        # cells need updating. Full renders work reliably for now.
+        # With DirtyRegionManager integrated, diff rendering can safely be enabled by default.
+        # State/Focus/Hover changes mark appropriate regions dirty, ensuring correct updates.
         self.use_diff_rendering = (
-            os.environ.get("WIJJIT_DIFF_RENDERING", "false").lower() == "true"
+            os.environ.get("WIJJIT_DIFF_RENDERING", "true").lower() == "true"
         )
 
         # Last rendered buffer for diff rendering
@@ -166,6 +164,9 @@ class Renderer:
 
         # Diff renderer for efficient incremental updates
         self._diff_renderer = DiffRenderer()
+
+        # Dirty region manager for tracking screen areas that need redraw
+        self.dirty_manager = DirtyRegionManager()
 
         # Add custom filters
         self._setup_filters()
@@ -363,7 +364,7 @@ class Renderer:
         if self.use_cell_rendering:
             logger.debug("Using cell-based rendering")
             # Use full height for buffer, statusbar will render to last row
-            output = self._compose_output_cells(
+            output, base_buffer = self._compose_output_cells(
                 elements, width, height, layout_ctx.root, statusbar
             )
         else:
@@ -521,7 +522,7 @@ class Renderer:
         height: int,
         root: Optional["LayoutNode"] = None,
         statusbar: Element | None = None,
-    ) -> str:
+    ) -> tuple[str, "ScreenBuffer"]:
         """Compose final output using cell-based rendering.
 
         This method implements the NEW cell-based rendering pipeline with
@@ -557,6 +558,26 @@ class Renderer:
         # Create screen buffer
         buffer = ScreenBuffer(width, height)
         style_resolver = StyleResolver(self.theme_manager.get_theme())
+
+        # Transfer dirty regions from dirty manager to buffer for diff rendering optimization
+        # IMPORTANT: On first render, ALWAYS force full screen dirty regardless of what's
+        # in dirty_manager, because initial focus/hover setup may mark individual elements
+        # but we need to render the entire screen on first paint
+        if self.use_diff_rendering:
+            if self._last_buffer is None:
+                # First render: ALWAYS mark entire screen dirty, ignore dirty_manager
+                # This ensures full UI renders even if focus manager marked individual elements
+                buffer.mark_all_dirty()
+            elif self.dirty_manager.is_dirty():
+                if self.dirty_manager.is_full_screen_dirty():
+                    # Mark entire buffer as dirty
+                    buffer.mark_all_dirty()
+                else:
+                    # Transfer individual dirty regions
+                    for x, y, w, h in self.dirty_manager.get_merged_regions():
+                        buffer.mark_dirty(x, y, w, h)
+            # Note: If dirty_manager is empty, we don't mark anything dirty
+            # This allows diff rendering to output nothing (screen stays as-is), which is correct
 
         # First pass: Render frame borders if we have a layout tree
         if root is not None:
@@ -652,7 +673,11 @@ class Renderer:
         # Store buffer for next render's diff (after converting!)
         self._last_buffer = buffer
 
-        return output
+        # Clear dirty regions now that rendering is complete
+        self.dirty_manager.clear()
+
+        # Return both output and buffer
+        return output, buffer
 
     def _render_frames_to_buffer(
         self, node: "LayoutNode", buffer: ScreenBuffer, style_resolver: StyleResolver
@@ -842,6 +867,8 @@ class Renderer:
         height: int,
         apply_dimming: bool = False,
         dim_factor: float = 0.6,
+        overlay_manager: Optional["OverlayManager"] = None,
+        force_full_redraw: bool = False,
     ) -> str:
         """Composite overlay elements on cell buffer.
 
@@ -857,6 +884,8 @@ class Renderer:
             Whether to dim the base
         dim_factor : float
             Dimming intensity
+        force_full_redraw : bool
+            Force full screen redraw instead of diff rendering
 
         Returns
         -------
@@ -869,11 +898,16 @@ class Renderer:
         then renders the entire result. This is cell-aware and works
         correctly with diff rendering.
         """
+        logger = get_logger(__name__)
+        logger.debug(
+            f"_composite_overlays_cells: overlay_count={len(overlay_elements)}, "
+            f"force_full_redraw={force_full_redraw}, has_last_buffer={self._last_buffer is not None}"
+        )
 
         # Create a new buffer for compositing (copy last buffer to preserve base)
         composite_buffer = ScreenBuffer(width, height)
 
-        # Copy cells from last buffer (deep copy to avoid mutating original)
+        # Copy cells from last buffer (base view)
         if self._last_buffer:
             from copy import copy
 
@@ -935,11 +969,14 @@ class Renderer:
         # Now render the composite buffer
         # Since overlays change the buffer, we need to update _last_buffer
         # and render the diff (respecting the use_diff_rendering flag)
-        if self.use_diff_rendering:
+        # If force_full_redraw is True, we force a full redraw instead of diff
+
+        if self.use_diff_rendering and not force_full_redraw:
             output = self._diff_renderer.render_diff(
                 self._last_buffer, composite_buffer
             )
         else:
+            # Full redraw (either diff rendering is disabled, or force_full_redraw is True)
             output = self._diff_renderer.render_diff(None, composite_buffer)
 
         self._last_buffer = composite_buffer
@@ -954,6 +991,8 @@ class Renderer:
         height: int,
         apply_dimming: bool = False,
         dim_factor: float = 0.6,
+        overlay_manager: Optional["OverlayManager"] = None,
+        force_full_redraw: bool = False,
     ) -> str:
         """Composite overlay elements on top of base output.
 
@@ -974,6 +1013,8 @@ class Renderer:
             Whether to dim the base output (for modal backdrops)
         dim_factor : float
             Dimming intensity (0.0 = black, 1.0 = original). Default is 0.6.
+        force_full_redraw : bool
+            Force full screen redraw instead of diff rendering
 
         Returns
         -------
@@ -992,7 +1033,13 @@ class Renderer:
         # If using cell-based rendering and we have a buffer, composite on buffer
         if self.use_cell_rendering and self._last_buffer is not None:
             return self._composite_overlays_cells(
-                overlay_elements, width, height, apply_dimming, dim_factor
+                overlay_elements,
+                width,
+                height,
+                apply_dimming,
+                dim_factor,
+                overlay_manager,
+                force_full_redraw,
             )
 
         # Legacy ANSI string compositing

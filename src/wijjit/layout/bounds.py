@@ -4,6 +4,8 @@ This module provides dataclasses and utilities for tracking the position
 and size of UI elements in the terminal.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -72,7 +74,7 @@ class Bounds:
         """
         return self.width * self.height
 
-    def contains_point(self, x: int, y: int) -> bool:
+    def contains(self, x: int, y: int) -> bool:
         """Check if a point is within these bounds.
 
         Parameters
@@ -89,7 +91,7 @@ class Bounds:
         """
         return self.x <= x < self.right and self.y <= y < self.bottom
 
-    def overlaps(self, other: "Bounds") -> bool:
+    def overlaps(self, other: Bounds) -> bool:
         """Check if these bounds overlap with another bounds.
 
         Parameters

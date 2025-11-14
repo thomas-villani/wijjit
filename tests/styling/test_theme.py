@@ -1,6 +1,5 @@
 """Tests for Theme and ThemeManager classes."""
 
-
 from wijjit.styling.style import Style
 from wijjit.styling.theme import (
     DarkTheme,

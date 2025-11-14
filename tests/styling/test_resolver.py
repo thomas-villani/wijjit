@@ -1,6 +1,5 @@
 """Tests for the StyleResolver class."""
 
-
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.style import Style
 from wijjit.styling.theme import DarkTheme, DefaultTheme, LightTheme, Theme

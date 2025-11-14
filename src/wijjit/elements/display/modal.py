@@ -6,9 +6,12 @@ with built-in frame rendering and child element management.
 
 from __future__ import annotations
 
-from wijjit.elements.base import OverlayElement
+from wijjit.elements.base import OverlayElement, TextElement
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.text import TextInput
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.rendering.paint_context import PaintContext
 
 
 class ModalElement(OverlayElement):
@@ -121,9 +124,6 @@ class ModalElement(OverlayElement):
         - 'frame.border': Border style (inherited from Frame)
         - 'frame.border:focus': Focused border style (inherited from Frame)
         """
-        from wijjit.elements.base import TextElement
-        from wijjit.rendering.paint_context import PaintContext
-
         if not self.bounds:
             # No bounds set, cannot render
             return
@@ -138,11 +138,18 @@ class ModalElement(OverlayElement):
             if self.content_lines:
                 content_bounds = self.calculate_content_bounds()
                 text_style = ctx.style_resolver.resolve_style(self, "modal.text")
-                for i, line in enumerate(self.content_lines):
-                    # Convert absolute content bounds to relative coords for write_text
-                    rel_x = content_bounds.x - ctx.bounds.x
-                    rel_y = content_bounds.y - ctx.bounds.y + i
-                    ctx.write_text(rel_x, rel_y, line, text_style)
+                # Join content lines and use write_text_wrapped for proper word-wrapping
+                content_text = "\n".join(self.content_lines)
+                # Convert absolute content bounds to relative coords
+                rel_x = content_bounds.x - ctx.bounds.x
+                rel_y = content_bounds.y - ctx.bounds.y
+                ctx.write_text_wrapped(
+                    x=rel_x,
+                    y=rel_y,
+                    text=content_text,
+                    style=text_style,
+                    max_width=content_bounds.width,
+                )
             return
 
         # Calculate content bounds for children
@@ -150,9 +157,6 @@ class ModalElement(OverlayElement):
         current_y = 0  # Relative to content area
 
         # Separate children by type for layout
-        from wijjit.elements.input.button import Button
-        from wijjit.elements.input.text import TextInput
-
         text_elements = []
         text_inputs = []
         buttons = []
@@ -171,15 +175,48 @@ class ModalElement(OverlayElement):
         # Resolve default text style
         text_style = ctx.style_resolver.resolve_style(self, "modal.text")
 
-        # Render text elements
+        # Calculate space needed for interactive elements
+        space_for_buttons = 0
+        if buttons:
+            space_for_buttons = 1  # 1 line for buttons
+            if text_elements:
+                space_for_buttons += 1  # 1 line spacing before buttons
+
+        space_for_inputs = 0
+        if text_inputs:
+            space_for_inputs = sum(getattr(inp, "height", 1) for inp in text_inputs)
+            if text_elements:
+                space_for_inputs += 1  # 1 line spacing before inputs
+            if buttons:
+                space_for_inputs += 1  # 1 line spacing before buttons
+
+        # Reserve space for interactive elements
+        max_text_height = content_bounds.height - space_for_buttons - space_for_inputs
+
+        # Render text elements with word-wrapping
         for text_elem in text_elements:
-            lines = text_elem.text.split("\n")
-            for line in lines:
-                # Convert absolute to relative coords
-                rel_x = content_bounds.x - ctx.bounds.x
-                rel_y = content_bounds.y - ctx.bounds.y + current_y
-                ctx.write_text(rel_x, rel_y, line, text_style)
-                current_y += 1
+            if current_y >= max_text_height:
+                break  # No more space for text
+
+            # Create a sub-context with limited height to prevent text overflow
+            remaining_height = max_text_height - current_y
+            text_bounds = Bounds(
+                x=content_bounds.x,
+                y=content_bounds.y + current_y,
+                width=content_bounds.width,
+                height=remaining_height,
+            )
+            text_ctx = PaintContext(ctx.buffer, ctx.style_resolver, text_bounds)
+
+            # Use write_text_wrapped for proper word-wrapping
+            lines_written = text_ctx.write_text_wrapped(
+                x=0,  # Relative to text_bounds
+                y=0,  # Relative to text_bounds
+                text=text_elem.text,
+                style=text_style,
+                max_width=content_bounds.width,
+            )
+            current_y += lines_written
 
         # Add spacing before inputs
         if text_elements and (text_inputs or buttons or other_elements):
@@ -217,36 +254,38 @@ class ModalElement(OverlayElement):
 
         # Render buttons (horizontal layout, centered)
         if buttons:
-            # Calculate total width needed
-            total_width = sum(getattr(btn, "width", 10) for btn in buttons)
-            spacing = 2  # Space between buttons
-            total_width += spacing * (len(buttons) - 1)
+            # Check if buttons fit within content bounds
+            if current_y < content_bounds.height:
+                # Calculate total width needed
+                total_width = sum(getattr(btn, "width", 10) for btn in buttons)
+                spacing = 2  # Space between buttons
+                total_width += spacing * (len(buttons) - 1)
 
-            # Center horizontally
-            start_x = max(0, (content_bounds.width - total_width) // 2)
+                # Center horizontally
+                start_x = max(0, (content_bounds.width - total_width) // 2)
 
-            elem_x = start_x
-            for button in buttons:
-                elem_width = getattr(button, "width", 10)
-                elem_height = getattr(button, "height", 1)
+                elem_x = start_x
+                for button in buttons:
+                    elem_width = getattr(button, "width", 10)
+                    elem_height = getattr(button, "height", 1)
 
-                # Create absolute bounds for this element
-                elem_bounds = Bounds(
-                    x=content_bounds.x + elem_x,
-                    y=content_bounds.y + current_y,
-                    width=elem_width,
-                    height=elem_height,
-                )
-                button.set_bounds(elem_bounds)
+                    # Create absolute bounds for this element
+                    elem_bounds = Bounds(
+                        x=content_bounds.x + elem_x,
+                        y=content_bounds.y + current_y,
+                        width=elem_width,
+                        height=elem_height,
+                    )
+                    button.set_bounds(elem_bounds)
 
-                # Create sub-context for element
-                sub_ctx = PaintContext(ctx.buffer, ctx.style_resolver, elem_bounds)
+                    # Create sub-context for element
+                    sub_ctx = PaintContext(ctx.buffer, ctx.style_resolver, elem_bounds)
 
-                # Render element using cell-based rendering
-                if hasattr(button, "render_to") and callable(button.render_to):
-                    button.render_to(sub_ctx)
+                    # Render element using cell-based rendering
+                    if hasattr(button, "render_to") and callable(button.render_to):
+                        button.render_to(sub_ctx)
 
-                elem_x += elem_width + spacing
+                    elem_x += elem_width + spacing
 
         # Render other elements (fallback)
         if other_elements:

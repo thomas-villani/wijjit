@@ -1,6 +1,5 @@
 """Tests for the Style class and color parsing."""
 
-
 from wijjit.styling.style import (
     BOLD_STYLE,
     DEFAULT_STYLE,

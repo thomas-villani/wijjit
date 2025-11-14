@@ -34,23 +34,23 @@ class TestBounds:
     def test_contains_point_inside(self):
         """Test point containment check - inside."""
         bounds = Bounds(x=10, y=20, width=30, height=40)
-        assert bounds.contains_point(15, 25)
-        assert bounds.contains_point(10, 20)  # Top-left corner
+        assert bounds.contains(15, 25)
+        assert bounds.contains(10, 20)  # Top-left corner
 
     def test_contains_point_outside(self):
         """Test point containment check - outside."""
         bounds = Bounds(x=10, y=20, width=30, height=40)
-        assert not bounds.contains_point(5, 25)
-        assert not bounds.contains_point(50, 25)
-        assert not bounds.contains_point(15, 15)
-        assert not bounds.contains_point(15, 70)
+        assert not bounds.contains(5, 25)
+        assert not bounds.contains(50, 25)
+        assert not bounds.contains(15, 15)
+        assert not bounds.contains(15, 70)
 
     def test_contains_point_edge(self):
         """Test point containment on edges."""
         bounds = Bounds(x=10, y=20, width=30, height=40)
         # Right and bottom edges are exclusive
-        assert not bounds.contains_point(40, 30)  # Right edge
-        assert not bounds.contains_point(15, 60)  # Bottom edge
+        assert not bounds.contains(40, 30)  # Right edge
+        assert not bounds.contains(15, 60)  # Bottom edge
 
     def test_overlaps_true(self):
         """Test overlapping bounds."""

@@ -367,7 +367,7 @@ class OverlayManager:
         # Iterate from highest to lowest z-index
         for overlay in reversed(self.overlays):
             if overlay.element.bounds:
-                if overlay.element.bounds.contains_point(x, y):
+                if overlay.element.bounds.contains(x, y):
                     return overlay
         return None
 
@@ -404,7 +404,7 @@ class OverlayManager:
         # Check from top to bottom
         for overlay in reversed(list(self.overlays)):
             # If click is inside this overlay, stop checking
-            if overlay.element.bounds and overlay.element.bounds.contains_point(x, y):
+            if overlay.element.bounds and overlay.element.bounds.contains(x, y):
                 break
 
             # If click is outside and overlay should close, close it

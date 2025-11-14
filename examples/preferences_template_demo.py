@@ -21,7 +21,6 @@ Controls:
 """
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
 
 
 def create_app():
@@ -55,52 +54,45 @@ def create_app():
         # Template defines the entire UI declaratively
         template = """
 {% vstack spacing=1 padding=1 %}
-
     {% frame title="User Preferences" border="double" width=78 height=20 %}
         {% vstack spacing=1 %}
 
             {% hstack spacing=1 height="auto" %}
                 {% frame title="Appearance" border="single" width=24 height=12 %}
                     {% vstack spacing=0 padding=0 %}
-                        {% checkbox id="dark_mode" label="Dark mode" %}{% endcheckbox %}
-                        {% checkbox id="show_line_numbers" label="Line nums" %}{% endcheckbox %}
-
                         {% radiogroup name="theme"
                                       options=["Red", "Green", "Blue", "Purple"]
                                       width=18
                                       border_style="rounded"
                                       title="Theme" %}
                         {% endradiogroup %}
+                        {% checkbox id="dark_mode" label="Dark mode" %}{% endcheckbox %}
+                        {% checkbox id="show_line_numbers" label="Line nums" %}{% endcheckbox %}
                     {% endvstack %}
                 {% endframe %}
 
                 {% frame title="Editor" border="single" width=24 height=11 %}
-                    {% vstack spacing=0 padding=0 %}
-                        {% checkbox id="auto_save" label="Auto-save" %}{% endcheckbox %}
-
-                        {% radiogroup name="font_size"
-                                      options=["Small", "Medium", "Large", "X-Large"]
-                                      width=18
-                                      border_style="rounded"
-                                      title="Font Size" %}
-                        {% endradiogroup %}
-                    {% endvstack %}
+                    {% radiogroup name="font_size"
+                                  options=["Small", "Medium", "Large", "X-Large"]
+                                  width=18
+                                  border_style="rounded"
+                                  title="Font Size" %}
+                    {% endradiogroup %}
+                    {% checkbox id="auto_save" label="Auto-save" %}{% endcheckbox %}
                 {% endframe %}
 
                 {% frame title="Notifications" border="single" width=24 height=10 %}
-                    {% vstack spacing=0 padding=0 %}
-                        {% checkboxgroup id="notifications"
-                                         options=[
-                                             {"value": "email", "label": "Email"},
-                                             {"value": "desktop", "label": "Desktop"},
-                                             {"value": "sound", "label": "Sound"},
-                                             {"value": "mobile", "label": "Mobile"}
-                                         ]
-                                         width=18
-                                         border_style="single"
-                                         title="Enable" %}
-                        {% endcheckboxgroup %}
-                    {% endvstack %}
+                    {% checkboxgroup id="notifications"
+                                     options=[
+                                         {"value": "email", "label": "Email"},
+                                         {"value": "desktop", "label": "Desktop"},
+                                         {"value": "sound", "label": "Sound"},
+                                         {"value": "mobile", "label": "Mobile"}
+                                     ]
+                                     width=18
+                                     border_style="single"
+                                     title="Enable" %}
+                    {% endcheckboxgroup %}
                 {% endframe %}
             {% endhstack %}
 
@@ -129,38 +121,27 @@ def create_app():
         return {
             "template": template,
             "data": {"state": app.state},
-            "on_enter": setup_handlers,
         }
 
-    def setup_handlers():
-        """Set up event handlers for the preferences view."""
+    @app.on_action("save")
+    def save_action(event):
+        app.state["submitted"] = True
+        app.refresh()
 
-        def on_action(event):
-            """Handle action events from buttons."""
-            if event.action_id == "save":
-                # Mark as submitted to show the summary
-                app.state["submitted"] = True
-                app.refresh()
+    @app.on_action("reset")
+    def reset_action(event):
+        app.state["dark_mode"] = False
+        app.state["auto_save"] = True
+        app.state["show_line_numbers"] = True
+        app.state["theme"] = "blue"
+        app.state["font_size"] = "medium"
+        app.state["notifications"] = ["email", "desktop"]
+        app.state["submitted"] = False
+        app.refresh()
 
-            elif event.action_id == "reset":
-                # Reset to defaults
-                app.state["dark_mode"] = False
-                app.state["auto_save"] = True
-                app.state["show_line_numbers"] = True
-                app.state["theme"] = "blue"
-                app.state["font_size"] = "medium"
-                app.state["notifications"] = ["email", "desktop"]
-                app.state["submitted"] = False
-                app.refresh()
-
-        def on_key(event):
-            """Handle keyboard events."""
-            if event.key == "q":
-                app.quit()
-
-        # Register handlers
-        app.on(EventType.ACTION, on_action, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
+    @app.on_key("q")
+    def quit_action(event):
+        app.quit()
 
     return app
 

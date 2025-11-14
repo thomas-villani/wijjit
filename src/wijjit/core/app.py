@@ -53,6 +53,7 @@ from wijjit.terminal.input import InputHandler, Key
 from wijjit.terminal.mouse import MouseButton, MouseEventType
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
 from wijjit.terminal.screen import ScreenManager
+from wijjit.terminal.screen_buffer import DiffRenderer
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -180,9 +181,11 @@ class Wijjit:
 
         # Initialize focus manager
         self.focus_manager = FocusManager()
+        self.focus_manager.dirty_manager = self.renderer.dirty_manager
 
         # Initialize hover manager
         self.hover_manager = HoverManager()
+        self.hover_manager.dirty_manager = self.renderer.dirty_manager
 
         # Initialize overlay manager
         self.overlay_manager = OverlayManager(self)
@@ -861,7 +864,12 @@ class Wijjit:
                     if focused_elem and hasattr(focused_elem, "id"):
                         focused_id = focused_elem.id
 
-                    # Render again with focused element
+                    # Clear _last_buffer so the diff renderer treats this as a first render
+                    # The first render's output was never shown to the user, so we need a full render
+                    self.renderer._last_buffer = None
+                    self.renderer.dirty_manager.clear()
+
+                    # Render again with focused element (will be treated as first render = full screen)
                     self.renderer.add_global("_wijjit_focused_id", focused_id)
                     output, elements, layout_ctx = self.renderer.render_with_layout(
                         view.template,
@@ -897,6 +905,17 @@ class Wijjit:
                 # No statusbar for non-layout templates
                 current_statusbar = None
 
+            # Track overlay count to detect changes (especially dismissals)
+            overlay_count = len(self.overlay_manager.overlays)
+            prev_overlay_count = getattr(self, "_last_overlay_count", 0)
+            overlays_changed = overlay_count != prev_overlay_count
+            self._last_overlay_count = overlay_count
+
+            if overlays_changed:
+                logger.debug(
+                    f"Overlay count changed: {prev_overlay_count} -> {overlay_count}"
+                )
+
             # Composite overlays if any are active
             if self.overlay_manager.overlays:
                 term_size = shutil.get_terminal_size()
@@ -909,7 +928,16 @@ class Wijjit:
                     term_size.columns,
                     term_size.lines,
                     apply_dimming=apply_dimming,
+                    overlay_manager=self.overlay_manager,
+                    force_full_redraw=overlays_changed,
                 )
+            elif overlays_changed:
+                # Overlays were just dismissed - force full redraw to clear ghosts
+                # Do this by re-rendering the base output with no diff
+                # term_size = shutil.get_terminal_size()
+                if self.renderer._last_buffer:
+                    diff_renderer = DiffRenderer()
+                    output = diff_renderer.render_diff(None, self.renderer._last_buffer)
 
             # Composite statusbar if present (only for legacy ANSI rendering)
             # Cell-based rendering already includes statusbar in the buffer
@@ -965,6 +993,11 @@ class Wijjit:
             New value
         """
         self.needs_render = True
+
+        # Mark full screen dirty for state changes
+        # TODO: Optimize by tracking which elements depend on which state keys
+        term_size = shutil.get_terminal_size()
+        self.renderer.dirty_manager.mark_full_screen(term_size.columns, term_size.lines)
 
     def _has_layout_tags(self, template: str) -> bool:
         """Check if template contains layout tags.
@@ -1798,7 +1831,7 @@ class Wijjit:
         for elem in reversed(self.positioned_elements):
             if isinstance(elem, TextElement):
                 continue
-            if elem.bounds and elem.bounds.contains_point(x, y):
+            if elem.bounds and elem.bounds.contains(x, y):
                 return elem
         return None
 

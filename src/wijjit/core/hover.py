@@ -4,7 +4,12 @@ This module handles hover state tracking when the mouse moves over elements.
 It manages transitions between elements and calls appropriate lifecycle methods.
 """
 
+from typing import TYPE_CHECKING
+
 from wijjit.elements.base import Element
+
+if TYPE_CHECKING:
+    from wijjit.layout.dirty import DirtyRegionManager
 
 
 class HoverManager:
@@ -23,6 +28,7 @@ class HoverManager:
     def __init__(self):
         """Initialize hover manager."""
         self.current_element: Element | None = None
+        self.dirty_manager: DirtyRegionManager | None = None
 
     def get_hovered_element(self) -> Element | None:
         """Get the currently hovered element.
@@ -55,6 +61,10 @@ class HoverManager:
         if self.current_element is element:
             return False
 
+        # Mark old hovered element's bounds as dirty
+        if self.dirty_manager and self.current_element and self.current_element.bounds:
+            self.dirty_manager.mark_dirty_bounds(self.current_element.bounds)
+
         # Exit current element
         if self.current_element is not None:
             self.current_element.on_hover_exit()
@@ -63,6 +73,10 @@ class HoverManager:
         self.current_element = element
         if self.current_element is not None:
             self.current_element.on_hover_enter()
+
+            # Mark new hovered element's bounds as dirty
+            if self.dirty_manager and self.current_element.bounds:
+                self.dirty_manager.mark_dirty_bounds(self.current_element.bounds)
 
         return True
 

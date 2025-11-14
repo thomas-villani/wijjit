@@ -319,6 +319,11 @@ class DefaultTheme(Theme):
             "code:focus": Style(fg_color=(255, 255, 255), bold=True),
             "code.border": Style(fg_color=(100, 100, 100)),
             "code.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # Alert severity styles (for AlertDialog with severity parameter)
+            "alert.success.border": Style(fg_color=(0, 255, 0)),  # Green
+            "alert.error.border": Style(fg_color=(255, 0, 0)),  # Red
+            "alert.warning.border": Style(fg_color=(255, 255, 0)),  # Yellow
+            "alert.info.border": Style(fg_color=(100, 149, 237)),  # Cornflower blue
         }
         super().__init__("default", styles)
 

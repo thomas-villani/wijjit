@@ -8,12 +8,23 @@ ModalElement and automatically handle button creation and callbacks.
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import Enum
 
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.text import TextInput
+from wijjit.terminal.ansi import wrap_text
+
+
+class AlertSeverity(Enum):
+    """Severity levels for alert dialogs."""
+
+    SUCCESS = "success"
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
 
 
 class ConfirmDialog(ModalElement):
@@ -64,10 +75,28 @@ class ConfirmDialog(ModalElement):
         title: str = "Confirm",
         confirm_label: str = "Confirm",
         cancel_label: str = "Cancel",
-        width: int = 50,
-        height: int = 14,
+        width: int | None = 50,
+        height: int | None = None,
         border: str = "single",
     ):
+        # Auto-size if width/height not provided
+        if width is None:
+            width = 50  # Default width
+
+        if height is None:
+            # Calculate height based on message content
+            # Content width = width - borders (2) - padding (4)
+            content_width = width - 6
+            wrapped_lines = wrap_text(message, content_width)
+            num_text_lines = len(wrapped_lines)
+
+            # Height = top border (1) + top padding (1) + text lines +
+            #          spacing (1) + button (1) + bottom padding (1) + bottom border (1)
+            height = 1 + 1 + num_text_lines + 1 + 1 + 1 + 1
+
+            # Apply min/max constraints
+            height = max(10, min(height, 30))
+
         super().__init__(
             title=title,
             width=width,
@@ -147,10 +176,13 @@ class AlertDialog(ModalElement):
         Callback function called when OK button is clicked
     ok_label : str, optional
         Label for OK button (default: "OK")
+    severity : str or AlertSeverity, optional
+        Alert severity level: "success", "error", "warning", or "info"
+        Affects border color styling (default: None, no color styling)
     width : int, optional
-        Dialog width in characters (default: 50)
+        Dialog width in characters (default: 50, or auto-sized if None)
     height : int, optional
-        Dialog height in lines (default: 12)
+        Dialog height in lines (default: auto-sized based on content)
     border : str, optional
         Border style: "single", "double", or "rounded" (default: "single")
 
@@ -158,6 +190,8 @@ class AlertDialog(ModalElement):
     ----------
     message : str
         Dialog message
+    severity : AlertSeverity or None
+        Alert severity level
     ok_button : Button
         OK button element
     close_callback : callable or None
@@ -170,10 +204,34 @@ class AlertDialog(ModalElement):
         on_ok: Callable[[], None] | None = None,
         title: str = "Alert",
         ok_label: str = "OK",
-        width: int = 50,
-        height: int = 12,
+        severity: str | AlertSeverity | None = None,
+        width: int | None = 50,
+        height: int | None = None,
         border: str = "single",
     ):
+        # Convert severity string to enum if needed
+        if isinstance(severity, str):
+            severity = AlertSeverity(severity.lower())
+        self.severity = severity
+
+        # Auto-size if width/height not provided
+        if width is None:
+            width = 50  # Default width
+
+        if height is None:
+            # Calculate height based on message content
+            # Content width = width - borders (2) - padding (4)
+            content_width = width - 6
+            wrapped_lines = wrap_text(message, content_width)
+            num_text_lines = len(wrapped_lines)
+
+            # Height = top border (1) + top padding (1) + text lines +
+            #          spacing (1) + button (1) + bottom padding (1) + bottom border (1)
+            height = 1 + 1 + num_text_lines + 1 + 1 + 1 + 1
+
+            # Apply min/max constraints
+            height = max(10, min(height, 30))
+
         super().__init__(
             title=title,
             width=width,
@@ -199,6 +257,67 @@ class AlertDialog(ModalElement):
 
         # Add button to children
         self.add_child(self.ok_button)
+
+    def render_to(self, ctx) -> None:
+        """Render the alert dialog with severity-based border styling.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        This method uses theme style classes for severity-based coloring:
+        - 'alert.success.border': Success alert border style (default: green)
+        - 'alert.error.border': Error alert border style (default: red)
+        - 'alert.warning.border': Warning alert border style (default: yellow)
+        - 'alert.info.border': Info alert border style (default: blue)
+        """
+        # If severity is set, use custom border style class
+        if self.severity:
+            # Map severity to style class
+            severity_style_map = {
+                AlertSeverity.SUCCESS: "alert.success.border",
+                AlertSeverity.ERROR: "alert.error.border",
+                AlertSeverity.WARNING: "alert.warning.border",
+                AlertSeverity.INFO: "alert.info.border",
+            }
+            border_style_class = severity_style_map.get(self.severity)
+
+            # Save original style resolver method
+            original_resolve = ctx.style_resolver.resolve_style
+
+            # Create a wrapper that uses custom border style class
+            def custom_resolve(element, style_class: str):
+                # Check if this is a frame.border request
+                if (
+                    style_class in ("frame.border", "frame.border:focus")
+                    and border_style_class
+                ):
+                    # Try to resolve severity-specific border style
+                    severity_style = ctx.style_resolver.resolve_style_by_class(
+                        border_style_class
+                    )
+                    if severity_style and (
+                        severity_style.fg_color or severity_style.bg_color
+                    ):
+                        # Use severity style if it has colors defined
+                        return severity_style
+                    # Otherwise fall back to default frame.border
+                return original_resolve(element, style_class)
+
+            # Temporarily replace the resolver
+            ctx.style_resolver.resolve_style = custom_resolve
+
+            # Call parent render_to
+            super().render_to(ctx)
+
+            # Restore original resolver
+            ctx.style_resolver.resolve_style = original_resolve
+        else:
+            # No severity, use default rendering
+            super().render_to(ctx)
 
     def _wrap_callback(
         self, callback: Callable[[], None] | None

@@ -250,10 +250,15 @@ class NotificationElement(OverlayElement):
         # Write icon with severity-based styling
         ctx.write_text(content_x, content_y, icon, icon_style)
 
-        # Write message next to icon
+        # Write message next to icon with word-wrapping
         icon_width = visible_length(icon)
-        ctx.write_text(
-            content_x + icon_width + 1, content_y, self.message, message_style
+        message_x = content_x + icon_width + 1
+        # Calculate available width for message
+        available_width = (
+            self.bounds.width - 2 - padding_left - padding_right - icon_width - 1
+        )
+        ctx.write_text_wrapped(
+            message_x, content_y, self.message, message_style, max_width=available_width
         )
 
         # Add action button if present
@@ -357,7 +362,7 @@ class NotificationElement(OverlayElement):
         """
         # If we have an action button, check if click is on button
         if self.action_button and self.action_button.bounds:
-            if self.action_button.bounds.contains_point(event.x, event.y):
+            if self.action_button.bounds.contains(event.x, event.y):
                 # Route to button
                 return self.action_button.handle_mouse(event)
 

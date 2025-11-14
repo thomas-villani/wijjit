@@ -4,8 +4,13 @@ This module handles focus navigation between focusable elements,
 typically using Tab and Shift+Tab keys.
 """
 
+from typing import TYPE_CHECKING
+
 from wijjit.elements.base import Element
 from wijjit.logging_config import get_logger
+
+if TYPE_CHECKING:
+    from wijjit.layout.dirty import DirtyRegionManager
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -28,6 +33,7 @@ class FocusManager:
     def __init__(self):
         self.elements: list[Element] = []
         self.current_index: int | None = None
+        self.dirty_manager: DirtyRegionManager | None = None
 
     def set_elements(self, elements: list[Element]) -> None:
         """Set the list of focusable elements.
@@ -167,6 +173,16 @@ class FocusManager:
             f"Focus change: index {old_index} -> {index} (element: {element_id})"
         )
 
+        # Mark old focused element's bounds as dirty
+        if (
+            self.dirty_manager
+            and self.current_index is not None
+            and 0 <= self.current_index < len(self.elements)
+        ):
+            old_elem = self.elements[self.current_index]
+            if old_elem.bounds:
+                self.dirty_manager.mark_dirty_bounds(old_elem.bounds)
+
         # Blur currently focused element
         if self.current_index is not None and 0 <= self.current_index < len(
             self.elements
@@ -177,6 +193,10 @@ class FocusManager:
         self.current_index = index
         if 0 <= index < len(self.elements):
             self.elements[index].on_focus()
+
+            # Mark new focused element's bounds as dirty
+            if self.dirty_manager and self.elements[index].bounds:
+                self.dirty_manager.mark_dirty_bounds(self.elements[index].bounds)
 
     def clear(self) -> None:
         """Clear all elements and focus."""

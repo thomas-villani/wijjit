@@ -349,7 +349,7 @@ class OverlayElement(Container):
         return False
 
     def handle_mouse(self, event: MouseEvent) -> bool:
-        """Handle mouse event by routing to children.
+        """Handle mouse event by routing to child at mouse position.
 
         Parameters
         ----------
@@ -359,13 +359,21 @@ class OverlayElement(Container):
         Returns
         -------
         bool
-            True if the event was handled, False otherwise
+            True if the event was handled by a child, False otherwise
+
+        Notes
+        -----
+        This method checks each child to see if the mouse event occurred
+        within its bounds. If so, it dispatches the event to that child.
+        Children are checked in reverse order so that later children
+        (rendered on top) get priority.
         """
-        # Route to children based on position
-        for child in self.children:
+        # Check children in reverse order (top to bottom)
+        for child in reversed(self.children):
             if child.bounds and child.bounds.contains(event.x, event.y):
-                if child.handle_mouse(event):
-                    return True
+                if hasattr(child, "handle_mouse") and callable(child.handle_mouse):
+                    if child.handle_mouse(event):
+                        return True
         return False
 
 
