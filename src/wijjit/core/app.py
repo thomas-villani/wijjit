@@ -905,15 +905,16 @@ class Wijjit:
                 # No statusbar for non-layout templates
                 current_statusbar = None
 
-            # Track overlay count to detect changes (especially dismissals)
-            overlay_count = len(self.overlay_manager.overlays)
-            prev_overlay_count = getattr(self, "_last_overlay_count", 0)
-            overlays_changed = overlay_count != prev_overlay_count
-            self._last_overlay_count = overlay_count
+            # Track overlay identities to detect changes (additions, removals, replacements)
+            # Use object IDs to detect when overlays are replaced (same count but different objects)
+            current_overlay_ids = tuple(id(o) for o in self.overlay_manager.overlays)
+            prev_overlay_ids = getattr(self, "_last_overlay_ids", ())
+            overlays_changed = current_overlay_ids != prev_overlay_ids
+            self._last_overlay_ids = current_overlay_ids
 
             if overlays_changed:
                 logger.debug(
-                    f"Overlay count changed: {prev_overlay_count} -> {overlay_count}"
+                    f"Overlays changed: {len(prev_overlay_ids)} -> {len(current_overlay_ids)}"
                 )
 
             # Composite overlays if any are active

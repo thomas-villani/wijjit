@@ -2,6 +2,7 @@
 
 from wijjit.elements.base import Container, Element
 from wijjit.layout.bounds import Bounds
+from wijjit.rendering.paint_context import PaintContext
 
 
 # Concrete test implementation of Element
@@ -14,6 +15,11 @@ class TestElement(Element):
 
     def render(self):
         return self.content
+
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render using cell-based rendering."""
+        style = ctx.style_resolver.resolve_style(self, "text")
+        ctx.write_text(0, 0, self.content, style)
 
 
 class TestElementBase:

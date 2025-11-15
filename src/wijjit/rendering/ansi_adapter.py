@@ -13,6 +13,15 @@ import re
 from wijjit.terminal.cell import Cell
 
 
+# Precompiled regex patterns for ANSI parsing
+# SGR (Select Graphic Rendition) - styling codes we want to parse
+_SGR_PATTERN = re.compile(r"\x1b\[([0-9;]*)m")
+
+# Other ANSI escape sequences to strip (cursor movement, erase, positioning, etc.)
+# This matches CSI sequences: ESC [ (params) (letter) where letter is NOT 'm' (which is SGR)
+_OTHER_ANSI_PATTERN = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+
 def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     """Parse ANSI escape sequence string and convert to Cell objects.
 
@@ -57,22 +66,13 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     if not ansi_str:
         return []
 
-    # ANSI escape sequence patterns
-    # SGR (Select Graphic Rendition) - styling codes we want to parse
-    sgr_pattern = re.compile(r"\x1b\[([0-9;]*)m")
-
-    # Other ANSI escape sequences to strip (cursor movement, erase, positioning, etc.)
-    # This matches CSI sequences: ESC [ (params) (letter)
-    # where letter is NOT 'm' (which is SGR)
-    other_ansi_pattern = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-
     cells = []
     current_style = _StyleState()
     i = 0
 
     while i < len(ansi_str):
         # Check for SGR (styling) codes first
-        match = sgr_pattern.match(ansi_str, i)
+        match = _SGR_PATTERN.match(ansi_str, i)
         if match:
             # Parse ANSI code and update current style
             codes_str = match.group(1)
@@ -88,7 +88,7 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
 
         # Check for other ANSI escape sequences (cursor movement, erase, etc.)
         # These should be stripped/ignored as they don't make sense in cell rendering
-        match = other_ansi_pattern.match(ansi_str, i)
+        match = _OTHER_ANSI_PATTERN.match(ansi_str, i)
         if match:
             # Skip this escape sequence entirely
             i = match.end()

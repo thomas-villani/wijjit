@@ -1,6 +1,5 @@
 """Tests for dirty region tracking."""
 
-
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.dirty import DirtyRegion, DirtyRegionManager
 

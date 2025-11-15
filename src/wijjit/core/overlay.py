@@ -279,6 +279,15 @@ class OverlayManager:
         else:
             overlay = self.overlays.pop()
 
+        # Mark the overlay's screen area as dirty to ensure it gets redrawn
+        # This prevents ghost remnants when the overlay is dismissed
+        if (
+            overlay.element.bounds
+            and hasattr(self.app, "renderer")
+            and hasattr(self.app.renderer, "dirty_manager")
+        ):
+            self.app.renderer.dirty_manager.mark_dirty_bounds(overlay.element.bounds)
+
         # Restore focus state if this overlay was trapping it
         if overlay.trap_focus and hasattr(self.app, "focus_manager"):
             if overlay.previous_focus_state:

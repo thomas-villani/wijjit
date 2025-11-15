@@ -537,3 +537,114 @@ class TestANSIPerformance:
 
         result = benchmark(clip_to_width, text, 50)
         assert result
+
+
+class TestDirtyRegionPerformance:
+    """Benchmark dirty region tracking and merging performance."""
+
+    def test_dirty_region_single_add(self, benchmark):
+        """Benchmark adding a single dirty region.
+
+        Parameters
+        ----------
+        benchmark
+            Pytest-benchmark fixture
+        """
+        from wijjit.layout.dirty import DirtyRegionManager
+
+        manager = DirtyRegionManager()
+
+        def add_region():
+            manager.mark_dirty(10, 10, 20, 5)
+            manager.clear()
+
+        benchmark(add_region)
+
+    def test_dirty_region_non_overlapping_regions(self, benchmark):
+        """Benchmark adding multiple non-overlapping regions.
+
+        Parameters
+        ----------
+        benchmark
+            Pytest-benchmark fixture
+        """
+        from wijjit.layout.dirty import DirtyRegionManager
+
+        manager = DirtyRegionManager()
+
+        def add_regions():
+            # Add 50 non-overlapping 5x5 regions across a 200x100 screen
+            for i in range(50):
+                x = (i * 10) % 190
+                y = ((i * 10) // 190) * 10
+                manager.mark_dirty(x, y, 5, 5)
+            manager.clear()
+
+        benchmark(add_regions)
+
+    def test_dirty_region_overlapping_regions(self, benchmark):
+        """Benchmark adding many overlapping regions that require merging.
+
+        Parameters
+        ----------
+        benchmark
+            Pytest-benchmark fixture
+        """
+        from wijjit.layout.dirty import DirtyRegionManager
+
+        manager = DirtyRegionManager()
+
+        def add_overlapping():
+            # Add 100 overlapping regions in the same area (worst case for merging)
+            for i in range(100):
+                manager.mark_dirty(10 + i % 10, 10 + i % 5, 20, 5)
+            manager.clear()
+
+        benchmark(add_overlapping)
+
+    def test_dirty_region_adjacent_regions(self, benchmark):
+        """Benchmark merging adjacent regions.
+
+        Parameters
+        ----------
+        benchmark
+            Pytest-benchmark fixture
+        """
+        from wijjit.layout.dirty import DirtyRegionManager
+
+        manager = DirtyRegionManager()
+
+        def add_adjacent():
+            # Add 20 horizontally adjacent regions (should merge into 1)
+            for i in range(20):
+                manager.mark_dirty(i * 4, 10, 4, 5)
+            manager.clear()
+
+        benchmark(add_adjacent)
+
+    def test_dirty_region_realistic_ui_updates(self, benchmark):
+        """Benchmark realistic UI update pattern with mixed regions.
+
+        Parameters
+        ----------
+        benchmark
+            Pytest-benchmark fixture
+        """
+        from wijjit.layout.dirty import DirtyRegionManager
+
+        manager = DirtyRegionManager()
+
+        def realistic_update():
+            # Simulate typical UI update pattern:
+            # - Focus change (2 regions)
+            # - Button update (1 region)
+            # - Status bar update (1 region)
+            # - Notification (1 region)
+            manager.mark_dirty(10, 5, 30, 3)  # Old focus
+            manager.mark_dirty(10, 10, 30, 3)  # New focus
+            manager.mark_dirty(45, 15, 15, 3)  # Button
+            manager.mark_dirty(0, 23, 80, 1)  # Status bar
+            manager.mark_dirty(60, 2, 18, 5)  # Notification
+            manager.clear()
+
+        benchmark(realistic_update)

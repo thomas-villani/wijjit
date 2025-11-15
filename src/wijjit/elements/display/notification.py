@@ -18,6 +18,7 @@ from wijjit.terminal.ansi import (
     colorize,
     supports_unicode,
     visible_length,
+    wrap_text,
 )
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
 
@@ -91,11 +92,7 @@ class NotificationElement(OverlayElement):
         if isinstance(severity, str):
             severity = NotificationSeverity(severity.lower())
 
-        # Calculate notification dimensions
-        # Height: 3 lines minimum (top border + content + bottom border)
-        # Add 2 lines if we have an action button (spacing + button line)
-        height = 5 if action_label else 3
-
+        # Calculate notification width first
         # Width: message length + icon + padding + borders
         # Icon (2) + space (1) + message + padding (4) + borders (2)
         message_len = visible_length(message)
@@ -107,6 +104,25 @@ class NotificationElement(OverlayElement):
             button_width = visible_length(action_label) + 4  # "< label >"
             min_width_for_button = button_width + 10  # Button + some padding
             width = max(width, min_width_for_button)
+
+        # Calculate notification height based on wrapped message lines
+        # Frame has: border (1) + padding_left (1) + padding_right (1) + border (1) = 4
+        # Icon takes some space, so available width for message is:
+        # width - 2 (borders) - 2 (padding) - icon_width (2) - 1 (space after icon)
+        icon = "\u2713" if supports_unicode() else "[v]"  # Approximate icon width
+        icon_width = visible_length(icon)
+        padding_horizontal = 2  # padding left + padding right
+        available_width_for_message = width - 2 - padding_horizontal - icon_width - 1
+
+        # Wrap message to calculate required lines
+        wrapped_lines = wrap_text(message, max(available_width_for_message, 10))
+        message_line_count = len(wrapped_lines)
+
+        # Calculate height: border (1) + message lines + border (1)
+        # Add 2 lines if we have an action button (spacing + button line)
+        height = 2 + message_line_count  # borders + message lines
+        if action_label:
+            height += 2  # spacing + button line
 
         super().__init__(id=id, width=width, height=height, centered=False)
 
@@ -139,15 +155,23 @@ class NotificationElement(OverlayElement):
         # Dismiss callback (set externally by notification manager)
         self.on_dismiss: Callable | None = None
 
-    def _handle_action_click(self) -> None:
-        """Handle action button click."""
-        # Execute user callback if provided
-        if self.action_callback:
-            self.action_callback()
+    def _handle_action_click(self, event=None) -> None:
+        """Handle action button click.
 
-        # Auto-dismiss if configured
+        Parameters
+        ----------
+        event : ActionEvent, optional
+            Action event from button (unused, for compatibility)
+        """
+        # Auto-dismiss FIRST if configured (before executing user callback)
+        # This ensures the notification is removed before any new notifications
+        # are created by the callback, preventing ghost remnants
         if self.dismiss_on_action and self.on_dismiss is not None:
             self.on_dismiss()
+
+        # Execute user callback after dismissal
+        if self.action_callback:
+            self.action_callback()
 
     def _get_icon(self) -> str:
         """Get icon for the notification based on severity.
@@ -263,26 +287,34 @@ class NotificationElement(OverlayElement):
 
         # Add action button if present
         if self.action_button:
-            # Set button bounds for rendering (center it horizontally)
-            button_text = self.action_button.render()
-            button_width = visible_length(button_text)
+            # Calculate button width based on style
+            # Most button styles add 4 characters (e.g., "< label >")
+            label_len = visible_length(self.action_button.label)
+            button_width = label_len + 4
+
             # Account for border (2) + padding (2) = 4
             inner_width = self.bounds.width - 2 - padding_left - padding_right
             button_x = max(0, (inner_width - button_width) // 2)
 
-            # Write button (with spacing row above)
+            # Button position (with spacing row above)
             button_y = content_y + 2  # Message + spacing row
-            ctx.write_text(content_x + button_x, button_y, button_text, message_style)
 
-            # Update button bounds for click handling
-            if self.bounds:
-                button_bounds = Bounds(
-                    x=self.bounds.x + 1 + padding_left + button_x,
-                    y=self.bounds.y + button_y,
-                    width=button_width,
-                    height=1,
-                )
-                self.action_button.set_bounds(button_bounds)
+            # Set button bounds for both rendering and click handling
+            button_bounds = Bounds(
+                x=self.bounds.x + 1 + padding_left + button_x,
+                y=self.bounds.y + button_y,
+                width=button_width,
+                height=1,
+            )
+            self.action_button.set_bounds(button_bounds)
+
+            # Create a sub-context for button rendering with relative coordinates
+            button_ctx = ctx.sub_context(
+                content_x + button_x, button_y, button_width, 1
+            )
+
+            # Render button using cell-based rendering
+            self.action_button.render_to(button_ctx)
 
     def render(self) -> str:
         """Render the notification (LEGACY ANSI rendering).

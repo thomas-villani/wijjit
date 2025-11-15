@@ -21,7 +21,6 @@ from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import render_vertical_scrollbar
 from wijjit.logging_config import get_logger
-from wijjit.rendering.ansi_adapter import ansi_string_to_cells
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.theme import ThemeManager
@@ -632,19 +631,8 @@ class Renderer:
                 bounds=adjusted_bounds,
             )
 
-            # Try NEW cell-based rendering path first
-            try:
-                if hasattr(element, "render_to") and callable(element.render_to):
-                    element.render_to(ctx)
-                    continue
-            except (NotImplementedError, AttributeError):
-                pass
-
-            # LEGACY PATH: Fall back to render() + ANSI conversion
-            ansi_content = element.render()
-            self._write_ansi_to_buffer(
-                ansi_content, buffer, adjusted_bounds, frame_clip_top, frame_clip_bottom
-            )
+            # Render element using cell-based rendering
+            element.render_to(ctx)
 
         # Third pass: Render statusbar if present
         if statusbar is not None:
@@ -739,58 +727,6 @@ class Renderer:
         if isinstance(node, Container):
             for child in node.children:
                 self._render_frames_to_buffer(child, buffer, style_resolver)
-
-    def _write_ansi_to_buffer(
-        self,
-        ansi_str: str,
-        buffer: ScreenBuffer,
-        bounds: Bounds,
-        clip_top: int | None = None,
-        clip_bottom: int | None = None,
-    ) -> None:
-        """Write ANSI string to cell buffer (legacy element support).
-
-        Parameters
-        ----------
-        ansi_str : str
-            ANSI string from legacy render() method
-        buffer : ScreenBuffer
-            Target buffer
-        bounds : Bounds
-            Element bounds
-        clip_top : int, optional
-            Top clipping boundary (for scrollable frames)
-        clip_bottom : int, optional
-            Bottom clipping boundary (for scrollable frames)
-
-        Notes
-        -----
-        This method converts ANSI strings to cells and writes them to the
-        buffer. Used for elements that haven't been migrated to cell-based
-        rendering yet.
-        """
-        lines = ansi_str.split("\n")
-
-        for i, line in enumerate(lines):
-            y = bounds.y + i
-            if y >= buffer.height:
-                break
-
-            # Apply clipping if specified
-            if clip_top is not None and (y < clip_top or y >= clip_bottom):
-                continue
-
-            # Convert line to cells
-            line_cells = ansi_string_to_cells(line)
-
-            # Write cells to buffer
-            x_offset = 0
-            for cell in line_cells:
-                if x_offset >= bounds.width:
-                    break
-
-                buffer.set_cell(bounds.x + x_offset, y, cell)
-                x_offset += 1
 
     def _buffer_to_ansi(self, buffer: ScreenBuffer) -> str:
         """Convert cell buffer to ANSI string for terminal output.
@@ -952,24 +888,18 @@ class Renderer:
                 bounds=element.bounds,
             )
 
-            # Try cell-based rendering
-            try:
-                if hasattr(element, "render_to") and callable(element.render_to):
-                    element.render_to(ctx)
-                    continue
-            except (NotImplementedError, AttributeError):
-                pass
-
-            # Fall back to legacy ANSI rendering
-            ansi_content = element.render()
-            self._write_ansi_to_buffer(
-                ansi_content, composite_buffer, element.bounds, None, None
-            )
+            # Render overlay using cell-based rendering
+            element.render_to(ctx)
 
         # Now render the composite buffer
         # Since overlays change the buffer, we need to update _last_buffer
         # and render the diff (respecting the use_diff_rendering flag)
         # If force_full_redraw is True, we force a full redraw instead of diff
+
+        # When force_full_redraw is True, mark entire buffer dirty to ensure complete redraw
+        # This is a defensive measure to prevent ghost remnants from dismissed overlays
+        if force_full_redraw:
+            composite_buffer.mark_all_dirty()
 
         if self.use_diff_rendering and not force_full_redraw:
             output = self._diff_renderer.render_diff(
