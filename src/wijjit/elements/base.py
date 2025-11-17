@@ -60,6 +60,12 @@ class Element(ABC):
         self.element_type = ElementType.DISPLAY
         self.parent_frame = None  # Reference to parent Frame if this element is inside a scrollable frame
 
+        # State management attributes (used by ElementWiringManager)
+        self._state_dict = None  # Reference to application state
+        self._highlight_state_key: str | None = (
+            None  # State key for highlight persistence
+        )
+
     @abstractmethod
     def render_to(self, ctx: PaintContext) -> None:
         """Render the element to a cell-based buffer.

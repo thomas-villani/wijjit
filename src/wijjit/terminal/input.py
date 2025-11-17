@@ -283,7 +283,9 @@ class InputHandler:
         # Queue for handling lookahead keys
         self._key_queue = []
 
-    def read_input(self, timeout: float | None = None) -> Union[Key, "MouseEvent", None]:
+    def read_input(
+        self, timeout: float | None = None
+    ) -> Union[Key, "MouseEvent", None]:
         """Read a single input event (keyboard or mouse).
 
         This method blocks until an input event occurs (or timeout expires)
@@ -309,8 +311,6 @@ class InputHandler:
         Cross-platform implementation uses threading for timeout on Windows
         and select.select() on Unix systems.
         """
-        import platform
-        import sys
         import threading
 
         try:

@@ -15,7 +15,7 @@ from wijjit import Wijjit
 from wijjit.core.events import ActionEvent, EventType, HandlerScope
 from wijjit.elements.input.button import Button
 from wijjit.layout.bounds import Bounds
-from wijjit.terminal.ansi import ANSIStyle, supports_unicode
+from wijjit.terminal.ansi import supports_unicode
 
 app = Wijjit()
 
@@ -174,13 +174,6 @@ class ModalWithButton:
         left_pad = padding_needed // 2
         right_pad = padding_needed - left_pad
 
-        title_line = (
-            self.chars["v"]
-            + " " * left_pad
-            + title_plain
-            + " " * right_pad
-            + self.chars["v"]
-        )
         # Write borders with default style
         ctx.write_text(0, 2, self.chars["v"], default_style)
         ctx.write_text(self.width - 1, 2, self.chars["v"], default_style)

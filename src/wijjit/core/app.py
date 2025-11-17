@@ -15,12 +15,11 @@ declarative UI patterns.
 
 import shutil
 import sys
-import time
 import traceback
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
+from wijjit.core.event_loop import EventLoop
 from wijjit.core.events import (
     ActionEvent,
     Event,
@@ -28,78 +27,28 @@ from wijjit.core.events import (
     HandlerRegistry,
     HandlerScope,
     KeyEvent,
-    MouseEvent,
 )
 from wijjit.core.focus import FocusManager
 from wijjit.core.hover import HoverManager
+from wijjit.core.mouse_router import MouseEventRouter
 from wijjit.core.notification_manager import NotificationManager
 from wijjit.core.overlay import LayerType, Overlay, OverlayManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
-from wijjit.elements.base import Element, ScrollableMixin
+from wijjit.core.view_router import ViewConfig, ViewRouter
+from wijjit.core.wiring import ElementWiringManager
+from wijjit.elements.base import Element
 from wijjit.elements.display.notification import NotificationElement
-from wijjit.elements.display.spinner import Spinner
-from wijjit.elements.display.tree import Tree
-from wijjit.elements.input.button import Button
-from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
-from wijjit.elements.input.radio import Radio, RadioGroup
-from wijjit.elements.input.select import Select
-from wijjit.elements.input.text import TextInput
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
 from wijjit.layout.bounds import Bounds
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import ANSIColor, ANSICursor, ANSIStyle, colorize
-from wijjit.terminal.input import InputHandler, Key
-from wijjit.terminal.mouse import MouseButton, MouseEventType
-from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
+from wijjit.terminal.input import InputHandler
 from wijjit.terminal.screen import ScreenManager
 from wijjit.terminal.screen_buffer import DiffRenderer
 
 # Get logger for this module
 logger = get_logger(__name__)
-
-
-@dataclass
-class ViewConfig:
-    """Configuration for a view.
-
-    Parameters
-    ----------
-    name : str
-        Unique name for this view
-    template : str
-        Template string or path to template file
-    data : Optional[Callable[..., Dict[str, Any]]]
-        Function that returns data dict for template rendering
-    on_enter : Optional[Callable[[], None]]
-        Hook called when navigating to this view
-    on_exit : Optional[Callable[[], None]]
-        Hook called when navigating away from this view
-    is_default : bool
-        Whether this is the default view (shown on startup)
-
-    Attributes
-    ----------
-    name : str
-        Unique name for this view
-    template : str
-        Template string or path to template file
-    data : Optional[Callable[..., Dict[str, Any]]]
-        Function that returns data dict for template rendering
-    on_enter : Optional[Callable[[], None]]
-        Hook called when navigating to this view
-    on_exit : Optional[Callable[[], None]]
-        Hook called when navigating away from this view
-    is_default : bool
-        Whether this is the default view
-    """
-
-    name: str
-    template: str
-    data: Callable[..., dict[str, Any]] | None = None
-    on_enter: Callable[[], None] | None = None
-    on_exit: Callable[[], None] | None = None
-    is_default: bool = False
 
 
 class Wijjit:
@@ -205,9 +154,13 @@ class Wijjit:
         self.screen_manager = ScreenManager()
         self.input_handler = InputHandler()
 
-        # View registry
-        self.views: dict[str, ViewConfig] = {}
-        self.current_view: str | None = None
+        # Initialize routing and event managers
+        self.view_router = ViewRouter(self)
+        self.event_loop = EventLoop(self)
+        self.mouse_router = MouseEventRouter(self)
+        self.wiring_manager = ElementWiringManager(self)
+
+        # View state (delegated to ViewRouter, kept for backward compatibility)
         self.current_view_params: dict[str, Any] = {}
 
         # Application state
@@ -245,12 +198,45 @@ class Wijjit:
             priority=100,  # High priority so it runs early
         )
 
+    @property
+    def views(self) -> dict[str, ViewConfig]:
+        """Get registered views (delegates to ViewRouter).
+
+        Returns
+        -------
+        dict[str, ViewConfig]
+            Dictionary of registered views
+        """
+        return self.view_router.views
+
+    @property
+    def current_view(self) -> str | None:
+        """Get current view name (delegates to ViewRouter).
+
+        Returns
+        -------
+        str or None
+            Name of current view
+        """
+        return self.view_router.current_view
+
+    @current_view.setter
+    def current_view(self, value: str | None) -> None:
+        """Set current view name (delegates to ViewRouter).
+
+        Parameters
+        ----------
+        value : str or None
+            Name of view to set as current
+        """
+        self.view_router.current_view = value
+
     def view(
         self,
         name: str,
         default: bool = False,
     ) -> Callable:
-        """Decorator to register a view.
+        """Decorator to register a view (delegates to ViewRouter).
 
         The decorated function should return a dict with:
         - template: str (required) - Template string or file path
@@ -279,37 +265,10 @@ class Wijjit:
         ...         "data": {"name": "World"},
         ...     }
         """
-
-        def decorator(func: Callable) -> Callable:
-            # Store the function and create a lazy ViewConfig
-            # We'll extract the actual config when the view is first accessed
-            view_config = ViewConfig(
-                name=name,
-                template="",  # Will be set lazily
-                data=None,  # Will be set lazily
-                on_enter=None,  # Will be set lazily
-                on_exit=None,  # Will be set lazily
-                is_default=default,
-            )
-
-            # Store the original function so we can call it later
-            view_config._view_func = func
-            view_config._initialized = False
-
-            self.views[name] = view_config
-
-            logger.debug(f"Registered view '{name}' (default={default})")
-
-            # Set as default view if specified
-            if default and self.current_view is None:
-                self.current_view = name
-
-            return func
-
-        return decorator
+        return self.view_router.view_decorator(name, default)
 
     def _initialize_view(self, view_config: ViewConfig) -> None:
-        """Initialize a view config by calling its view function.
+        """Initialize a view config (delegates to ViewRouter).
 
         This is called lazily the first time a view is accessed.
 
@@ -318,35 +277,10 @@ class Wijjit:
         view_config : ViewConfig
             The view configuration to initialize
         """
-        if hasattr(view_config, "_initialized") and view_config._initialized:
-            return  # Already initialized
-
-        if hasattr(view_config, "_view_func"):
-            # Call the view function ONCE to get the config dict
-            config_dict = view_config._view_func()
-
-            # Extract static config components
-            view_config.template = config_dict.get("template", "")
-            view_config.on_enter = config_dict.get("on_enter")
-            view_config.on_exit = config_dict.get("on_exit")
-
-            # Extract data - could be a dict or a callable
-            data_value = config_dict.get("data", {})
-
-            if callable(data_value):
-                # User provided a data callback - use it directly
-                view_config.data = data_value
-            else:
-                # User provided static data dict - wrap in lambda
-                def data_func(**kwargs):
-                    return data_value
-
-                view_config.data = data_func
-
-            view_config._initialized = True
+        self.view_router._initialize_view(view_config)
 
     def navigate(self, view_name: str, **params) -> None:
-        """Navigate to a different view.
+        """Navigate to a different view (delegates to ViewRouter).
 
         Calls on_exit hook of current view, switches to new view,
         and calls on_enter hook of new view.
@@ -363,48 +297,7 @@ class Wijjit:
         ValueError
             If view_name doesn't exist
         """
-        if view_name not in self.views:
-            logger.error(f"Navigation failed: view '{view_name}' not found")
-            raise ValueError(f"View '{view_name}' not found")
-
-        logger.info(
-            f"Navigating from '{self.current_view}' to '{view_name}' "
-            f"(params={list(params.keys())})"
-        )
-
-        # Initialize the new view
-        self._initialize_view(self.views[view_name])
-
-        # Call current view's on_exit hook
-        if self.current_view and self.current_view in self.views:
-            current = self.views[self.current_view]
-            self._initialize_view(current)
-            if current.on_exit:
-                try:
-                    current.on_exit()
-                except Exception as e:
-                    self._handle_error(
-                        f"Error in on_exit for view '{self.current_view}'", e
-                    )
-
-            # Clear view-scoped handlers
-            self.handler_registry.clear_view(self.current_view)
-
-        # Switch to new view
-        self.current_view = view_name
-        self.current_view_params = params
-        self.handler_registry.current_view = view_name
-
-        # Call new view's on_enter hook
-        new_view = self.views[view_name]
-        if new_view.on_enter:
-            try:
-                new_view.on_enter()
-            except Exception as e:
-                self._handle_error(f"Error in on_enter for view '{view_name}'", e)
-
-        # Trigger re-render
-        self.needs_render = True
+        self.view_router.navigate(view_name, params)
 
     def on(
         self,
@@ -536,10 +429,11 @@ class Wijjit:
         self.focus_navigation_enabled = enabled
 
     def quit(self) -> None:
-        """Quit the application.
+        """Quit the application (delegates to EventLoop).
 
         Sets the running flag to False, which will exit the event loop.
         """
+        self.event_loop.stop()
         self.running = False
 
     def refresh(self) -> None:
@@ -547,7 +441,7 @@ class Wijjit:
         self.needs_render = True
 
     def run(self) -> None:
-        """Run the application.
+        """Run the application (delegates to EventLoop).
 
         Enters the main event loop:
         1. Render initial view
@@ -556,233 +450,7 @@ class Wijjit:
 
         The loop continues until quit() is called or the user presses Ctrl+C.
         """
-        logger.info("Starting Wijjit application")
-
-        # Find default view if current_view not set
-        if self.current_view is None:
-            for name, view in self.views.items():
-                if view.is_default:
-                    self.current_view = name
-                    logger.debug(f"Selected default view: '{name}'")
-                    break
-
-        if self.current_view is None and self.views:
-            # Use first registered view as fallback
-            self.current_view = next(iter(self.views.keys()))
-            logger.debug(f"No default view, using first view: '{self.current_view}'")
-
-        if self.current_view is None:
-            logger.error("No views registered")
-            raise RuntimeError(
-                "No views registered. Use @app.view() to register a view."
-            )
-
-        # Initialize and call on_enter for initial view
-        initial_view = self.views[self.current_view]
-        self._initialize_view(initial_view)
-
-        # Set current view in handler registry so view-scoped handlers work
-        self.handler_registry.current_view = self.current_view
-
-        if initial_view.on_enter:
-            try:
-                initial_view.on_enter()
-            except Exception as e:
-                self._handle_error(
-                    f"Error in on_enter for view '{self.current_view}'", e
-                )
-
-        self.running = True
-
-        try:
-            # Enter alternate screen
-            self.screen_manager.enter_alternate_buffer()
-            logger.debug("Entered alternate screen buffer")
-
-            # Hide cursor for better TUI appearance
-            self.screen_manager.hide_cursor()
-            logger.debug("Hidden cursor")
-
-            # Enable mouse tracking
-            self.input_handler.enable_mouse_tracking()
-            logger.debug("Enabled mouse tracking")
-
-            # Render initial view
-            logger.info(f"Rendering initial view: '{self.current_view}'")
-            self._render()
-            self._last_refresh_time = time.time()
-
-            logger.info("Entering main event loop")
-            # Main event loop
-            while self.running:
-                try:
-                    # Check if auto-refresh is needed (for animations like spinners or notification expiry)
-                    if self.refresh_interval is not None:
-                        current_time = time.time()
-                        elapsed = current_time - self._last_refresh_time
-
-                        if elapsed >= self.refresh_interval:
-                            # Time to refresh - advance spinner frames
-                            self._advance_spinner_frames()
-
-                            # Check for expired notifications
-                            if self.notification_manager.check_expired():
-                                self.needs_render = True
-
-                            # Disable auto-refresh if no notifications remain
-                            if (
-                                len(self.notification_manager.notifications) == 0
-                                and self.refresh_interval == 0.1
-                            ):
-                                self.refresh_interval = None
-
-                            self._last_refresh_time = current_time
-
-                    # Check for terminal resize
-                    term_size = shutil.get_terminal_size()
-                    current_size = (term_size.columns, term_size.lines)
-                    if current_size != self._last_terminal_size:
-                        logger.debug(
-                            f"Terminal resized from {self._last_terminal_size} to {current_size}"
-                        )
-                        # Recalculate overlay positions
-                        self.overlay_manager.recalculate_centered_overlays(
-                            term_size.columns, term_size.lines
-                        )
-                        # Update notification positions
-                        self.notification_manager.update_terminal_size(
-                            term_size.columns, term_size.lines
-                        )
-                        self._last_terminal_size = current_size
-                        self.needs_render = True
-
-                    # Read input - use short timeout if refresh_interval is set
-                    # This allows animations to run smoothly without requiring user input
-                    timeout = self.refresh_interval / 2 if self.refresh_interval is not None else None
-                    input_event = self.input_handler.read_input(timeout=timeout)
-
-                    if input_event is None:
-                        # Timeout or error reading input
-                        # Check if refresh is needed (for animations/expiry checks)
-                        if self.needs_render:
-                            self._render()
-                            self._last_refresh_time = time.time()
-                        continue
-
-                    # Check if it's a keyboard event
-                    if isinstance(input_event, Key):
-                        # Handle Ctrl+C
-                        if input_event.is_ctrl_c:
-                            logger.info("Received Ctrl+C, exiting application")
-                            self.running = False
-                            break
-
-                        logger.debug(
-                            f"Key event: {input_event.name} "
-                            f"(modifiers={input_event.modifiers})"
-                        )
-
-                        # Check for ESC key to close overlays/notifications
-                        if input_event.name == "escape":
-                            # If there are notifications, dismiss oldest first
-                            if self.notification_manager.notifications:
-                                if self.notification_manager.dismiss_oldest():
-                                    self.needs_render = True
-                                    continue  # Don't process event further
-
-                            # Otherwise, handle normal overlay escape
-                            if self.overlay_manager.handle_escape():
-                                # Overlay was closed, trigger re-render
-                                self.needs_render = True
-                                continue  # Don't process event further
-
-                        # Route keyboard events to overlay if trap_focus is active
-                        top_overlay = self.overlay_manager.get_top_overlay()
-                        if top_overlay and top_overlay.trap_focus:
-                            overlay_elem = top_overlay.element
-                            if hasattr(overlay_elem, "handle_key"):
-                                if overlay_elem.handle_key(input_event):
-                                    # Overlay handled the key, trigger re-render
-                                    self.needs_render = True
-                                    continue  # Don't process event further
-
-                        # Create and dispatch key event
-                        event = KeyEvent(
-                            key=input_event.name,
-                            modifiers=input_event.modifiers,
-                            key_obj=input_event,  # Store original Key object
-                        )
-                        self.handler_registry.dispatch(event)
-
-                        # Check for registered key handlers
-                        if not event.cancelled:
-                            key_name = (
-                                input_event.name.lower() if input_event.name else ""
-                            )
-                            if key_name in self._key_handlers:
-                                try:
-                                    self._key_handlers[key_name](event)
-                                    self.needs_render = True
-                                except Exception as e:
-                                    logger.error(
-                                        f"Error in key handler for '{key_name}': {e}",
-                                        exc_info=True,
-                                    )
-
-                        # Route key to focused element if not handled by other handlers
-                        # If focus is trapped in an overlay, only route to overlay elements
-                        if not event.cancelled:
-                            if self.overlay_manager.should_trap_focus():
-                                # Focus is trapped - only route to focused element if it's in overlay
-                                focused = self.focus_manager.get_focused_element()
-                                if focused:
-                                    handled = focused.handle_key(input_event)
-                                    if handled:
-                                        self.needs_render = True
-                            else:
-                                # Normal focus routing
-                                self._route_key_to_focused_element(event)
-
-                    # Check if it's a mouse event
-                    elif isinstance(input_event, TerminalMouseEvent):
-                        logger.debug(
-                            f"Mouse event: {input_event.type} at "
-                            f"({input_event.x}, {input_event.y})"
-                        )
-                        # Handle mouse event
-                        hover_changed = self._handle_mouse_event(input_event)
-
-                        # Only re-render if hover changed or event was handled
-                        if hover_changed:
-                            self.needs_render = True
-
-                    # Re-render if needed
-                    if self.needs_render:
-                        self._render()
-                        self._last_refresh_time = time.time()
-
-                except KeyboardInterrupt:
-                    logger.info("Received KeyboardInterrupt, exiting application")
-                    self.running = False
-                    break
-                except Exception as e:
-                    self._handle_error("Error in event loop", e)
-                    # Critical error - exit the loop
-                    self.running = False
-                    break
-
-        finally:
-            logger.info("Exiting application, cleaning up")
-            # Show cursor before exiting
-            self.screen_manager.show_cursor()
-            logger.debug("Shown cursor")
-            # Always exit alternate screen on cleanup
-            self.screen_manager.exit_alternate_buffer()
-            logger.debug("Exited alternate screen buffer")
-            # Close input handler to exit raw mode
-            self.input_handler.close()
-            logger.debug("Closed input handler")
-            logger.info("Application shutdown complete")
+        self.event_loop.run()
 
     def _render(self) -> None:
         """Render the current view to the screen.
@@ -934,14 +602,19 @@ class Wijjit:
             elif overlays_changed:
                 # Overlays were just dismissed - diff cleanly from composite to base
                 # No full redraw needed! Just diff from what's displayed back to base.
-                if self.renderer._last_base_buffer and self.renderer._last_displayed_buffer:
+                if (
+                    self.renderer._last_base_buffer
+                    and self.renderer._last_displayed_buffer
+                ):
                     diff_renderer = DiffRenderer()
                     output = diff_renderer.render_diff(
                         self.renderer._last_displayed_buffer,  # From: composite with overlays
-                        self.renderer._last_base_buffer        # To: clean base view
+                        self.renderer._last_base_buffer,  # To: clean base view
                     )
                     # Update displayed to match base (no overlays)
-                    self.renderer._last_displayed_buffer = self.renderer._last_base_buffer
+                    self.renderer._last_displayed_buffer = (
+                        self.renderer._last_base_buffer
+                    )
 
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)
@@ -1169,387 +842,44 @@ class Wijjit:
         self._last_template_overlays = template_overlays
 
     def _wire_element_callbacks(self, elements: list) -> None:
-        """Wire up element callbacks for actions and state binding.
+        """Wire up element callbacks for actions and state binding (delegates to ElementWiringManager).
 
         Parameters
         ----------
         elements : list
             List of positioned elements
         """
+        # Wire basic element callbacks
+        self.wiring_manager.wire_elements(elements, self.state, self.handler_registry)
 
-        for elem in elements:
-            # Wire up action callbacks for buttons
-            if isinstance(elem, Button) and hasattr(elem, "action") and elem.action:
-                action_id = elem.action
-                # Pass the ActionEvent through, but use the action from the element
-                elem.on_activate = lambda event, aid=action_id: self._dispatch_action(
-                    aid, event=event
-                )
-
-            # Wire up TextInput callbacks
-            if isinstance(elem, TextInput):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
-
-                # Wire up state binding if enabled
-                if hasattr(elem, "bind") and elem.bind and elem.id:
-                    # Initialize element value from state if key exists
-                    if elem.id in self.state:
-                        elem.value = str(self.state[elem.id])
-                        elem.cursor_pos = len(elem.value)
-
-                    # Set up two-way binding
-                    elem_id = elem.id
-
-                    def on_change_handler(old_val, new_val, eid=elem_id):
-                        # Update state when element changes
-                        self.state[eid] = new_val
-
-                    elem.on_change = on_change_handler
-
-            # Wire up Select callbacks
-            if isinstance(elem, Select):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
-
-                # Wire up state binding if enabled
-                if hasattr(elem, "bind") and elem.bind and elem.id:
-                    # Initialize element value from state if key exists
-                    if elem.id in self.state:
-                        elem.value = self.state[elem.id]
-                        # Update selected_index to match the value
-                        elem.selected_index = elem._find_option_index(elem.value)
-
-                    # Set up two-way binding
-                    elem_id = elem.id
-
-                    def on_change_handler(old_val, new_val, eid=elem_id):
-                        # Update state when element changes
-                        self.state[eid] = new_val
-
-                    elem.on_change = on_change_handler
-
-                # Wire up highlighted_index persistence if element has the state key
-                if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
-                    highlight_key = elem.highlight_state_key
-
-                    def on_highlight_handler(new_index, hkey=highlight_key):
-                        # Update state when highlight changes
-                        self.state[hkey] = new_index
-
-                    elem.on_highlight_change = on_highlight_handler
-
-            # Wire up scroll position persistence for all ScrollableMixin elements
-            if isinstance(elem, ScrollableMixin):
-                if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
-                    scroll_key = elem.scroll_state_key
-
-                    def on_scroll_handler(position, skey=scroll_key):
-                        # Update state when scroll position changes
-                        self.state[skey] = position
-
-                    elem.on_scroll = on_scroll_handler
-
-            # Wire up Tree callbacks
-            if isinstance(elem, Tree):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-
-                    def on_select_handler(node, aid=action_id):
-                        # Dispatch action with node data
-                        self._dispatch_action(aid, data=node)
-
-                    elem.on_select = on_select_handler
-
-            # Wire up Checkbox callbacks
-            if isinstance(elem, Checkbox):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
-
-                # Wire up state binding if enabled
-                if hasattr(elem, "bind") and elem.bind and elem.id:
-                    # Initialize element checked state from state if key exists
-                    if elem.id in self.state:
-                        elem.checked = bool(self.state[elem.id])
-
-                    # Set up two-way binding
-                    elem_id = elem.id
-
-                    def on_change_handler(old_val, new_val, eid=elem_id):
-                        # Update state when element changes
-                        self.state[eid] = new_val
-
-                    elem.on_change = on_change_handler
-
-            # Wire up Radio callbacks
-            if isinstance(elem, Radio):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
-
-                # Wire up state binding if enabled (bind to group name, not id)
-                if hasattr(elem, "bind") and elem.bind and elem.name:
-                    # Initialize element checked state from state[name]
-                    if elem.name in self.state:
-                        elem.checked = self.state[elem.name] == elem.value
-
-                    # Set up two-way binding
-                    radio_name = elem.name
-                    radio_value = elem.value
-
-                    def on_change_handler(
-                        old_val, new_val, rname=radio_name, rval=radio_value
-                    ):
-                        # Update state when radio is selected
-                        if (
-                            new_val
-                        ):  # Only update state when radio is selected (not deselected)
-                            self.state[rname] = rval
-
-                    elem.on_change = on_change_handler
-
-            # Wire up CheckboxGroup callbacks
-            if isinstance(elem, CheckboxGroup):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
-
-                # Wire up state binding if enabled
-                if hasattr(elem, "bind") and elem.bind and elem.id:
-                    # Initialize element selected values from state if key exists
-                    if elem.id in self.state:
-                        elem.selected_values = set(self.state[elem.id])
-
-                    # Set up two-way binding
-                    elem_id = elem.id
-
-                    def on_change_handler(old_val, new_val, eid=elem_id):
-                        # Update state when element changes
-                        self.state[eid] = new_val
-
-                    elem.on_change = on_change_handler
-
-                # Wire up highlighted_index persistence if element has the state key
-                if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
-                    highlight_key = elem.highlight_state_key
-
-                    def on_highlight_handler(new_index, hkey=highlight_key):
-                        # Update state when highlight changes
-                        self.state[hkey] = new_index
-
-                    elem.on_highlight_change = on_highlight_handler
-
-            # Wire up RadioGroup callbacks
-            if isinstance(elem, RadioGroup):
-                # Wire up action callback if action is specified
-                if hasattr(elem, "action") and elem.action:
-                    action_id = elem.action
-                    elem.on_action = lambda aid=action_id: self._dispatch_action(aid)
-
-                # Wire up state binding if enabled (bind to group name)
-                if hasattr(elem, "bind") and elem.bind and elem.name:
-                    # Initialize element selected value from state[name]
-                    if elem.name in self.state:
-                        elem.selected_value = self.state[elem.name]
-                        elem.selected_index = elem._find_option_index(
-                            elem.selected_value
-                        )
-
-                    # Set up two-way binding
-                    group_name = elem.name
-
-                    def on_change_handler(old_val, new_val, gname=group_name):
-                        # Update state when element changes
-                        self.state[gname] = new_val
-
-                    elem.on_change = on_change_handler
-
-                # Wire up highlighted_index persistence if element has the state key
-                if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
-                    highlight_key = elem.highlight_state_key
-
-                    def on_highlight_handler(new_index, hkey=highlight_key):
-                        # Update state when highlight changes
-                        self.state[hkey] = new_index
-
-                    elem.on_highlight_change = on_highlight_handler
-
-        # Wire up menu callbacks (for overlay menus)
+        # Wire menu callbacks (for overlay menus)
         # Process ALL menu elements from template overlays, not just visible ones
         # This ensures shortcuts are registered even when menu is initially hidden
-        # Build a map of element IDs to overlay info for menu shortcut registration
-        overlay_info_map = {}
         if hasattr(self, "_last_template_overlays"):
-            for info in self._last_template_overlays:
-                elem = info["element"]
-                if hasattr(elem, "id") and elem.id:
-                    overlay_info_map[elem.id] = info
-
-        # Process ALL menu elements from template overlays (visible or not)
-        menu_elements_to_process = []
-        if hasattr(self, "_last_template_overlays"):
+            # Collect menu elements
+            menu_elements_to_process = []
             for overlay_info in self._last_template_overlays:
                 elem = overlay_info["element"]
                 if isinstance(elem, MenuElement):
                     menu_elements_to_process.append((elem, overlay_info))
 
-        # Track all dropdown menu visible state keys for mutual exclusion
-        dropdown_state_keys = []
-        for elem, overlay_info in menu_elements_to_process:
-            if isinstance(elem, DropdownMenu):
-                visible_state_key = overlay_info.get("visible_state_key")
-                if visible_state_key:
-                    dropdown_state_keys.append(visible_state_key)
-
-        for elem, overlay_info in menu_elements_to_process:
-            # Wire up menu item selection callback
-            def on_item_select_handler(action_id: str, item):
-                # Dispatch action
-                self._dispatch_action(action_id)
-
-            elem.on_item_select = on_item_select_handler
-
-            # Wire up close callback - set visibility state to False
-            visible_state_key = overlay_info.get("visible_state_key")
-
-            def make_close_callback(state_key):
-                def close_menu():
-                    if state_key:
-                        self.state[state_key] = False
-
-                return close_menu
-
-            elem.close_callback = make_close_callback(visible_state_key)
-
-            # Register global keyboard shortcuts for menu items (e.g., Ctrl+N)
-            for item in elem.items:
-                if item.key and item.action and not item.disabled:
-                    shortcut_key = item.key.lower()
-                    action_id = item.action
-
-                    # Validate that Ctrl+C is not being bound (reserved for app exit)
-                    if shortcut_key in ("ctrl+c", "c-c"):
-                        raise ValueError(
-                            f"Cannot bind Ctrl+C to action '{action_id}': "
-                            "Ctrl+C is reserved for exiting the application"
-                        )
-
-                    # Check if we already registered this shortcut
-                    handler_id = f"menuitem_shortcut_{action_id}_{shortcut_key}"
-                    if not hasattr(self, "_registered_menuitem_shortcuts"):
-                        self._registered_menuitem_shortcuts = set()
-
-                    if handler_id not in self._registered_menuitem_shortcuts:
-                        self._registered_menuitem_shortcuts.add(handler_id)
-
-                        def make_shortcut_handler(act_id, key_combo):
-                            def handle_shortcut(event):
-                                # Check if this is the right key
-                                if event.key.lower() == key_combo:
-                                    # Dispatch the action
-                                    self._dispatch_action(act_id)
-
-                            return handle_shortcut
-
-                        # Register the key handler
-                        self.on(
-                            EventType.KEY,
-                            make_shortcut_handler(action_id, shortcut_key),
-                            scope=HandlerScope.GLOBAL,
-                        )
-
-            # For context menus, check if we need to update mouse position
-            if isinstance(elem, ContextMenu):
-                # Mouse position will be set by right-click handler
-                # But we need to recalculate bounds if position was set
-                if elem.mouse_position:
-                    elem.bounds = self.overlay_manager._calculate_menu_position(elem)
-
-            # For dropdowns, try to find trigger button and set bounds
-            if isinstance(elem, DropdownMenu):
-                logger.debug(
-                    f"Found DropdownMenu: id={elem.id}, trigger_text={elem.trigger_text}, "
-                    f"trigger_key={elem.trigger_key}"
-                )
-                trigger_text = elem.trigger_text
-                # Look for a button with matching label
-                for el in elements:
-                    if isinstance(el, Button) and hasattr(el, "label"):
-                        if el.label == trigger_text and el.bounds:
-                            elem.trigger_bounds = el.bounds
-                            # Recalculate menu position
-                            elem.bounds = self.overlay_manager._calculate_menu_position(
-                                elem
-                            )
-                            break
-
-                # Register keyboard shortcut if specified (e.g., Alt+F)
-                if elem.trigger_key and hasattr(elem, "id") and elem.id:
+            # Track all dropdown menu visible state keys for mutual exclusion
+            dropdown_state_keys = []
+            for elem, overlay_info in menu_elements_to_process:
+                if isinstance(elem, DropdownMenu):
                     visible_state_key = overlay_info.get("visible_state_key")
                     if visible_state_key:
-                        trigger_key = elem.trigger_key.lower()
+                        dropdown_state_keys.append(visible_state_key)
 
-                        # Validate that Ctrl+C is not being bound (reserved for app exit)
-                        if trigger_key in ("ctrl+c", "c-c"):
-                            raise ValueError(
-                                f"Cannot bind Ctrl+C to dropdown menu '{elem.id}': "
-                                "Ctrl+C is reserved for exiting the application"
-                            )
-
-                        # Check if we already registered this handler
-                        handler_id = f"menu_shortcut_{elem.id}"
-                        if not hasattr(self, "_registered_menu_shortcuts"):
-                            self._registered_menu_shortcuts = set()
-
-                        if handler_id not in self._registered_menu_shortcuts:
-                            self._registered_menu_shortcuts.add(handler_id)
-
-                            # Debug logging
-                            logger.debug(
-                                f"Registering menu trigger shortcut: {trigger_key} "
-                                f"for menu {elem.id} (state: {visible_state_key})"
-                            )
-
-                            def make_key_handler(
-                                state_key, key_combo, all_dropdown_keys
-                            ):
-                                def toggle_menu(event):
-                                    # Debug logging
-                                    logger.debug(
-                                        f"Key event: {event.key!r}, "
-                                        f"comparing to {key_combo!r}"
-                                    )
-                                    # Check if this is the right key
-                                    if event.key.lower() == key_combo:
-                                        logger.debug(f"Matched! Toggling {state_key}")
-                                        # Close all other dropdown menus first
-                                        for other_key in all_dropdown_keys:
-                                            if other_key != state_key:
-                                                self.state[other_key] = False
-
-                                        # Toggle current menu visibility
-                                        current = self.state.get(state_key, False)
-                                        self.state[state_key] = not current
-
-                                return toggle_menu
-
-                            # Register the key handler
-                            self.on(
-                                EventType.KEY,
-                                make_key_handler(
-                                    visible_state_key, trigger_key, dropdown_state_keys
-                                ),
-                                scope=HandlerScope.GLOBAL,
-                            )
+            # Wire menu elements
+            self.wiring_manager.wire_menu_elements(
+                menu_elements_to_process,
+                dropdown_state_keys,
+                elements,
+                self.state,
+                EventType.KEY,
+                HandlerScope.GLOBAL,
+            )
 
     def _handle_tab_key(self, event: KeyEvent) -> None:
         """Handle Tab/Shift+Tab for focus navigation.
@@ -1574,253 +904,6 @@ class Wijjit:
             self.focus_manager.focus_previous()
             event.cancel()
             self.needs_render = True
-
-    def _route_key_to_focused_element(self, event: KeyEvent) -> None:
-        """Route key events to the currently focused element.
-
-        This allows focused elements to handle keyboard input.
-        Called after other handlers have had a chance to process the event.
-
-        Parameters
-        ----------
-        event : KeyEvent
-            Key event to route
-        """
-        try:
-            # Skip if event was cancelled by another handler
-            if event.cancelled:
-                return
-
-            # Get the focused element
-            focused_elem = self.focus_manager.get_focused_element()
-            if focused_elem is None:
-                return
-
-            # Use the original Key object from the event
-            # This ensures we use the exact same Key constants that InputHandler created
-            if event.key_obj is None:
-                return
-
-            key = event.key_obj
-
-            # Let the element handle the key
-            handled = focused_elem.handle_key(key)
-
-            if handled:
-                # Mark event as handled and trigger re-render
-                event.cancel()
-                self.needs_render = True
-
-        except Exception as e:
-            self._handle_error("Error routing key to focused element", e)
-
-    def _handle_mouse_event(self, terminal_event: TerminalMouseEvent) -> bool:
-        """Handle a mouse event.
-
-        Finds the element at mouse coordinates, updates hover state,
-        and dispatches the event to the element and handler registry.
-
-        Parameters
-        ----------
-        terminal_event : TerminalMouseEvent
-            The mouse event from terminal layer
-
-        Returns
-        -------
-        bool
-            True if hover state changed (indicating need for re-render)
-        """
-        try:
-            # Check overlays first (highest z-index)
-            overlay = self.overlay_manager.get_at_position(
-                terminal_event.x, terminal_event.y
-            )
-
-            if overlay:
-                # Mouse event is on an overlay - route to overlay element
-                if hasattr(overlay.element, "handle_mouse"):
-                    handled = overlay.element.handle_mouse(terminal_event)
-                    if handled:
-                        self.needs_render = True
-                        return False  # Hover didn't change base UI
-                # Overlay consumed the event even if not handled
-                return False
-            else:
-                # Click outside all overlays - check if should close any
-                if terminal_event.type in (
-                    MouseEventType.CLICK,
-                    MouseEventType.DOUBLE_CLICK,
-                ):
-                    closed = self.overlay_manager.handle_click_outside(
-                        terminal_event.x, terminal_event.y
-                    )
-                    if closed:
-                        return False  # Overlay was closed, don't process further
-
-            # Fall through to base UI handling
-            # Find element at mouse coordinates
-            target_element = self._find_element_at(terminal_event.x, terminal_event.y)
-
-            # Check for right-click to open context menus (AFTER elements have bounds)
-            if (
-                terminal_event.button == MouseButton.RIGHT
-                and terminal_event.type == MouseEventType.CLICK
-            ):
-                logger.debug(
-                    f"Right-click detected at ({terminal_event.x}, {terminal_event.y})"
-                )
-                logger.debug(
-                    f"Target element: {target_element.id if target_element and hasattr(target_element, 'id') else None}"
-                )
-
-                # Check if any context menu targets this element
-                if target_element and hasattr(target_element, "id"):
-                    logger.debug(
-                        f"Has _last_template_overlays: {hasattr(self, '_last_template_overlays')}"
-                    )
-                    # Check template overlays for context menus targeting this element
-                    if hasattr(self, "_last_template_overlays"):
-                        logger.debug(
-                            f"Number of template overlays: {len(self._last_template_overlays)}"
-                        )
-                        for overlay_info in self._last_template_overlays:
-                            elem = overlay_info["element"]
-                            if isinstance(elem, ContextMenu):
-                                logger.debug(
-                                    f"Found ContextMenu targeting: {elem.target_element_id}"
-                                )
-                                if elem.target_element_id == target_element.id:
-                                    logger.debug(
-                                        f"Match! Showing context menu at ({terminal_event.x}, {terminal_event.y})"
-                                    )
-                                    # Get visibility state key
-                                    visible_state_key = overlay_info.get(
-                                        "visible_state_key"
-                                    )
-                                    if visible_state_key:
-                                        # Store mouse position in state using visible_state_key
-                                        # This is stable across renders (unlike auto-generated IDs)
-                                        position_key = (
-                                            f"_context_menu_pos_{visible_state_key}"
-                                        )
-                                        self.state[position_key] = (
-                                            terminal_event.x,
-                                            terminal_event.y,
-                                        )
-                                        logger.debug(
-                                            f"Stored position in state[{position_key!r}] = {self.state[position_key]}"
-                                        )
-
-                                        # Show the context menu
-                                        logger.debug(
-                                            f"Setting state[{visible_state_key!r}] = True"
-                                        )
-                                        self.state[visible_state_key] = True
-                                        self.needs_render = True
-                                        return False
-
-            # Track whether hover changed
-            hover_changed = False
-
-            # Update hover state (only on move/click, not on scroll)
-            if terminal_event.type in (
-                MouseEventType.MOVE,
-                MouseEventType.CLICK,
-                MouseEventType.DOUBLE_CLICK,
-                MouseEventType.PRESS,
-                MouseEventType.RELEASE,
-                MouseEventType.DRAG,
-            ):
-                # Set hovered element (returns True if changed)
-                hover_changed = self.hover_manager.set_hovered(target_element)
-
-            # Focus element on click if it's focusable
-            if terminal_event.type in (
-                MouseEventType.CLICK,
-                MouseEventType.DOUBLE_CLICK,
-            ):
-                if (
-                    target_element
-                    and hasattr(target_element, "focusable")
-                    and target_element.focusable
-                ):
-                    focus_changed = self.focus_manager.focus_element(target_element)
-                    if focus_changed:
-                        self.needs_render = True
-
-            # Create core MouseEvent for handler registry
-            mouse_event = MouseEvent(
-                mouse_event=terminal_event,
-                element_id=(
-                    target_element.id
-                    if target_element and hasattr(target_element, "id")
-                    else None
-                ),
-            )
-
-            # Dispatch through handler registry
-            self.handler_registry.dispatch(mouse_event)
-
-            # If event was cancelled, we're done
-            if mouse_event.cancelled:
-                return hover_changed
-
-            # Dispatch to target element if it exists
-            handled = False
-            if target_element and hasattr(target_element, "handle_mouse"):
-                handled = target_element.handle_mouse(terminal_event)
-                if handled:
-                    # Element handled the event, trigger re-render
-                    self.needs_render = True
-
-            # If scroll event wasn't handled and element has a scrollable parent, try parent
-            if (
-                not handled
-                and terminal_event.type == MouseEventType.SCROLL
-                and target_element
-                and hasattr(target_element, "parent_frame")
-                and target_element.parent_frame is not None
-            ):
-                parent = target_element.parent_frame
-                if hasattr(parent, "handle_mouse"):
-                    handled = parent.handle_mouse(terminal_event)
-                    if handled:
-                        self.needs_render = True
-
-            return hover_changed
-
-        except Exception as e:
-            self._handle_error("Error handling mouse event", e)
-            return False
-
-    def _find_element_at(self, x: int, y: int):
-        """Find the element at the given coordinates.
-
-        Searches positioned elements in reverse order (top-to-bottom in
-        render order) to find the topmost element at the coordinates.
-
-        Parameters
-        ----------
-        x : int
-            Column position (0-based)
-        y : int
-            Row position (0-based)
-
-        Returns
-        -------
-        Element or None
-            Element at coordinates, or None if no element found
-        """
-        from wijjit.elements.base import TextElement
-
-        # Search in reverse order (top-to-bottom)
-        # Skip TextElements as they are just content holders, not interactive targets
-        for elem in reversed(self.positioned_elements):
-            if isinstance(elem, TextElement):
-                continue
-            if elem.bounds and elem.bounds.contains(x, y):
-                return elem
-        return None
 
     def _dispatch_action(
         self, action_id: str, data: Any = None, event: ActionEvent | None = None
@@ -1856,28 +939,6 @@ class Wijjit:
             self.needs_render = True
         else:
             logger.warning(f"Action handler not found: '{action_id}'")
-
-    def _advance_spinner_frames(self) -> None:
-        """Advance animation frames for all active spinners.
-
-        This method iterates through all positioned elements, finds active
-        spinners, advances their frame counters, and updates state.
-        Called periodically when refresh_interval is set.
-        """
-        for elem in self.positioned_elements:
-            if isinstance(elem, Spinner) and elem.active:
-                # Advance to next frame
-                elem.next_frame()
-
-                # Update frame index in state if element has state dict reference
-                if hasattr(elem, "_state_dict") and hasattr(elem, "_frame_key"):
-                    try:
-                        elem._state_dict[elem._frame_key] = elem.frame_index
-                    except Exception as e:
-                        # If state update fails, just continue
-                        logger.warning(
-                            f"Failed to update frame index in state for element: {e}"
-                        )
 
     def show_modal(
         self,
