@@ -27,7 +27,6 @@ def main_view():
     return {
         "template": """
 {% frame width=60 height=18 title="Text Input Dialog Demo" %}
-    {% vstack %}
         Files:
         {% for file in state['files'] %}
             {% if loop.index0 == state['selected_index'] %}
@@ -47,7 +46,7 @@ def main_view():
           n - Create new file
           r - Rename selected file
           up/down - Select file
-    {% endvstack %}
+
 {% endframe %}
         """
     }

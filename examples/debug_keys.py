@@ -20,8 +20,9 @@ def main():
                 print(f"Received: {event}")
                 sys.stdout.flush()
 
-                if hasattr(event, "key") and event.key == "q":
+                if event.char == "q":
                     break
+
     except KeyboardInterrupt:
         pass
 

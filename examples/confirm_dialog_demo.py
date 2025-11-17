@@ -22,20 +22,18 @@ def main_view():
     return {
         "template": """
 {% frame width=60 height=15 title="Confirm Dialog Demo" %}
-    {% vstack %}
-        Files in folder:
-        {% for item in state['files'] %}
-            - {{ item }}
-        {% endfor %}
+    Files in folder:
+    {% for item in state['files'] %}
+        - {{ item }}
+    {% endfor %}
 
-        {% if state['message'] %}
+    {% if state['message'] %}
 
-            {{ state['message'] }}
-        {% endif %}
+        {{ state['message'] }}
+    {% endif %}
 
 
-        Press 'd' to show delete confirmation dialog
-    {% endvstack %}
+    Press 'd' to show delete confirmation dialog
 {% endframe %}
         """
     }
@@ -74,16 +72,6 @@ def show_delete_dialog(event):
         width=55,
         height=12,
     )
-
-    # Set bounds for centered position
-    import shutil
-
-    from wijjit.layout.bounds import Bounds
-
-    term_size = shutil.get_terminal_size()
-    x = (term_size.columns - dialog.width) // 2
-    y = (term_size.lines - dialog.height) // 2
-    dialog.bounds = Bounds(x=x, y=y, width=dialog.width, height=dialog.height)
 
     # Show the modal
     overlay = app.show_modal(dialog)

@@ -601,7 +601,8 @@ class Wijjit:
                 )
             elif overlays_changed:
                 # Overlays were just dismissed - diff cleanly from composite to base
-                # No full redraw needed! Just diff from what's displayed back to base.
+                # The displayed buffer still has the old composite (with overlays),
+                # and base buffer has the clean base view. Diff between them.
                 if (
                     self.renderer._last_base_buffer
                     and self.renderer._last_displayed_buffer
@@ -615,6 +616,10 @@ class Wijjit:
                     self.renderer._last_displayed_buffer = (
                         self.renderer._last_base_buffer
                     )
+            else:
+                # No overlays and no overlay changes - update displayed to match base
+                # This handles the normal case where we're just showing the base view
+                self.renderer._last_displayed_buffer = self.renderer._last_base_buffer
 
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)

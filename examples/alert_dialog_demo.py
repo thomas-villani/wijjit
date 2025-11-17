@@ -25,17 +25,15 @@ def main_view():
     return {
         "template": """
 {% frame width=60 height=15 title="Alert Dialog Demo" %}
-    {% vstack %}
-        Button Press Counter: {{ state['counter'] }}
+    Button Press Counter: {{ state['counter'] }}
 
+    Keyboard Shortcuts:
+      s - Show success alert
+      e - Show error alert
+      i - Show info alert
 
-        Keyboard Shortcuts:
-          s - Show success alert
-          e - Show error alert
-          i - Show info alert
-    {% endvstack %}
 {% endframe %}
-        """
+"""
     }
 
 

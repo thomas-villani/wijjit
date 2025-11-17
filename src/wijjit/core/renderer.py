@@ -509,11 +509,11 @@ class Renderer:
         # old buffer (or None) with new buffer, not new buffer with itself!
         output = self._buffer_to_ansi(buffer)
 
-        # Store buffers for next render (after converting!)
+        # Store base buffer for next render (after converting!)
         # Base buffer: The view without overlays (always preserved)
-        # Displayed buffer: What's on screen (same as base when no overlays)
+        # NOTE: We do NOT update _last_displayed_buffer here - that's managed by
+        # the overlay compositing logic in app._render() to track what's actually on screen
         self._last_base_buffer = buffer
-        self._last_displayed_buffer = buffer
 
         # Clear dirty regions now that rendering is complete
         self.dirty_manager.clear()

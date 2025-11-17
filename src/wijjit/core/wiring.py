@@ -19,7 +19,6 @@ from wijjit.logging_config import get_logger
 
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
-    from wijjit.core.events import HandlerRegistry
     from wijjit.core.state import State
     from wijjit.elements.base import Element, ScrollableMixin
 

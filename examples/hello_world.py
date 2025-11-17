@@ -5,7 +5,6 @@ Press 'q' to quit.
 """
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
 
 
 def main():
@@ -17,23 +16,21 @@ def main():
         """Main view."""
         return {
             "template": """
+{% frame %}
 Hello, World!
 
 This is a simple Wijjit TUI application.
 
 Press 'q' to quit.
+{% endframe %}
 """,
-            "on_enter": setup_handlers,
         }
 
-    def setup_handlers():
-        """Set up keyboard handlers."""
+    @app.on_key("q")
+    def on_quit(event):
+        if event.key == "q":
+            app.quit()
 
-        def on_quit(event):
-            if event.key == "q":
-                app.quit()
-
-        app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
 
     try:
         app.run()
