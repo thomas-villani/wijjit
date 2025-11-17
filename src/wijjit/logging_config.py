@@ -91,6 +91,7 @@ def configure_logging(
     if filename is None:
         logger.addHandler(logging.NullHandler())
         logger.setLevel(logging.CRITICAL + 1)  # Effectively disable
+        logger.propagate = False  # Prevent propagation to root logger
         return
 
     # Convert string level to logging constant if needed

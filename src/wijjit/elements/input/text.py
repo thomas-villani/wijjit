@@ -491,6 +491,17 @@ class TextArea(Element):
         if value:
             self.set_value(value)
 
+    @property
+    def supports_dynamic_sizing(self) -> bool:
+        """Whether this TextArea supports dynamic sizing.
+
+        Returns
+        -------
+        bool
+            True if configured with fill sizing, False otherwise
+        """
+        return self._dynamic_sizing
+
     def set_bounds(self, bounds) -> None:
         """Set bounds and dynamically resize if needed.
 
@@ -502,7 +513,7 @@ class TextArea(Element):
         super().set_bounds(bounds)
 
         # If dynamic sizing is enabled, resize the element to fit the bounds
-        if self._dynamic_sizing and bounds:
+        if self.supports_dynamic_sizing and bounds:
             new_width = bounds.width
             new_height = bounds.height
 

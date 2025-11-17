@@ -657,15 +657,13 @@ class Wijjit:
                         self.needs_render = True
 
                     # Read input - use short timeout if refresh_interval is set
-                    # This allows animations to run smoothly
-                    # Note: InputHandler.read_input() is blocking, so we check refresh
-                    # timing before reading. For smooth animations, refresh_interval
-                    # should be small (e.g., 0.1 seconds)
-                    input_event = self.input_handler.read_input()
+                    # This allows animations to run smoothly without requiring user input
+                    timeout = self.refresh_interval / 2 if self.refresh_interval is not None else None
+                    input_event = self.input_handler.read_input(timeout=timeout)
 
                     if input_event is None:
-                        # Error reading input, continue
-                        # But still check if refresh is needed
+                        # Timeout or error reading input
+                        # Check if refresh is needed (for animations/expiry checks)
                         if self.needs_render:
                             self._render()
                             self._last_refresh_time = time.time()
@@ -864,9 +862,10 @@ class Wijjit:
                     if focused_elem and hasattr(focused_elem, "id"):
                         focused_id = focused_elem.id
 
-                    # Clear _last_buffer so the diff renderer treats this as a first render
+                    # Clear buffers so the diff renderer treats this as a first render
                     # The first render's output was never shown to the user, so we need a full render
-                    self.renderer._last_buffer = None
+                    self.renderer._last_base_buffer = None
+                    self.renderer._last_displayed_buffer = None
                     self.renderer.dirty_manager.clear()
 
                     # Render again with focused element (will be treated as first render = full screen)
@@ -933,11 +932,16 @@ class Wijjit:
                     force_full_redraw=overlays_changed,
                 )
             elif overlays_changed:
-                # Overlays were just dismissed - force full redraw to clear ghosts
-                # Do this by re-rendering the base output with no diff
-                if self.renderer._last_buffer:
+                # Overlays were just dismissed - diff cleanly from composite to base
+                # No full redraw needed! Just diff from what's displayed back to base.
+                if self.renderer._last_base_buffer and self.renderer._last_displayed_buffer:
                     diff_renderer = DiffRenderer()
-                    output = diff_renderer.render_diff(None, self.renderer._last_buffer)
+                    output = diff_renderer.render_diff(
+                        self.renderer._last_displayed_buffer,  # From: composite with overlays
+                        self.renderer._last_base_buffer        # To: clean base view
+                    )
+                    # Update displayed to match base (no overlays)
+                    self.renderer._last_displayed_buffer = self.renderer._last_base_buffer
 
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)

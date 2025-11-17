@@ -36,6 +36,12 @@ class MockElement(Element):
         super().__init__(id)
         self.mock_width = width
         self.mock_height = height
+        self._dynamic_sizing: bool = False
+
+    @property
+    def supports_dynamic_sizing(self) -> bool:
+        """Whether this mock element supports dynamic sizing."""
+        return self._dynamic_sizing
 
     def render(self) -> str:
         """Render mock element.

@@ -126,6 +126,40 @@ class Element(ABC):
         """
         return (1, 1)
 
+    @property
+    def supports_dynamic_sizing(self) -> bool:
+        """Whether this element supports dynamic sizing.
+
+        Dynamic sizing elements can expand to fill available space and
+        report minimal constraints to avoid inflating their parent container.
+        This is used by the layout engine to optimize layout calculations.
+
+        Returns
+        -------
+        bool
+            True if element supports dynamic sizing, False otherwise
+
+        Notes
+        -----
+        Default implementation returns False. Elements that can efficiently
+        expand to fill space (like TextArea, Markdown viewers) should override
+        this to return True when they are configured with fill sizing.
+
+        Examples
+        --------
+        TextArea with fill sizing supports dynamic sizing:
+
+        >>> class TextArea(Element):
+        ...     def __init__(self, width="auto", height="auto"):
+        ...         self.width_spec = width
+        ...         self.height_spec = height
+        ...
+        ...     @property
+        ...     def supports_dynamic_sizing(self):
+        ...         return self.width_spec == "fill" or self.height_spec == "fill"
+        """
+        return False
+
     def handle_key(self, key: Key) -> bool:
         """Handle a key press.
 

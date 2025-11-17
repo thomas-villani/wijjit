@@ -153,8 +153,13 @@ class Renderer:
             os.environ.get("WIJJIT_DIFF_RENDERING", "true").lower() == "true"
         )
 
-        # Last rendered buffer for diff rendering
-        self._last_buffer: ScreenBuffer | None = None
+        # Two-buffer system for clean overlay compositing:
+        # - _last_base_buffer: The base view without overlays (always preserved)
+        # - _last_displayed_buffer: What's actually on screen (may include overlays)
+        # This separation allows clean diff rendering when overlays are added/removed
+        # without requiring full redraws or losing the base buffer state.
+        self._last_base_buffer: ScreenBuffer | None = None
+        self._last_displayed_buffer: ScreenBuffer | None = None
 
         # Diff renderer for efficient incremental updates
         self._diff_renderer = DiffRenderer()
@@ -412,7 +417,7 @@ class Renderer:
         # in dirty_manager, because initial focus/hover setup may mark individual elements
         # but we need to render the entire screen on first paint
         if self.use_diff_rendering:
-            if self._last_buffer is None:
+            if self._last_displayed_buffer is None:
                 # First render: ALWAYS mark entire screen dirty, ignore dirty_manager
                 # This ensures full UI renders even if focus manager marked individual elements
                 buffer.mark_all_dirty()
@@ -504,8 +509,11 @@ class Renderer:
         # old buffer (or None) with new buffer, not new buffer with itself!
         output = self._buffer_to_ansi(buffer)
 
-        # Store buffer for next render's diff (after converting!)
-        self._last_buffer = buffer
+        # Store buffers for next render (after converting!)
+        # Base buffer: The view without overlays (always preserved)
+        # Displayed buffer: What's on screen (same as base when no overlays)
+        self._last_base_buffer = buffer
+        self._last_displayed_buffer = buffer
 
         # Clear dirty regions now that rendering is complete
         self.dirty_manager.clear()
@@ -598,8 +606,8 @@ class Renderer:
             reliable but less efficient.
         """
         if self.use_diff_rendering:
-            # Diff mode: compare with last buffer and only output changes
-            return self._diff_renderer.render_diff(self._last_buffer, buffer)
+            # Diff mode: compare with what's on screen and only output changes
+            return self._diff_renderer.render_diff(self._last_displayed_buffer, buffer)
         else:
             # Full render mode: always clear and redraw everything
             return self._diff_renderer.render_diff(None, buffer)
@@ -612,7 +620,7 @@ class Renderer:
         ScreenBuffer or None
             Last rendered buffer, or None if not yet rendered
         """
-        return self._last_buffer
+        return self._last_displayed_buffer
 
     def get_buffer_as_text(self) -> str:
         """Get the last rendered buffer as plain text (for testing).
@@ -636,9 +644,9 @@ class Renderer:
         >>> 'Welcome' in text
         True
         """
-        if self._last_buffer is None:
+        if self._last_displayed_buffer is None:
             return ""
-        return self._last_buffer.to_text()
+        return self._last_displayed_buffer.to_text()
 
     def _composite_overlays_cells(
         self,
@@ -681,19 +689,21 @@ class Renderer:
         logger = get_logger(__name__)
         logger.debug(
             f"_composite_overlays_cells: overlay_count={len(overlay_elements)}, "
-            f"force_full_redraw={force_full_redraw}, has_last_buffer={self._last_buffer is not None}"
+            f"force_full_redraw={force_full_redraw}, has_base_buffer={self._last_base_buffer is not None}"
         )
 
-        # Create a new buffer for compositing (copy last buffer to preserve base)
+        # Create a new buffer for compositing
+        # IMPORTANT: Start from BASE buffer (not displayed buffer!)
+        # This ensures overlays are always composited on top of the clean base,
+        # not on top of previous overlay composites.
         composite_buffer = ScreenBuffer(width, height)
 
-        # Copy cells from last buffer (base view)
-        if self._last_buffer:
-
-            for y in range(min(height, self._last_buffer.height)):
-                for x in range(min(width, self._last_buffer.width)):
+        # Copy cells from BASE buffer (view without overlays)
+        if self._last_base_buffer:
+            for y in range(min(height, self._last_base_buffer.height)):
+                for x in range(min(width, self._last_base_buffer.width)):
                     # Create a copy of the cell to avoid mutating the original
-                    original_cell = self._last_buffer.cells[y][x]
+                    original_cell = self._last_base_buffer.cells[y][x]
                     composite_buffer.cells[y][x] = copy(original_cell)
 
         # Apply dimming to base if requested
@@ -735,9 +745,9 @@ class Renderer:
             element.render_to(ctx)
 
         # Now render the composite buffer
-        # Since overlays change the buffer, we need to update _last_buffer
-        # and render the diff (respecting the use_diff_rendering flag)
-        # If force_full_redraw is True, we force a full redraw instead of diff
+        # Diff from what's currently on screen (displayed buffer) to new composite
+        # IMPORTANT: Don't touch _last_base_buffer - it stays as the base view
+        # Only update _last_displayed_buffer to track what's actually on screen
 
         # When force_full_redraw is True, mark entire buffer dirty to ensure complete redraw
         # This is a defensive measure to prevent ghost remnants from dismissed overlays
@@ -745,14 +755,17 @@ class Renderer:
             composite_buffer.mark_all_dirty()
 
         if self.use_diff_rendering and not force_full_redraw:
+            # Diff from current display to new composite
             output = self._diff_renderer.render_diff(
-                self._last_buffer, composite_buffer
+                self._last_displayed_buffer, composite_buffer
             )
         else:
             # Full redraw (either diff rendering is disabled, or force_full_redraw is True)
             output = self._diff_renderer.render_diff(None, composite_buffer)
 
-        self._last_buffer = composite_buffer
+        # Update what's displayed (composite with overlays)
+        # Don't touch _last_base_buffer - it preserves the base view
+        self._last_displayed_buffer = composite_buffer
 
         return output
 
@@ -802,8 +815,8 @@ class Renderer:
 
         Overlays are composited directly on the cell buffer for efficient rendering.
         """
-        # Composite overlays on buffer
-        if self._last_buffer is not None:
+        # Composite overlays on base buffer
+        if self._last_base_buffer is not None:
             return self._composite_overlays_cells(
                 overlay_elements,
                 width,

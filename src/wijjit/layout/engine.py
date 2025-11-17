@@ -193,17 +193,15 @@ class ElementNode(LayoutNode):
         SizeConstraints
             Calculated constraints
         """
-        # For fill elements, check if the element has a _dynamic_sizing flag
-        # If so, skip rendering and use minimal constraints
-        has_dynamic_sizing = (
-            hasattr(self.element, "_dynamic_sizing") and self.element._dynamic_sizing
-        )
+        # Check if element supports dynamic sizing
+        # Dynamic sizing elements use minimal constraints to avoid inflating parent
+        supports_dynamic_sizing = self.element.supports_dynamic_sizing
 
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
             min_width = self.width_spec.value
             preferred_width = self.width_spec.value
-        elif has_dynamic_sizing and self.width_spec.is_fill:
+        elif supports_dynamic_sizing and self.width_spec.is_fill:
             # Dynamic sizing elements report minimal constraints to avoid inflating parent
             # They will expand to fill when space is available via assign_bounds
             min_width = 10  # Reasonable minimum for visibility
@@ -217,7 +215,7 @@ class ElementNode(LayoutNode):
         if self.height_spec.is_fixed:
             min_height = self.height_spec.value
             preferred_height = self.height_spec.value
-        elif has_dynamic_sizing and self.height_spec.is_fill:
+        elif supports_dynamic_sizing and self.height_spec.is_fill:
             # Dynamic sizing elements report minimal constraints to avoid inflating parent
             # They will expand to fill when space is available via assign_bounds
             min_height = 5  # Reasonable minimum for visibility (includes borders)

@@ -283,18 +283,36 @@ class InputHandler:
         # Queue for handling lookahead keys
         self._key_queue = []
 
-    def read_input(self) -> Union[Key, "MouseEvent", None]:
+    def read_input(self, timeout: float | None = None) -> Union[Key, "MouseEvent", None]:
         """Read a single input event (keyboard or mouse).
 
-        This method blocks until an input event occurs and returns either
-        a Key object (for keyboard input) or a MouseEvent object (for mouse
-        input).
+        This method blocks until an input event occurs (or timeout expires)
+        and returns either a Key object (for keyboard input) or a MouseEvent
+        object (for mouse input).
+
+        Parameters
+        ----------
+        timeout : float or None, optional
+            Maximum time to wait for input in seconds. If None, blocks indefinitely.
+            If timeout expires with no input, returns None. Default is None.
 
         Returns
         -------
         Key, MouseEvent, or None
-            Input event, or None on error
+            Input event, or None on timeout/error
+
+        Notes
+        -----
+        Timeout support is critical for enabling animations (spinners) and
+        time-based UI updates (notification expiry) without requiring user input.
+
+        Cross-platform implementation uses threading for timeout on Windows
+        and select.select() on Unix systems.
         """
+        import platform
+        import sys
+        import threading
+
         try:
             # Enter raw mode if not already in it
             if self._raw_mode is None:
@@ -306,10 +324,40 @@ class InputHandler:
                 key_press = self._key_queue.pop(0)
                 logger.debug(f"Processing queued key: {key_press.key!r}")
             else:
-                # Read one event from prompt_toolkit
-                keys = self._input.read_keys()
-                if not keys:
-                    return None
+                # If timeout specified, use platform-appropriate timeout mechanism
+                if timeout is not None:
+                    # On Windows, select.select() only works with sockets, not file descriptors
+                    # Use threading-based timeout for cross-platform compatibility
+                    keys_result = [None]
+                    read_complete = threading.Event()
+
+                    def read_thread():
+                        try:
+                            keys_result[0] = self._input.read_keys()
+                        except Exception as e:
+                            logger.error(f"Error reading input in thread: {e}")
+                            keys_result[0] = []
+                        finally:
+                            read_complete.set()
+
+                    thread = threading.Thread(target=read_thread, daemon=True)
+                    thread.start()
+
+                    # Wait for read to complete or timeout
+                    if read_complete.wait(timeout):
+                        # Read completed within timeout
+                        keys = keys_result[0]
+                        if not keys:
+                            return None
+                    else:
+                        # Timeout expired
+                        logger.debug(f"read_input timeout after {timeout}s")
+                        return None
+                else:
+                    # No timeout - blocking read
+                    keys = self._input.read_keys()
+                    if not keys:
+                        return None
 
                 logger.debug(
                     f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"

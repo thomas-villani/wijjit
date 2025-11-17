@@ -142,79 +142,107 @@ class ModalWithButton:
 
         return False
 
-    def render(self):
-        """Render the modal content with button."""
-        from wijjit.terminal.ansi import visible_length
+    def render_to(self, ctx):
+        """Render the modal content with button using cell-based rendering.
 
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+        """
+        from wijjit.rendering.paint_context import PaintContext
+        from wijjit.styling.style import Style
+
+        # Get default style for modal (white text on default background)
+        default_style = Style(fg="white")
+        title_style = Style(fg="white", bold=True)
+
+        # Draw top border
         border_top = (
             self.chars["tl"] + self.chars["h"] * (self.width - 2) + self.chars["tr"]
         )
-        border_bottom = (
-            self.chars["bl"] + self.chars["h"] * (self.width - 2) + self.chars["br"]
-        )
-
-        content_lines = []
-
-        # Top border
-        content_lines.append(border_top)
+        ctx.write_text(0, 0, border_top, default_style)
 
         # Empty line
-        content_lines.append(self.chars["v"] + " " * (self.width - 2) + self.chars["v"])
+        empty_line = self.chars["v"] + " " * (self.width - 2) + self.chars["v"]
+        ctx.write_text(0, 1, empty_line, default_style)
 
-        # Title (ANSI-aware centering)
+        # Title (centered)
         title_plain = "Confirm Action"
-        title_styled = f"{ANSIStyle.BOLD}{title_plain}{ANSIStyle.RESET}"
-        title_visible_len = len(title_plain)  # Visible length without ANSI codes
+        title_visible_len = len(title_plain)
         padding_needed = self.width - 2 - title_visible_len
         left_pad = padding_needed // 2
         right_pad = padding_needed - left_pad
 
-        content_lines.append(
+        title_line = (
             self.chars["v"]
             + " " * left_pad
-            + title_styled
+            + title_plain
             + " " * right_pad
             + self.chars["v"]
         )
+        # Write borders with default style
+        ctx.write_text(0, 2, self.chars["v"], default_style)
+        ctx.write_text(self.width - 1, 2, self.chars["v"], default_style)
+        # Write title with bold style
+        ctx.write_text(1 + left_pad, 2, title_plain, title_style)
+        # Write padding spaces
+        if left_pad > 0:
+            ctx.write_text(1, 2, " " * left_pad, default_style)
+        if right_pad > 0:
+            ctx.write_text(1 + left_pad + title_visible_len, 2, " " * right_pad, default_style)
 
         # Empty line
-        content_lines.append(self.chars["v"] + " " * (self.width - 2) + self.chars["v"])
+        ctx.write_text(0, 3, empty_line, default_style)
 
         # Message (wrapped if needed)
         message_lines = self._wrap_message(self.message, self.width - 4)
+        current_y = 4
         for msg_line in message_lines:
-            content_lines.append(
-                self.chars["v"] + " " + msg_line.ljust(self.width - 3) + self.chars["v"]
-            )
+            line_content = self.chars["v"] + " " + msg_line.ljust(self.width - 3) + self.chars["v"]
+            ctx.write_text(0, current_y, line_content, default_style)
+            current_y += 1
 
         # Fill space before button
-        while len(content_lines) < self.button_relative_y:
-            content_lines.append(
-                self.chars["v"] + " " * (self.width - 2) + self.chars["v"]
-            )
+        while current_y < self.button_relative_y:
+            ctx.write_text(0, current_y, empty_line, default_style)
+            current_y += 1
 
-        # Render button line (ANSI-aware width calculation)
-        button_content = self.button.render()
-        button_visible_len = visible_length(button_content)
-        button_line = (
-            self.chars["v"]
-            + " " * self.button_relative_x
-            + button_content
-            + " " * (self.width - 2 - self.button_relative_x - button_visible_len)
-            + self.chars["v"]
+        # Render button line with empty space around button
+        # Left border and spaces
+        button_prefix = self.chars["v"] + " " * self.button_relative_x
+        ctx.write_text(0, current_y, button_prefix, default_style)
+
+        # Render button at its position
+        button_ctx = PaintContext(
+            ctx.buffer,
+            ctx.style_resolver,
+            Bounds(
+                x=ctx.bounds.x + 1 + self.button_relative_x,
+                y=ctx.bounds.y + current_y,
+                width=self.button.bounds.width,
+                height=self.button.bounds.height,
+            ),
         )
-        content_lines.append(button_line)
+        self.button.render_to(button_ctx)
+
+        # Right side spaces and border
+        button_end_x = 1 + self.button_relative_x + self.button.bounds.width
+        right_spaces = " " * (self.width - 1 - button_end_x) + self.chars["v"]
+        ctx.write_text(button_end_x, current_y, right_spaces, default_style)
+
+        current_y += 1
 
         # Fill remaining height
-        while len(content_lines) < self.height - 1:
-            content_lines.append(
-                self.chars["v"] + " " * (self.width - 2) + self.chars["v"]
-            )
+        while current_y < self.height - 1:
+            ctx.write_text(0, current_y, empty_line, default_style)
+            current_y += 1
 
         # Bottom border
-        content_lines.append(border_bottom)
-
-        return "\n".join(content_lines[: self.height])
+        border_bottom = (
+            self.chars["bl"] + self.chars["h"] * (self.width - 2) + self.chars["br"]
+        )
+        ctx.write_text(0, current_y, border_bottom, default_style)
 
     def _wrap_message(self, message, max_width):
         """Wrap message to fit within modal width."""
