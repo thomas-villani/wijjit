@@ -7,7 +7,9 @@ This module tests the ProgressBar element including:
 - Unicode and ASCII rendering
 """
 
+from tests.helpers import render_element
 from wijjit.elements.display.progress import ProgressBar
+from wijjit.layout.bounds import Bounds
 from wijjit.terminal.ansi import strip_ansi, visible_length
 
 
@@ -140,7 +142,9 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(value=50, max=100, width=40, style="filled")
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 40, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should have some output
         assert len(output) > 0
@@ -163,7 +167,9 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(value=75, max=100, width=40, style="percentage")
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 40, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should contain "Progress:" and percentage
         assert "Progress:" in output
@@ -185,17 +191,29 @@ class TestProgressBar:
         """
         # Low percentage (red)
         pb_low = ProgressBar(value=20, max=100, width=40, style="gradient")
-        output_low = pb_low.render()
+        if not pb_low.bounds:
+            pb_low.set_bounds(Bounds(0, 0, 40, 1))
+        output_low = render_element(
+            pb_low, width=pb_low.bounds.width, height=pb_low.bounds.height
+        )
         assert len(strip_ansi(output_low)) > 0
 
         # Medium percentage (yellow)
         pb_med = ProgressBar(value=50, max=100, width=40, style="gradient")
-        output_med = pb_med.render()
+        if not pb_med.bounds:
+            pb_med.set_bounds(Bounds(0, 0, 40, 1))
+        output_med = render_element(
+            pb_med, width=pb_med.bounds.width, height=pb_med.bounds.height
+        )
         assert len(strip_ansi(output_med)) > 0
 
         # High percentage (green)
         pb_high = ProgressBar(value=90, max=100, width=40, style="gradient")
-        output_high = pb_high.render()
+        if not pb_high.bounds:
+            pb_high.set_bounds(Bounds(0, 0, 40, 1))
+        output_high = render_element(
+            pb_high, width=pb_high.bounds.width, height=pb_high.bounds.height
+        )
         assert len(strip_ansi(output_high)) > 0
 
         # All should have proper width
@@ -222,7 +240,9 @@ class TestProgressBar:
             fill_char="=",
             empty_char="-",
         )
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 40, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should contain custom characters
         stripped = strip_ansi(output)
@@ -243,10 +263,13 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(value=50, max=100, width=40, style="filled", color="green")
-        output = pb.render()
+        if not pb.bounds:
+            pb.bounds = Bounds(0, 0, 40, 1)
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
-        # Output should contain ANSI codes
-        assert "\x1b[" in output  # ANSI escape sequence
+        # Cell-based rendering stores color in Cell objects, not ANSI codes
+        # Verify the progress bar renders with filled blocks
+        assert "\u2588" in output  # Filled block character
 
         # Stripped version should still have proper length
         stripped = strip_ansi(output)
@@ -266,7 +289,9 @@ class TestProgressBar:
         pb = ProgressBar(
             value=50, max=100, width=40, style="filled", show_percentage=False
         )
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 40, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should not contain percentage text
         assert "%" not in output
@@ -286,7 +311,9 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(value=0, max=100, width=40, style="filled")
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 40, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should render without error
         assert len(output) > 0
@@ -304,7 +331,9 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(value=100, max=100, width=40, style="filled")
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 40, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should render without error
         assert len(output) > 0
@@ -323,7 +352,9 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(value=50, max=100, width=10, style="filled")
-        output = pb.render()
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 10, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
 
         # Should render without error
         assert len(output) > 0

@@ -6,6 +6,7 @@ custom extensions and filters for terminal UI rendering.
 
 import os
 import shutil
+from copy import copy
 from typing import TYPE_CHECKING, Any, Optional
 
 from jinja2 import DictLoader, Environment, FileSystemLoader, Template
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
 from wijjit.elements.base import Element
 from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
-from wijjit.layout.scroll import render_vertical_scrollbar
 from wijjit.logging_config import get_logger
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
@@ -63,7 +63,7 @@ from wijjit.tags.menu import (
     DropdownExtension,
     MenuItemExtension,
 )
-from wijjit.terminal.ansi import clip_to_width
+from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 # Get logger for this module
@@ -142,11 +142,6 @@ class Renderer:
 
         # Theme management for cell-based rendering
         self.theme_manager = ThemeManager()
-
-        # Feature flag for cell-based rendering (can be disabled for debugging)
-        self.use_cell_rendering = (
-            os.environ.get("WIJJIT_CELL_RENDERING", "true").lower() == "true"
-        )
 
         # Feature flag for diff rendering (now enabled by default with dirty region tracking)
         # When False, forces full screen re-renders on every frame
@@ -356,163 +351,17 @@ class Renderer:
         # Get statusbar if present
         statusbar = getattr(layout_ctx, "_statusbar", None)
 
-        # Compose output from positioned elements
-        # For cell-based rendering with statusbar, use full height and let statusbar render at bottom
-        # For legacy rendering, use layout_height and composite statusbar separately
-        # Choose rendering path based on feature flag
-        if self.use_cell_rendering:
-            logger.debug("Using cell-based rendering")
-            # Use full height for buffer, statusbar will render to last row
-            output, base_buffer = self._compose_output_cells(
-                elements, width, height, layout_ctx.root, statusbar
-            )
-        else:
-            logger.debug("Using legacy ANSI rendering")
-            # Use layout_height (statusbar composited separately by caller)
-            output = self._compose_output(
-                elements, width, layout_height, layout_ctx.root
-            )
+        # Compose output from positioned elements using cell-based rendering
+        # Use full height for buffer, statusbar will render to last row
+        logger.debug("Using cell-based rendering")
+        output, base_buffer = self._compose_output_cells(
+            elements, width, height, layout_ctx.root, statusbar
+        )
 
         # Return layout context so caller can process overlays
         # This allows app._render() to manage overlay lifecycle properly
         # (separating template-declared overlays from programmatic ones)
         return output, elements, layout_ctx
-
-    def _compose_output(
-        self,
-        elements: list[Element],
-        width: int,
-        height: int,
-        root: Optional["LayoutNode"] = None,
-    ) -> str:
-        """Compose final output from positioned elements.
-
-        Parameters
-        ----------
-        elements : list of Element
-            Elements with assigned bounds
-        width : int
-            Output width
-        height : int
-            Output height
-        root : LayoutNode, optional
-            Root of layout tree (for frame rendering)
-
-        Returns
-        -------
-        str
-            Composed output
-        """
-
-        # Create output buffer - now stores strings per cell to handle ANSI
-        # Each cell can contain a character with ANSI codes
-        buffer = [["" for _ in range(width)] for _ in range(height)]
-
-        # First pass: Render frame borders if we have a layout tree
-        if root is not None:
-            self._render_frames(root, buffer, width, height)
-
-        # Second pass: Render elements into the buffer
-        for element in elements:
-            if element.bounds is None:
-                continue
-
-            # Check if element is inside a scrollable frame
-            scroll_offset = 0
-            frame_clip_top = None
-            frame_clip_bottom = None
-
-            if hasattr(element, "parent_frame") and element.parent_frame is not None:
-                parent = element.parent_frame
-                if parent.style.scrollable and parent._needs_scroll:
-                    scroll_offset = parent.get_scroll_offset()
-
-                    # Calculate frame's visible content area for clipping
-                    if parent.bounds is not None:
-                        padding_top, _, padding_bottom, _ = parent.style.padding
-                        frame_clip_top = (
-                            parent.bounds.y + 1 + padding_top
-                        )  # +1 for top border
-                        frame_clip_bottom = (
-                            parent.bounds.y + parent.bounds.height - padding_bottom
-                        )  # Don't subtract 1, check is >=
-
-            # Render element
-            content = element.render()
-            lines = content.split("\n")
-
-            # Write to buffer at element's position (adjusted for scroll offset)
-            for i, line in enumerate(lines):
-                y = element.bounds.y + i - scroll_offset
-                if y >= height:
-                    break
-
-                # Skip lines that are clipped by parent frame viewport
-                if frame_clip_top is not None and (
-                    y < frame_clip_top or y >= frame_clip_bottom
-                ):
-                    continue
-
-                # Calculate remaining width from element position
-                x_start = element.bounds.x
-                if x_start >= width:
-                    continue
-
-                # Use the minimum of:
-                # 1. Element's allocated width (respects parent frame boundaries)
-                # 2. Remaining screen width (prevents overflow past screen edge)
-                remaining_width = min(element.bounds.width, width - x_start)
-
-                # Clip line to fit remaining width, preserving ANSI codes
-                clipped_line = clip_to_width(line, remaining_width, ellipsis="")
-
-                # For ANSI-aware positioning, we need to track visible position
-                # while writing the entire string including ANSI codes
-                visible_pos = 0
-                i_char = 0
-                pending_ansi = ""  # Accumulate consecutive ANSI sequences
-                last_visible_pos = -1  # Track last written position for trailing ANSI
-
-                while i_char < len(clipped_line):
-                    # Check if we're at the start of an ANSI sequence
-                    if clipped_line[i_char : i_char + 2] == "\x1b[":
-                        # Find the end of the ANSI sequence
-                        ansi_end = i_char + 2
-                        while (
-                            ansi_end < len(clipped_line)
-                            and not clipped_line[ansi_end].isalpha()
-                        ):
-                            ansi_end += 1
-                        if ansi_end < len(clipped_line):
-                            ansi_end += 1  # Include the letter
-                        # Accumulate this ANSI sequence (don't overwrite previous ones!)
-                        pending_ansi += clipped_line[i_char:ansi_end]
-                        i_char = ansi_end
-                    else:
-                        # Regular character - write it with any pending ANSI codes
-                        if visible_pos < remaining_width:
-                            buffer[y][x_start + visible_pos] = (
-                                pending_ansi + clipped_line[i_char]
-                            )
-                            last_visible_pos = visible_pos
-                            pending_ansi = (
-                                ""  # Clear pending after writing to first char
-                            )
-                            visible_pos += 1
-                        else:
-                            # Past visible width - stop processing visible chars
-                            # but continue to collect trailing ANSI codes
-                            visible_pos += 1
-                        i_char += 1
-
-                # If there are trailing ANSI codes (like RESET), append them to the last character
-                if pending_ansi and last_visible_pos >= 0:
-                    buffer[y][x_start + last_visible_pos] += pending_ansi
-
-        # Convert buffer to string
-        return "\n".join(
-            "".join(cell if cell else " " for cell in row) for row in buffer
-        )
 
     def _compose_output_cells(
         self,
@@ -608,7 +457,6 @@ class Renderer:
                         )
 
             # Adjust element bounds for scroll offset
-            from wijjit.layout.bounds import Bounds
 
             adjusted_bounds = Bounds(
                 x=element.bounds.x,
@@ -636,8 +484,6 @@ class Renderer:
 
         # Third pass: Render statusbar if present
         if statusbar is not None:
-            from wijjit.layout.bounds import Bounds
-
             # Position statusbar at bottom of screen
             statusbar_bounds = Bounds(x=0, y=height - 1, width=width, height=1)
             statusbar.set_bounds(statusbar_bounds)
@@ -711,8 +557,6 @@ class Renderer:
 
             # Draw title if present
             if style.title:
-                from wijjit.terminal.ansi import visible_length
-
                 title_text = f" {style.title} "
                 title_len = visible_length(title_text)
 
@@ -845,7 +689,6 @@ class Renderer:
 
         # Copy cells from last buffer (base view)
         if self._last_buffer:
-            from copy import copy
 
             for y in range(min(height, self._last_buffer.height)):
                 for x in range(min(width, self._last_buffer.width)):
@@ -957,11 +800,10 @@ class Renderer:
         If apply_dimming is True, the base output is dimmed before overlays
         are composited.
 
-        For cell-based rendering, overlays are composited directly on the buffer.
-        For legacy ANSI rendering, overlays are composited on string lines.
+        Overlays are composited directly on the cell buffer for efficient rendering.
         """
-        # If using cell-based rendering and we have a buffer, composite on buffer
-        if self.use_cell_rendering and self._last_buffer is not None:
+        # Composite overlays on buffer
+        if self._last_buffer is not None:
             return self._composite_overlays_cells(
                 overlay_elements,
                 width,
@@ -972,104 +814,8 @@ class Renderer:
                 force_full_redraw,
             )
 
-        # Legacy ANSI string compositing
-        from wijjit.terminal.ansi import apply_backdrop_dim, clip_to_width
-
-        # Convert base output to buffer
-        lines = base_output.split("\n")
-
-        # Apply backdrop dimming if requested
-        if apply_dimming:
-            lines = apply_backdrop_dim(lines, dim_factor)
-
-        # Ensure we have the right number of lines
-        while len(lines) < height:
-            lines.append(" " * width)
-
-        # Convert to 2D buffer for overlay compositing
-        buffer = []
-        for line in lines[:height]:
-            # Pad line to width if needed
-            padded = line + " " * max(0, width - len(line))
-            # Convert to list of individual characters (ANSI-aware)
-            # For now, simple character splitting (TODO: improve ANSI handling)
-            buffer.append(list(padded[:width]))
-
-        # Render each overlay element onto buffer
-        for element in overlay_elements:
-            if element.bounds is None:
-                continue
-
-            # Render element content
-            # Prepend RESET to ensure overlay isn't affected by backdrop dimming
-            from wijjit.terminal.ansi import ANSIStyle
-
-            content = element.render()
-            lines = content.split("\n")
-
-            # Write to buffer at element's position
-            for i, line in enumerate(lines):
-                y = element.bounds.y + i
-                if y >= height or y < 0:
-                    continue
-
-                x_start = element.bounds.x
-                if x_start >= width:
-                    continue
-
-                # Calculate remaining width
-                remaining_width = min(element.bounds.width, width - x_start)
-
-                # Prepend RESET to clear any backdrop dimming for this line
-                line = ANSIStyle.RESET + line
-
-                # Clip line to fit
-                clipped_line = clip_to_width(line, remaining_width, ellipsis="")
-
-                # IMPORTANT: Append RESET after clipping to ensure any active styles
-                # (like REVERSE, colors, etc.) are terminated, preventing style leakage
-                # This is crucial because clipping might remove the original RESET codes
-                if not clipped_line.endswith(ANSIStyle.RESET):
-                    clipped_line += ANSIStyle.RESET
-
-                # Write line to buffer (ANSI-aware positioning)
-                visible_pos = 0
-                i_char = 0
-                pending_ansi = ""
-
-                while i_char < len(clipped_line):
-                    # Check for ANSI sequence
-                    if clipped_line[i_char : i_char + 2] == "\x1b[":
-                        ansi_end = i_char + 2
-                        while (
-                            ansi_end < len(clipped_line)
-                            and not clipped_line[ansi_end].isalpha()
-                        ):
-                            ansi_end += 1
-                        if ansi_end < len(clipped_line):
-                            ansi_end += 1
-                        pending_ansi += clipped_line[i_char:ansi_end]
-                        i_char = ansi_end
-                    else:
-                        # Regular character
-                        if visible_pos < remaining_width:
-                            x_pos = x_start + visible_pos
-                            if x_pos < width:
-                                buffer[y][x_pos] = pending_ansi + clipped_line[i_char]
-                                pending_ansi = ""
-                            visible_pos += 1
-                        i_char += 1
-
-                # IMPORTANT: If there are pending ANSI codes (like final RESET),
-                # we need to write them to prevent style leakage to the next cell
-                if pending_ansi and visible_pos > 0:
-                    # Append to the last written cell to ensure the codes are present
-                    last_x = x_start + visible_pos - 1
-                    if 0 <= last_x < width and y < height:
-                        buffer[y][last_x] += pending_ansi
-
-        # Convert buffer back to string
-        return "\n".join("".join(row) for row in buffer)
+        # No buffer available - return base output unchanged
+        return base_output
 
     def composite_statusbar(
         self,
@@ -1104,8 +850,6 @@ class Renderer:
         The statusbar replaces the last line of the output. If the base
         output has fewer lines than the screen height, it will be padded.
         """
-        from wijjit.layout.bounds import Bounds
-        from wijjit.terminal.ansi import clip_to_width
 
         # Convert base output to lines
         lines = base_output.split("\n")
@@ -1125,7 +869,6 @@ class Renderer:
         statusbar_line = statusbar_element.render()
 
         # Ensure statusbar line is exactly width characters (clip or pad)
-        from wijjit.terminal.ansi import visible_length
 
         statusbar_len = visible_length(statusbar_line)
         if statusbar_len > width:
@@ -1137,296 +880,6 @@ class Renderer:
         lines.append(statusbar_line)
 
         return "\n".join(lines)
-
-    def _render_frames(
-        self, node: "LayoutNode", buffer: list[list[str]], width: int, height: int
-    ) -> None:
-        """Recursively render frame borders for containers with _frame_style.
-
-        Parameters
-        ----------
-        node : LayoutNode
-            Current node in the layout tree
-        buffer : list of list of str
-            Output buffer
-        width : int
-            Buffer width
-        height : int
-            Buffer height
-
-        Notes
-        -----
-        FrameNode objects are skipped as they render themselves via Frame.render().
-        This method only handles legacy containers with _frame_style metadata.
-        """
-
-        # Handle FrameNode - render borders if frame has no content
-        # (Frames with content render themselves via Frame.render())
-        if isinstance(node, FrameNode):
-            # Check if this is a scrollable frame with children
-            is_scrollable_container = (
-                node.frame.style.scrollable
-                and node.frame._needs_scroll
-                and node.frame._has_children
-            )
-
-            # Handle scrollable frames with children specially
-            if is_scrollable_container:
-                # Render borders and scrollbar directly into buffer
-                self._render_scrollable_frame_borders(node, buffer, width, height)
-                # Don't recurse - children will render via element path with scroll offset
-                return
-
-            # Only render borders for non-scrollable frames with children
-            if (
-                not node.frame.content
-                and node.bounds is not None
-                and not (node.frame.style.scrollable and node.frame._needs_scroll)
-            ):
-                # Create frame info for border rendering
-                border_value = (
-                    node.frame.style.border.value
-                    if hasattr(node.frame.style.border, "value")
-                    else str(node.frame.style.border)
-                )
-                frame_info = {
-                    "title": node.frame.style.title,
-                    "border": border_value,
-                }
-                # Render borders using existing logic by treating as legacy frame
-                # Fall through to border rendering logic below
-                node._frame_style = frame_info
-            else:
-                # Frame has content - it will render itself
-                # Just recurse for nested frames
-                for child in node.content_container.children:
-                    self._render_frames(child, buffer, width, height)
-                return
-
-        # Check if this node is a container with frame styling (legacy support or FrameNode)
-        if isinstance(node, (Container, FrameNode)) and hasattr(node, "_frame_style"):
-            # Render the frame
-            frame_info = node._frame_style
-            if node.bounds is not None:
-                # Map border string to BorderStyle enum
-                border_map = {
-                    "single": BorderStyle.SINGLE,
-                    "double": BorderStyle.DOUBLE,
-                    "rounded": BorderStyle.ROUNDED,
-                }
-                border_style = border_map.get(
-                    frame_info.get("border", "single"), BorderStyle.SINGLE
-                )
-
-                # Create and render frame (just borders, no content)
-                # The child elements will render on top in their positioned locations
-                # Render just the border lines (top, bottom, and sides)
-                chars = {
-                    BorderStyle.SINGLE: {
-                        "tl": "┌",
-                        "tr": "┐",
-                        "bl": "└",
-                        "br": "┘",
-                        "h": "─",
-                        "v": "│",
-                    },
-                    BorderStyle.DOUBLE: {
-                        "tl": "╔",
-                        "tr": "╗",
-                        "bl": "╚",
-                        "br": "╝",
-                        "h": "═",
-                        "v": "║",
-                    },
-                    BorderStyle.ROUNDED: {
-                        "tl": "╭",
-                        "tr": "╮",
-                        "bl": "╰",
-                        "br": "╯",
-                        "h": "─",
-                        "v": "│",
-                    },
-                }[border_style]
-
-                # Draw top border with title
-                y = node.bounds.y
-                if y < height:
-                    x = node.bounds.x
-                    if frame_info.get("title"):
-                        title_text = f" {frame_info['title']} "
-                        title_len = len(title_text)
-                        # Top-left corner
-                        if x < width:
-                            buffer[y][x] = chars["tl"]
-                        # Horizontal line before title
-                        if x + 1 < width:
-                            buffer[y][x + 1] = chars["h"]
-                        # Title
-                        for i, ch in enumerate(title_text):
-                            if x + 2 + i < width:
-                                buffer[y][x + 2 + i] = ch
-                        # Horizontal line after title to right edge
-                        for i in range(2 + title_len, node.bounds.width - 1):
-                            if x + i < width:
-                                buffer[y][x + i] = chars["h"]
-                        # Top-right corner
-                        if x + node.bounds.width - 1 < width:
-                            buffer[y][x + node.bounds.width - 1] = chars["tr"]
-                    else:
-                        # No title - just horizontal line
-                        if x < width:
-                            buffer[y][x] = chars["tl"]
-                        for i in range(1, node.bounds.width - 1):
-                            if x + i < width:
-                                buffer[y][x + i] = chars["h"]
-                        if x + node.bounds.width - 1 < width:
-                            buffer[y][x + node.bounds.width - 1] = chars["tr"]
-
-                # Draw side borders
-                for row in range(1, node.bounds.height - 1):
-                    y = node.bounds.y + row
-                    if y < height:
-                        x_left = node.bounds.x
-                        x_right = node.bounds.x + node.bounds.width - 1
-                        if x_left < width:
-                            buffer[y][x_left] = chars["v"]
-                        if x_right < width:
-                            buffer[y][x_right] = chars["v"]
-
-                # Draw bottom border
-                y = node.bounds.y + node.bounds.height - 1
-                if y < height:
-                    x = node.bounds.x
-                    if x < width:
-                        buffer[y][x] = chars["bl"]
-                    for i in range(1, node.bounds.width - 1):
-                        if x + i < width:
-                            buffer[y][x + i] = chars["h"]
-                    if x + node.bounds.width - 1 < width:
-                        buffer[y][x + node.bounds.width - 1] = chars["br"]
-
-        # Recursively process children (for nested frames)
-        if isinstance(node, FrameNode):
-            # FrameNode children are in content_container
-            for child in node.content_container.children:
-                self._render_frames(child, buffer, width, height)
-        elif isinstance(node, Container):
-            for child in node.children:
-                self._render_frames(child, buffer, width, height)
-
-    def _render_scrollable_frame_borders(
-        self, node: FrameNode, buffer: list[list[str]], width: int, height: int
-    ) -> None:
-        """Render borders and scrollbar for a scrollable frame with children.
-
-        Parameters
-        ----------
-        node : FrameNode
-            The scrollable frame node
-        buffer : list of list of str
-            Output buffer
-        width : int
-            Buffer width
-        height : int
-            Buffer height
-
-        Notes
-        -----
-        This method renders only the borders and scrollbar, leaving the content
-        area empty for children to render into with scroll offset applied.
-        """
-
-        frame = node.frame
-        if not frame.bounds or not frame.scroll_manager:
-            return
-
-        chars = BORDER_CHARS[frame.style.border]
-        padding_top, padding_right, padding_bottom, padding_left = frame.style.padding
-
-        # Calculate inner dimensions
-        inner_height = frame.bounds.height - 2 - padding_top - padding_bottom
-        # scrollbar_width = 1 if frame.style.show_scrollbar else 0
-
-        # Generate scrollbar
-        scrollbar_chars = []
-        if frame.style.show_scrollbar:
-            scrollbar_chars = render_vertical_scrollbar(
-                frame.scroll_manager.state, inner_height, style="simple"
-            )
-
-        # Draw top border with title
-        y = frame.bounds.y
-        if y < height:
-            x = frame.bounds.x
-            if frame.style.title:
-                title_text = f" {frame.style.title} "
-                title_len = len(title_text)
-                # Top-left corner
-                if x < width:
-                    buffer[y][x] = chars["tl"]
-                # Horizontal line before title
-                if x + 1 < width:
-                    buffer[y][x + 1] = chars["h"]
-                # Title
-                for i, ch in enumerate(title_text):
-                    if x + 2 + i < width:
-                        buffer[y][x + 2 + i] = ch
-                # Horizontal line after title to right edge
-                for i in range(2 + title_len, frame.bounds.width - 1):
-                    if x + i < width:
-                        buffer[y][x + i] = chars["h"]
-                # Top-right corner
-                if x + frame.bounds.width - 1 < width:
-                    buffer[y][x + frame.bounds.width - 1] = chars["tr"]
-            else:
-                # No title - just horizontal line
-                if x < width:
-                    buffer[y][x] = chars["tl"]
-                for i in range(1, frame.bounds.width - 1):
-                    if x + i < width:
-                        buffer[y][x + i] = chars["h"]
-                if x + frame.bounds.width - 1 < width:
-                    buffer[y][x + frame.bounds.width - 1] = chars["tr"]
-
-        # Draw side borders and scrollbar
-        for row in range(1, frame.bounds.height - 1):
-            y = frame.bounds.y + row
-            if y < height:
-                x_left = frame.bounds.x
-                x_right = frame.bounds.x + frame.bounds.width - 1
-
-                # Left border
-                if x_left < width:
-                    buffer[y][x_left] = chars["v"]
-
-                # Scrollbar (if in content area, not padding)
-                if frame.style.show_scrollbar:
-                    content_row = row - 1 - padding_top
-                    if 0 <= content_row < inner_height:
-                        scrollbar_x = x_right - 1
-                        scrollbar_char = (
-                            scrollbar_chars[content_row]
-                            if content_row < len(scrollbar_chars)
-                            else " "
-                        )
-                        if scrollbar_x < width:
-                            buffer[y][scrollbar_x] = scrollbar_char
-
-                # Right border
-                if x_right < width:
-                    buffer[y][x_right] = chars["v"]
-
-        # Draw bottom border
-        y = frame.bounds.y + frame.bounds.height - 1
-        if y < height:
-            x = frame.bounds.x
-            if x < width:
-                buffer[y][x] = chars["bl"]
-            for i in range(1, frame.bounds.width - 1):
-                if x + i < width:
-                    buffer[y][x + i] = chars["h"]
-            if x + frame.bounds.width - 1 < width:
-                buffer[y][x + frame.bounds.width - 1] = chars["br"]
 
     def clear_cache(self) -> None:
         """Clear the template cache."""

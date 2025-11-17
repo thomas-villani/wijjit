@@ -7,7 +7,59 @@ for testing terminal UI components.
 import os
 from pathlib import Path
 
+from wijjit.layout.bounds import Bounds
+from wijjit.rendering.paint_context import PaintContext
+from wijjit.styling.resolver import StyleResolver
+from wijjit.styling.theme import ThemeManager
 from wijjit.terminal.ansi import strip_ansi, visible_length
+from wijjit.terminal.screen_buffer import ScreenBuffer
+
+
+def render_element(element, width=80, height=24):
+    """Render an element using cell-based rendering.
+
+    This helper function provides a simple way to render elements in tests
+    using the new cell-based rendering API.
+
+    Parameters
+    ----------
+    element : Element
+        Element to render
+    width : int, optional
+        Width of rendering area (default: 80)
+    height : int, optional
+        Height of rendering area (default: 24)
+
+    Returns
+    -------
+    str
+        Rendered output as a string
+
+    Examples
+    --------
+    Render a button in a test:
+
+    >>> from tests.helpers import render_element
+    >>> button = Button("Click me")
+    >>> button.set_bounds(Bounds(0, 0, 20, 1))
+    >>> output = render_element(button, width=20, height=1)
+    """
+    # Create buffer and style resolver
+    buffer = ScreenBuffer(width, height)
+    theme_manager = ThemeManager()
+    # StyleResolver expects a Theme object, not a ThemeManager
+    style_resolver = StyleResolver(theme_manager.get_theme())
+
+    # Set bounds if not already set
+    if element.bounds is None:
+        element.set_bounds(Bounds(0, 0, width, height))
+
+    # Create paint context and render
+    ctx = PaintContext(buffer, style_resolver, element.bounds)
+    element.render_to(ctx)
+
+    # Convert buffer to text
+    return buffer.to_text()
 
 
 def assert_renders_correctly(
@@ -34,7 +86,11 @@ def assert_renders_correctly(
     AssertionError
         If rendering doesn't match expectations
     """
-    output = element.render()
+    # Determine buffer size from element bounds or expected dimensions
+    width = expected_width or (element.bounds.width if element.bounds else 80)
+    height = expected_height or (element.bounds.height if element.bounds else 24)
+
+    output = render_element(element, width=width, height=height)
     lines = output.split("\n") if output else []
 
     if expected_height is not None:

@@ -670,64 +670,6 @@ class LogView(ScrollableMixin, Element):
 
         return bordered_lines
 
-    def render(self) -> str:
-        """Render the log view (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered log view as multi-line string
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        content_height = self._get_content_height()
-        content_width = self._get_content_width()
-
-        # Get visible lines
-        visible_start, visible_end = self.scroll_manager.get_visible_range()
-        visible_lines = self.rendered_lines[visible_start:visible_end]
-
-        # Pad or trim to exact content height
-        if len(visible_lines) < content_height:
-            visible_lines.extend(
-                ["" for _ in range(content_height - len(visible_lines))]
-            )
-        else:
-            visible_lines = visible_lines[:content_height]
-
-        # Ensure all lines are padded to content width
-        for i in range(len(visible_lines)):
-            line = visible_lines[i]
-            line_len = visible_length(line)
-            if line_len < content_width:
-                visible_lines[i] = line + " " * (content_width - line_len)
-            elif line_len > content_width:
-                visible_lines[i] = clip_to_width(line, content_width, ellipsis="")
-
-        # Add scrollbar if needed
-        needs_scrollbar = (
-            self.show_scrollbar and self.scroll_manager.state.is_scrollable
-        )
-        if needs_scrollbar:
-            scrollbar_chars = render_vertical_scrollbar(
-                self.scroll_manager.state, content_height
-            )
-
-            for i in range(len(visible_lines)):
-                visible_lines[i] = visible_lines[i] + scrollbar_chars[i]
-
-        # Add borders if requested
-        if self.border_style != "none":
-            final_lines = self._render_with_border(visible_lines)
-        else:
-            final_lines = visible_lines
-
-        return "\n".join(final_lines)
-
     def render_to(self, ctx: PaintContext) -> None:
         """Render log view using cell-based rendering (NEW API).
 

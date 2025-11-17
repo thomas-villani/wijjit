@@ -1,7 +1,9 @@
 """Tests for LogView display element."""
 
+from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.logview import LogView
+from wijjit.layout.bounds import Bounds
 from wijjit.terminal.ansi import strip_ansi
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -28,7 +30,11 @@ class TestLogView:
         assert len(logview.lines) == 0
 
         # Should render without errors
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 80, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
 
     def test_log_level_detection_error(self):
@@ -212,7 +218,11 @@ class TestLogView:
 
         # Line numbers should not appear
         # (This is a bit tricky to test, but we can check rendered content)
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         # Numbers might appear in content, so just verify no formatting
         assert logview.show_line_numbers is False
 
@@ -307,7 +317,11 @@ class TestLogView:
         lines = ["INFO: Line 1", "ERROR: Line 2", "DEBUG: Line 3"]
         logview = LogView(lines=lines, width=80, height=10)
 
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 80, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
         # ANSI codes might be present, so check stripped content
         stripped = strip_ansi(output)
@@ -321,22 +335,38 @@ class TestLogView:
 
         # Single border
         lv_single = LogView(lines=lines, border_style="single", width=40, height=10)
-        output = lv_single.render()
+        if not lv_single.bounds:
+            lv_single.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            lv_single, width=lv_single.bounds.width, height=lv_single.bounds.height
+        )
         assert isinstance(output, str)
 
         # Double border
         lv_double = LogView(lines=lines, border_style="double", width=40, height=10)
-        output = lv_double.render()
+        if not lv_double.bounds:
+            lv_double.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            lv_double, width=lv_double.bounds.width, height=lv_double.bounds.height
+        )
         assert isinstance(output, str)
 
         # Rounded border
         lv_rounded = LogView(lines=lines, border_style="rounded", width=40, height=10)
-        output = lv_rounded.render()
+        if not lv_rounded.bounds:
+            lv_rounded.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            lv_rounded, width=lv_rounded.bounds.width, height=lv_rounded.bounds.height
+        )
         assert isinstance(output, str)
 
         # No border
         lv_none = LogView(lines=lines, border_style="none", width=40, height=10)
-        output = lv_none.render()
+        if not lv_none.bounds:
+            lv_none.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            lv_none, width=lv_none.bounds.width, height=lv_none.bounds.height
+        )
         assert isinstance(output, str)
 
     def test_render_with_title(self):
@@ -350,7 +380,11 @@ class TestLogView:
             height=10,
         )
 
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
         assert "Application Logs" in output
 
@@ -362,7 +396,11 @@ class TestLogView:
             lines=lines, width=40, height=10, show_scrollbar=True, border_style="single"
         )
 
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
         # Scrollbar characters should be present when content is scrollable
 
@@ -397,12 +435,18 @@ class TestLogView:
         logview = LogView(lines=lines, height=20, width=80)
 
         # Should render without issues
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 80, 20))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
 
         # Scroll to different positions
         logview.scroll_manager.scroll_to(5000)
-        output = logview.render()
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
 
     def test_scroll_manager_integration(self):
@@ -436,7 +480,11 @@ class TestLogView:
             soft_wrap=False,
         )
 
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
         # Should not crash with long lines
 
@@ -454,7 +502,11 @@ class TestLogView:
         logview = LogView(lines=lines, width=40, height=10)
 
         assert len(logview.lines) == 5
-        output = logview.render()
+        if not logview.bounds:
+            logview.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(
+            logview, width=logview.bounds.width, height=logview.bounds.height
+        )
         assert isinstance(output, str)
 
     def test_log_level_case_insensitive(self):

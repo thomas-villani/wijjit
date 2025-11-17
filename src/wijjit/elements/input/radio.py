@@ -188,48 +188,6 @@ class Radio(Element):
 
         return False
 
-    def render(self) -> str:
-        """Render the radio button (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered radio button with label
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        # Determine radio characters based on unicode support
-        if supports_unicode():
-            unchecked = "\u25cb"  # Empty circle
-            checked_mark = "\u25c9"  # Filled circle
-        else:
-            unchecked = "( )"
-            checked_mark = "(*)"
-
-        # Select the appropriate circle
-        circle = checked_mark if self.checked else unchecked
-
-        # Build the full output
-        if self.label:
-            output = f"{circle} {self.label}"
-        else:
-            output = circle
-
-        # Style based on focus
-        if self.focused:
-            # Focused: bold and highlighted
-            styles = (
-                f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.BG_BLUE}{ANSIColor.WHITE}"
-            )
-            return f"{styles}{output}{ANSIStyle.RESET}"
-        else:
-            # Not focused: plain style
-            return f"{ANSIStyle.RESET}{output}{ANSIStyle.RESET}"
-
     def render_to(self, ctx: "PaintContext") -> None:
         """Render radio button using cell-based rendering.
 

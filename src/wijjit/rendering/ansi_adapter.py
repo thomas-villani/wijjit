@@ -12,7 +12,6 @@ import re
 
 from wijjit.terminal.cell import Cell
 
-
 # Precompiled regex patterns for ANSI parsing
 # SGR (Select Graphic Rendition) - styling codes we want to parse
 _SGR_PATTERN = re.compile(r"\x1b\[([0-9;]*)m")

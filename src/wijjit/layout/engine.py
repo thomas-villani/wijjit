@@ -209,12 +209,8 @@ class ElementNode(LayoutNode):
             min_width = 10  # Reasonable minimum for visibility
             preferred_width = 10  # Keep preferred same as min to avoid inflating parent
         else:
-            # Auto or other - measure content
-            rendered = self.element.render()
-            lines = rendered.split("\n")
-            from wijjit.terminal.ansi import visible_length
-
-            content_width = max((visible_length(line) for line in lines), default=1)
+            # Auto or other - get intrinsic size from element
+            content_width, _ = self.element.get_intrinsic_size()
             min_width = content_width
             preferred_width = content_width
 
@@ -227,14 +223,8 @@ class ElementNode(LayoutNode):
             min_height = 5  # Reasonable minimum for visibility (includes borders)
             preferred_height = 5  # Keep preferred same as min to avoid inflating parent
         else:
-            # Auto or other - measure content
-            if not hasattr(self, "_rendered_for_constraints"):
-                rendered = self.element.render()
-                lines = rendered.split("\n")
-                self._rendered_for_constraints = True
-            else:
-                lines = self.element.render().split("\n")
-            content_height = len(lines)
+            # Auto or other - get intrinsic size from element
+            _, content_height = self.element.get_intrinsic_size()
             min_height = content_height
             preferred_height = content_height
 

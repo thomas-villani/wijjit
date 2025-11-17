@@ -5,7 +5,6 @@ from enum import Enum, auto
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import Element, ElementType
 from wijjit.rendering import PaintContext
-from wijjit.terminal.ansi import ANSIColor, ANSIStyle
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
 
@@ -204,47 +203,3 @@ class Button(Element):
             # Add padding spaces for better visual separation
             text = f" {self.label} "
             ctx.write_text(0, 0, text, resolved_style)
-
-    def render(self) -> str:
-        """Render the button (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered button with ANSI styling
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        # Apply styling based on focus
-        if self.focused:
-            # Focused: bold and highlighted with proper ANSI isolation
-            styles = (
-                f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.BG_BLUE}{ANSIColor.WHITE}"
-            )
-            reset = ANSIStyle.RESET
-        else:
-            # Not focused: plain style with explicit reset
-            styles = ANSIStyle.RESET
-            reset = ANSIStyle.RESET
-
-        # Render based on visual style
-        if self.style == ButtonStyle.BRACKETS:
-            text = f"< {self.label} >"
-        elif self.style == ButtonStyle.SQUARE:
-            text = f"[ {self.label} ]"
-        elif self.style == ButtonStyle.BOX:
-            text = f"\u2524 {self.label} \u251c"
-        elif self.style == ButtonStyle.BLOCK:
-            text = f"\u2590 {self.label} \u258c"
-        elif self.style == ButtonStyle.ROUNDED:
-            text = f"( {self.label} )"
-        elif self.style == ButtonStyle.MINIMAL:
-            text = f" {self.label} "
-        else:
-            text = f"< {self.label} >"  # Default fallback
-
-        return f"{styles}{text}{reset}"

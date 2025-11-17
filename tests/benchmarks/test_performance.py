@@ -14,12 +14,21 @@ Generate comparison:
     pytest tests/benchmarks/ --benchmark-compare
 """
 
+import os
+
 import pytest
 
+# Disable diff rendering for benchmarks - benchmarks repeatedly render identical
+# content, which triggers the diff renderer to skip output since nothing changed.
+# Benchmarks should measure full render performance, not diff performance.
+os.environ["WIJJIT_DIFF_RENDERING"] = "false"
+
+from tests.helpers import render_element
 from wijjit.core.app import Wijjit
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
 from wijjit.elements.display.tree import Tree
+from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import Frame, FrameStyle
 
 pytestmark = pytest.mark.benchmark
@@ -257,7 +266,12 @@ class TestLargeDatasetPerformance:
         ]
 
         tree = Tree(data=items, height=20)
-        result = benchmark(tree.render)
+        tree.bounds = Bounds(0, 0, 80, 20)
+
+        def render_tree():
+            return render_element(tree, width=80, height=20)
+
+        result = benchmark(render_tree)
         assert result
 
     def test_deeply_nested_tree(self, benchmark):
@@ -284,7 +298,12 @@ class TestLargeDatasetPerformance:
 
         items = [create_nested_tree(4, 3)]  # Depth 4, 3 children per level
         tree = Tree(data=items, height=20)
-        result = benchmark(tree.render)
+        tree.bounds = Bounds(0, 0, 80, 20)
+
+        def render_tree():
+            return render_element(tree, width=80, height=20)
+
+        result = benchmark(render_tree)
         assert result
 
     def test_large_list_template(self, benchmark):

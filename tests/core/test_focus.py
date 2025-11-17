@@ -2,6 +2,7 @@
 
 from wijjit.core.focus import FocusManager
 from wijjit.elements.base import Element
+from wijjit.rendering.paint_context import PaintContext
 
 
 # Test element implementation
@@ -14,6 +15,19 @@ class FocusableElement(Element):
 
     def render(self):
         return f"Element {self.id}"
+
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render element to cell buffer.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+        """
+        # Simple mock implementation for testing
+        text = f"Element {self.id}"
+        for i, char in enumerate(text):
+            ctx.buffer.write_at(i, 0, char)
 
 
 class TestFocusManager:

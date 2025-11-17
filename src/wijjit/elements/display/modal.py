@@ -309,54 +309,6 @@ class ModalElement(OverlayElement):
 
                 current_y += elem_height
 
-    def render(self) -> str:
-        """Render the modal with frame and content (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered modal as multi-line string
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility during migration.
-        """
-        if not self.bounds:
-            # No bounds set, return empty
-            return ""
-
-        # Calculate content bounds for children
-        content_bounds = self.calculate_content_bounds()
-
-        # Collect content from children if present
-        if self.children:
-            # Set bounds on children and render them
-            child_output = []
-            for child in self.children:
-                # Set bounds so text elements can wrap properly
-                child.set_bounds(content_bounds)
-                rendered = child.render()
-                if rendered:
-                    # Split multi-line strings into individual lines
-                    if "\n" in rendered:
-                        child_output.extend(rendered.split("\n"))
-                    else:
-                        child_output.append(rendered)
-
-            # Combine with existing content lines
-            all_content = self.content_lines + child_output
-        else:
-            all_content = self.content_lines
-
-        # Set frame properties
-        self.frame.content = all_content
-        self.frame.bounds = self.bounds
-
-        # Render frame
-        return self.frame.render()
-
     def calculate_content_bounds(self) -> Bounds:
         """Calculate the bounds available for content inside the frame.
 

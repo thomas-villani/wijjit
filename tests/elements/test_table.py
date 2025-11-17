@@ -1,7 +1,9 @@
 """Tests for Table display element."""
 
+from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.table import Table
+from wijjit.layout.bounds import Bounds
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -49,7 +51,8 @@ class TestTable:
         assert len(table.columns) == 2
 
         # Should render without errors
-        output = table.render()
+        table.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(table, width=40, height=10)
         assert isinstance(output, str)
 
     def test_set_data(self):
@@ -167,8 +170,9 @@ class TestTable:
             {"name": "Bob", "age": 25},
         ]
         table = Table(data=data, columns=["name", "age"], width=40, height=10)
+        table.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = table.render()
+        output = render_element(table, width=40, height=10)
         assert isinstance(output, str)
         assert "Alice" in output
         assert "Bob" in output
@@ -182,8 +186,9 @@ class TestTable:
         table = Table(
             data=data, columns=["name", "age"], width=40, height=10, show_scrollbar=True
         )
+        table.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = table.render()
+        output = render_element(table, width=40, height=10)
         assert isinstance(output, str)
         # Scrollbar characters should be present when content is scrollable
         # The scrollbar uses box drawing characters
@@ -192,8 +197,9 @@ class TestTable:
         """Test rendering without header row."""
         data = [{"name": "Alice", "age": 30}]
         table = Table(data=data, columns=["name", "age"], show_header=False)
+        table.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = table.render()
+        output = render_element(table, width=40, height=10)
         assert isinstance(output, str)
         assert "Alice" in output
         # Header should not be shown (no "name" or "age" labels)
@@ -233,6 +239,7 @@ class TestTable:
     def test_empty_columns(self):
         """Test table with no columns defined."""
         table = Table(data=[{"name": "Alice"}], columns=[])
+        table.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = table.render()
+        output = render_element(table, width=40, height=10)
         assert "No columns defined" in output

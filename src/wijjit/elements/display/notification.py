@@ -15,7 +15,6 @@ from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 from wijjit.terminal.ansi import (
     ANSIColor,
-    colorize,
     supports_unicode,
     visible_length,
     wrap_text,
@@ -315,69 +314,6 @@ class NotificationElement(OverlayElement):
 
             # Render button using cell-based rendering
             self.action_button.render_to(button_ctx)
-
-    def render(self) -> str:
-        """Render the notification (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered notification as multi-line string
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility during migration.
-        """
-        if not self.bounds:
-            return ""
-
-        # Update frame size to match bounds
-        self.frame.width = self.bounds.width
-        self.frame.height = self.bounds.height
-
-        # Get icon and color
-        icon = self._get_icon()
-        color = self._get_color()
-
-        # Format the message line with icon
-        icon_colored = colorize(icon, color, bold=True)
-        message_line = f"{icon_colored} {self.message}"
-
-        # Build content lines
-        content_lines = [message_line]
-
-        # Add action button if present
-        if self.action_button:
-            # Set button bounds for rendering (center it horizontally)
-            button_text = self.action_button.render()
-            button_width = visible_length(button_text)
-            # Account for border (2) + padding (2) = 4
-            inner_width = self.bounds.width - 4
-            button_x = max(0, (inner_width - button_width) // 2)
-
-            # Add spacing and button
-            content_lines.append("")  # Empty line for spacing
-            content_lines.append(" " * button_x + button_text)
-
-            # Update button bounds for click handling
-            if self.bounds:
-                button_bounds = Bounds(
-                    x=self.bounds.x + 2 + button_x,  # +2 for border + padding
-                    y=self.bounds.y
-                    + 3,  # Border + message + spacing = line 4 (0-indexed: 3)
-                    width=button_width,
-                    height=1,
-                )
-                self.action_button.set_bounds(button_bounds)
-
-        # Set frame properties
-        self.frame.content = content_lines
-        self.frame.bounds = self.bounds
-
-        # Render frame
-        return self.frame.render()
 
     def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse events on notification.

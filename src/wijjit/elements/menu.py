@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from wijjit.elements.base import ElementType, OverlayElement
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
-from wijjit.terminal.ansi import ANSIColor, ANSIStyle, clip_to_width, visible_length
+from wijjit.terminal.ansi import ANSIStyle, clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
 
@@ -419,72 +419,6 @@ class MenuElement(OverlayElement):
         x_offset = 1  # After left border
         formatted_text = f" {text} "
         ctx.write_text(x_offset, row, formatted_text, style)
-
-    def render(self) -> str:
-        """Render the menu with borders and items (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Multi-line string rendering of the menu
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility during migration.
-        """
-        if not self.bounds:
-            return ""
-
-        # Get border characters
-        chars = BORDER_CHARS[self.border_style]
-
-        lines = []
-
-        # Inner width (excluding borders)
-        inner_width = self.width
-
-        # Top border
-        border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}" if self.focused else ""
-        reset = ANSIStyle.RESET if self.focused else ""
-        top_border = (
-            f"{border_color}{chars['tl']}{chars['h'] * inner_width}{chars['tr']}{reset}"
-        )
-        lines.append(top_border)
-
-        # Render each item
-        for i, item in enumerate(self.items):
-            is_highlighted = i == self.highlighted_index and self.focused
-
-            if item.divider:
-                # Render divider
-                divider_line = (
-                    f"{border_color}{chars['v']}{reset}{chars['h'] * inner_width}"
-                    f"{border_color}{chars['v']}{reset}"
-                )
-                lines.append(divider_line)
-            else:
-                # Render regular item
-                rendered = self._render_item(item, is_highlighted)
-                # Ensure we close any styling before the right border
-                lines.append(
-                    f"{border_color}{chars['v']}{ANSIStyle.RESET}{rendered}{ANSIStyle.RESET}"
-                    f"{border_color}{chars['v']}{reset}"
-                )
-
-        # Bottom border
-        bottom_border = (
-            f"{border_color}{chars['bl']}{chars['h'] * inner_width}{chars['br']}{reset}"
-        )
-        lines.append(bottom_border)
-
-        # Join all lines and ensure we end with a reset to prevent style bleeding
-        output = "\n".join(lines)
-        # Always end with RESET to ensure no styles leak to subsequent content
-        if not output.endswith(ANSIStyle.RESET):
-            output += ANSIStyle.RESET
-        return output
 
     def _render_item(self, item: MenuItem, is_highlighted: bool) -> str:
         """Render a single menu item.

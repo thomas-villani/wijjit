@@ -890,7 +890,7 @@ class Wijjit:
                 self._sync_template_overlays(layout_ctx)
 
                 # Extract statusbar from layout context if present
-                current_statusbar = getattr(layout_ctx, "_statusbar", None)
+                # current_statusbar = getattr(layout_ctx, "_statusbar", None)
 
                 # Wire up element callbacks for actions and state binding
                 self._wire_element_callbacks(self.positioned_elements)
@@ -903,7 +903,7 @@ class Wijjit:
                 if self.positioned_elements:
                     self._wire_element_callbacks(self.positioned_elements)
                 # No statusbar for non-layout templates
-                current_statusbar = None
+                # current_statusbar = None
 
             # Track overlay identities to detect changes (additions, removals, replacements)
             # Use object IDs to detect when overlays are replaced (same count but different objects)
@@ -935,36 +935,18 @@ class Wijjit:
             elif overlays_changed:
                 # Overlays were just dismissed - force full redraw to clear ghosts
                 # Do this by re-rendering the base output with no diff
-                # term_size = shutil.get_terminal_size()
                 if self.renderer._last_buffer:
                     diff_renderer = DiffRenderer()
                     output = diff_renderer.render_diff(None, self.renderer._last_buffer)
 
-            # Composite statusbar if present (only for legacy ANSI rendering)
-            # Cell-based rendering already includes statusbar in the buffer
-            if current_statusbar is not None and not self.renderer.use_cell_rendering:
-                term_size = shutil.get_terminal_size()
-                output = self.renderer.composite_statusbar(
-                    output,
-                    current_statusbar,
-                    term_size.columns,
-                    term_size.lines,
-                )
-
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)
-
             if not output.endswith(ANSIStyle.RESET):
                 output += ANSIStyle.RESET
 
-            # IMPORTANT: Don't clear screen when using cell-based rendering
             # Cell-based rendering uses DiffRenderer which handles screen clearing internally:
             # - When use_diff_rendering=True: Clears on first render, then only outputs diffs
             # - When use_diff_rendering=False: Clears on every render (via DiffRenderer)
-            # Legacy ANSI rendering needs manual clear
-            if not self.renderer.use_cell_rendering:
-                self.screen_manager.clear()
-                self.screen_manager.move_cursor(1, 1)
 
             # Handle encoding for Windows console
             try:

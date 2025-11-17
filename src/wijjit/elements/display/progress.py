@@ -392,29 +392,3 @@ class ProgressBar(Element):
         # Render percentage text if enabled
         if self.show_percentage:
             ctx.write_text(bar_width, 0, percentage_text, text_style)
-
-    def render(self) -> str:
-        """Render the progress bar (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered progress bar as single-line string
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility during migration.
-        """
-        if self.style == "filled":
-            return self._render_filled_bar()
-        elif self.style == "percentage":
-            return self._render_percentage_only()
-        elif self.style == "gradient":
-            return self._render_gradient_bar()
-        elif self.style == "custom":
-            return self._render_custom_bar()
-        else:
-            # Default to filled style
-            return self._render_filled_bar()

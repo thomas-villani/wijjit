@@ -113,6 +113,12 @@ class TestOverlayAutoBounds:
             def render(self):
                 return "Custom Element"
 
+            def render_to(self, ctx):
+                """Render element to cell buffer."""
+                text = "Custom Element"
+                for i, char in enumerate(text):
+                    ctx.buffer.write_at(i, 0, char)
+
         element = CustomElement()
 
         # Verify element is not centered and has no bounds

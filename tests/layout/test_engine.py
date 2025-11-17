@@ -16,6 +16,7 @@ from wijjit.layout.engine import (
     SizeConstraints,
     VStack,
 )
+from wijjit.rendering.paint_context import PaintContext
 
 
 class MockElement(Element):
@@ -45,6 +46,29 @@ class MockElement(Element):
             Mock content with specified dimensions
         """
         return "\n".join(["X" * self.mock_width] * self.mock_height)
+
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get intrinsic size.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) tuple
+        """
+        return (self.mock_width, self.mock_height)
+
+    def render_to(self, ctx: PaintContext) -> None:
+        """Render mock element to cell buffer.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context with buffer, style resolver, and bounds
+        """
+        # Simple mock implementation: write X's to the buffer
+        for y in range(self.mock_height):
+            for x in range(self.mock_width):
+                ctx.buffer.write_at(x, y, "X")
 
 
 class TestElementNode:

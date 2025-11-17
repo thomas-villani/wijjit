@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock
 
+from tests.helpers import render_element
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.terminal.input import Key, Keys, KeyType
 
@@ -116,7 +117,7 @@ class TestRadio:
     def test_render_unchecked(self):
         """Test rendering unchecked radio."""
         radio = Radio(name="size", label="Medium")
-        output = radio.render()
+        output = render_element(radio, width=20, height=1)
 
         assert "Medium" in output
         # Should contain either unicode or ASCII radio
@@ -125,7 +126,7 @@ class TestRadio:
     def test_render_checked(self):
         """Test rendering checked radio."""
         radio = Radio(name="size", label="Large", checked=True)
-        output = radio.render()
+        output = render_element(radio, width=20, height=1)
 
         assert "Large" in output
         # Should contain either unicode or ASCII checked
@@ -136,10 +137,9 @@ class TestRadio:
         radio = Radio(name="size", label="Medium")
         radio.on_focus()
 
-        output = radio.render()
+        output = render_element(radio, width=20, height=1)
         assert "Medium" in output
-        # Focused radios should have ANSI styling
-        assert "\x1b[" in output
+        # Cell-based rendering stores styling in Cell objects, not ANSI codes
 
     def test_value_attribute(self):
         """Test radio with value attribute."""
@@ -271,7 +271,7 @@ class TestRadioGroup:
             selected_value="Small",
         )
 
-        output = group.render()
+        output = render_element(group, width=30, height=5)
         assert "Small" in output
         assert "Medium" in output
         # Check it spans multiple lines for vertical
@@ -283,7 +283,7 @@ class TestRadioGroup:
             name="size", options=["S", "M"], border_style="single", title="Select Size"
         )
 
-        output = group.render()
+        output = render_element(group, width=30, height=5)
         assert "Select Size" in output
         # Should contain border characters
         assert any(
@@ -308,7 +308,7 @@ class TestRadioGroup:
         group = RadioGroup(name="size", options=["S", "M"], width=30)
         assert group.width == 30
 
-        output = group.render()
+        output = render_element(group, width=30, height=5)
         # Lines should be padded to width
         lines = output.split("\n")
         for line in lines:

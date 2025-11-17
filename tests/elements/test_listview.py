@@ -1,7 +1,9 @@
 """Tests for ListView display element."""
 
+from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.list import ListView
+from wijjit.layout.bounds import Bounds
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -28,7 +30,17 @@ class TestListView:
         assert len(listview.items) == 0
 
         # Should render without errors
-        output = listview.render()
+        listview.set_bounds(
+            Bounds(
+                0,
+                0,
+                listview.width if hasattr(listview, "width") else 40,
+                listview.height if hasattr(listview, "height") else 10,
+            )
+        )
+        output = render_element(
+            listview, width=listview.bounds.width, height=listview.bounds.height
+        )
         assert isinstance(output, str)
 
     def test_normalize_items_strings(self):
@@ -177,8 +189,9 @@ class TestListView:
         """Test basic rendering."""
         items = ["Apple", "Banana", "Cherry"]
         listview = ListView(items=items, width=40, height=10)
+        listview.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = listview.render()
+        output = render_element(listview, width=40, height=10)
         assert isinstance(output, str)
         assert "Apple" in output
         assert "Banana" in output
@@ -190,22 +203,26 @@ class TestListView:
 
         # Single border
         lv_single = ListView(items=items, border_style="single", width=40, height=10)
-        output = lv_single.render()
+        lv_single.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(lv_single, width=40, height=10)
         assert isinstance(output, str)
 
         # Double border
         lv_double = ListView(items=items, border_style="double", width=40, height=10)
-        output = lv_double.render()
+        lv_double.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(lv_double, width=40, height=10)
         assert isinstance(output, str)
 
         # Rounded border
         lv_rounded = ListView(items=items, border_style="rounded", width=40, height=10)
-        output = lv_rounded.render()
+        lv_rounded.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(lv_rounded, width=40, height=10)
         assert isinstance(output, str)
 
         # No border
         lv_none = ListView(items=items, border_style="none", width=40, height=10)
-        output = lv_none.render()
+        lv_none.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(lv_none, width=40, height=10)
         assert isinstance(output, str)
 
     def test_render_with_title(self):
@@ -214,8 +231,9 @@ class TestListView:
         listview = ListView(
             items=items, title="My List", border_style="single", width=40, height=10
         )
+        listview.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = listview.render()
+        output = render_element(listview, width=40, height=10)
         assert isinstance(output, str)
         assert "My List" in output
 
@@ -226,8 +244,9 @@ class TestListView:
         listview = ListView(
             items=items, width=40, height=10, show_scrollbar=True, border_style="single"
         )
+        listview.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = listview.render()
+        output = render_element(listview, width=40, height=10)
         assert isinstance(output, str)
         # Scrollbar characters should be present when content is scrollable
 
@@ -237,8 +256,9 @@ class TestListView:
         listview = ListView(
             items=items, show_dividers=True, width=40, height=10, border_style="none"
         )
+        listview.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = listview.render()
+        output = render_element(listview, width=40, height=10)
         assert isinstance(output, str)
         # Dividers should be present between items
 
@@ -249,8 +269,9 @@ class TestListView:
             ("Task 2", "This is the second task\nWith multiple lines"),
         ]
         listview = ListView(items=items, width=50, height=15)
+        listview.set_bounds(Bounds(0, 0, 50, 15))
 
-        output = listview.render()
+        output = render_element(listview, width=50, height=15)
         assert isinstance(output, str)
         assert "Task 1" in output
         assert "Task 2" in output
@@ -308,8 +329,9 @@ class TestListView:
         listview = ListView(
             items=[long_item], width=40, height=10, border_style="single"
         )
+        listview.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = listview.render()
+        output = render_element(listview, width=40, height=10)
         assert isinstance(output, str)
         # Should not crash with long items
 
@@ -342,19 +364,22 @@ class TestListView:
 
         # Numbered list with details
         lv_number = ListView(items=items, bullet="number", width=50, height=15)
-        output = lv_number.render()
+        lv_number.set_bounds(Bounds(0, 0, 50, 15))
+        output = render_element(lv_number, width=50, height=15)
         assert isinstance(output, str)
 
         # Dashed list with details
         lv_dash = ListView(items=items, bullet="dash", width=50, height=15)
-        output = lv_dash.render()
+        lv_dash.set_bounds(Bounds(0, 0, 50, 15))
+        output = render_element(lv_dash, width=50, height=15)
         assert isinstance(output, str)
 
     def test_dividers_with_details(self):
         """Test dividers with details items."""
         items = [("Item 1", "Details 1"), ("Item 2", "Details 2")]
         listview = ListView(items=items, show_dividers=True, width=50, height=20)
+        listview.set_bounds(Bounds(0, 0, 50, 20))
 
         # Dividers should be between item groups (after details)
-        output = listview.render()
+        output = render_element(listview, width=50, height=20)
         assert isinstance(output, str)

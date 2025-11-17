@@ -209,18 +209,6 @@ class TestContainer:
         assert elem1 in focusable
         assert elem2 in focusable
 
-    def test_render_empty_container(self):
-        """Test rendering an empty container."""
-        container = Container()
-        result = container.render()
-        assert result == ""
-
-    def test_render_with_children(self):
-        """Test rendering container with children."""
-        container = Container()
-        container.add_child(TestElement(content="Line 1"))
-        container.add_child(TestElement(content="Line 2"))
-
-        result = container.render()
-        assert "Line 1" in result
-        assert "Line 2" in result
+    # NOTE: Container rendering tests removed - in cell-based rendering,
+    # containers don't render themselves. They're logical groupings, and
+    # the layout system handles child rendering.

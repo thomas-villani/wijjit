@@ -383,58 +383,6 @@ class TextInput(Element):
             elif self.style == InputStyle.MINIMAL:
                 ctx.write_text(0, 0, visible_text, resolved_style)
 
-    def render(self) -> str:
-        """Render the text input (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered input field with ANSI styling
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        display_text = self.value if self.value else self.placeholder
-
-        # Calculate scroll offset for long text
-        scroll_offset = 0
-        if len(display_text) > self.width:
-            # Scroll to keep cursor visible
-            if self.cursor_pos >= self.width:
-                scroll_offset = self.cursor_pos - self.width + 1
-
-        # Get visible portion and pad
-        visible_text = display_text[scroll_offset : scroll_offset + self.width]
-        visible_text = visible_text.ljust(self.width)
-
-        # Style based on focus
-        if self.focused:
-            styles = f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.CYAN}"
-            reset = ANSIStyle.RESET
-        else:
-            styles = ANSIStyle.RESET
-            reset = ANSIStyle.RESET
-
-        # Render based on visual style
-        if self.style == InputStyle.BRACKETS:
-            text = f"[{visible_text}]"
-        elif self.style == InputStyle.BOX:
-            text = f"\u251c{visible_text}\u2524"  # ├ and ┤
-        elif self.style == InputStyle.BLOCK:
-            text = f"\u258c{visible_text}\u2590"  # ▌ and ▐
-        elif self.style == InputStyle.UNDERLINE:
-            # Use underline ANSI code
-            text = f"{ANSIStyle.UNDERLINE}{visible_text}"
-        elif self.style == InputStyle.MINIMAL:
-            text = visible_text
-        else:
-            text = f"[{visible_text}]"  # Default fallback
-
-        return f"{styles}{text}{reset}"
-
 
 class TextArea(Element):
     """Multiline text area element with scrolling support.

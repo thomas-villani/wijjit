@@ -96,6 +96,36 @@ class Element(ABC):
         """
         pass
 
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic (preferred) size of the element.
+
+        This method calculates the natural size the element would like to be
+        based on its content, without requiring actual rendering. Used by the
+        layout engine to determine size constraints.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) in characters/lines
+
+        Notes
+        -----
+        Default implementation returns minimal size (1, 1). Elements should
+        override this to return their actual intrinsic size based on content.
+        This is used by the layout engine when sizing is set to "auto".
+
+        Examples
+        --------
+        TextElement calculates size from text content:
+
+        >>> def get_intrinsic_size(self):
+        ...     lines = self.text.split("\\n")
+        ...     width = max(visible_length(line) for line in lines)
+        ...     height = len(lines)
+        ...     return (width, height)
+        """
+        return (1, 1)
+
     def handle_key(self, key: Key) -> bool:
         """Handle a key press.
 
@@ -237,17 +267,6 @@ class Container(Element):
             if isinstance(child, Container):
                 result.extend(child.get_focusable_children())
         return result
-
-    def render(self) -> str:
-        """Render the container and its children.
-
-        Returns
-        -------
-        str
-            Rendered content
-        """
-        # Default implementation: render children in order
-        return "\n".join(child.render() for child in self.children)
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the container using cell-based rendering.
@@ -409,15 +428,20 @@ class TextElement(Element):
         else:
             self._wrapped_text = None
 
-    def render(self) -> str:
-        """Render the text element.
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size based on text content.
 
         Returns
         -------
-        str
-            The text content (wrapped if bounds have been set)
+        tuple[int, int]
+            (width, height) based on text lines
         """
-        return self._wrapped_text if self._wrapped_text is not None else self.text
+        from wijjit.terminal.ansi import visible_length
+
+        lines = self.text.split("\n")
+        width = max((visible_length(line) for line in lines), default=1)
+        height = len(lines)
+        return (width, height)
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the text element using cell-based rendering.

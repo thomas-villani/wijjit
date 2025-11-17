@@ -144,48 +144,6 @@ class Checkbox(Element):
 
         return False
 
-    def render(self) -> str:
-        """Render the checkbox (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered checkbox with label
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        # Determine checkbox characters based on unicode support
-        if supports_unicode():
-            unchecked = "\u2610"  # Empty checkbox
-            checked_mark = "\u2611"  # Checkbox with check mark
-        else:
-            unchecked = "[ ]"
-            checked_mark = "[X]"
-
-        # Select the appropriate box
-        box = checked_mark if self.checked else unchecked
-
-        # Build the full output
-        if self.label:
-            output = f"{box} {self.label}"
-        else:
-            output = box
-
-        # Style based on focus
-        if self.focused:
-            # Focused: bold and highlighted
-            styles = (
-                f"{ANSIStyle.RESET}{ANSIStyle.BOLD}{ANSIColor.BG_BLUE}{ANSIColor.WHITE}"
-            )
-            return f"{styles}{output}{ANSIStyle.RESET}"
-        else:
-            # Not focused: plain style
-            return f"{ANSIStyle.RESET}{output}{ANSIStyle.RESET}"
-
     def render_to(self, ctx: "PaintContext") -> None:
         """Render checkbox using cell-based rendering.
 

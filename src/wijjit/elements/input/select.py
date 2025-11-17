@@ -5,7 +5,7 @@ from typing import Literal
 from wijjit.elements.base import Element, ElementType, ScrollableMixin
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager
-from wijjit.terminal.ansi import ANSIColor, ANSIStyle, clip_to_width, visible_length
+from wijjit.terminal.ansi import ANSIStyle, clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -694,115 +694,6 @@ class Select(ScrollableMixin, Element):
         x_offset = border_offset
         text = f" {indicator}{label} "
         ctx.write_text(x_offset, row, text, style)
-
-    def render(self) -> str:
-        """Render the select element as a scrollable list (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Multi-line rendering of visible options, with optional borders
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility during migration.
-
-        Renders with box-drawing borders if border_style is set.
-        """
-        # Get border characters if borders are enabled
-        chars = BORDER_CHARS[self.border_style] if self.border_style else None
-
-        lines = []
-
-        # Render visible options
-        visible_start, visible_end = self.scroll_manager.get_visible_range()
-        visible_options = self.options[visible_start:visible_end]
-
-        if not visible_options:
-            # No options - show placeholder or empty message
-            empty_text = self.placeholder if not self.options else "No options"
-            empty_len = visible_length(empty_text)
-            if empty_len < self.width - 2:
-                empty_text = empty_text + " " * (self.width - 2 - empty_len)
-            else:
-                empty_text = clip_to_width(empty_text, self.width - 2, ellipsis="...")
-            lines.append(
-                f"{ANSIStyle.RESET}{ANSIStyle.DIM} {empty_text} {ANSIStyle.RESET}"
-            )
-        else:
-            for i, opt in enumerate(visible_options):
-                option_index = visible_start + i
-
-                is_selected = option_index == self.selected_index
-                is_highlighted = option_index == self.highlighted_index
-                is_disabled = opt["value"] in self.disabled_values
-
-                # Use custom renderer if provided
-                if self.item_renderer:
-                    rendered = self.item_renderer(
-                        opt, is_selected, is_highlighted, is_disabled
-                    )
-                else:
-                    rendered = self._render_option(
-                        opt, is_selected, is_highlighted, is_disabled
-                    )
-
-                lines.append(rendered)
-
-        # Pad to visible_rows height if needed
-        while len(lines) < self.visible_rows:
-            empty_line = " " * self.width
-            lines.append(f"{ANSIStyle.RESET}{empty_line}{ANSIStyle.RESET}")
-
-        # Apply borders if enabled
-        if self.border_style is not None and chars is not None:
-            # Choose border color based on focus
-            if self.focused:
-                border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}"
-                reset = ANSIStyle.RESET
-            else:
-                border_color = ""
-                reset = ""
-
-            # Top border (with optional title like Frame)
-            if self.title:
-                title_text = f" {self.title} "
-                title_len = visible_length(title_text)
-                remaining = self.width - title_len
-
-                if remaining >= 0:
-                    left_len = 1
-                    right_len = remaining - left_len
-                    top_border = (
-                        f"{border_color}{chars['tl']}{chars['h'] * left_len}"
-                        f"{reset}{title_text}{border_color}"
-                        f"{chars['h'] * right_len}{chars['tr']}{reset}"
-                    )
-                else:
-                    # Title too long, truncate
-                    title_text = clip_to_width(title_text, self.width, ellipsis="...")
-                    top_border = f"{border_color}{chars['tl']}{reset}{title_text}{border_color}{chars['tr']}{reset}"
-            else:
-                # No title
-                top_border = f"{border_color}{chars['tl']}{chars['h'] * self.width}{chars['tr']}{reset}"
-
-            # Wrap each option line with left and right borders
-            bordered_lines = []
-            for line in lines:
-                bordered_lines.append(
-                    f"{border_color}{chars['v']}{reset}{line}{border_color}{chars['v']}{reset}"
-                )
-
-            # Bottom border
-            bottom_border = f"{border_color}{chars['bl']}{chars['h'] * self.width}{chars['br']}{reset}"
-
-            # Combine all parts
-            return f"{top_border}\n" + "\n".join(bordered_lines) + f"\n{bottom_border}"
-        else:
-            # No borders - plain rendering
-            return "\n".join(lines)
 
     def _render_option(
         self, option: dict, is_selected: bool, is_highlighted: bool, is_disabled: bool

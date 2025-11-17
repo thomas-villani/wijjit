@@ -11,7 +11,11 @@ Snapshots are stored in tests/__snapshots__/ directory.
 
 import pytest
 
+from tests.helpers import render_element
 from wijjit.core.renderer import Renderer
+from wijjit.elements.input.button import Button
+from wijjit.elements.input.text import TextInput
+from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 
 pytestmark = pytest.mark.visual
@@ -32,7 +36,13 @@ class TestFrameSnapshots:
         frame = Frame(width=30, height=8, style=style)
         frame.set_content("Test content with single border")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_frame_double_border(self, snapshot):
@@ -47,7 +57,13 @@ class TestFrameSnapshots:
         frame = Frame(width=30, height=8, style=style)
         frame.set_content("Test content with double border")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_frame_rounded_border(self, snapshot):
@@ -62,7 +78,13 @@ class TestFrameSnapshots:
         frame = Frame(width=30, height=8, style=style)
         frame.set_content("Test content with rounded border")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_frame_with_padding(self, snapshot):
@@ -79,7 +101,13 @@ class TestFrameSnapshots:
         frame = Frame(width=35, height=10, style=style)
         frame.set_content("Padded content")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_frame_multiline_content(self, snapshot):
@@ -94,7 +122,13 @@ class TestFrameSnapshots:
         frame = Frame(width=40, height=12, style=style)
         frame.set_content("Line 1\nLine 2\nLine 3\nLine 4\nLine 5")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
 
@@ -220,7 +254,13 @@ class TestOverflowSnapshots:
         frame = Frame(width=25, height=5, style=style)
         frame.set_content("This is a very long line that will be clipped at the edge")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_overflow_wrap(self, snapshot):
@@ -235,7 +275,13 @@ class TestOverflowSnapshots:
         frame = Frame(width=25, height=8, style=style)
         frame.set_content("This is a very long line that will wrap to multiple lines")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
 
@@ -250,10 +296,15 @@ class TestElementSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        from wijjit.elements.input.button import Button
 
         button = Button(label="Click Me!", id="test_btn")
-        output = button.render()
+        if not button.bounds:
+
+            button.bounds = Bounds(0, 0, 15, 1)
+
+        output = render_element(
+            button, width=button.bounds.width, height=button.bounds.height
+        )
 
         assert output == snapshot
 
@@ -265,10 +316,15 @@ class TestElementSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        from wijjit.elements.input.text import TextInput
 
         text_input = TextInput(id="test_input", placeholder="Enter text...")
-        output = text_input.render()
+        if not text_input.bounds:
+
+            text_input.bounds = Bounds(0, 0, 30, 1)
+
+        output = render_element(
+            text_input, width=text_input.bounds.width, height=text_input.bounds.height
+        )
 
         assert output == snapshot
 
@@ -280,11 +336,16 @@ class TestElementSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        from wijjit.elements.input.text import TextInput
 
         text_input = TextInput(id="test_input")
         text_input.value = "Current Value"
-        output = text_input.render()
+        if not text_input.bounds:
+
+            text_input.bounds = Bounds(0, 0, 30, 1)
+
+        output = render_element(
+            text_input, width=text_input.bounds.width, height=text_input.bounds.height
+        )
 
         assert output == snapshot
 
@@ -350,7 +411,13 @@ class TestAlignmentSnapshots:
         frame = Frame(width=40, height=8, style=style)
         frame.set_content("Left aligned")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_horizontal_align_center(self, snapshot):
@@ -365,7 +432,13 @@ class TestAlignmentSnapshots:
         frame = Frame(width=40, height=8, style=style)
         frame.set_content("Centered")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot
 
     def test_horizontal_align_right(self, snapshot):
@@ -380,5 +453,11 @@ class TestAlignmentSnapshots:
         frame = Frame(width=40, height=8, style=style)
         frame.set_content("Right aligned")
 
-        output = frame.render()
+        if not frame.bounds:
+
+            frame.bounds = Bounds(0, 0, frame.width, frame.height)
+
+        output = render_element(
+            frame, width=frame.bounds.width, height=frame.bounds.height
+        )
         assert output == snapshot

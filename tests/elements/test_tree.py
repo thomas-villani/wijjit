@@ -1,7 +1,9 @@
 """Tests for Tree display element."""
 
+from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.tree import Tree
+from wijjit.layout.bounds import Bounds
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -560,8 +562,9 @@ class TestTreeRendering:
     def test_render_empty_tree(self):
         """Test rendering an empty tree."""
         tree = Tree(width=40, height=10)
+        tree.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         assert isinstance(output, str)
         assert "Empty tree" in output
@@ -578,8 +581,9 @@ class TestTreeRendering:
         }
 
         tree = Tree(data=data, width=40, height=10)
+        tree.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         assert isinstance(output, str)
         assert "Root" in output
@@ -598,9 +602,10 @@ class TestTreeRendering:
         }
 
         tree = Tree(data=data, width=40, height=10)
+        tree.set_bounds(Bounds(0, 0, 40, 10))
         tree.expand_node("root")
 
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         assert isinstance(output, str)
         assert "Root" in output
@@ -619,9 +624,10 @@ class TestTreeRendering:
         }
 
         tree = Tree(data=data, width=40, height=10)
+        tree.set_bounds(Bounds(0, 0, 40, 10))
         tree.expand_node("root")
 
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         # Should contain tree drawing characters (Unicode box-drawing)
         assert "\u251c" in output or "\u2514" in output  # ├ or └
@@ -637,15 +643,16 @@ class TestTreeRendering:
         }
 
         tree = Tree(data=data, width=40, height=10)
+        tree.set_bounds(Bounds(0, 0, 40, 10))
 
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         # Should contain collapsed indicator (default is large triangles)
         assert "▶" in output or "[+]" in output  # Unicode or fallback
 
         # Expand and re-render
         tree.expand_node("root")
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         # Should contain expanded indicator
         assert "▼" in output or "[-]" in output  # Unicode or fallback
@@ -666,11 +673,12 @@ class TestTreeRendering:
         tree = Tree(
             data=data, width=40, height=10, indicator_style=TreeIndicatorStyle.BRACKETS
         )
-        output = tree.render()
+        tree.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(tree, width=40, height=10)
         assert "[+]" in output
 
         tree.expand_node("root")
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
         assert "[-]" in output
 
         # Test TRIANGLES_LARGE style (default)
@@ -680,22 +688,24 @@ class TestTreeRendering:
             height=10,
             indicator_style=TreeIndicatorStyle.TRIANGLES_LARGE,
         )
-        output = tree.render()
+        tree.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(tree, width=40, height=10)
         assert "▶" in output or "[+]" in output  # Unicode or fallback
 
         tree.expand_node("root")
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
         assert "▼" in output or "[-]" in output  # Unicode or fallback
 
         # Test MINIMAL style
         tree = Tree(
             data=data, width=40, height=10, indicator_style=TreeIndicatorStyle.MINIMAL
         )
-        output = tree.render()
+        tree.set_bounds(Bounds(0, 0, 40, 10))
+        output = render_element(tree, width=40, height=10)
         assert "+" in output
 
         tree.expand_node("root")
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
         assert "-" in output
 
     def test_render_with_scrollbar(self):
@@ -705,9 +715,10 @@ class TestTreeRendering:
         data = {"label": "Root", "value": "root", "children": children}
 
         tree = Tree(data=data, width=40, height=10, show_scrollbar=True)
+        tree.set_bounds(Bounds(0, 0, 40, 10))
         tree.expand_node("root")
 
-        output = tree.render()
+        output = render_element(tree, width=40, height=10)
 
         assert isinstance(output, str)
         # Scrollbar characters should be present
