@@ -33,7 +33,6 @@ def dialog_view():
              content_align_h="center"
              content_align_v="middle" %}
 
-      {% vstack spacing=1 %}
         Welcome to Wijjit!
 
         This dialog is centered both horizontally
@@ -43,7 +42,6 @@ def dialog_view():
         the content is center-aligned.
 
         Press 'q' to quit
-      {% endvstack %}
 
     {% endframe %}
 

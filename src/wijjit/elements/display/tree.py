@@ -907,7 +907,6 @@ class Tree(ScrollableMixin, Element):
         - 'tree.border': Border characters
         - 'tree.border:focus': Border when focused
         """
-
         # Resolve base styles
         if self.focused:
             border_style = ctx.style_resolver.resolve_style(self, "tree.border:focus")

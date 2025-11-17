@@ -149,9 +149,7 @@ class Renderer:
         #
         # With DirtyRegionManager integrated, diff rendering can safely be enabled by default.
         # State/Focus/Hover changes mark appropriate regions dirty, ensuring correct updates.
-        self.use_diff_rendering = (
-            os.environ.get("WIJJIT_DIFF_RENDERING", "true").lower() == "true"
-        )
+        self.use_diff_rendering = True
 
         # Two-buffer system for clean overlay compositing:
         # - _last_base_buffer: The base view without overlays (always preserved)
@@ -511,9 +509,10 @@ class Renderer:
 
         # Store base buffer for next render (after converting!)
         # Base buffer: The view without overlays (always preserved)
-        # NOTE: We do NOT update _last_displayed_buffer here - that's managed by
-        # the overlay compositing logic in app._render() to track what's actually on screen
+        # NOTE: We update displayed buffer here for normal rendering flow
+        # This will be overwritten by composite_overlays if overlays are present
         self._last_base_buffer = buffer
+        self._last_displayed_buffer = buffer
 
         # Clear dirty regions now that rendering is complete
         self.dirty_manager.clear()

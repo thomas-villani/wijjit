@@ -45,7 +45,6 @@ from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import ANSIColor, ANSICursor, ANSIStyle, colorize
 from wijjit.terminal.input import InputHandler
 from wijjit.terminal.screen import ScreenManager
-from wijjit.terminal.screen_buffer import DiffRenderer
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -599,27 +598,9 @@ class Wijjit:
                     overlay_manager=self.overlay_manager,
                     force_full_redraw=overlays_changed,
                 )
-            elif overlays_changed:
-                # Overlays were just dismissed - diff cleanly from composite to base
-                # The displayed buffer still has the old composite (with overlays),
-                # and base buffer has the clean base view. Diff between them.
-                if (
-                    self.renderer._last_base_buffer
-                    and self.renderer._last_displayed_buffer
-                ):
-                    diff_renderer = DiffRenderer()
-                    output = diff_renderer.render_diff(
-                        self.renderer._last_displayed_buffer,  # From: composite with overlays
-                        self.renderer._last_base_buffer,  # To: clean base view
-                    )
-                    # Update displayed to match base (no overlays)
-                    self.renderer._last_displayed_buffer = (
-                        self.renderer._last_base_buffer
-                    )
-            else:
-                # No overlays and no overlay changes - update displayed to match base
-                # This handles the normal case where we're just showing the base view
-                self.renderer._last_displayed_buffer = self.renderer._last_base_buffer
+            # Note: When overlays are dismissed (overlays_changed=True but no overlays present),
+            # the diff rendering in _compose_output_cells already handled clearing them
+            # because it diffed from old displayed (with overlays) to new base (without overlays)
 
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)

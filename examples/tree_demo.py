@@ -173,13 +173,11 @@ def main_view():
     return {
         "template": """
 {% frame title="Tree Demo - File System Explorer" border="double" width=100 height=35 %}
-  {% vstack spacing=1 padding=1 %}
     {{ state.message }}
 
     Instructions: TAB to focus | Arrow keys navigate | Left/Right expand/collapse | Enter/Space toggle | Mouse wheel scrolls | Click to select | 'q' to quit
 
     {% hstack spacing=2 align_v="top" height=22 %}
-      {% vstack spacing=0 width=48 %}
         {% tree id="filetree"
                 data=state.file_tree
                 width=46
@@ -191,9 +189,7 @@ def main_view():
                 expanded="expanded_nodes"
                 on_select="file_selected" %}
         {% endtree %}
-      {% endvstack %}
 
-      {% vstack spacing=0 width=48 %}
         {% frame title="File Details" border="single" width="fill" height=18 %}
           {% if state.selected_file %}
             Name: {{ state.selected_file.label }}
@@ -209,7 +205,6 @@ def main_view():
             No file selected. Click on a file or folder to see details.
           {% endif %}
         {% endframe %}
-      {% endvstack %}
     {% endhstack %}
 
     {% hstack spacing=2 %}
@@ -218,7 +213,6 @@ def main_view():
       {% button id="add_node_btn" action="add_node" %}Add Test Node{% endbutton %}
       {% button id="quit_btn" action="quit" %}Quit{% endbutton %}
     {% endhstack %}
-  {% endvstack %}
 {% endframe %}
         """,  # noqa: E501
         "data": {},

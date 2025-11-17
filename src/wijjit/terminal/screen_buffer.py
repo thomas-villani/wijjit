@@ -4,6 +4,7 @@ This module provides the ScreenBuffer class for managing 2D cell arrays and
 the DiffRenderer class for generating minimal ANSI output by comparing buffers.
 """
 
+
 from wijjit.terminal.cell import Cell
 
 
@@ -143,6 +144,33 @@ class ScreenBuffer:
             Set of (x, y, width, height) tuples representing dirty rectangles
         """
         return self.dirty_regions.copy()
+
+    def get_merged_dirty_regions(self) -> list[tuple[int, int, int, int]]:
+        """Get dirty regions merged into non-overlapping rectangles.
+
+        Returns
+        -------
+        list of tuple
+            List of (x, y, width, height) tuples representing merged dirty rectangles
+
+        Notes
+        -----
+        This merges overlapping or adjacent 1x1 dirty regions into larger rectangles
+        to minimize the number of regions the diff renderer needs to process.
+        """
+        if not self.dirty_regions:
+            return []
+
+        # For now, just return full-width horizontal strips for each dirty row
+        # This is simpler than complex rectangle merging and works well for most cases
+        rows_dirty = set()
+        for _x, y, _w, h in self.dirty_regions:
+            for row in range(y, y + h):
+                if 0 <= row < self.height:
+                    rows_dirty.add(row)
+
+        # Return one region per dirty row, spanning full width
+        return [(0, row, self.width, 1) for row in sorted(rows_dirty)]
 
     def clear_dirty(self) -> None:
         """Clear all dirty region tracking.
@@ -371,8 +399,9 @@ class DiffRenderer:
 
         # Use dirty regions if available for optimization
         if new_buffer.dirty_regions:
-            # Render only dirty regions
-            for x, y, w, h in new_buffer.dirty_regions:
+            # Use merged regions to avoid overlaps and reduce iteration
+            merged_regions = new_buffer.get_merged_dirty_regions()
+            for x, y, w, h in merged_regions:
                 for row in range(y, min(y + h, new_buffer.height)):
                     diff_commands = self._render_row_diff(
                         old_buffer.cells[row],

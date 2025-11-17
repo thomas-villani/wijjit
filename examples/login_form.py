@@ -29,16 +29,8 @@ def login_view():
 {% frame title="Login" border="single" width=50 height=15 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.status }}
-
-    {% vstack spacing=0 %}
-      Username:
-      {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
-    {% endvstack %}
-
-    {% vstack spacing=0 %}
-      Password:
-      {% textinput id="password" placeholder="Enter password" width=30 action="login" %}{% endtextinput %}
-    {% endvstack %}
+    Username: {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
+    Password: {% textinput id="password" placeholder="Enter password" width=30 action="login" %}{% endtextinput %}
 
     {% hstack spacing=2 %}
       {% button id="login_btn" action="login" %}Login{% endbutton %}
