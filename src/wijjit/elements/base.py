@@ -494,4 +494,12 @@ class TextElement(Element):
         text = self._wrapped_text if self._wrapped_text is not None else self.text
         # Resolve style for text element
         style = ctx.style_resolver.resolve_style(self, "text")
-        ctx.write_text(0, 0, text, style)
+
+        # Split text by newlines and render each line separately
+        # write_text() doesn't handle newlines, so we must split manually
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            # Stop if we've exceeded the element's height
+            if i >= ctx.bounds.height:
+                break
+            ctx.write_text(0, i, line, style)

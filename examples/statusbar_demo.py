@@ -38,7 +38,6 @@ def home_view():
     return {
         "template": """
 {% frame title="StatusBar Demo - Home" border="rounded" width=80 height=20 %}
-  {% vstack spacing=1 padding=2 %}
     Welcome to the StatusBar Demo!
 
     This demo shows view-scoped status bars with:
@@ -58,7 +57,6 @@ def home_view():
       {% button action="go_to_editor" %}Editor View{% endbutton %}
       {% button action="go_to_stats" %}Stats View{% endbutton %}
     {% endhstack %}
-  {% endvstack %}
 {% endframe %}
 
 {% statusbar left=state.sb_left
@@ -77,7 +75,6 @@ def editor_view():
     return {
         "template": """
 {% frame title="StatusBar Demo - Editor" border="rounded" width=80 height=20 %}
-  {% vstack spacing=1 padding=2 %}
     Editor View
 
     This view shows a status bar with cursor position information.
@@ -95,7 +92,6 @@ def editor_view():
       {% button action="go_to_home" %}Home{% endbutton %}
       {% button action="go_to_stats" %}Stats View{% endbutton %}
     {% endhstack %}
-  {% endvstack %}
 {% endframe %}
 
 {% statusbar left=state.sb_left
@@ -116,7 +112,6 @@ def stats_view():
     return {
         "template": """
 {% frame title="StatusBar Demo - Statistics" border="rounded" width=80 height=20 %}
-  {% vstack spacing=1 padding=2 %}
     Statistics View
 
     This view shows document statistics in the status bar.
@@ -135,7 +130,6 @@ def stats_view():
       {% button action="go_to_home" %}Home{% endbutton %}
       {% button action="go_to_editor" %}Editor View{% endbutton %}
     {% endhstack %}
-  {% endvstack %}
 {% endframe %}
 
 {% statusbar left=state.sb_left
