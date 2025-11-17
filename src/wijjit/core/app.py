@@ -850,7 +850,7 @@ class Wijjit:
             List of positioned elements
         """
         # Wire basic element callbacks
-        self.wiring_manager.wire_elements(elements, self.state, self.handler_registry)
+        self.wiring_manager.wire_elements(elements, self.state)
 
         # Wire menu callbacks (for overlay menus)
         # Process ALL menu elements from template overlays, not just visible ones

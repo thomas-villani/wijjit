@@ -76,7 +76,6 @@ class ElementWiringManager:
         self,
         elements: list[Element],
         state: State,
-        handlers: HandlerRegistry,
     ) -> None:
         """Wire callbacks for all elements.
 
@@ -89,8 +88,6 @@ class ElementWiringManager:
             List of positioned elements to wire
         state : State
             Application state for bindings
-        handlers : HandlerRegistry
-            Event handler registry for shortcuts
         """
         for elem in elements:
             self._wire_element(elem, state)
