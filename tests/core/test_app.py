@@ -530,6 +530,7 @@ class TestRun:
 
     def test_run_uses_default_view(self):
         """Test that run() uses the default view."""
+
         app = Wijjit()
 
         @app.view("main", default=True)
@@ -539,10 +540,13 @@ class TestRun:
         # Mock components to avoid actual terminal operations
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer"):
-                with patch.object(app.input_handler, "read_input") as mock_read:
-                    # Return Ctrl+C to exit immediately
-                    mock_read.return_value = Keys.CTRL_C
+                # Mock async read_input_async
+                async def mock_read(*args, **kwargs):
+                    return Keys.CTRL_C
 
+                with patch.object(
+                    app.input_handler, "read_input_async", side_effect=mock_read
+                ):
                     with patch.object(app, "_render"):
                         app.run()
 
@@ -566,9 +570,13 @@ class TestRun:
 
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer"):
-                with patch.object(app.input_handler, "read_input") as mock_read:
-                    mock_read.return_value = Keys.CTRL_C
+                # Mock async read_input_async
+                async def mock_read(*args, **kwargs):
+                    return Keys.CTRL_C
 
+                with patch.object(
+                    app.input_handler, "read_input_async", side_effect=mock_read
+                ):
                     with patch.object(app, "_render"):
                         app.run()
 
@@ -584,9 +592,13 @@ class TestRun:
 
         with patch.object(app.screen_manager, "enter_alternate_buffer") as mock_enter:
             with patch.object(app.screen_manager, "exit_alternate_buffer") as mock_exit:
-                with patch.object(app.input_handler, "read_input") as mock_read:
-                    mock_read.return_value = Keys.CTRL_C
+                # Mock async read_input_async
+                async def mock_read(*args, **kwargs):
+                    return Keys.CTRL_C
 
+                with patch.object(
+                    app.input_handler, "read_input_async", side_effect=mock_read
+                ):
                     with patch.object(app, "_render"):
                         app.run()
 
@@ -603,8 +615,12 @@ class TestRun:
 
         with patch.object(app.screen_manager, "enter_alternate_buffer"):
             with patch.object(app.screen_manager, "exit_alternate_buffer") as mock_exit:
+                # Mock async read_input_async to raise error
+                async def mock_read(*args, **kwargs):
+                    raise Exception("Error")
+
                 with patch.object(
-                    app.input_handler, "read_input", side_effect=Exception("Error")
+                    app.input_handler, "read_input_async", side_effect=mock_read
                 ):
                     with patch.object(app, "_render"):
                         try:

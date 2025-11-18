@@ -2,9 +2,10 @@
 
 This module provides utilities for reading and parsing keyboard and mouse input
 in raw mode, including support for special keys, escape sequences, modifiers,
-and ANSI mouse events.
+and ANSI mouse events. Supports both synchronous and asynchronous input reading.
 """
 
+import asyncio
 import sys
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -433,6 +434,191 @@ class InputHandler:
                     buffer = bytearray(data_bytes)
                     while len(buffer) < 6:
                         more_keys = self._input.read_keys()
+                        if more_keys and more_keys[0].data:
+                            more_data = more_keys[0].data
+                            if isinstance(more_data, str):
+                                buffer.extend(more_data.encode("utf-8"))
+                            else:
+                                buffer.extend(more_data)
+                        else:
+                            break
+
+                    if len(buffer) >= 6:
+                        mouse_event = self.mouse_parser.parse_normal(bytes(buffer))
+                        if mouse_event:
+                            return mouse_event
+
+            # Not a mouse event, process as keyboard input
+            logger.debug(f"Processing key: {key_press.key!r}, data: {key_press.data!r}")
+
+            # Check if it's a mapped special key first
+            if key_press.key in PROMPT_TOOLKIT_KEY_MAP:
+                mapped_key = PROMPT_TOOLKIT_KEY_MAP[key_press.key]
+
+                # Special handling for Escape: might be Alt+key sequence
+                if mapped_key == Keys.ESCAPE:
+                    logger.debug(
+                        "Detected Escape, setting pending flag for Alt+key detection"
+                    )
+                    # Mark that we saw escape, the next key might be Alt+key
+                    self._pending_escape = True
+                    return mapped_key
+
+                return mapped_key
+
+            # Check for control characters
+            if key_press.key.startswith("c-") and len(key_press.key) == 3:
+                ctrl_letter = key_press.key[2]
+                char = chr(ord(ctrl_letter) - ord("a") + 1)
+                return Key(f"ctrl+{ctrl_letter}", KeyType.CONTROL, char)
+
+            # Regular character
+            if key_press.data:
+                char = key_press.data
+                if char == " ":
+                    return Keys.SPACE
+                return Key(char, KeyType.CHARACTER, char)
+
+            return None
+
+        except (EOFError, KeyboardInterrupt, IndexError) as e:
+            logger.debug(f"Input read terminated: {type(e).__name__}")
+            return None
+
+    async def read_input_async(
+        self, timeout: float | None = None
+    ) -> Union[Key, "MouseEvent", None]:
+        """Read a single input event asynchronously (keyboard or mouse).
+
+        This method uses asyncio to handle input reading without blocking
+        the event loop, making it suitable for async applications.
+
+        Parameters
+        ----------
+        timeout : float or None, optional
+            Maximum time to wait for input in seconds. If None, blocks indefinitely.
+            If timeout expires with no input, returns None. Default is None.
+
+        Returns
+        -------
+        Key, MouseEvent, or None
+            Input event, or None on timeout/error
+
+        Notes
+        -----
+        This async version properly integrates with asyncio event loops,
+        allowing other async tasks to run while waiting for input.
+        """
+        loop = asyncio.get_event_loop()
+
+        try:
+            # Enter raw mode if not already in it
+            if self._raw_mode is None:
+                self._raw_mode = self._input.raw_mode()
+                self._raw_mode.__enter__()
+
+            # Check if we have a queued key from previous lookahead
+            if self._key_queue:
+                key_press = self._key_queue.pop(0)
+                logger.debug(f"Processing queued key: {key_press.key!r}")
+            else:
+                # Read input asynchronously
+                if timeout is not None:
+                    # Use asyncio.wait_for for timeout
+                    try:
+                        keys = await asyncio.wait_for(
+                            loop.run_in_executor(None, self._input.read_keys),
+                            timeout=timeout,
+                        )
+                        if not keys:
+                            return None
+                    except TimeoutError:
+                        logger.debug(f"read_input_async timeout after {timeout}s")
+                        return None
+                else:
+                    # No timeout - wait indefinitely
+                    keys = await loop.run_in_executor(None, self._input.read_keys)
+                    if not keys:
+                        return None
+
+                logger.debug(
+                    f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"
+                )
+
+                # Check for Alt+key (escape followed immediately by a character in same read)
+                if (
+                    len(keys) >= 2
+                    and keys[0].key == "escape"
+                    and len(keys[1].key) == 1
+                    and keys[1].key.isalpha()
+                ):
+                    alt_char = keys[1].key.lower()
+                    logger.debug(f"Detected Alt+{alt_char} from multi-key sequence")
+                    return Key(f"alt+{alt_char}", KeyType.CONTROL)
+
+                key_press = keys[0]
+
+                # If this is Escape, lookahead to check for Alt+key
+                if key_press.key == "escape":
+                    logger.debug("Saw Escape, looking ahead for Alt+key...")
+                    # Try to read next key asynchronously
+                    next_keys = await loop.run_in_executor(None, self._input.read_keys)
+                    if next_keys:
+                        next_key = next_keys[0]
+                        logger.debug(f"Next key after Escape: {next_key.key!r}")
+                        # If next key is a letter, return Alt+letter
+                        if len(next_key.key) == 1 and next_key.key.isalpha():
+                            alt_char = next_key.key.lower()
+                            logger.debug(f"Detected Alt+{alt_char} via lookahead")
+                            return Key(f"alt+{alt_char}", KeyType.CONTROL)
+                        else:
+                            # Not Alt+key, queue the next key for later and return Escape
+                            logger.debug(
+                                f"Not Alt+key, queueing {next_key.key!r} for next read"
+                            )
+                            self._key_queue.append(next_key)
+                            # Fall through to return Escape normally
+
+            # Check if this might be a mouse sequence
+            # Mouse sequences start with ESC [ < (SGR format)
+            # or ESC [ M (normal format)
+            if self.mouse_enabled and self.mouse_parser and key_press.data:
+                data_bytes = (
+                    key_press.data.encode("utf-8")
+                    if isinstance(key_press.data, str)
+                    else key_press.data
+                )
+
+                # Try to parse as SGR mouse event
+                if data_bytes.startswith(b"\x1b[<"):
+                    # We have the start of an SGR sequence, but need more data
+                    # Read until we get M or m (press or release)
+                    buffer = bytearray(data_bytes)
+                    while buffer and buffer[-1] not in (ord("M"), ord("m")):
+                        more_keys = await loop.run_in_executor(
+                            None, self._input.read_keys
+                        )
+                        if more_keys and more_keys[0].data:
+                            more_data = more_keys[0].data
+                            if isinstance(more_data, str):
+                                buffer.extend(more_data.encode("utf-8"))
+                            else:
+                                buffer.extend(more_data)
+                        else:
+                            break
+
+                    mouse_event = self.mouse_parser.parse_sgr(bytes(buffer))
+                    if mouse_event:
+                        return mouse_event
+
+                # Try to parse as normal format mouse event
+                elif data_bytes.startswith(b"\x1b[M"):
+                    # Need 6 bytes total for normal format
+                    buffer = bytearray(data_bytes)
+                    while len(buffer) < 6:
+                        more_keys = await loop.run_in_executor(
+                            None, self._input.read_keys
+                        )
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):

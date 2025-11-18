@@ -2,10 +2,12 @@
 
 This module provides the EventLoop class which handles the main application
 event loop including input reading, event dispatching, and rendering.
+Supports both synchronous and asynchronous operation with backward compatibility.
 """
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 import time
 from typing import TYPE_CHECKING
@@ -57,7 +59,23 @@ class EventLoop:
         self.running = False
 
     def run(self) -> None:
-        """Run the main event loop (synchronous version).
+        """Run the main event loop.
+
+        This is the entry point for the application. It wraps the async
+        event loop for backward compatibility with synchronous code.
+
+        The loop continues until quit() is called or the user presses Ctrl+C.
+
+        Raises
+        ------
+        RuntimeError
+            If no views are registered
+        """
+        # Run the async event loop
+        asyncio.run(self.run_async())
+
+    async def run_async(self) -> None:
+        """Run the main async event loop.
 
         This method enters the main event loop which:
         1. Renders initial view
@@ -71,7 +89,7 @@ class EventLoop:
         RuntimeError
             If no views are registered
         """
-        logger.info("Starting Wijjit application")
+        logger.info("Starting Wijjit application (async mode)")
 
         # Find default view if current_view not set
         if self.app.current_view is None:
@@ -94,16 +112,21 @@ class EventLoop:
                 "No views registered. Use @app.view() to register a view."
             )
 
-        # Initialize and call on_enter for initial view
+        # Initialize and call on_enter for initial view (async)
         initial_view = self.app.views[self.app.current_view]
-        self.app.view_router._initialize_view(initial_view)
+        await self.app.view_router._initialize_view_async(initial_view)
 
         # Set current view in handler registry so view-scoped handlers work
         self.app.handler_registry.current_view = self.app.current_view
 
         if initial_view.on_enter:
             try:
-                initial_view.on_enter()
+                if asyncio.iscoroutinefunction(initial_view.on_enter):
+                    await initial_view.on_enter()
+                else:
+                    # Run sync hook in executor
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, initial_view.on_enter)
             except Exception as e:
                 self.app._handle_error(
                     f"Error in on_enter for view '{self.app.current_view}'", e
@@ -129,11 +152,11 @@ class EventLoop:
             self.app._render()
             self.app._last_refresh_time = time.time()
 
-            logger.info("Entering main event loop")
+            logger.info("Entering main async event loop")
             # Main event loop
             while self.running:
                 try:
-                    self._process_frame()
+                    await self._process_frame_async()
                 except KeyboardInterrupt:
                     logger.info("Received KeyboardInterrupt, exiting application")
                     self.running = False
@@ -166,7 +189,9 @@ class EventLoop:
         self.running = False
 
     def _process_frame(self) -> None:
-        """Process a single frame of the event loop.
+        """Process a single frame of the event loop (synchronous - deprecated).
+
+        This method is deprecated. Use _process_frame_async() instead.
 
         This method handles:
         - Auto-refresh for animations
@@ -239,6 +264,86 @@ class EventLoop:
         # Check if it's a mouse event
         elif isinstance(input_event, TerminalMouseEvent):
             self._handle_mouse_event(input_event)
+
+        # Re-render if needed
+        if self.app.needs_render:
+            self.app._render()
+            self.app._last_refresh_time = time.time()
+
+    async def _process_frame_async(self) -> None:
+        """Process a single frame of the event loop (async).
+
+        This method handles:
+        - Auto-refresh for animations
+        - Notification expiry
+        - Terminal resize detection
+        - Input reading and event dispatch
+        - Re-rendering when needed
+        """
+        # Check if auto-refresh is needed (for animations like spinners or notification expiry)
+        if self.app.refresh_interval is not None:
+            current_time = time.time()
+            elapsed = current_time - self.app._last_refresh_time
+
+            if elapsed >= self.app.refresh_interval:
+                # Time to refresh - advance spinner frames
+                self._advance_spinner_frames()
+
+                # Check for expired notifications (async)
+                if await self.app.notification_manager.check_expired_async():
+                    self.app.needs_render = True
+
+                # Disable auto-refresh if no notifications remain
+                if (
+                    len(self.app.notification_manager.notifications) == 0
+                    and self.app.refresh_interval == 0.1
+                ):
+                    self.app.refresh_interval = None
+
+                self.app._last_refresh_time = current_time
+
+        # Check for terminal resize
+        term_size = shutil.get_terminal_size()
+        current_size = (term_size.columns, term_size.lines)
+        if current_size != self.app._last_terminal_size:
+            logger.debug(
+                f"Terminal resized from {self.app._last_terminal_size} to {current_size}"
+            )
+            # Recalculate overlay positions
+            self.app.overlay_manager.recalculate_centered_overlays(
+                term_size.columns, term_size.lines
+            )
+            # Update notification positions
+            self.app.notification_manager.update_terminal_size(
+                term_size.columns, term_size.lines
+            )
+            self.app._last_terminal_size = current_size
+            self.app.needs_render = True
+
+        # Read input asynchronously - use short timeout if refresh_interval is set
+        # This allows animations to run smoothly without requiring user input
+        timeout = (
+            self.app.refresh_interval / 2
+            if self.app.refresh_interval is not None
+            else None
+        )
+        input_event = await self.app.input_handler.read_input_async(timeout=timeout)
+
+        if input_event is None:
+            # Timeout or error reading input
+            # Check if refresh is needed (for animations/expiry checks)
+            if self.app.needs_render:
+                self.app._render()
+                self.app._last_refresh_time = time.time()
+            return
+
+        # Check if it's a keyboard event
+        if isinstance(input_event, Key):
+            await self._handle_key_event_async(input_event)
+
+        # Check if it's a mouse event
+        elif isinstance(input_event, TerminalMouseEvent):
+            await self._handle_mouse_event_async(input_event)
 
         # Re-render if needed
         if self.app.needs_render:
@@ -323,7 +428,110 @@ class EventLoop:
                 self._route_key_to_focused_element(event)
 
     def _handle_mouse_event(self, terminal_event: TerminalMouseEvent) -> None:
-        """Handle a mouse event.
+        """Handle a mouse event (synchronous - deprecated).
+
+        Parameters
+        ----------
+        terminal_event : TerminalMouseEvent
+            The mouse event from terminal layer
+        """
+        logger.debug(
+            f"Mouse event: {terminal_event.type} at ({terminal_event.x}, {terminal_event.y})"
+        )
+        # Delegate to mouse router
+        hover_changed = self.app.mouse_router.route_mouse_event(terminal_event)
+
+        # Only re-render if hover changed or event was handled
+        if hover_changed:
+            self.app.needs_render = True
+
+    async def _handle_key_event_async(self, input_event: Key) -> None:
+        """Handle a keyboard event (async).
+
+        Parameters
+        ----------
+        input_event : Key
+            The keyboard input event
+        """
+        # Handle Ctrl+C
+        if input_event.is_ctrl_c:
+            logger.info("Received Ctrl+C, exiting application")
+            self.running = False
+            return
+
+        logger.debug(
+            f"Key event: {input_event.name} (modifiers={input_event.modifiers})"
+        )
+
+        # Check for ESC key to close overlays/notifications
+        if input_event.name == "escape":
+            # If there are notifications, dismiss oldest first
+            if self.app.notification_manager.notifications:
+                if self.app.notification_manager.dismiss_oldest():
+                    self.app.needs_render = True
+                    return  # Don't process event further
+
+            # Otherwise, handle normal overlay escape
+            if self.app.overlay_manager.handle_escape():
+                # Overlay was closed, trigger re-render
+                self.app.needs_render = True
+                return  # Don't process event further
+
+        # Route keyboard events to overlay if trap_focus is active
+        top_overlay = self.app.overlay_manager.get_top_overlay()
+        if top_overlay and top_overlay.trap_focus:
+            overlay_elem = top_overlay.element
+            if hasattr(overlay_elem, "handle_key"):
+                if overlay_elem.handle_key(input_event):
+                    # Overlay handled the key, trigger re-render
+                    self.app.needs_render = True
+                    return  # Don't process event further
+
+        # Create and dispatch key event (async)
+        event = KeyEvent(
+            key=input_event.name,
+            modifiers=input_event.modifiers,
+            key_obj=input_event,  # Store original Key object
+        )
+        await self.app.handler_registry.dispatch_async(event)
+
+        # Check for registered key handlers
+        if not event.cancelled:
+            key_name = input_event.name.lower() if input_event.name else ""
+            if key_name in self.app._key_handlers:
+                try:
+                    handler = self.app._key_handlers[key_name]
+                    if asyncio.iscoroutinefunction(handler):
+                        await handler(event)
+                    else:
+                        # Run sync handler in executor
+                        loop = asyncio.get_event_loop()
+                        await loop.run_in_executor(None, handler, event)
+                    self.app.needs_render = True
+                except Exception as e:
+                    logger.error(
+                        f"Error in key handler for '{key_name}': {e}",
+                        exc_info=True,
+                    )
+
+        # Route key to focused element if not handled by other handlers
+        # If focus is trapped in an overlay, only route to overlay elements
+        if not event.cancelled:
+            if self.app.overlay_manager.should_trap_focus():
+                # Focus is trapped - only route to focused element if it's in overlay
+                focused = self.app.focus_manager.get_focused_element()
+                if focused:
+                    handled = focused.handle_key(input_event)
+                    if handled:
+                        self.app.needs_render = True
+            else:
+                # Normal focus routing
+                self._route_key_to_focused_element(event)
+
+    async def _handle_mouse_event_async(
+        self, terminal_event: TerminalMouseEvent
+    ) -> None:
+        """Handle a mouse event (async).
 
         Parameters
         ----------

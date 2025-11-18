@@ -31,7 +31,6 @@ Press 'q' to quit.
         if event.key == "q":
             app.quit()
 
-
     try:
         app.run()
     except KeyboardInterrupt:

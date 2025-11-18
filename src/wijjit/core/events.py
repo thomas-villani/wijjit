@@ -5,9 +5,11 @@ interactions in Wijjit applications. It includes:
 - Base Event class and specific event types (KeyEvent, ActionEvent, etc.)
 - HandlerRegistry for managing and dispatching event handlers
 - Handler scoping (global, view, element) for flexible event handling
+- Support for both synchronous and asynchronous event handlers
 """
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -312,11 +314,12 @@ class Handler:
     """Event handler registration.
 
     Encapsulates an event handler callback with its metadata.
+    Supports both synchronous and asynchronous callbacks.
 
     Parameters
     ----------
-    callback : Callable[[Event], None]
-        Function to call when event is dispatched
+    callback : Callable[[Event], None] | Callable[[Event], Awaitable[None]]
+        Function to call when event is dispatched (sync or async)
     scope : HandlerScope
         Scope at which this handler operates
     event_type : Optional[EventType]
@@ -330,7 +333,7 @@ class Handler:
 
     Attributes
     ----------
-    callback : Callable[[Event], None]
+    callback : Callable[[Event], None] | Callable[[Event], Awaitable[None]]
         Function to call when event is dispatched
     scope : HandlerScope
         Scope at which this handler operates
@@ -344,12 +347,23 @@ class Handler:
         Handler priority (higher = earlier execution)
     """
 
-    callback: Callable[[Event], None]
+    callback: Callable[[Event], None] | Callable[[Event], Awaitable[None]]
     scope: HandlerScope
     event_type: EventType | None = None
     view_name: str | None = None
     element_id: str | None = None
     priority: int = 0
+
+    @property
+    def is_async(self) -> bool:
+        """Check if this handler is async.
+
+        Returns
+        -------
+        bool
+            True if callback is a coroutine function
+        """
+        return asyncio.iscoroutinefunction(self.callback)
 
 
 class HandlerRegistry:
@@ -374,7 +388,7 @@ class HandlerRegistry:
 
     def register(
         self,
-        callback: Callable[[Event], None],
+        callback: Callable[[Event], None] | Callable[[Event], Awaitable[None]],
         scope: HandlerScope = HandlerScope.GLOBAL,
         event_type: EventType | None = None,
         view_name: str | None = None,
@@ -383,10 +397,12 @@ class HandlerRegistry:
     ) -> Handler:
         """Register an event handler.
 
+        Supports both synchronous and asynchronous callbacks.
+
         Parameters
         ----------
-        callback : Callable[[Event], None]
-            Function to call when event is dispatched
+        callback : Callable[[Event], None] | Callable[[Event], Awaitable[None]]
+            Function to call when event is dispatched (sync or async)
         scope : HandlerScope
             Scope at which this handler operates (default: GLOBAL)
         event_type : Optional[EventType]
@@ -443,8 +459,39 @@ class HandlerRegistry:
         ]
 
     def dispatch(self, event: Event) -> None:
-        """Dispatch an event to matching handlers.
+        """Dispatch an event to matching handlers (synchronous).
 
+        This method is deprecated and only handles synchronous callbacks.
+        For async support, use dispatch_async() instead.
+
+        Handlers are executed in priority order (highest priority first).
+        If a handler cancels the event, subsequent handlers are not executed.
+
+        Parameters
+        ----------
+        event : Event
+            The event to dispatch
+
+        Notes
+        -----
+        This method will skip async handlers. Use dispatch_async() to
+        properly handle both sync and async handlers.
+        """
+        # Find matching handlers
+        matching = self._find_matching_handlers(event)
+
+        # Execute handlers (sync only)
+        for handler in matching:
+            if event.cancelled:
+                break
+            # Skip async handlers
+            if not handler.is_async:
+                handler.callback(event)
+
+    async def dispatch_async(self, event: Event) -> None:
+        """Dispatch an event to matching handlers (async).
+
+        Supports both synchronous and asynchronous handlers.
         Handlers are executed in priority order (highest priority first).
         If a handler cancels the event, subsequent handlers are not executed.
 
@@ -454,6 +501,34 @@ class HandlerRegistry:
             The event to dispatch
         """
         # Find matching handlers
+        matching = self._find_matching_handlers(event)
+
+        # Execute handlers
+        for handler in matching:
+            if event.cancelled:
+                break
+
+            # Invoke callback based on type
+            if handler.is_async:
+                await handler.callback(event)
+            else:
+                # Run sync callback in executor to avoid blocking
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, handler.callback, event)
+
+    def _find_matching_handlers(self, event: Event) -> list[Handler]:
+        """Find handlers that match the given event.
+
+        Parameters
+        ----------
+        event : Event
+            The event to match
+
+        Returns
+        -------
+        list of Handler
+            Matching handlers sorted by priority (highest first)
+        """
         matching = []
 
         for handler in self.handlers:
@@ -485,8 +560,4 @@ class HandlerRegistry:
         # Sort by priority (highest first)
         matching.sort(key=lambda h: h.priority, reverse=True)
 
-        # Execute handlers
-        for handler in matching:
-            if event.cancelled:
-                break
-            handler.callback(event)
+        return matching

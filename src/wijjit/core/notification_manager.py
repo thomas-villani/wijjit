@@ -2,10 +2,12 @@
 
 This module provides the NotificationManager class which manages a stack
 of active notifications, including positioning, timeouts, and auto-dismissal.
+Supports both synchronous and asynchronous operations.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from typing import TYPE_CHECKING
@@ -252,7 +254,7 @@ class NotificationManager:
         return False
 
     def check_expired(self) -> bool:
-        """Check for expired notifications and remove them.
+        """Check for expired notifications and remove them (synchronous).
 
         Returns
         -------
@@ -282,6 +284,50 @@ class NotificationManager:
                     except (ValueError, IndexError):
                         # Already removed by another handler, skip
                         pass
+
+        # Update positions if we removed any
+        if removed_any:
+            self.update_positions()
+
+        return removed_any
+
+    async def check_expired_async(self) -> bool:
+        """Check for expired notifications and remove them (asynchronous).
+
+        This async version allows the event loop to process other tasks
+        while checking and removing expired notifications.
+
+        Returns
+        -------
+        bool
+            True if any notifications were removed, False otherwise
+        """
+        if not self.notifications:
+            return False
+
+        # Make a copy to iterate over to avoid race conditions
+        # (notifications can be removed by other handlers while we're checking)
+        notifications_to_check = list(self.notifications)
+        removed_any = False
+
+        for notification in notifications_to_check:
+            if notification.is_expired():
+                # Check if still in the list (might have been removed by another handler)
+                if notification in self.notifications:
+                    try:
+                        # Remove from list
+                        self.notifications.remove(notification)
+                        # Remove overlay only if it's still there
+                        if notification.overlay in self.overlay_manager.overlays:
+                            self.overlay_manager.pop(notification.overlay)
+                        removed_any = True
+                        logger.debug(f"Expired notification: {notification.id}")
+                    except (ValueError, IndexError):
+                        # Already removed by another handler, skip
+                        pass
+
+                # Yield to event loop periodically
+                await asyncio.sleep(0)
 
         # Update positions if we removed any
         if removed_any:

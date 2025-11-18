@@ -1,12 +1,14 @@
 """View routing and navigation for Wijjit applications.
 
 This module provides the ViewRouter class which handles view registration,
-navigation, and lifecycle hooks.
+navigation, and lifecycle hooks. Supports both synchronous and asynchronous
+view functions and lifecycle hooks.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +24,8 @@ logger = get_logger(__name__)
 class ViewConfig:
     """Configuration for a view.
 
+    Supports both synchronous and asynchronous view functions and lifecycle hooks.
+
     Parameters
     ----------
     name : str
@@ -30,14 +34,14 @@ class ViewConfig:
         Template string or path to template file
     data : Optional[Callable[..., Dict[str, Any]]]
         Function that returns data dict for template rendering
-    on_enter : Optional[Callable[[], None]]
-        Hook called when navigating to this view
-    on_exit : Optional[Callable[[], None]]
-        Hook called when navigating away from this view
+    on_enter : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+        Hook called when navigating to this view (sync or async)
+    on_exit : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+        Hook called when navigating away from this view (sync or async)
     is_default : bool
         Whether this is the default view (shown on startup)
-    view_func : Optional[Callable]
-        The original view function (used for lazy initialization)
+    view_func : Optional[Callable | Callable[..., Awaitable]]
+        The original view function (used for lazy initialization, sync or async)
     initialized : bool
         Whether this view has been initialized
 
@@ -49,14 +53,14 @@ class ViewConfig:
         Template string or path to template file
     data : Optional[Callable[..., Dict[str, Any]]]
         Function that returns data dict for template rendering
-    on_enter : Optional[Callable[[], None]]
-        Hook called when navigating to this view
-    on_exit : Optional[Callable[[], None]]
-        Hook called when navigating away from this view
+    on_enter : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+        Hook called when navigating to this view (sync or async)
+    on_exit : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+        Hook called when navigating away from this view (sync or async)
     is_default : bool
         Whether this is the default view
-    view_func : Optional[Callable]
-        The original view function (for lazy initialization)
+    view_func : Optional[Callable | Callable[..., Awaitable]]
+        The original view function (for lazy initialization, sync or async)
     initialized : bool
         Whether this view has been initialized
     """
@@ -64,10 +68,12 @@ class ViewConfig:
     name: str
     template: str = ""
     data: Callable[..., dict[str, Any]] | None = None
-    on_enter: Callable[[], None] | None = None
-    on_exit: Callable[[], None] | None = None
+    on_enter: Callable[[], None] | Callable[[], Awaitable[None]] | None = None
+    on_exit: Callable[[], None] | Callable[[], Awaitable[None]] | None = None
     is_default: bool = False
-    view_func: Callable | None = field(default=None, repr=False)
+    view_func: Callable | Callable[..., Awaitable] | None = field(
+        default=None, repr=False
+    )
     initialized: bool = False
 
 
@@ -175,9 +181,61 @@ class ViewRouter:
         return decorator
 
     def _initialize_view(self, view_config: ViewConfig) -> None:
-        """Initialize a view config by calling its view function.
+        """Initialize a view config by calling its view function (synchronous).
 
         This is called lazily the first time a view is accessed.
+        For async view functions, this will raise an error. Use
+        _initialize_view_async() instead.
+
+        Parameters
+        ----------
+        view_config : ViewConfig
+            The view configuration to initialize
+
+        Raises
+        ------
+        RuntimeError
+            If view_func is async (use _initialize_view_async instead)
+        """
+        if view_config.initialized:
+            return  # Already initialized
+
+        if view_config.view_func:
+            # Check if view function is async
+            if asyncio.iscoroutinefunction(view_config.view_func):
+                raise RuntimeError(
+                    f"View '{view_config.name}' has async view function. "
+                    f"Use navigate_async() or call from async context."
+                )
+
+            # Call the view function ONCE to get the config dict
+            config_dict = view_config.view_func()
+
+            # Extract static config components
+            view_config.template = config_dict.get("template", "")
+            view_config.on_enter = config_dict.get("on_enter")
+            view_config.on_exit = config_dict.get("on_exit")
+
+            # Extract data - could be a dict or a callable
+            data_value = config_dict.get("data", {})
+
+            if callable(data_value):
+                # User provided a data callback - use it directly
+                view_config.data = data_value
+            else:
+                # User provided static data dict - wrap in lambda
+                def data_func(**kwargs):
+                    return data_value
+
+                view_config.data = data_func
+
+            view_config.initialized = True
+
+    async def _initialize_view_async(self, view_config: ViewConfig) -> None:
+        """Initialize a view config by calling its view function (async).
+
+        This is called lazily the first time a view is accessed.
+        Supports both sync and async view functions.
 
         Parameters
         ----------
@@ -189,7 +247,10 @@ class ViewRouter:
 
         if view_config.view_func:
             # Call the view function ONCE to get the config dict
-            config_dict = view_config.view_func()
+            if asyncio.iscoroutinefunction(view_config.view_func):
+                config_dict = await view_config.view_func()
+            else:
+                config_dict = view_config.view_func()
 
             # Extract static config components
             view_config.template = config_dict.get("template", "")
@@ -275,6 +336,87 @@ class ViewRouter:
         if new_view.on_enter:
             try:
                 new_view.on_enter()
+            except Exception as e:
+                self.app._handle_error(f"Error in on_enter for view '{view_name}'", e)
+
+        # Trigger re-render
+        self.app.needs_render = True
+
+    async def navigate_async(
+        self,
+        view_name: str,
+        params: dict[str, Any] | None = None,
+    ) -> None:
+        """Navigate to a different view (async version).
+
+        Supports both sync and async on_exit/on_enter hooks.
+        Calls on_exit hook of current view, switches to new view,
+        and calls on_enter hook of new view.
+
+        Parameters
+        ----------
+        view_name : str
+            Name of view to navigate to
+        params : dict, optional
+            Parameters to pass to the view's data function
+
+        Raises
+        ------
+        ValueError
+            If view_name doesn't exist
+        """
+        if view_name not in self.views:
+            logger.error(f"Navigation failed: view '{view_name}' not found")
+            raise ValueError(f"View '{view_name}' not found")
+
+        params = params or {}
+
+        logger.info(
+            f"Navigating from '{self.current_view}' to '{view_name}' "
+            f"(params={list(params.keys())})"
+        )
+
+        # Initialize the new view (async)
+        await self._initialize_view_async(self.views[view_name])
+
+        # Call current view's on_exit hook
+        if self.current_view and self.current_view in self.views:
+            current = self.views[self.current_view]
+            await self._initialize_view_async(current)
+            if current.on_exit:
+                try:
+                    if asyncio.iscoroutinefunction(current.on_exit):
+                        await current.on_exit()
+                    else:
+                        # Run sync hook in executor
+                        loop = asyncio.get_event_loop()
+                        await loop.run_in_executor(None, current.on_exit)
+                except Exception as e:
+                    self.app._handle_error(
+                        f"Error in on_exit for view '{self.current_view}'", e
+                    )
+
+            # Clear view-scoped handlers
+            self.app.handler_registry.clear_view(self.current_view)
+
+            # Clear view-specific shortcuts
+            self.app.wiring_manager.clear_view_shortcuts()
+
+        # Switch to new view
+        self.current_view = view_name
+        self.app.current_view_params = params
+        self.app.handler_registry.current_view = view_name
+
+        # Call new view's on_enter hook
+        new_view = self.views[view_name]
+        if new_view.on_enter:
+            try:
+                if asyncio.iscoroutinefunction(new_view.on_enter):
+                    await new_view.on_enter()
+                else:
+                    # Run sync hook in executor
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, new_view.on_enter)
             except Exception as e:
                 self.app._handle_error(f"Error in on_enter for view '{view_name}'", e)
 

@@ -183,7 +183,9 @@ class ModalWithButton:
         if left_pad > 0:
             ctx.write_text(1, 2, " " * left_pad, default_style)
         if right_pad > 0:
-            ctx.write_text(1 + left_pad + title_visible_len, 2, " " * right_pad, default_style)
+            ctx.write_text(
+                1 + left_pad + title_visible_len, 2, " " * right_pad, default_style
+            )
 
         # Empty line
         ctx.write_text(0, 3, empty_line, default_style)
@@ -192,7 +194,9 @@ class ModalWithButton:
         message_lines = self._wrap_message(self.message, self.width - 4)
         current_y = 4
         for msg_line in message_lines:
-            line_content = self.chars["v"] + " " + msg_line.ljust(self.width - 3) + self.chars["v"]
+            line_content = (
+                self.chars["v"] + " " + msg_line.ljust(self.width - 3) + self.chars["v"]
+            )
             ctx.write_text(0, current_y, line_content, default_style)
             current_y += 1
 
