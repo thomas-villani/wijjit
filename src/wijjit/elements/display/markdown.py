@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 
-from wijjit.elements.base import Element, ElementType, ScrollableMixin
+from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
@@ -9,7 +9,7 @@ from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent
 
 
-class MarkdownView(ScrollableMixin, Element):
+class MarkdownView(ScrollableElement):
     """Markdown content display element with Rich integration.
 
     This element renders markdown content using Rich's Markdown renderer,
@@ -62,8 +62,7 @@ class MarkdownView(ScrollableMixin, Element):
         border_style: str = "single",
         title: str | None = None,
     ):
-        ScrollableMixin.__init__(self)
-        Element.__init__(self, id)
+        super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -87,13 +86,13 @@ class MarkdownView(ScrollableMixin, Element):
             viewport_size=self._get_content_height(),
         )
 
-        # Callbacks (on_scroll provided by ScrollableMixin)
+        # Callbacks (on_scroll provided by ScrollableElement)
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
-        # State persistence (scroll_state_key provided by ScrollableMixin)
+        # State persistence (scroll_state_key provided by ScrollableElement)
 
         # Dynamic sizing flag (set by template tag)
         self._dynamic_sizing: bool = False
@@ -236,6 +235,38 @@ class MarkdownView(ScrollableMixin, Element):
             Scroll position to restore
         """
         self.scroll_manager.scroll_to(position)
+
+    @property
+    def scroll_position(self) -> int:
+        """Get the current scroll position.
+
+        Returns
+        -------
+        int
+            Current scroll offset (0-based)
+        """
+        return self.scroll_manager.state.scroll_position
+
+    def can_scroll(self, direction: int) -> bool:
+        """Check if the element can scroll in the given direction.
+
+        Parameters
+        ----------
+        direction : int
+            Scroll direction: negative for up, positive for down
+
+        Returns
+        -------
+        bool
+            True if scrolling in the given direction is possible
+        """
+        if direction < 0:
+            return self.scroll_manager.state.scroll_position > 0
+        else:
+            return self.scroll_manager.state.is_scrollable and (
+                self.scroll_manager.state.scroll_position
+                < self.scroll_manager.state.max_scroll_position
+            )
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input for scrolling.

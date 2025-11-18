@@ -6,7 +6,7 @@ with automatic log level detection, coloring, auto-scroll, and soft-wrap.
 
 import re
 
-from wijjit.elements.base import Element, ElementType, ScrollableMixin
+from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
@@ -29,7 +29,7 @@ LOG_PATTERNS = {
 }
 
 
-class LogView(ScrollableMixin, Element):
+class LogView(ScrollableElement):
     """LogView element for displaying logs with automatic coloring and scrolling.
 
     This element provides a display for log files with support for:
@@ -149,8 +149,7 @@ class LogView(ScrollableMixin, Element):
         border_style: str = "single",
         title: str | None = None,
     ):
-        ScrollableMixin.__init__(self)
-        Element.__init__(self, id)
+        super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -188,14 +187,14 @@ class LogView(ScrollableMixin, Element):
             self.scroll_manager.scroll_to_bottom()
             self._last_content_size = len(self.rendered_lines)
 
-        # Callbacks (on_scroll provided by ScrollableMixin)
+        # Callbacks (on_scroll provided by ScrollableElement)
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
         # State persistence
-        # scroll_state_key provided by ScrollableMixin
+        # scroll_state_key provided by ScrollableElement
         self.autoscroll_state_key: str | None = None
         self._state_dict: dict | None = None
 
@@ -447,6 +446,38 @@ class LogView(ScrollableMixin, Element):
             self._user_scrolled_up = False
         else:
             self._user_scrolled_up = True
+
+    @property
+    def scroll_position(self) -> int:
+        """Get the current scroll position.
+
+        Returns
+        -------
+        int
+            Current scroll offset (0-based)
+        """
+        return self.scroll_manager.state.scroll_position
+
+    def can_scroll(self, direction: int) -> bool:
+        """Check if the element can scroll in the given direction.
+
+        Parameters
+        ----------
+        direction : int
+            Scroll direction: negative for up, positive for down
+
+        Returns
+        -------
+        bool
+            True if scrolling in the given direction is possible
+        """
+        if direction < 0:
+            return self.scroll_manager.state.scroll_position > 0
+        else:
+            return self.scroll_manager.state.is_scrollable and (
+                self.scroll_manager.state.scroll_position
+                < self.scroll_manager.state.max_scroll_position
+            )
 
     def _save_scroll_state(self) -> None:
         """Save scroll position to app state if available."""

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
-from wijjit.layout.bounds import Bounds
+from wijjit.elements.base import ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length, wrap_text
 from wijjit.terminal.input import Key
@@ -99,7 +99,7 @@ class FrameStyle:
     overflow_x: Literal["clip", "visible", "wrap"] = "clip"
 
 
-class Frame:
+class Frame(ScrollableElement):
     """Renders a frame with borders and content.
 
     Parameters
@@ -130,6 +130,7 @@ class Frame:
         style: FrameStyle | None = None,
         id: str | None = None,
     ):
+        super().__init__(id)
         self.width = max(3, width)  # Minimum width for borders
         self.height = max(3, height)  # Minimum height for borders
         self.style = style or FrameStyle()
@@ -137,8 +138,7 @@ class Frame:
         self.scroll_manager: ScrollManager | None = None
         self._content_height: int = 0
         self._needs_scroll: bool = False
-        self.bounds: Bounds | None = None  # Assigned during layout
-        self.id: str | None = id  # Optional identifier
+        # Note: bounds, id, scroll_state_key inherited from ScrollableElement
 
         # Track child elements for scrolling
         self._child_elements: list[tuple[object, int, int]] = (
@@ -148,12 +148,7 @@ class Frame:
 
         # Frame is only focusable if it's scrollable (needs to handle UP/DOWN for scrolling)
         self.focusable: bool = self.style.scrollable
-        self.focused: bool = False  # Track focus state
-        self.hovered: bool = False  # Track hover state
-
-        # State persistence (similar to ListView/LogView pattern)
-        self.scroll_state_key: str | None = None
-        self._state_dict: dict | None = None
+        # Note: focused, hovered inherited from Element
 
     def set_content(self, text: str) -> None:
         """Set the frame content from a string.
@@ -289,6 +284,43 @@ class Frame:
         if self.scroll_manager and self._needs_scroll:
             return self.scroll_manager.state.scroll_position
         return 0
+
+    @property
+    def scroll_position(self) -> int:
+        """Get the current scroll position (required by ScrollableElement ABC).
+
+        Returns
+        -------
+        int
+            Current scroll offset (0-based)
+        """
+        if self.scroll_manager:
+            return self.scroll_manager.state.scroll_position
+        return 0
+
+    def can_scroll(self, direction: int) -> bool:
+        """Check if the frame can scroll in the given direction.
+
+        Parameters
+        ----------
+        direction : int
+            Scroll direction: negative for up, positive for down
+
+        Returns
+        -------
+        bool
+            True if scrolling in the given direction is possible
+        """
+        if not self.style.scrollable or not self.scroll_manager:
+            return False
+
+        if direction < 0:  # Up
+            return self.scroll_manager.state.scroll_position > 0
+        else:  # Down
+            return self.scroll_manager.state.is_scrollable and (
+                self.scroll_manager.state.scroll_position
+                < self.scroll_manager.state.max_scroll_position
+            )
 
     def render(self) -> str:
         """Render the frame as a string.
@@ -799,27 +831,33 @@ class Frame:
 
         if key_name == "up":
             self.scroll_manager.scroll_by(-1)
-            self._save_scroll_state()
+            if self.on_scroll:
+                self.on_scroll(self.scroll_position)
             return True
         elif key_name == "down":
             self.scroll_manager.scroll_by(1)
-            self._save_scroll_state()
+            if self.on_scroll:
+                self.on_scroll(self.scroll_position)
             return True
         elif key_name == "pageup":
             self.scroll_manager.page_up()
-            self._save_scroll_state()
+            if self.on_scroll:
+                self.on_scroll(self.scroll_position)
             return True
         elif key_name == "pagedown":
             self.scroll_manager.page_down()
-            self._save_scroll_state()
+            if self.on_scroll:
+                self.on_scroll(self.scroll_position)
             return True
         elif key_name == "home":
             self.scroll_manager.scroll_to_top()
-            self._save_scroll_state()
+            if self.on_scroll:
+                self.on_scroll(self.scroll_position)
             return True
         elif key_name == "end":
             self.scroll_manager.scroll_to_bottom()
-            self._save_scroll_state()
+            if self.on_scroll:
+                self.on_scroll(self.scroll_position)
             return True
 
         return False
@@ -842,7 +880,8 @@ class Frame:
 
         # Scroll by 3 lines per wheel notch (common convention)
         self.scroll_manager.scroll_by(direction * 3)
-        self._save_scroll_state()
+        if self.on_scroll:
+            self.on_scroll(self.scroll_position)
         return True
 
     def handle_mouse(self, event: MouseEvent) -> bool:
@@ -907,21 +946,6 @@ class Frame:
         Sets the hovered flag to False. Used by hover manager.
         """
         self.hovered = False
-
-    def _save_scroll_state(self) -> None:
-        """Save scroll position to app state if available.
-
-        Notes
-        -----
-        Uses the same state persistence pattern as ListView and LogView.
-        If _state_dict and scroll_state_key are set, saves current scroll
-        position to the state dictionary.
-        """
-        if self._state_dict is not None and self.scroll_state_key:
-            if self.scroll_manager:
-                self._state_dict[self.scroll_state_key] = (
-                    self.scroll_manager.state.scroll_position
-                )
 
     def restore_scroll_position(self, position: int) -> None:
         """Restore scroll position from saved state.

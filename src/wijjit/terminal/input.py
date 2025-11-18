@@ -162,13 +162,14 @@ class Keys:
     F11 = Key("f11", KeyType.SPECIAL)
     F12 = Key("f12", KeyType.SPECIAL)
 
-    # Control keys
-    CTRL_C = Key("ctrl+c", KeyType.CONTROL, "\x03")
+    # Additional control keys
     CTRL_D = Key("ctrl+d", KeyType.CONTROL, "\x04")
     CTRL_Z = Key("ctrl+z", KeyType.CONTROL, "\x1a")
 
 
-# Escape sequence mappings for special keys
+# Multi-byte escape sequence mappings for special keys
+# Maps ANSI escape sequences (2+ bytes starting with ESC) to Key objects
+# Used for arrow keys, function keys, and other terminal-specific sequences
 ESCAPE_SEQUENCES = {
     "\x1b[A": Keys.UP,
     "\x1b[B": Keys.DOWN,
@@ -183,7 +184,9 @@ ESCAPE_SEQUENCES = {
     "\x1bOF": Keys.END,  # Alternative end
 }
 
-# Single character mappings
+# Single-byte character mappings
+# Maps single characters (including control characters) to Key objects
+# Used for simple keys like Enter, Tab, and ASCII control sequences
 SINGLE_CHAR_KEYS = {
     "\r": Keys.ENTER,
     "\n": Keys.ENTER,
@@ -278,10 +281,7 @@ class InputHandler:
         )
         self.mouse_parser = MouseEventParser() if MouseEventParser else None
 
-        # Input buffer for handling ANSI sequences
-        self._input_buffer = bytearray()
-
-        # Queue for handling lookahead keys
+        # Queue for handling lookahead keys (used for Alt detection and mouse parsing)
         self._key_queue = []
 
     def read_input(
@@ -377,26 +377,10 @@ class InputHandler:
 
                 key_press = keys[0]
 
-                # If this is Escape, lookahead to check for Alt+key
-                if key_press.key == "escape":
-                    logger.debug("Saw Escape, looking ahead for Alt+key...")
-                    # Try to read next key
-                    next_keys = self._input.read_keys()
-                    if next_keys:
-                        next_key = next_keys[0]
-                        logger.debug(f"Next key after Escape: {next_key.key!r}")
-                        # If next key is a letter, return Alt+letter
-                        if len(next_key.key) == 1 and next_key.key.isalpha():
-                            alt_char = next_key.key.lower()
-                            logger.debug(f"Detected Alt+{alt_char} via lookahead")
-                            return Key(f"alt+{alt_char}", KeyType.CONTROL)
-                        else:
-                            # Not Alt+key, queue the next key for later and return Escape
-                            logger.debug(
-                                f"Not Alt+key, queueing {next_key.key!r} for next read"
-                            )
-                            self._key_queue.append(next_key)
-                            # Fall through to return Escape normally
+                # Escape key: Just return it (Alt detection handled via multi-key check above)
+                # Note: Some terminals send Alt+letter as separate keys with delay.
+                # The multi-key check above handles the common case where they arrive together.
+                # For better Alt support across all terminals, use async version which has timeout-based detection.
 
             # Check if this might be a mouse sequence
             # Mouse sequences start with ESC [ < (SGR format)
@@ -455,13 +439,8 @@ class InputHandler:
             if key_press.key in PROMPT_TOOLKIT_KEY_MAP:
                 mapped_key = PROMPT_TOOLKIT_KEY_MAP[key_press.key]
 
-                # Special handling for Escape: might be Alt+key sequence
+                # Return Escape key (Alt detection handled earlier via lookahead)
                 if mapped_key == Keys.ESCAPE:
-                    logger.debug(
-                        "Detected Escape, setting pending flag for Alt+key detection"
-                    )
-                    # Mark that we saw escape, the next key might be Alt+key
-                    self._pending_escape = True
                     return mapped_key
 
                 return mapped_key
@@ -558,26 +537,37 @@ class InputHandler:
 
                 key_press = keys[0]
 
-                # If this is Escape, lookahead to check for Alt+key
+                # If this is Escape, use timeout to check for Alt+key sequence
                 if key_press.key == "escape":
-                    logger.debug("Saw Escape, looking ahead for Alt+key...")
-                    # Try to read next key asynchronously
-                    next_keys = await loop.run_in_executor(None, self._input.read_keys)
-                    if next_keys:
-                        next_key = next_keys[0]
-                        logger.debug(f"Next key after Escape: {next_key.key!r}")
-                        # If next key is a letter, return Alt+letter
-                        if len(next_key.key) == 1 and next_key.key.isalpha():
-                            alt_char = next_key.key.lower()
-                            logger.debug(f"Detected Alt+{alt_char} via lookahead")
-                            return Key(f"alt+{alt_char}", KeyType.CONTROL)
-                        else:
-                            # Not Alt+key, queue the next key for later and return Escape
-                            logger.debug(
-                                f"Not Alt+key, queueing {next_key.key!r} for next read"
-                            )
-                            self._key_queue.append(next_key)
-                            # Fall through to return Escape normally
+                    logger.debug("Saw Escape, checking for Alt+key with timeout...")
+                    # Use small timeout (50ms) to distinguish Escape from Alt+key
+                    # Alt+key typically arrives within a few milliseconds
+                    try:
+                        next_keys = await asyncio.wait_for(
+                            loop.run_in_executor(None, self._input.read_keys),
+                            timeout=0.05,  # 50ms timeout
+                        )
+                        if next_keys:
+                            next_key = next_keys[0]
+                            logger.debug(f"Next key after Escape: {next_key.key!r}")
+                            # If next key is a letter, return Alt+letter
+                            if len(next_key.key) == 1 and next_key.key.isalpha():
+                                alt_char = next_key.key.lower()
+                                logger.debug(
+                                    f"Detected Alt+{alt_char} via timeout lookahead"
+                                )
+                                return Key(f"alt+{alt_char}", KeyType.CONTROL)
+                            else:
+                                # Not Alt+key, queue the next key for later and return Escape
+                                logger.debug(
+                                    f"Not Alt+key, queueing {next_key.key!r} for next read"
+                                )
+                                self._key_queue.append(next_key)
+                                # Fall through to return Escape normally
+                    except TimeoutError:
+                        # Timeout expired - it's a standalone Escape key
+                        logger.debug("Timeout expired, returning standalone Escape")
+                        # Fall through to return Escape normally
 
             # Check if this might be a mouse sequence
             # Mouse sequences start with ESC [ < (SGR format)
@@ -640,13 +630,8 @@ class InputHandler:
             if key_press.key in PROMPT_TOOLKIT_KEY_MAP:
                 mapped_key = PROMPT_TOOLKIT_KEY_MAP[key_press.key]
 
-                # Special handling for Escape: might be Alt+key sequence
+                # Return Escape key (Alt detection handled earlier via lookahead)
                 if mapped_key == Keys.ESCAPE:
-                    logger.debug(
-                        "Detected Escape, setting pending flag for Alt+key detection"
-                    )
-                    # Mark that we saw escape, the next key might be Alt+key
-                    self._pending_escape = True
                     return mapped_key
 
                 return mapped_key

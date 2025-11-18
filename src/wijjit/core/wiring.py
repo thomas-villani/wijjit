@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from wijjit.core.events import HandlerScope
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
@@ -20,7 +21,7 @@ from wijjit.logging_config import get_logger
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
     from wijjit.core.state import State
-    from wijjit.elements.base import Element, ScrollableMixin
+    from wijjit.elements.base import Element, ScrollableElement
 
 logger = get_logger(__name__)
 
@@ -63,10 +64,14 @@ class ElementWiringManager:
         self._registered_menu_shortcuts: set[str] = set()
 
     def clear_view_shortcuts(self) -> None:
-        """Clear shortcuts when navigating away from view.
+        """Clear shortcut tracking sets when navigating away from view.
 
-        This method should be called when switching views to clear
-        view-specific shortcuts and prevent memory leaks.
+        This method clears the internal tracking sets used to prevent
+        duplicate handler registration within a single view render.
+
+        Note: With VIEW-scoped handlers, the actual handler cleanup is
+        handled automatically by handler_registry.clear_view(). This method
+        primarily resets the duplicate-detection sets for the next view.
         """
         self._registered_menuitem_shortcuts.clear()
         self._registered_menu_shortcuts.clear()
@@ -117,10 +122,10 @@ class ElementWiringManager:
         if isinstance(elem, Select):
             self._wire_select(elem, state)
 
-        # Wire up scroll position persistence for all ScrollableMixin elements
-        from wijjit.elements.base import ScrollableMixin
+        # Wire up scroll position persistence for all ScrollableElement elements
+        from wijjit.elements.base import ScrollableElement
 
-        if isinstance(elem, ScrollableMixin):
+        if isinstance(elem, ScrollableElement):
             self._wire_scrollable(elem, state)
 
         # Wire up Tree callbacks
@@ -216,12 +221,12 @@ class ElementWiringManager:
 
             elem.on_highlight_change = on_highlight_handler
 
-    def _wire_scrollable(self, elem: ScrollableMixin, state: State) -> None:
-        """Wire scroll position persistence for ScrollableMixin elements.
+    def _wire_scrollable(self, elem: ScrollableElement, state: State) -> None:
+        """Wire scroll position persistence for ScrollableElement elements.
 
         Parameters
         ----------
-        elem : ScrollableMixin
+        elem : ScrollableElement
             Scrollable element to wire
         state : State
             Application state
@@ -452,10 +457,11 @@ class ElementWiringManager:
 
                     # Validate that Ctrl+C is not being bound (reserved for app exit)
                     if shortcut_key in ("ctrl+c", "c-c"):
-                        raise ValueError(
+                        logger.warning(
                             f"Cannot bind Ctrl+C to action '{action_id}': "
-                            "Ctrl+C is reserved for exiting the application"
+                            "Ctrl+C is reserved for exiting the application. Skipping."
                         )
+                        continue
 
                     # Check if we already registered this shortcut
                     handler_id = f"menuitem_shortcut_{action_id}_{shortcut_key}"
@@ -471,11 +477,12 @@ class ElementWiringManager:
 
                             return handle_shortcut
 
-                        # Register the key handler
+                        # Register the key handler with VIEW scope to auto-clear on navigation
                         self.app.on(
                             event_type,
                             make_shortcut_handler(action_id, shortcut_key),
-                            scope=handler_scope,
+                            scope=HandlerScope.VIEW,
+                            view_name=self.app.current_view,
                         )
 
             # For context menus, check if we need to update mouse position
@@ -512,10 +519,11 @@ class ElementWiringManager:
 
                         # Validate that Ctrl+C is not being bound (reserved for app exit)
                         if trigger_key in ("ctrl+c", "c-c"):
-                            raise ValueError(
+                            logger.warning(
                                 f"Cannot bind Ctrl+C to dropdown menu '{elem.id}': "
-                                "Ctrl+C is reserved for exiting the application"
+                                "Ctrl+C is reserved for exiting the application. Skipping."
                             )
+                            continue
 
                         # Check if we already registered this handler
                         handler_id = f"menu_shortcut_{elem.id}"
@@ -551,11 +559,12 @@ class ElementWiringManager:
 
                                 return toggle_menu
 
-                            # Register the key handler
+                            # Register the key handler with VIEW scope to auto-clear on navigation
                             self.app.on(
                                 event_type,
                                 make_key_handler(
                                     visible_state_key, trigger_key, dropdown_state_keys
                                 ),
-                                scope=handler_scope,
+                                scope=HandlerScope.VIEW,
+                                view_name=self.app.current_view,
                             )

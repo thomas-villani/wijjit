@@ -6,7 +6,9 @@ in Wijjit applications.
 
 from __future__ import annotations
 
+import weakref
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
@@ -58,7 +60,9 @@ class Element(ABC):
         self.hovered = False
         self.bounds: Bounds | None = None
         self.element_type = ElementType.DISPLAY
-        self.parent_frame = None  # Reference to parent Frame if this element is inside a scrollable frame
+        self._parent_frame_ref: weakref.ref | None = (
+            None  # Weak reference to parent Frame
+        )
 
         # State management attributes (used by ElementWiringManager)
         self._state_dict = None  # Reference to application state
@@ -131,6 +135,37 @@ class Element(ABC):
         ...     return (width, height)
         """
         return (1, 1)
+
+    @property
+    def parent_frame(self):
+        """Get the parent Frame if this element is inside a scrollable frame.
+
+        Returns
+        -------
+        Frame or None
+            Parent frame object, or None if no parent or parent was garbage collected
+
+        Notes
+        -----
+        Uses weak reference internally to prevent circular references and memory leaks.
+        """
+        if self._parent_frame_ref is None:
+            return None
+        return self._parent_frame_ref()
+
+    @parent_frame.setter
+    def parent_frame(self, frame) -> None:
+        """Set the parent Frame reference.
+
+        Parameters
+        ----------
+        frame : Frame or None
+            Parent frame to set, or None to clear
+        """
+        if frame is None:
+            self._parent_frame_ref = None
+        else:
+            self._parent_frame_ref = weakref.ref(frame)
 
     @property
     def supports_dynamic_sizing(self) -> bool:
@@ -223,34 +258,99 @@ class Element(ABC):
         self.bounds = bounds
 
 
-class ScrollableMixin:
-    """Mixin class for elements that support scroll state persistence.
+class ScrollableElement(Element, ABC):
+    """Abstract base class for elements that support scrolling.
 
-    This mixin provides standard attributes and methods for elements that
-    need to persist their scroll position to application state. Elements
-    that inherit from this mixin can be automatically wired for scroll
-    state persistence by the application's callback wiring system.
+    This class provides a standard interface for elements that can scroll
+    their content, such as lists, text areas, tables, and frames. It enforces
+    implementation of scroll-related methods and provides state persistence
+    through the callback system.
 
     Attributes
     ----------
     scroll_state_key : str or None
         State key for persisting scroll position (typically "_scroll_{id}")
-    on_scroll : callable or None
+    on_scroll : Callable[[int], None] or None
         Callback function called when scroll position changes.
         Signature: on_scroll(position: int) -> None
 
     Notes
     -----
-    Elements using this mixin should:
+    Subclasses must implement:
+    - scroll_position property: Return current scroll offset
+    - can_scroll(direction): Check if scrolling is possible
+
+    Subclasses should:
     1. Initialize scroll_state_key in their __init__ (usually via template tags)
     2. Call self.on_scroll(position) when scroll position changes
     3. The application will wire on_scroll to update state automatically
+
+    Examples
+    --------
+    Implement a scrollable list element:
+
+    >>> class ScrollableList(ScrollableElement):
+    ...     def __init__(self, items):
+    ...         super().__init__()
+    ...         self.items = items
+    ...         self._scroll_offset = 0
+    ...
+    ...     @property
+    ...     def scroll_position(self) -> int:
+    ...         return self._scroll_offset
+    ...
+    ...     def can_scroll(self, direction: int) -> bool:
+    ...         if direction < 0:  # Up
+    ...             return self._scroll_offset > 0
+    ...         else:  # Down
+    ...             return self._scroll_offset < len(self.items) - 1
+    ...
+    ...     def scroll_by(self, amount: int):
+    ...         old_pos = self._scroll_offset
+    ...         self._scroll_offset = max(0, min(self._scroll_offset + amount, len(self.items) - 1))
+    ...         if self.on_scroll and old_pos != self._scroll_offset:
+    ...             self.on_scroll(self._scroll_offset)
     """
 
-    def __init__(self):
-        """Initialize scroll state attributes."""
+    def __init__(self, id: str | None = None):
+        """Initialize scrollable element.
+
+        Parameters
+        ----------
+        id : str, optional
+            Element identifier
+        """
+        super().__init__(id)
         self.scroll_state_key: str | None = None
-        self.on_scroll: callable | None = None
+        self.on_scroll: Callable[[int], None] | None = None
+
+    @property
+    @abstractmethod
+    def scroll_position(self) -> int:
+        """Get the current scroll position.
+
+        Returns
+        -------
+        int
+            Current scroll offset (0-based)
+        """
+        pass
+
+    @abstractmethod
+    def can_scroll(self, direction: int) -> bool:
+        """Check if the element can scroll in the given direction.
+
+        Parameters
+        ----------
+        direction : int
+            Scroll direction: negative for up/left, positive for down/right
+
+        Returns
+        -------
+        bool
+            True if scrolling in the given direction is possible
+        """
+        pass
 
 
 class Container(Element):

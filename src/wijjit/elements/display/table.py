@@ -7,7 +7,7 @@ import rich.box
 from rich.console import Console
 from rich.table import Table as RichTable
 
-from wijjit.elements.base import Element, ElementType, ScrollableMixin
+from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -28,7 +28,7 @@ BOX_STYLES = {
 }
 
 
-class Table(ScrollableMixin, Element):
+class Table(ScrollableElement):
     """Table element for displaying tabular data with sorting.
 
     This element provides a rich table display with support for:
@@ -96,8 +96,7 @@ class Table(ScrollableMixin, Element):
         show_scrollbar: bool = True,
         border_style: str = "single",
     ):
-        ScrollableMixin.__init__(self)
-        Element.__init__(self, id)
+        super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
@@ -138,7 +137,7 @@ class Table(ScrollableMixin, Element):
 
         # Scroll position persistence (will be set by template extension)
         self.initial_scroll_position = 0
-        # scroll_state_key and on_scroll provided by ScrollableMixin
+        # scroll_state_key and on_scroll provided by ScrollableElement
 
         # Callbacks
         self.on_sort: Callable[[str | None, str], None] | None = (
@@ -158,6 +157,38 @@ class Table(ScrollableMixin, Element):
             Scroll position to restore
         """
         self.scroll_manager.scroll_to(position)
+
+    @property
+    def scroll_position(self) -> int:
+        """Get the current scroll position.
+
+        Returns
+        -------
+        int
+            Current scroll offset (0-based)
+        """
+        return self.scroll_manager.state.scroll_position
+
+    def can_scroll(self, direction: int) -> bool:
+        """Check if the element can scroll in the given direction.
+
+        Parameters
+        ----------
+        direction : int
+            Scroll direction: negative for up, positive for down
+
+        Returns
+        -------
+        bool
+            True if scrolling in the given direction is possible
+        """
+        if direction < 0:
+            return self.scroll_manager.state.scroll_position > 0
+        else:
+            return self.scroll_manager.state.is_scrollable and (
+                self.scroll_manager.state.scroll_position
+                < self.scroll_manager.state.max_scroll_position
+            )
 
     def _normalize_columns(self, columns: list[str] | list[dict]) -> list[dict]:
         """Normalize column definitions to internal format.

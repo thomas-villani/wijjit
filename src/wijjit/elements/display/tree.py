@@ -3,7 +3,7 @@ from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from wijjit.elements.base import Element, ElementType, ScrollableMixin
+from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
@@ -46,7 +46,7 @@ class TreeIndicatorStyle(Enum):
     SQUARES = auto()
 
 
-class Tree(ScrollableMixin, Element):
+class Tree(ScrollableElement):
     """Tree element for displaying hierarchical data with expand/collapse.
 
     This element provides a tree view display with support for:
@@ -138,8 +138,7 @@ class Tree(ScrollableMixin, Element):
         border_style: str = "none",
         title: str | None = None,
     ):
-        ScrollableMixin.__init__(self)
-        Element.__init__(self, id)
+        super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True
 
@@ -175,14 +174,14 @@ class Tree(ScrollableMixin, Element):
         self.on_select: Callable[[dict], None] | None = None
         self.on_expand: Callable[[str], None] | None = None
         self.on_collapse: Callable[[str], None] | None = None
-        # on_scroll provided by ScrollableMixin
+        # on_scroll provided by ScrollableElement
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
         # State persistence keys
-        # scroll_state_key provided by ScrollableMixin
+        # scroll_state_key provided by ScrollableElement
         self.expand_state_key: str | None = None
         self.highlight_state_key: str | None = None
         self.selected_state_key: str | None = None
@@ -389,6 +388,38 @@ class Tree(ScrollableMixin, Element):
         self._raw_data = data
         self.data = self._normalize_data(data) if data else {}
         self._rebuild_nodes()
+
+    @property
+    def scroll_position(self) -> int:
+        """Get the current scroll position.
+
+        Returns
+        -------
+        int
+            Current scroll offset (0-based)
+        """
+        return self.scroll_manager.state.scroll_position
+
+    def can_scroll(self, direction: int) -> bool:
+        """Check if the element can scroll in the given direction.
+
+        Parameters
+        ----------
+        direction : int
+            Scroll direction: negative for up, positive for down
+
+        Returns
+        -------
+        bool
+            True if scrolling in the given direction is possible
+        """
+        if direction < 0:
+            return self.scroll_manager.state.scroll_position > 0
+        else:
+            return self.scroll_manager.state.is_scrollable and (
+                self.scroll_manager.state.scroll_position
+                < self.scroll_manager.state.max_scroll_position
+            )
 
     def _save_highlight_state(self) -> None:
         """Save highlighted index to app state if available."""
