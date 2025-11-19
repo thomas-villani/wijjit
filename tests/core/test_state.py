@@ -143,7 +143,7 @@ class TestState:
         state["a"] = 10  # Should trigger
         state["b"] = 20  # Should not trigger
 
-        callback.assert_called_once_with(1, 10)
+        callback.assert_called_once_with("a", 1, 10)
 
     def test_watch_multiple_keys(self):
         """Test watching multiple keys."""
@@ -157,8 +157,8 @@ class TestState:
         state["x"] = 10
         state["y"] = 20
 
-        callback_x.assert_called_once_with(1, 10)
-        callback_y.assert_called_once_with(2, 20)
+        callback_x.assert_called_once_with("x", 1, 10)
+        callback_y.assert_called_once_with("y", 2, 20)
 
     def test_watch_new_key(self):
         """Test watching a key that doesn't exist yet."""
@@ -168,7 +168,7 @@ class TestState:
 
         state["newkey"] = "value"
 
-        callback.assert_called_once_with(None, "value")
+        callback.assert_called_once_with("newkey", None, "value")
 
     def test_unwatch_specific_callback(self):
         """Test unwatching a specific callback."""
@@ -184,7 +184,7 @@ class TestState:
         state["count"] = 1
 
         callback1.assert_not_called()
-        callback2.assert_called_once_with(0, 1)
+        callback2.assert_called_once_with("count", 0, 1)
 
     def test_unwatch_all_callbacks(self):
         """Test unwatching all callbacks for a key."""
@@ -220,6 +220,31 @@ class TestState:
         assert state["b"] == 2
         assert state["c"] == 3
         assert callback.call_count == 2  # Called for 'a' and 'c'
+
+    def test_update_with_kwargs(self):
+        """Test updating with keyword arguments."""
+        state = State()
+        callback = Mock()
+        state.on_change(callback)
+
+        state.update({}, count=5, ready=True)
+
+        assert state["count"] == 5
+        assert state["ready"] is True
+        assert callback.call_count == 2  # Called for 'count' and 'ready'
+
+    def test_update_combined(self):
+        """Test updating with both dict and kwargs."""
+        state = State()
+        callback = Mock()
+        state.on_change(callback)
+
+        state.update({"a": 1}, b=2, c=3)
+
+        assert state["a"] == 1
+        assert state["b"] == 2
+        assert state["c"] == 3
+        assert callback.call_count == 3  # Called for 'a', 'b', and 'c'
 
     def test_reset_with_data(self):
         """Test resetting state with new data."""
@@ -265,7 +290,7 @@ class TestState:
         """Test that exceptions in watchers don't break state updates."""
         state = State()
 
-        def bad_watcher(old, new):
+        def bad_watcher(key, old, new):
             raise ValueError("Watcher error")
 
         good_watcher = Mock()
@@ -276,7 +301,7 @@ class TestState:
         # Should not raise, and good_watcher should still be called
         state["key"] = "value"
 
-        good_watcher.assert_called_once_with(None, "value")
+        good_watcher.assert_called_once_with("key", None, "value")
 
     def test_private_attributes(self):
         """Test that private attributes work correctly."""
@@ -356,3 +381,37 @@ class TestState:
         # Setting new non-reserved keys should also work
         state["new_key"] = "test"
         assert state["new_key"] == "test"
+
+    def test_reset_with_reserved_names(self):
+        """Test that reset validates reserved dict method names."""
+        state = State({"valid_key": "value"})
+
+        with pytest.raises(
+            ValueError, match="State keys cannot use reserved dict method names"
+        ):
+            state.reset({"items": []})
+
+        with pytest.raises(
+            ValueError, match="State keys cannot use reserved dict method names"
+        ):
+            state.reset({"keys": {}})
+
+        with pytest.raises(
+            ValueError, match="State keys cannot use reserved dict method names"
+        ):
+            state.reset({"values": 123})
+
+        # Original state should be unchanged after failed reset
+        assert state["valid_key"] == "value"
+
+    def test_reset_without_reserved_names_works(self):
+        """Test that reset works with non-reserved names."""
+        state = State({"old_key": "old"})
+
+        # Should work without error
+        state.reset({"items_list": [], "my_keys": {}, "data_values": 123})
+
+        assert "old_key" not in state
+        assert state["items_list"] == []
+        assert state["my_keys"] == {}
+        assert state["data_values"] == 123

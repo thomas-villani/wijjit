@@ -201,7 +201,7 @@ class State(UserDict[str, Any]):
             The state key to watch
         callback : callable or async callable
             Function to call when this key changes.
-            Signature: callback(old_value, new_value)
+            Signature: callback(key, old_value, new_value)
             Can be sync or async.
         """
         if key not in self._watchers:
@@ -292,7 +292,7 @@ class State(UserDict[str, Any]):
                         # Schedule async callback as a task
                         try:
                             loop = asyncio.get_event_loop()
-                            loop.create_task(callback(old_value, new_value))
+                            loop.create_task(callback(key, old_value, new_value))
                         except RuntimeError:
                             # No event loop running - log warning
                             logger.warning(
@@ -301,7 +301,7 @@ class State(UserDict[str, Any]):
                             )
                     else:
                         # Call sync callback immediately
-                        callback(old_value, new_value)
+                        callback(key, old_value, new_value)
                 except Exception as e:
                     logger.error(
                         f"Error in state watcher for key '{key}': {e}", exc_info=True
@@ -347,11 +347,13 @@ class State(UserDict[str, Any]):
             for callback in self._watchers[key]:
                 try:
                     if asyncio.iscoroutinefunction(callback):
-                        await callback(old_value, new_value)
+                        await callback(key, old_value, new_value)
                     else:
                         # Run sync callback in executor
                         loop = asyncio.get_event_loop()
-                        await loop.run_in_executor(None, callback, old_value, new_value)
+                        await loop.run_in_executor(
+                            None, callback, key, old_value, new_value
+                        )
                 except Exception as e:
                     logger.error(
                         f"Error in state watcher for key '{key}': {e}", exc_info=True
@@ -364,8 +366,12 @@ class State(UserDict[str, Any]):
         ----------
         other : dict
             Dictionary of values to update
+        **kwargs : Any
+            Additional key-value pairs to update
         """
         for key, value in other.items():
+            self[key] = value
+        for key, value in kwargs.items():
             self[key] = value
 
     def reset(self, data: dict[str, Any] | None = None) -> None:
@@ -375,7 +381,23 @@ class State(UserDict[str, Any]):
         ----------
         data : dict, optional
             New state data. If None, clears all state.
+
+        Raises
+        ------
+        ValueError
+            If any key is a reserved dict method name
         """
+        # Validate keys don't conflict with dict methods
+        if data:
+            reserved_keys = set(data.keys()) & self._RESERVED_NAMES
+            if reserved_keys:
+                raise ValueError(
+                    f"State keys cannot use reserved dict method names: {sorted(reserved_keys)}. "
+                    f"These names conflict with dict methods and will cause issues in Jinja2 templates. "
+                    f"Please use different key names, such as: "
+                    f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_keys))}"
+                )
+
         old_data = dict(self.data)
         self.data.clear()
 
