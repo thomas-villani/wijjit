@@ -659,6 +659,7 @@ def wrap_text(text: str, width: int) -> list[str]:
         if last_boundary_actual is not None and last_boundary_actual < len(stripped):
             # Found a wrap boundary within width
             # Use clip_to_width to get the segment with ANSI codes preserved
+            assert last_boundary_vis is not None  # Set together with last_boundary_actual
             segment = clip_to_width(remaining, last_boundary_vis, ellipsis="")
             segments.append(segment)
 

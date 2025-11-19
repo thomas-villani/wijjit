@@ -101,7 +101,7 @@ class MenuElement(OverlayElement):
         width: int = 30,
         border_style: BorderStyle | str = BorderStyle.SINGLE,
         centered: bool = False,
-    ):
+    ) -> None:
         # Calculate height based on items
         items = items or []
         height = len(items) + 2  # Add 2 for borders
@@ -508,7 +508,7 @@ class DropdownMenu(MenuElement):
         trigger_key: str | None = None,
         width: int = 30,
         border_style: BorderStyle | str = BorderStyle.SINGLE,
-    ):
+    ) -> None:
         super().__init__(
             id=id,
             items=items,
@@ -556,7 +556,7 @@ class ContextMenu(MenuElement):
         target_element_id: str | None = None,
         width: int = 30,
         border_style: BorderStyle | str = BorderStyle.SINGLE,
-    ):
+    ) -> None:
         super().__init__(
             id=id,
             items=items,

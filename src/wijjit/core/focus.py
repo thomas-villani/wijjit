@@ -30,7 +30,7 @@ class FocusManager:
         Index of currently focused element
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.elements: list[Element] = []
         self.current_index: int | None = None
         self.dirty_manager: DirtyRegionManager | None = None

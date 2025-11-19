@@ -45,7 +45,7 @@ class Theme:
     True
     """
 
-    def __init__(self, name: str, styles: dict[str, Style]):
+    def __init__(self, name: str, styles: dict[str, Style]) -> None:
         self.name = name
         self.styles = styles
 
@@ -110,7 +110,7 @@ class DefaultTheme(Theme):
     terminal environments.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         styles = {
             # Button styles
             "button": Style(
@@ -335,7 +335,7 @@ class DarkTheme(Theme):
     prolonged terminal use in low-light conditions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         styles = {
             # Button styles
             "button": Style(
@@ -546,7 +546,7 @@ class LightTheme(Theme):
     in bright conditions or for users who prefer light color schemes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         styles = {
             # Button styles
             "button": Style(
@@ -786,7 +786,7 @@ class ThemeManager:
     >>> manager.set_theme('custom')
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.themes: dict[str, Theme] = {}
         self.current_theme: Theme = DefaultTheme()
 

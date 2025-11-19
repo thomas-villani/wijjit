@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import cast
 from typing import Any
 
 from wijjit.terminal.mouse import (
@@ -117,7 +118,7 @@ class KeyEvent(Event):
     modifiers: list[str] = field(default_factory=list)
     key_obj: Any | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize event type."""
         self.event_type = EventType.KEY
 
@@ -151,7 +152,7 @@ class ActionEvent(Event):
     source_element_id: str | None = None
     data: Any = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize event type."""
         self.event_type = EventType.ACTION
 
@@ -185,7 +186,7 @@ class ChangeEvent(Event):
     old_value: Any = None
     new_value: Any = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize event type."""
         self.event_type = EventType.CHANGE
 
@@ -214,7 +215,7 @@ class FocusEvent(Event):
     element_id: str = ""
     focus_gained: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize event type."""
         if self.focus_gained:
             self.event_type = EventType.FOCUS
@@ -264,7 +265,7 @@ class MouseEvent(Event):
     mouse_event: TerminalMouseEvent | None = None
     element_id: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize event type and convenience attributes."""
         self.event_type = EventType.MOUSE
 
@@ -381,7 +382,7 @@ class HandlerRegistry:
         Name of the current view for view-scoped handlers
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize handler registry."""
         self.handlers: list[Handler] = []
         self.current_view: str | None = None
@@ -510,7 +511,9 @@ class HandlerRegistry:
 
             # Invoke callback based on type
             if handler.is_async:
-                await handler.callback(event)
+                # Cast to async callback type since is_async is True
+                async_callback = cast(Callable[[Event], Awaitable[None]], handler.callback)
+                await async_callback(event)
             else:
                 # Run sync callback in executor to avoid blocking
                 loop = asyncio.get_event_loop()

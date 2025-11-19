@@ -70,7 +70,7 @@ class Button(Element):
         id: str | None = None,
         on_click: Callable[[ActionEvent], None] | None = None,
         style: ButtonStyle = ButtonStyle.BRACKETS,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.BUTTON
         self.focusable = True

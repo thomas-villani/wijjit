@@ -95,7 +95,7 @@ class Table(ScrollableElement):
         show_header: bool = True,
         show_scrollbar: bool = True,
         border_style: str = "single",
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
@@ -187,7 +187,7 @@ class Table(ScrollableElement):
         else:
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def _normalize_columns(self, columns: list[str] | list[dict]) -> list[dict]:

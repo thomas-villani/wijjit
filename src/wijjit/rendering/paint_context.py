@@ -62,7 +62,7 @@ class PaintContext:
         buffer: "ScreenBuffer",
         style_resolver: "StyleResolver",
         bounds: "Bounds",
-    ):
+    ) -> None:
         self.buffer = buffer
         self.style_resolver = style_resolver
         self.bounds = bounds

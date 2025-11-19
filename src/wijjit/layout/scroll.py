@@ -100,7 +100,7 @@ class ScrollState:
         """
         return self.content_size > self.viewport_size
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate and clamp scroll position after initialization."""
         self.scroll_position = max(0, min(self.scroll_position, self.max_scroll))
 
@@ -129,7 +129,7 @@ class ScrollManager:
 
     def __init__(
         self, content_size: int, viewport_size: int, initial_position: int = 0
-    ):
+    ) -> None:
         self.state = ScrollState(
             content_size=content_size,
             viewport_size=viewport_size,

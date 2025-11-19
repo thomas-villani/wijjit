@@ -133,7 +133,7 @@ class OverlayManager:
         )
     """
 
-    def __init__(self, app: "Wijjit"):
+    def __init__(self, app: "Wijjit") -> None:
         """Initialize the overlay manager.
 
         Parameters

@@ -166,7 +166,7 @@ class MouseEventParser:
 
     def __init__(
         self, double_click_threshold: float = 0.5, double_click_distance: int = 2
-    ):
+    ) -> None:
         self.double_click_threshold = double_click_threshold
         self.double_click_distance = double_click_distance
 

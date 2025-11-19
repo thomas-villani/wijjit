@@ -180,7 +180,7 @@ class _StyleState:
         Dim attribute
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.fg_color: tuple[int, int, int] | None = None
         self.bg_color: tuple[int, int, int] | None = None
         self.bold: bool = False

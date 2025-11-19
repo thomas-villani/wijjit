@@ -106,7 +106,7 @@ class Wijjit:
         self,
         template_dir: str | None = None,
         initial_state: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize Wijjit application.
 
         Parameters
@@ -374,7 +374,7 @@ class Wijjit:
                 "Use allow_ctrl_c=True to override this restriction."
             )
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: Callable[..., Any]) -> Callable:
             self._key_handlers[key_lower] = func
             return func
 
@@ -403,7 +403,7 @@ class Wijjit:
         ...     print("Form submitted!")
         """
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: Callable[..., Any]) -> Callable:
             self._action_handlers[action_id] = func
             return func
 
@@ -661,7 +661,7 @@ class Wijjit:
         layout_tags = ["{% vstack", "{% hstack", "{% frame"]
         return any(tag in template for tag in layout_tags)
 
-    def _update_focus_manager(self, elements: list) -> None:
+    def _update_focus_manager(self, elements: list[Any]) -> None:
         """Update focus manager with positioned elements.
 
         Parameters
@@ -827,7 +827,7 @@ class Wijjit:
         # Store overlay info for menu shortcut registration
         self._last_template_overlays = template_overlays
 
-    def _wire_element_callbacks(self, elements: list) -> None:
+    def _wire_element_callbacks(self, elements: list[Any]) -> None:
         """Wire up element callbacks for actions and state binding (delegates to ElementWiringManager).
 
         Parameters

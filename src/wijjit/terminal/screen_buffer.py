@@ -49,7 +49,7 @@ class ScreenBuffer:
     True
     """
 
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
         self.cells: list[list[Cell]] = [
@@ -307,7 +307,7 @@ class DiffRenderer:
     >>> output = renderer.render_diff(None, buffer)  # Full render
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.last_buffer: ScreenBuffer | None = None
 
     def render_diff(

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import TextElement
@@ -16,6 +17,11 @@ from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.text import TextInput
 from wijjit.terminal.ansi import wrap_text
+
+if TYPE_CHECKING:
+    from wijjit.elements.base import Element
+    from wijjit.rendering.paint_context import PaintContext
+    from wijjit.styling.style import Style
 
 
 class AlertSeverity(Enum):
@@ -78,7 +84,7 @@ class ConfirmDialog(ModalElement):
         width: int | None = 50,
         height: int | None = None,
         border: str = "single",
-    ):
+    ) -> None:
         # Auto-size if width/height not provided
         if width is None:
             width = 50  # Default width
@@ -147,7 +153,7 @@ class ConfirmDialog(ModalElement):
             Wrapped callback that receives ActionEvent, closes dialog, then executes user callback
         """
 
-        def wrapped(event: ActionEvent):
+        def wrapped(event: ActionEvent) -> None:
             # Close dialog first
             if self.close_callback:
                 self.close_callback()
@@ -208,7 +214,7 @@ class AlertDialog(ModalElement):
         width: int | None = 50,
         height: int | None = None,
         border: str = "single",
-    ):
+    ) -> None:
         # Convert severity string to enum if needed
         if isinstance(severity, str):
             severity = AlertSeverity(severity.lower())
@@ -258,7 +264,7 @@ class AlertDialog(ModalElement):
         # Add button to children
         self.add_child(self.ok_button)
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render the alert dialog with severity-based border styling.
 
         Parameters
@@ -289,10 +295,14 @@ class AlertDialog(ModalElement):
             original_resolve = ctx.style_resolver.resolve_style
 
             # Create a wrapper that uses custom border style class
-            def custom_resolve(element, style_class: str):
+            def custom_resolve(
+                element: Element,
+                base_class: str | None = None,
+                inline_overrides: dict[str, Any] | None = None,
+            ) -> Style:
                 # Check if this is a frame.border request
                 if (
-                    style_class in ("frame.border", "frame.border:focus")
+                    base_class in ("frame.border", "frame.border:focus")
                     and border_style_class
                 ):
                     # Try to resolve severity-specific border style
@@ -305,16 +315,16 @@ class AlertDialog(ModalElement):
                         # Use severity style if it has colors defined
                         return severity_style
                     # Otherwise fall back to default frame.border
-                return original_resolve(element, style_class)
+                return original_resolve(element, base_class, inline_overrides)
 
             # Temporarily replace the resolver
-            ctx.style_resolver.resolve_style = custom_resolve
+            ctx.style_resolver.resolve_style = custom_resolve  # type: ignore[method-assign]
 
             # Call parent render_to
             super().render_to(ctx)
 
             # Restore original resolver
-            ctx.style_resolver.resolve_style = original_resolve
+            ctx.style_resolver.resolve_style = original_resolve  # type: ignore[method-assign]
         else:
             # No severity, use default rendering
             super().render_to(ctx)
@@ -335,7 +345,7 @@ class AlertDialog(ModalElement):
             Wrapped callback that receives ActionEvent, closes dialog, then executes user callback
         """
 
-        def wrapped(event: ActionEvent):
+        def wrapped(event: ActionEvent) -> None:
             # Close dialog first
             if self.close_callback:
                 self.close_callback()
@@ -410,7 +420,7 @@ class TextInputDialog(ModalElement):
         height: int = 16,
         border: str = "single",
         input_width: int = 30,
-    ):
+    ) -> None:
         super().__init__(
             title=title,
             width=width,
@@ -438,7 +448,7 @@ class TextInputDialog(ModalElement):
         # Wire up Enter key to submit
         original_on_action = self.text_input.on_action
 
-        def submit_on_enter():
+        def submit_on_enter() -> None:
             self._handle_submit(on_submit)
             if original_on_action:
                 original_on_action()
@@ -498,7 +508,7 @@ class TextInputDialog(ModalElement):
             Wrapped callback that receives ActionEvent, closes dialog, then executes user callback
         """
 
-        def wrapped(event: ActionEvent):
+        def wrapped(event: ActionEvent) -> None:
             # Close dialog first
             if self.close_callback:
                 self.close_callback()

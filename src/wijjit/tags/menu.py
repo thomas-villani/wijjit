@@ -3,8 +3,11 @@
 This module provides template tags for creating dropdown menus and context menus.
 """
 
+from typing import Any, Callable, cast
+
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuItem
@@ -27,7 +30,7 @@ class MenuItemExtension(Extension):
 
     tags = {"menuitem"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the menuitem tag.
 
         Parameters
@@ -60,18 +63,18 @@ class MenuItemExtension(Extension):
             self.call_method("_render_menuitem", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endmenuitem"], drop_needle=True),
+            parser.parse_statements(("name:endmenuitem",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_menuitem(
         self,
-        caller,
-        action=None,
-        key=None,
-        divider=False,
-        disabled=False,
+        caller: Callable[[], str],
+        action: str | None = None,
+        key: str | None = None,
+        divider: bool = False,
+        disabled: bool = False,
     ) -> str:
         """Render the menuitem tag.
 
@@ -94,7 +97,10 @@ class MenuItemExtension(Extension):
             Rendered output (empty string, item is added to parent menu)
         """
         # Get the current menu being built
-        menu_stack = self.environment.globals.get("_wijjit_menu_stack")
+        menu_stack = cast(
+            list[list[MenuItem]] | None,
+            self.environment.globals.get("_wijjit_menu_stack")
+        )
         if not menu_stack:
             logger.warning("menuitem tag used outside of dropdown/contextmenu")
             # Consume body anyway
@@ -136,7 +142,7 @@ class DropdownExtension(Extension):
 
     tags = {"dropdown"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the dropdown tag.
 
         Parameters
@@ -169,20 +175,20 @@ class DropdownExtension(Extension):
             self.call_method("_render_dropdown", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:enddropdown"], drop_needle=True),
+            parser.parse_statements(("name:enddropdown",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_dropdown(
         self,
-        caller,
-        id=None,
-        trigger="Menu",
-        key=None,
-        visible=None,
-        width=30,
-        border_style="single",
+        caller: Callable[[], str],
+        id: str | None = None,
+        trigger: str = "Menu",
+        key: str | None = None,
+        visible: str | None = None,
+        width: int = 30,
+        border_style: str = "single",
     ) -> str:
         """Render the dropdown tag.
 
@@ -209,7 +215,7 @@ class DropdownExtension(Extension):
             Rendered output (empty string, menu is registered as overlay)
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             caller()  # Consume body
             return ""
@@ -222,7 +228,7 @@ class DropdownExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))
@@ -232,13 +238,16 @@ class DropdownExtension(Extension):
         # Create menu items stack for nested menuitem tags
         # IMPORTANT: Always set up menu_stack before calling caller(),
         # even if not visible, to avoid "menuitem outside dropdown" errors
-        menu_stack = self.environment.globals.get("_wijjit_menu_stack")
+        menu_stack = cast(
+            list[list[MenuItem]] | None,
+            self.environment.globals.get("_wijjit_menu_stack")
+        )
         if menu_stack is None:
             menu_stack = []
             self.environment.globals["_wijjit_menu_stack"] = menu_stack
 
         # Push new items list for this menu
-        items_list = []
+        items_list: list[MenuItem] = []
         menu_stack.append(items_list)
 
         # Render body (this will populate items_list via menuitem tags)
@@ -263,7 +272,7 @@ class DropdownExtension(Extension):
         )
 
         # Store overlay info for app to register
-        overlay_info = {
+        overlay_info: dict[str, Any] = {
             "element": dropdown,
             "layer_type": LayerType.DROPDOWN,
             "close_on_escape": True,
@@ -298,7 +307,7 @@ class ContextMenuExtension(Extension):
 
     tags = {"contextmenu"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the contextmenu tag.
 
         Parameters
@@ -331,19 +340,19 @@ class ContextMenuExtension(Extension):
             self.call_method("_render_contextmenu", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endcontextmenu"], drop_needle=True),
+            parser.parse_statements(("name:endcontextmenu",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_contextmenu(
         self,
-        caller,
-        id=None,
-        target=None,
-        visible=None,
-        width=30,
-        border_style="single",
+        caller: Callable[[], str],
+        id: str | None = None,
+        target: str | None = None,
+        visible: str | None = None,
+        width: int = 30,
+        border_style: str = "single",
     ) -> str:
         """Render the contextmenu tag.
 
@@ -368,7 +377,7 @@ class ContextMenuExtension(Extension):
             Rendered output (empty string, menu is registered as overlay)
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             caller()  # Consume body
             return ""
@@ -381,7 +390,7 @@ class ContextMenuExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))
@@ -391,13 +400,16 @@ class ContextMenuExtension(Extension):
         # Create menu items stack for nested menuitem tags
         # IMPORTANT: Always set up menu_stack before calling caller(),
         # even if not visible, to avoid "menuitem outside dropdown" errors
-        menu_stack = self.environment.globals.get("_wijjit_menu_stack")
+        menu_stack = cast(
+            list[list[MenuItem]] | None,
+            self.environment.globals.get("_wijjit_menu_stack")
+        )
         if menu_stack is None:
             menu_stack = []
             self.environment.globals["_wijjit_menu_stack"] = menu_stack
 
         # Push new items list for this menu
-        items_list = []
+        items_list: list[MenuItem] = []
         menu_stack.append(items_list)
 
         # Render body (this will populate items_list via menuitem tags)
@@ -420,7 +432,7 @@ class ContextMenuExtension(Extension):
         )
 
         # Store overlay info for app to register
-        overlay_info = {
+        overlay_info: dict[str, Any] = {
             "element": context_menu,
             "layer_type": LayerType.DROPDOWN,
             "close_on_escape": True,

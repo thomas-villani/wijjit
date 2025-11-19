@@ -6,7 +6,7 @@ which allows TUI applications to run without disturbing the user's terminal hist
 
 import sys
 from contextlib import contextmanager
-from typing import TextIO
+from typing import Generator, TextIO
 
 from wijjit.terminal.ansi import ANSICursor, ANSIScreen
 
@@ -30,7 +30,7 @@ class ScreenManager:
         Whether currently in alternate screen mode
     """
 
-    def __init__(self, output: TextIO = None):
+    def __init__(self, output: TextIO | None = None) -> None:
         self.output = output or sys.stdout
         self.in_alternate_buffer = False
         self._cursor_hidden = False
@@ -135,7 +135,7 @@ class ScreenManager:
 
 
 @contextmanager
-def alternate_screen(output: TextIO = None, hide_cursor: bool = True):
+def alternate_screen(output: TextIO | None = None, hide_cursor: bool = True) -> Generator[ScreenManager, None, None]:
     """Context manager for alternate screen buffer.
 
     This context manager handles entering and exiting alternate screen mode,

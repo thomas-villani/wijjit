@@ -83,10 +83,10 @@ class NotificationElement(OverlayElement):
         id: str | None = None,
         severity: str | NotificationSeverity = NotificationSeverity.INFO,
         action_label: str | None = None,
-        action_callback: Callable | None = None,
+        action_callback: Callable[..., Any] | None = None,
         dismiss_on_action: bool = True,
         max_width: int = 60,
-    ):
+    ) -> None:
         # Convert severity string to enum if needed
         if isinstance(severity, str):
             severity = NotificationSeverity(severity.lower())
@@ -152,7 +152,7 @@ class NotificationElement(OverlayElement):
             self.add_child(self.action_button)
 
         # Dismiss callback (set externally by notification manager)
-        self.on_dismiss: Callable | None = None
+        self.on_dismiss: Callable[..., Any] | None = None
 
     def _handle_action_click(self, event=None) -> None:
         """Handle action button click.

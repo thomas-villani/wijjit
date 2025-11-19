@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Any
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
@@ -78,7 +78,7 @@ class Radio(Element):
         label: str = "",
         checked: bool = False,
         value: str = "",
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
         self.focusable = True
@@ -306,7 +306,7 @@ class RadioGroup(Element):
         self,
         name: str,
         id: str | None = None,
-        options: list | None = None,
+        options: list[Any] | None = None,
         selected_value: str | None = None,
         width: int = 20,
         orientation: Literal["vertical", "horizontal"] = "vertical",
@@ -362,7 +362,7 @@ class RadioGroup(Element):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
-    def _normalize_options(self, options: list) -> list[dict]:
+    def _normalize_options(self, options: list[Any]) -> list[dict]:
         """Normalize options to internal format with value and label."""
         normalized = []
         for opt in options:

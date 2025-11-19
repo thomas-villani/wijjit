@@ -5,6 +5,7 @@ a CSS-like approach with colors, text attributes, and cascade/merge support.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -148,7 +149,7 @@ class Style:
             reverse=other.reverse or self.reverse,
         )
 
-    def to_cell_attrs(self) -> dict:
+    def to_cell_attrs(self) -> dict[str, Any]:
         """Convert style to Cell constructor attributes.
 
         Returns

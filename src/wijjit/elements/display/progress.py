@@ -66,7 +66,7 @@ class ProgressBar(Element):
         show_percentage: bool | None = None,
         fill_char: str | None = None,
         empty_char: str | None = None,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = False  # Progress bars are not interactive

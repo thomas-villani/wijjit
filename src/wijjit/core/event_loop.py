@@ -47,7 +47,7 @@ class EventLoop:
         Whether the event loop is currently running
     """
 
-    def __init__(self, app: Wijjit):
+    def __init__(self, app: Wijjit) -> None:
         """Initialize the event loop.
 
         Parameters

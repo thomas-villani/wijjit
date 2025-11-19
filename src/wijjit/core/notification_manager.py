@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.core.overlay import LayerType, Overlay
 from wijjit.layout.bounds import Bounds
@@ -67,7 +67,7 @@ class ActiveNotification:
         overlay: Overlay,
         created_at: float,
         duration: float | None = None,
-    ):
+    ) -> None:
         self.id = id
         self.element = element
         self.overlay = overlay
@@ -137,7 +137,7 @@ class NotificationManager:
         position: str = "top-right",
         spacing: int = 1,
         margin: int = 2,
-    ):
+    ) -> None:
         self.overlay_manager = overlay_manager
         self.terminal_width = terminal_width
         self.terminal_height = terminal_height
@@ -150,7 +150,7 @@ class NotificationManager:
         self,
         element: NotificationElement,
         duration: float | None = 3.0,
-        on_close: Callable | None = None,
+        on_close: Callable[..., Any] | None = None,
     ) -> str:
         """Add a notification to the stack.
 
@@ -175,12 +175,14 @@ class NotificationManager:
         # Calculate position for this notification
         x, y = self._calculate_position(element, len(self.notifications))
 
-        # Set element bounds
+        # Set element bounds - element width/height must be set before adding
+        assert element.width is not None, "Notification element must have width set"
+        assert element.height is not None, "Notification element must have height set"
         bounds = Bounds(x=x, y=y, width=element.width, height=element.height)
         element.set_bounds(bounds)
 
         # Wire dismiss callback
-        def dismiss_callback():
+        def dismiss_callback() -> None:
             self.remove(notification_id)
             if on_close:
                 on_close()
@@ -343,6 +345,9 @@ class NotificationManager:
         """
         for i, notification in enumerate(self.notifications):
             x, y = self._calculate_position(notification.element, i)
+            # Element width/height should be set (checked when added)
+            assert notification.element.width is not None
+            assert notification.element.height is not None
             bounds = Bounds(
                 x=x,
                 y=y,
@@ -432,13 +437,17 @@ class NotificationManager:
         tuple of int
             (x, y) position
         """
+        # Element must have width and height set
+        assert element.width is not None, "Element must have width"
+        assert element.height is not None, "Element must have height"
+
         # Calculate accumulated height of notifications above this one
         accumulated_height = 0
         for i in range(stack_index):
             if i < len(self.notifications):
-                accumulated_height += (
-                    self.notifications[i].element.height + self.spacing
-                )
+                notif_element = self.notifications[i].element
+                assert notif_element.height is not None
+                accumulated_height += notif_element.height + self.spacing
 
         # Calculate x position based on position setting
         if "right" in self.position:

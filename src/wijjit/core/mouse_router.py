@@ -42,7 +42,7 @@ class MouseEventRouter:
         Application reference
     """
 
-    def __init__(self, app: Wijjit):
+    def __init__(self, app: Wijjit) -> None:
         """Initialize the mouse event router.
 
         Parameters

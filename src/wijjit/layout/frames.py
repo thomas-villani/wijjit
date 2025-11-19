@@ -7,7 +7,7 @@ exceeds the frame height.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Any
 
 from wijjit.elements.base import ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -129,7 +129,7 @@ class Frame(ScrollableElement):
         height: int,
         style: FrameStyle | None = None,
         id: str | None = None,
-    ):
+    ) -> None:
         super().__init__(id)
         self.width = max(3, width)  # Minimum width for borders
         self.height = max(3, height)  # Minimum height for borders
@@ -319,7 +319,7 @@ class Frame(ScrollableElement):
         else:  # Down
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def render(self) -> str:
@@ -585,7 +585,7 @@ class Frame(ScrollableElement):
 
         return "\n".join(lines)
 
-    def _render_top_border(self, chars: dict) -> str:
+    def _render_top_border(self, chars: dict[str, Any]) -> str:
         """Render the top border with optional title.
 
         Parameters
@@ -622,7 +622,7 @@ class Frame(ScrollableElement):
             # No title
             return chars["tl"] + chars["h"] * (self.width - 2) + chars["tr"]
 
-    def _render_bottom_border(self, chars: dict) -> str:
+    def _render_bottom_border(self, chars: dict[str, Any]) -> str:
         """Render the bottom border.
 
         Parameters
@@ -1178,7 +1178,7 @@ class Frame(ScrollableElement):
         self._render_to_bottom_border(ctx, current_y, chars, border_attrs)
 
     def _render_to_top_border(
-        self, ctx: "PaintContext", chars: dict, border_attrs: dict
+        self, ctx: "PaintContext", chars: dict, border_attrs: dict[str, Any]
     ) -> None:
         """Render top border with optional title using cells.
 
@@ -1275,7 +1275,7 @@ class Frame(ScrollableElement):
             )
 
     def _render_to_bottom_border(
-        self, ctx: "PaintContext", y: int, chars: dict, border_attrs: dict
+        self, ctx: "PaintContext", y: int, chars: dict, border_attrs: dict[str, Any]
     ) -> None:
         """Render bottom border using cells.
 

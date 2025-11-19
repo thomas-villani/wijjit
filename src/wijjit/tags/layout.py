@@ -1,10 +1,12 @@
 # ${DIR_PATH}/${FILE_NAME}
 import textwrap
 from ast import literal_eval
-from typing import Any
+from typing import Any, Callable, Literal, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.parser import Parser
+from jinja2.runtime import Context
 
 from wijjit.elements.base import TextElement
 from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
@@ -53,7 +55,7 @@ class LayoutContext:
         Counter for auto-generating element IDs by type
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.root: LayoutNode | None = None
         self.stack: list[LayoutNode] = []
         self.element_counters: dict[str, int] = {}
@@ -166,7 +168,7 @@ class VStackExtension(Extension):
 
     tags = {"vstack"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the vstack tag.
 
         Parameters
@@ -199,23 +201,23 @@ class VStackExtension(Extension):
             self.call_method("_render_vstack", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endvstack"], drop_needle=True),
+            parser.parse_statements(("name:endvstack",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_vstack(
         self,
-        caller,
-        width="fill",
-        height="fill",
-        spacing=0,
-        padding=0,
-        margin=0,
-        align_h="stretch",
-        align_v="stretch",
-        raw=False,
-        id=None,
+        caller: Callable[[], str],
+        width: int | str = "fill",
+        height: int | str = "fill",
+        spacing: int = 0,
+        padding: int = 0,
+        margin: int | str | tuple[int, ...] = 0,
+        align_h: str = "stretch",
+        align_v: str = "stretch",
+        raw: bool = False,
+        id: str | None = None,
     ) -> str:
         """Render the vstack tag.
 
@@ -248,44 +250,49 @@ class VStackExtension(Extension):
             Rendered output
         """
         # Get or create layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            context = LayoutContext()
-            self.environment.globals["_wijjit_layout_context"] = context
+        context_obj = self.environment.globals.get("_wijjit_layout_context")
+        if context_obj is None:
+            layout_context: LayoutContext = LayoutContext()
+            self.environment.globals["_wijjit_layout_context"] = layout_context
+        else:
+            layout_context = cast(LayoutContext, context_obj)
 
         # Parse attributes
-        width = parse_size_attr(width)
-        height = parse_size_attr(height)
-        spacing = int(spacing)
-        padding = int(padding)
+        width_parsed = parse_size_attr(width)
+        height_parsed = parse_size_attr(height)
+        spacing_int = int(spacing)
+        padding_int = int(padding)
 
         # Parse margin
+        margin_parsed: int | tuple[int, int, int, int]
         if isinstance(margin, str) and margin.startswith("("):
             try:
-                margin = literal_eval(margin)
+                margin_parsed = literal_eval(margin)
             except (ValueError, SyntaxError, NameError):
-                margin = 0
+                margin_parsed = 0
         elif isinstance(margin, str):
             try:
-                margin = int(margin)
+                margin_parsed = int(margin)
             except ValueError:
-                margin = 0
+                margin_parsed = 0
+        else:
+            margin_parsed = cast(int, margin)
 
         # Create VStack node
         vstack = VStack(
             children=[],
-            width=width,
-            height=height,
-            spacing=spacing,
-            padding=padding,
-            margin=margin,
-            align_h=align_h,
-            align_v=align_v,
+            width=width_parsed,
+            height=height_parsed,
+            spacing=spacing_int,
+            padding=padding_int,
+            margin=margin_parsed,
+            align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
+            align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
             id=id,
         )
 
         # Push onto stack
-        context.push(vstack)
+        layout_context.push(vstack)
 
         # Render body
         body_output = caller()
@@ -301,7 +308,7 @@ class VStackExtension(Extension):
             vstack.children.append(text_node)
 
         # Pop from stack
-        context.pop()
+        layout_context.pop()
 
         # Return empty string (layout will be processed later)
         return ""
@@ -319,7 +326,7 @@ class HStackExtension(Extension):
 
     tags = {"hstack"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the hstack tag.
 
         Parameters
@@ -352,23 +359,23 @@ class HStackExtension(Extension):
             self.call_method("_render_hstack", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endhstack"], drop_needle=True),
+            parser.parse_statements(("name:endhstack",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_hstack(
         self,
-        caller,
-        width="auto",
-        height="auto",
-        spacing=0,
-        padding=0,
-        margin=0,
-        align_h="stretch",
-        align_v="stretch",
-        raw=False,
-        id=None,
+        caller: Callable[[], str],
+        width: int | str = "auto",
+        height: int | str = "auto",
+        spacing: int = 0,
+        padding: int = 0,
+        margin: int | str | tuple[int, ...] = 0,
+        align_h: str = "stretch",
+        align_v: str = "stretch",
+        raw: bool = False,
+        id: str | None = None,
     ) -> str:
         """Render the hstack tag.
 
@@ -401,44 +408,49 @@ class HStackExtension(Extension):
             Rendered output
         """
         # Get or create layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            context = LayoutContext()
-            self.environment.globals["_wijjit_layout_context"] = context
+        context_obj = self.environment.globals.get("_wijjit_layout_context")
+        if context_obj is None:
+            layout_context: LayoutContext = LayoutContext()
+            self.environment.globals["_wijjit_layout_context"] = layout_context
+        else:
+            layout_context = cast(LayoutContext, context_obj)
 
         # Parse attributes
-        width = parse_size_attr(width)
-        height = parse_size_attr(height)
-        spacing = int(spacing)
-        padding = int(padding)
+        width_parsed = parse_size_attr(width)
+        height_parsed = parse_size_attr(height)
+        spacing_int = int(spacing)
+        padding_int = int(padding)
 
         # Parse margin
+        margin_parsed: int | tuple[int, int, int, int]
         if isinstance(margin, str) and margin.startswith("("):
             try:
-                margin = literal_eval(margin)
+                margin_parsed = literal_eval(margin)
             except (ValueError, SyntaxError, NameError):
-                margin = 0
+                margin_parsed = 0
         elif isinstance(margin, str):
             try:
-                margin = int(margin)
+                margin_parsed = int(margin)
             except ValueError:
-                margin = 0
+                margin_parsed = 0
+        else:
+            margin_parsed = cast(int, margin)
 
         # Create HStack node
         hstack = HStack(
             children=[],
-            width=width,
-            height=height,
-            spacing=spacing,
-            padding=padding,
-            margin=margin,
-            align_h=align_h,
-            align_v=align_v,
+            width=width_parsed,
+            height=height_parsed,
+            spacing=spacing_int,
+            padding=padding_int,
+            margin=margin_parsed,
+            align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
+            align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
             id=id,
         )
 
         # Push onto stack
-        context.push(hstack)
+        layout_context.push(hstack)
 
         # Render body
         body_output = caller()
@@ -454,7 +466,7 @@ class HStackExtension(Extension):
             hstack.children.append(text_node)
 
         # Pop from stack
-        context.pop()
+        layout_context.pop()
 
         # Return empty string (layout will be processed later)
         return ""
@@ -473,7 +485,7 @@ class FrameExtension(Extension):
 
     tags = {"frame"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the frame tag.
 
         Parameters
@@ -506,29 +518,29 @@ class FrameExtension(Extension):
             self.call_method("_render_frame", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endframe"], drop_needle=True),
+            parser.parse_statements(("name:endframe",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_frame(
         self,
-        caller,
-        width="fill",
-        height="auto",
-        title=None,
-        border="single",
-        margin=0,
-        padding=None,
-        align_h="stretch",
-        align_v="stretch",
-        content_align_h="stretch",
-        content_align_v="stretch",
-        overflow_x="clip",
-        scrollable=False,
-        show_scrollbar=True,
-        raw=False,
-        id=None,
+        caller: Callable[[], str],
+        width: int | str = "fill",
+        height: int | str = "auto",
+        title: str | None = None,
+        border: str = "single",
+        margin: int | str | tuple[int, ...] = 0,
+        padding: int | str | tuple[int, ...] | None = None,
+        align_h: str = "stretch",
+        align_v: str = "stretch",
+        content_align_h: str = "stretch",
+        content_align_v: str = "stretch",
+        overflow_x: str = "clip",
+        scrollable: bool = False,
+        show_scrollbar: bool = True,
+        raw: bool = False,
+        id: str | None = None,
     ) -> str:
         """Render the frame tag.
 
@@ -573,35 +585,41 @@ class FrameExtension(Extension):
             Rendered output
         """
         # Get or create layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            context = LayoutContext()
-            self.environment.globals["_wijjit_layout_context"] = context
+        context_obj = self.environment.globals.get("_wijjit_layout_context")
+        if context_obj is None:
+            layout_context: LayoutContext = LayoutContext()
+            self.environment.globals["_wijjit_layout_context"] = layout_context
+        else:
+            layout_context = cast(LayoutContext, context_obj)
 
         # Auto-generate ID for scrollable frames if not provided
         if scrollable and not id:
             # Get or create auto-ID counter
             if "_wijjit_frame_counter" not in self.environment.globals:
                 self.environment.globals["_wijjit_frame_counter"] = 0
-            self.environment.globals["_wijjit_frame_counter"] += 1
-            id = f"frame_{self.environment.globals['_wijjit_frame_counter']}"
+            counter = cast(int, self.environment.globals["_wijjit_frame_counter"])
+            self.environment.globals["_wijjit_frame_counter"] = counter + 1
+            id = f"frame_{counter + 1}"
 
         # Parse attributes
-        width = parse_size_attr(width)
-        height = parse_size_attr(height)
+        width_parsed = parse_size_attr(width)
+        height_parsed = parse_size_attr(height)
 
         # Parse margin - could be int or tuple string like "(1,2,3,4)"
+        margin_parsed: int | tuple[int, int, int, int]
         if isinstance(margin, str) and margin.startswith("("):
             # Parse tuple string
             try:
-                margin = literal_eval(margin)
+                margin_parsed = literal_eval(margin)
             except (ValueError, SyntaxError, NameError):
-                margin = 0
+                margin_parsed = 0
         elif isinstance(margin, str):
             try:
-                margin = int(margin)
+                margin_parsed = int(margin)
             except ValueError:
-                margin = 0
+                margin_parsed = 0
+        else:
+            margin_parsed = cast(int, margin)
 
         # Parse border style
         border_map = {
@@ -612,24 +630,28 @@ class FrameExtension(Extension):
         border_style = border_map.get(border, BorderStyle.SINGLE)
 
         # Parse padding - could be int or tuple string like "(1,2,3,4)"
+        padding_parsed: tuple[int, int, int, int]
         if padding is None:
-            padding = (1, 1, 1, 1)  # Default padding
+            padding_parsed = (1, 1, 1, 1)  # Default padding
         elif isinstance(padding, int):
-            padding = (padding, padding, padding, padding)
+            padding_parsed = (padding, padding, padding, padding)
         elif isinstance(padding, str) and padding.startswith("("):
             # Parse tuple string
             try:
-                padding = literal_eval(padding)
+                padding_parsed = cast(tuple[int, int, int, int], literal_eval(padding))
             except (ValueError, SyntaxError, NameError):
-                padding = (1, 1, 1, 1)
+                padding_parsed = (1, 1, 1, 1)
         elif isinstance(padding, str):
             try:
                 p = int(padding)
-                padding = (p, p, p, p)
+                padding_parsed = (p, p, p, p)
             except ValueError:
-                padding = (1, 1, 1, 1)
+                padding_parsed = (1, 1, 1, 1)
+        else:
+            padding_parsed = (1, 1, 1, 1)
 
         # Parse overflow_y from scrollable parameter
+        overflow_y: Literal["clip", "scroll", "auto"]
         if scrollable:
             overflow_y = "auto"
         else:
@@ -639,34 +661,40 @@ class FrameExtension(Extension):
         frame_style = FrameStyle(
             border=border_style,
             title=title,
-            padding=padding,
-            content_align_h=content_align_h,
-            content_align_v=content_align_v,
+            padding=padding_parsed,
+            content_align_h=cast(Literal["left", "center", "right", "stretch"], content_align_h),
+            content_align_v=cast(Literal["top", "middle", "bottom", "stretch"], content_align_v),
             scrollable=scrollable,
             show_scrollbar=show_scrollbar,
             overflow_y=overflow_y,
-            overflow_x=overflow_x,
+            overflow_x=cast(Literal["clip", "visible", "wrap"], overflow_x),
         )
 
         # Parse width/height as integers if they're numeric strings
-        frame_width = (
-            int(width) if isinstance(width, str) and width.isdigit() else width
-        )
-        frame_height = (
-            int(height) if isinstance(height, str) and height.isdigit() else height
-        )
-
-        # Default frame size if auto/fill/percentage
-        if frame_width == "auto" or frame_width == "fill":
+        frame_width: int
+        if isinstance(width_parsed, str) and width_parsed.isdigit():
+            frame_width = int(width_parsed)
+        elif width_parsed == "auto" or width_parsed == "fill":
             frame_width = 40
-        elif isinstance(frame_width, str) and frame_width.endswith("%"):
+        elif isinstance(width_parsed, str) and width_parsed.endswith("%"):
             # Percentage widths get placeholder value - layout engine will calculate actual value
             frame_width = 40
+        elif isinstance(width_parsed, int):
+            frame_width = width_parsed
+        else:
+            frame_width = 40
 
-        if frame_height == "auto" or frame_height == "fill":
+        frame_height: int
+        if isinstance(height_parsed, str) and height_parsed.isdigit():
+            frame_height = int(height_parsed)
+        elif height_parsed == "auto" or height_parsed == "fill":
             frame_height = 10
-        elif isinstance(frame_height, str) and frame_height.endswith("%"):
+        elif isinstance(height_parsed, str) and height_parsed.endswith("%"):
             # Percentage heights get placeholder value - layout engine will calculate actual value
+            frame_height = 10
+        elif isinstance(height_parsed, int):
+            frame_height = height_parsed
+        else:
             frame_height = 10
 
         frame = Frame(
@@ -683,7 +711,8 @@ class FrameExtension(Extension):
 
             # Give frame access to state dict for saving scroll position
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx_obj = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any], ctx_obj)
                 if ctx and "state" in ctx:
                     state_dict = ctx["state"]
                     frame._state_dict = state_dict
@@ -692,7 +721,7 @@ class FrameExtension(Extension):
                     if scroll_key in state_dict:
                         # Position will be restored after scroll manager is created
                         # Store it temporarily for later restoration
-                        frame._pending_scroll_restore = state_dict[scroll_key]
+                        frame._pending_scroll_restore = state_dict[scroll_key]  # type: ignore[attr-defined]
             except (KeyError, AttributeError):
                 pass
 
@@ -700,18 +729,18 @@ class FrameExtension(Extension):
         frame_node = FrameNode(
             frame=frame,
             children=[],
-            width=width,
-            height=height,
-            margin=margin,
-            align_h=align_h,
-            align_v=align_v,
-            content_align_h=content_align_h,
-            content_align_v=content_align_v,
+            width=width_parsed,
+            height=height_parsed,
+            margin=margin_parsed,
+            align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
+            align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
+            content_align_h=cast(Literal["left", "center", "right", "stretch"], content_align_h),
+            content_align_v=cast(Literal["top", "middle", "bottom", "stretch"], content_align_v),
             id=id,
         )
 
         # Push onto stack
-        context.push(frame_node)
+        layout_context.push(frame_node)
 
         # Render body
         body_output = caller()
@@ -731,7 +760,7 @@ class FrameExtension(Extension):
                 frame_node.content_container.children.insert(0, text_node)
 
         # Pop from stack
-        context.pop()
+        layout_context.pop()
 
         # Return empty string (layout will be processed later)
         return ""

@@ -193,6 +193,7 @@ class Size:
         if not self.is_percentage:
             raise ValueError("Size is not a percentage")
 
+        assert isinstance(self.value, str), "Percentage value must be a string"
         return float(self.value.rstrip("%")) / 100.0
 
     def calculate(self, available: int) -> int:
@@ -209,6 +210,7 @@ class Size:
             Calculated size
         """
         if self.is_fixed:
+            assert isinstance(self.value, int), "Fixed value must be an integer"
             return min(self.value, available)
         elif self.is_percentage:
             return int(available * self.get_percentage())

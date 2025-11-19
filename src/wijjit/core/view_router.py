@@ -71,7 +71,7 @@ class ViewConfig:
     on_enter: Callable[[], None] | Callable[[], Awaitable[None]] | None = None
     on_exit: Callable[[], None] | Callable[[], Awaitable[None]] | None = None
     is_default: bool = False
-    view_func: Callable | Callable[..., Awaitable] | None = field(
+    view_func: Callable[..., Any] | Callable[..., Awaitable[Any]] | None = field(
         default=None, repr=False
     )
     initialized: bool = False
@@ -104,7 +104,7 @@ class ViewRouter:
         Name of default view
     """
 
-    def __init__(self, app: Wijjit):
+    def __init__(self, app: Wijjit) -> None:
         """Initialize the view router.
 
         Parameters
@@ -121,7 +121,7 @@ class ViewRouter:
         self,
         name: str,
         default: bool = False,
-    ) -> Callable:
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Create a decorator to register a view.
 
         The decorated function should return a dict with:
@@ -152,7 +152,7 @@ class ViewRouter:
         ...     }
         """
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             # Store the function and create a lazy ViewConfig
             # We'll extract the actual config when the view is first accessed
             view_config = ViewConfig(
@@ -209,7 +209,11 @@ class ViewRouter:
                 )
 
             # Call the view function ONCE to get the config dict
-            config_dict = view_config.view_func()
+            result = view_config.view_func()
+            # Ensure result is a dict (not Awaitable)
+            if not isinstance(result, dict):
+                raise TypeError(f"View function must return dict, got {type(result)}")
+            config_dict: dict[str, Any] = result
 
             # Extract static config components
             view_config.template = config_dict.get("template", "")
@@ -224,8 +228,11 @@ class ViewRouter:
                 view_config.data = data_value
             else:
                 # User provided static data dict - wrap in lambda
-                def data_func(**kwargs):
-                    return data_value
+                # Type assertion: we know data_value should be dict-like if not callable
+                static_data: dict[str, Any] = data_value if isinstance(data_value, dict) else {}
+
+                def data_func(**kwargs: Any) -> dict[str, Any]:
+                    return static_data
 
                 view_config.data = data_func
 
@@ -265,8 +272,11 @@ class ViewRouter:
                 view_config.data = data_value
             else:
                 # User provided static data dict - wrap in lambda
-                def data_func(**kwargs):
-                    return data_value
+                # Type assertion: we know data_value should be dict-like if not callable
+                static_data: dict[str, Any] = data_value if isinstance(data_value, dict) else {}
+
+                def data_func(**kwargs: Any) -> dict[str, Any]:
+                    return static_data
 
                 view_config.data = data_func
 
@@ -441,9 +451,9 @@ class ViewRouter:
     def register_view(
         self,
         name: str,
-        view_func: Callable,
+        view_func: Callable[..., Any],
         default: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Register a view programmatically.
 

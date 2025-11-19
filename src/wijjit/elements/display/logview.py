@@ -148,7 +148,7 @@ class LogView(ScrollableElement):
         show_scrollbar: bool = True,
         border_style: str = "single",
         title: str | None = None,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
@@ -196,7 +196,7 @@ class LogView(ScrollableElement):
         # State persistence
         # scroll_state_key provided by ScrollableElement
         self.autoscroll_state_key: str | None = None
-        self._state_dict: dict | None = None
+        self._state_dict: dict[str, Any] | None = None
 
     def _get_content_height(self) -> int:
         """Calculate content area height accounting for borders.
@@ -476,7 +476,7 @@ class LogView(ScrollableElement):
         else:
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def _save_scroll_state(self) -> None:

@@ -7,9 +7,9 @@ custom extensions and filters for terminal UI rendering.
 import os
 import shutil
 from copy import copy
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from jinja2 import DictLoader, Environment, FileSystemLoader, Template
+from jinja2 import BaseLoader, DictLoader, Environment, FileSystemLoader, Template
 
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.dirty import DirtyRegionManager
@@ -91,8 +91,9 @@ class Renderer:
         Cache of string templates
     """
 
-    def __init__(self, template_dir: str | None = None, autoescape: bool = False):
+    def __init__(self, template_dir: str | None = None, autoescape: bool = False) -> None:
         # Create loader based on template_dir
+        loader: BaseLoader
         if template_dir and os.path.isdir(template_dir):
             loader = FileSystemLoader(template_dir)
         else:
@@ -238,14 +239,14 @@ class Renderer:
         template = self.env.get_template(template_name)
         return template.render(**context)
 
-    def add_filter(self, name: str, func: callable) -> None:
+    def add_filter(self, name: str, func: Callable[..., Any]) -> None:
         """Add a custom filter to the Jinja2 environment.
 
         Parameters
         ----------
         name : str
             Name of the filter
-        func : callable
+        func : Callable
             Filter function
         """
         self.env.filters[name] = func
@@ -469,7 +470,7 @@ class Renderer:
             )
 
             # Skip if element is completely outside visible area
-            if frame_clip_top is not None:
+            if frame_clip_top is not None and frame_clip_bottom is not None:
                 if adjusted_bounds.y + adjusted_bounds.height <= frame_clip_top:
                     continue
                 if adjusted_bounds.y >= frame_clip_bottom:
@@ -541,9 +542,11 @@ class Renderer:
         the border decorations.
         """
         # Render this frame's border if it's a FrameNode
-        if isinstance(node, FrameNode) and node.frame.bounds is not None:
+        if isinstance(node, FrameNode):
             frame = node.frame
             bounds = frame.bounds
+            if bounds is None:
+                return
             style = frame.style
 
             # Resolve frame border style from theme
@@ -878,7 +881,9 @@ class Renderer:
         statusbar_element.set_bounds(statusbar_bounds)
 
         # Render statusbar
-        statusbar_line = statusbar_element.render()
+        # Note: Using type ignore because Element base class doesn't define render()
+        # but some legacy elements may still implement it
+        statusbar_line = statusbar_element.render()  # type: ignore[attr-defined]
 
         # Ensure statusbar line is exactly width characters (clip or pad)
 

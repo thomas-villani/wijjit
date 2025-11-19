@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import Literal
+from typing import Literal, Any
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
@@ -89,13 +89,13 @@ class Select(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        options: list | None = None,
+        options: list[Any] | None = None,
         value: str | None = None,
         width: int = 20,
         visible_rows: int = 5,
-        disabled_values: list | None = None,
+        disabled_values: list[Any] | None = None,
         placeholder: str = "No options",
-        item_renderer: Callable | None = None,
+        item_renderer: Callable[..., Any] | None = None,
         on_change: Callable[[str | None, str | None], None] | None = None,
         border_style: (
             BorderStyle | Literal["single", "double", "rounded"] | None
@@ -197,7 +197,7 @@ class Select(ScrollableElement):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
-    def _normalize_options(self, options: list) -> list[dict]:
+    def _normalize_options(self, options: list[Any]) -> list[dict]:
         """Normalize options to internal format with value and label.
 
         Parameters

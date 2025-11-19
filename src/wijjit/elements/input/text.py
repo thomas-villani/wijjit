@@ -91,7 +91,7 @@ class TextInput(Element):
         width: int = 20,
         max_length: int | None = None,
         style: InputStyle = InputStyle.BRACKETS,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.INPUT
         self.focusable = True

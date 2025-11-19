@@ -53,7 +53,7 @@ class Element(ABC):
         Type of this element
     """
 
-    def __init__(self, id: str | None = None):
+    def __init__(self, id: str | None = None) -> None:
         self.id = id
         self.focusable = False
         self.focused = False
@@ -191,7 +191,7 @@ class Element(ABC):
         TextArea with fill sizing supports dynamic sizing:
 
         >>> class TextArea(Element):
-        ...     def __init__(self, width="auto", height="auto"):
+        ...     def __init__(self, width="auto", height="auto") -> None:
         ...         self.width_spec = width
         ...         self.height_spec = height
         ...
@@ -290,7 +290,7 @@ class ScrollableElement(Element, ABC):
     Implement a scrollable list element:
 
     >>> class ScrollableList(ScrollableElement):
-    ...     def __init__(self, items):
+    ...     def __init__(self, items) -> None:
     ...         super().__init__()
     ...         self.items = items
     ...         self._scroll_offset = 0
@@ -312,7 +312,7 @@ class ScrollableElement(Element, ABC):
     ...             self.on_scroll(self._scroll_offset)
     """
 
-    def __init__(self, id: str | None = None):
+    def __init__(self, id: str | None = None) -> None:
         """Initialize scrollable element.
 
         Parameters
@@ -367,7 +367,7 @@ class Container(Element):
         Child elements
     """
 
-    def __init__(self, id: str | None = None):
+    def __init__(self, id: str | None = None) -> None:
         super().__init__(id)
         self.children: list[Element] = []
 
@@ -459,7 +459,7 @@ class OverlayElement(Container):
         width: int | None = None,
         height: int | None = None,
         centered: bool = True,
-    ):
+    ) -> None:
         super().__init__(id)
         self.width = width
         self.height = height
@@ -536,7 +536,7 @@ class TextElement(Element):
         Whether text wrapping is enabled
     """
 
-    def __init__(self, text: str, id: str | None = None, wrap: bool = True):
+    def __init__(self, text: str, id: str | None = None, wrap: bool = True) -> None:
         super().__init__(id)
         self.text = text
         self.element_type = ElementType.DISPLAY

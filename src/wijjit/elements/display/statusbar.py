@@ -6,8 +6,13 @@ fixed bar at the bottom of the screen with left, center, and right sections.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from wijjit.elements.base import Element, ElementType
 from wijjit.terminal.ansi import ANSIColor, clip_to_width, visible_length
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
 
 
 class StatusBar(Element):
@@ -59,7 +64,7 @@ class StatusBar(Element):
         bg_color: str | None = None,
         text_color: str | None = None,
         width: int = 80,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = False
@@ -102,7 +107,7 @@ class StatusBar(Element):
         color_name = self.text_color.upper()
         return getattr(ANSIColor, color_name, None)
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: "PaintContext") -> None:
         """Render the status bar using cell-based rendering (NEW API).
 
         Parameters

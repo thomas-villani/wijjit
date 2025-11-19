@@ -7,6 +7,7 @@ filesystem trees, converting data formats, etc.
 import fnmatch
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 
 def load_filesystem_tree(
@@ -17,7 +18,7 @@ def load_filesystem_tree(
     include_metadata: bool = True,
     exclude: list[str] | None = None,
     filter_func: Callable[[Path], bool] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Load a filesystem directory structure as a tree.
 
     Recursively scans a directory and returns a nested dictionary structure
@@ -103,17 +104,18 @@ def load_filesystem_tree(
 
     def _format_size(size_bytes: int) -> str:
         """Format file size in human-readable format."""
+        size_float: float = float(size_bytes)
         for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size_bytes < 1024.0:
+            if size_float < 1024.0:
                 if unit == "B":
-                    return f"{size_bytes} {unit}"
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024.0
-        return f"{size_bytes:.1f} PB"
+                    return f"{int(size_float)} {unit}"
+                return f"{size_float:.1f} {unit}"
+            size_float /= 1024.0
+        return f"{size_float:.1f} PB"
 
-    def _build_tree(path: Path, depth: int = 0) -> dict:
+    def _build_tree(path: Path, depth: int = 0) -> dict[str, Any]:
         """Recursively build tree structure."""
-        node = {
+        node: dict[str, Any] = {
             "label": path.name if path != root else path.name or str(path),
             "value": str(path),
             "type": "folder" if path.is_dir() else "file",

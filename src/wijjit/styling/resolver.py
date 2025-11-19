@@ -4,7 +4,7 @@ This module provides the StyleResolver class which handles CSS-like cascade
 and pseudo-class resolution for element styling.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.styling.style import Style
 from wijjit.styling.theme import Theme
@@ -58,14 +58,14 @@ class StyleResolver:
     (255, 255, 0)
     """
 
-    def __init__(self, theme: Theme):
+    def __init__(self, theme: Theme) -> None:
         self.theme = theme
 
     def resolve_style(
         self,
         element: "Element",
         base_class: str | None = None,
-        inline_overrides: dict | None = None,
+        inline_overrides: dict[str, Any] | None = None,
     ) -> Style:
         """Resolve final style for an element.
 
@@ -166,7 +166,7 @@ class StyleResolver:
         self,
         class_name: str,
         pseudo_class: str | None = None,
-        inline_overrides: dict | None = None,
+        inline_overrides: dict[str, Any] | None = None,
     ) -> Style:
         """Resolve style by class name without an element instance.
 

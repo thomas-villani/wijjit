@@ -1,7 +1,10 @@
 # ${DIR_PATH}/${FILE_NAME}
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
+
+if TYPE_CHECKING:
+    from wijjit.rendering.paint_context import PaintContext
 
 SPINNER_FRAMES = {
     # Braille dots spinner
@@ -98,7 +101,7 @@ class Spinner(Element):
         label: str = "",
         color: str | None = None,
         frame_index: int = 0,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = False  # Spinners are not interactive
@@ -167,7 +170,7 @@ class Spinner(Element):
         frame_idx = self.frame_index % len(frames)
         return frames[frame_idx]
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: "PaintContext") -> None:
         """Render the spinner using cell-based rendering (NEW API).
 
         Parameters

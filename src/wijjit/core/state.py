@@ -16,7 +16,7 @@ from wijjit.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-class State(UserDict):
+class State(UserDict[str, Any]):
     """Application state with change detection.
 
     This class behaves like a dictionary but tracks changes and can trigger
@@ -62,7 +62,7 @@ class State(UserDict):
         "fromkeys",
     }
 
-    def __init__(self, data: dict[str, Any] | None = None):
+    def __init__(self, data: dict[str, Any] | None = None) -> None:
         # Initialize internal attributes first, before UserDict.__init__
         object.__setattr__(self, "_change_callbacks", [])
         object.__setattr__(self, "_watchers", {})
@@ -158,7 +158,7 @@ class State(UserDict):
             # Set as state data
             self[name] = value
 
-    def on_change(self, callback: Callable | Callable[..., Awaitable[None]]) -> None:
+    def on_change(self, callback: Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]) -> None:
         """Register a callback for any state change.
 
         Supports both synchronous and asynchronous callbacks.
@@ -180,7 +180,7 @@ class State(UserDict):
             )
 
     def watch(
-        self, key: str, callback: Callable | Callable[..., Awaitable[None]]
+        self, key: str, callback: Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]
     ) -> None:
         """Watch a specific state key for changes.
 
@@ -207,7 +207,7 @@ class State(UserDict):
                 f"(async={is_async})"
             )
 
-    def unwatch(self, key: str, callback: Callable | None = None) -> None:
+    def unwatch(self, key: str, callback: Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]] | None = None) -> None:
         """Stop watching a state key.
 
         Parameters
@@ -340,7 +340,7 @@ class State(UserDict):
                         f"Error in state watcher for key '{key}': {e}", exc_info=True
                     )
 
-    def update(self, other: dict[str, Any]) -> None:
+    def update(self, other: dict[str, Any], /, **kwargs: Any) -> None:  # type: ignore[override]
         """Update multiple state values at once.
 
         Parameters

@@ -1,7 +1,7 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -128,7 +128,7 @@ class Tree(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        data: dict | list | None = None,
+        data: dict[str, Any] | list | None = None,
         width: int = 40,
         height: int = 15,
         show_scrollbar: bool = True,
@@ -137,7 +137,7 @@ class Tree(ScrollableElement):
         indicator_style: TreeIndicatorStyle = TreeIndicatorStyle.TRIANGLES_LARGE,
         border_style: str = "none",
         title: str | None = None,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True
@@ -187,9 +187,9 @@ class Tree(ScrollableElement):
         self.selected_state_key: str | None = None
 
         # State save callback (set by app/template)
-        self._state_dict: dict | None = None
+        self._state_dict: dict[str, Any] | None = None
 
-    def _normalize_data(self, data: dict | list) -> dict:
+    def _normalize_data(self, data: dict[str, Any] | list) -> dict:
         """Normalize tree data to internal nested dict format.
 
         Parameters
@@ -257,7 +257,7 @@ class Tree(ScrollableElement):
             },
         }
 
-    def _build_tree_from_flat(self, flat_list: list) -> dict:
+    def _build_tree_from_flat(self, flat_list: list[Any]) -> dict:
         """Build nested tree structure from flat list.
 
         Parameters
@@ -377,7 +377,7 @@ class Tree(ScrollableElement):
                 child_is_last = i == len(children) - 1
                 self._flatten_node(child, depth + 1, new_parent_lines, child_is_last)
 
-    def set_data(self, data: dict | list) -> None:
+    def set_data(self, data: dict[str, Any] | list) -> None:
         """Update tree data and refresh display.
 
         Parameters
@@ -418,7 +418,7 @@ class Tree(ScrollableElement):
         else:
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def _save_highlight_state(self) -> None:
@@ -546,7 +546,7 @@ class Tree(ScrollableElement):
 
         return None
 
-    def _get_tree_prefix(self, node_info: dict) -> str:
+    def _get_tree_prefix(self, node_info: dict[str, Any]) -> str:
         """Generate tree drawing characters for a node.
 
         Parameters
@@ -591,7 +591,7 @@ class Tree(ScrollableElement):
 
         return prefix
 
-    def _get_expand_indicator(self, node_info: dict) -> str:
+    def _get_expand_indicator(self, node_info: dict[str, Any]) -> str:
         """Get expand/collapse indicator for a node.
 
         Parameters

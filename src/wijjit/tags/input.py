@@ -1,6 +1,9 @@
 # ${DIR_PATH}/${FILE_NAME}
+from typing import Any, Literal
+
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.parser import Parser
 
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
@@ -8,6 +11,7 @@ from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextArea, TextInput
 from wijjit.layout.engine import ElementNode
+from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext
 
@@ -24,7 +28,7 @@ class TextInputExtension(Extension):
 
     tags = {"textinput"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the textinput tag.
 
         Parameters
@@ -57,20 +61,20 @@ class TextInputExtension(Extension):
             self.call_method("_render_textinput", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endtextinput"], drop_needle=True),
+            parser.parse_statements(("name:endtextinput",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_textinput(
         self,
-        caller,
-        id=None,
-        placeholder="",
-        width=20,
-        value="",
-        action=None,
-        bind=True,
+        caller: Any,
+        id: str | None = None,
+        placeholder: str = "",
+        width: int = 20,
+        value: str = "",
+        action: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the textinput tag.
 
@@ -97,7 +101,7 @@ class TextInputExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             # No layout context available, skip
             return ""
@@ -115,7 +119,7 @@ class TextInputExtension(Extension):
             # The state is passed via context in app.py _render()
             try:
                 # Access the Jinja2 context to get state
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -157,7 +161,7 @@ class ButtonExtension(Extension):
 
     tags = {"button"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the button tag.
 
         Parameters
@@ -190,12 +194,12 @@ class ButtonExtension(Extension):
             self.call_method("_render_button", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endbutton"], drop_needle=True),
+            parser.parse_statements(("name:endbutton",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
-    def _render_button(self, caller, id=None, action=None) -> str:
+    def _render_button(self, caller: Any, id: str | None = None, action: str | None = None) -> str:
         """Render the button tag.
 
         Parameters
@@ -213,7 +217,7 @@ class ButtonExtension(Extension):
             Rendered output
         """
         # Get or create layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             context = LayoutContext()
             self.environment.globals["_wijjit_layout_context"] = context
@@ -279,7 +283,7 @@ class SelectExtension(Extension):
 
     tags = {"select"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the select tag.
 
         Parameters
@@ -312,23 +316,23 @@ class SelectExtension(Extension):
             self.call_method("_render_select", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endselect"], drop_needle=True),
+            parser.parse_statements(("name:endselect",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_select(
         self,
-        caller,
-        id=None,
-        options=None,
-        value=None,
-        width=20,
-        visible_rows=5,
-        action=None,
-        bind=True,
-        border_style=None,
-        title=None,
+        caller: Any,
+        id: str | None = None,
+        options: list[Any] | None = None,
+        value: str | None = None,
+        width: int = 20,
+        visible_rows: int = 5,
+        action: str | None = None,
+        bind: bool = True,
+        border_style: BorderStyle | Literal["single", "double", "rounded"] | None = None,
+        title: str | None = None,
     ) -> str:
         """Render the select tag.
 
@@ -361,7 +365,7 @@ class SelectExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             # No layout context available, skip
             return ""
@@ -382,8 +386,8 @@ class SelectExtension(Extension):
             caller()
 
         # Extract disabled values
-        disabled_values = []
-        cleaned_options = []
+        disabled_values: list[str] = []
+        cleaned_options: list[Any] = []
         for opt in options:
             if isinstance(opt, str):
                 # Check for " (disabled)" suffix
@@ -408,7 +412,7 @@ class SelectExtension(Extension):
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -476,7 +480,7 @@ class SelectExtension(Extension):
         # Return empty string (layout will be processed later)
         return ""
 
-    def _parse_options_from_body(self, body: str) -> list:
+    def _parse_options_from_body(self, body: str) -> list[Any]:
         """Parse options from template body content.
 
         Parameters
@@ -523,7 +527,7 @@ class CheckboxExtension(Extension):
 
     tags = {"checkbox"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the checkbox tag."""
         lineno = next(parser.stream).lineno
 
@@ -545,24 +549,24 @@ class CheckboxExtension(Extension):
             self.call_method("_render_checkbox", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endcheckbox"], drop_needle=True),
+            parser.parse_statements(("name:endcheckbox",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_checkbox(
         self,
-        caller,
-        id=None,
-        label="",
-        checked=False,
-        value="",
-        action=None,
-        bind=True,
+        caller: Any,
+        id: str | None = None,
+        label: str = "",
+        checked: bool = False,
+        value: str = "",
+        action: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the checkbox tag."""
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -573,7 +577,7 @@ class CheckboxExtension(Extension):
         # If binding is enabled, try to get initial checked state from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -597,9 +601,8 @@ class CheckboxExtension(Extension):
         checkbox.bind = bind
 
         # Create ElementNode
-        from wijjit.terminal.ansi import visible_length
-
-        checkbox_width = visible_length(checkbox.render())
+        # Checkbox width: "[X] " (4 chars) + label length
+        checkbox_width = 4 + len(label)
         node = ElementNode(checkbox, width=checkbox_width, height=1)
 
         # Add to layout context
@@ -620,7 +623,7 @@ class RadioExtension(Extension):
 
     tags = {"radio"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the radio tag."""
         lineno = next(parser.stream).lineno
 
@@ -642,25 +645,25 @@ class RadioExtension(Extension):
             self.call_method("_render_radio", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endradio"], drop_needle=True),
+            parser.parse_statements(("name:endradio",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_radio(
         self,
-        caller,
-        name,
-        id=None,
-        label="",
-        checked=False,
-        value="",
-        action=None,
-        bind=True,
+        caller: Any,
+        name: str,
+        id: str | None = None,
+        label: str = "",
+        checked: bool = False,
+        value: str = "",
+        action: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the radio tag."""
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -671,7 +674,7 @@ class RadioExtension(Extension):
         # If binding is enabled, try to get checked state from state[name]
         if bind and name:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if name in state:
@@ -696,9 +699,8 @@ class RadioExtension(Extension):
         radio.bind = bind
 
         # Create ElementNode
-        from wijjit.terminal.ansi import visible_length
-
-        radio_width = visible_length(radio.render())
+        # Radio width: "(o) " (4 chars) + label length
+        radio_width = 4 + len(label)
         node = ElementNode(radio, width=radio_width, height=1)
 
         # Add to layout context
@@ -722,7 +724,7 @@ class CheckboxGroupExtension(Extension):
 
     tags = {"checkboxgroup"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the checkboxgroup tag."""
         lineno = next(parser.stream).lineno
 
@@ -744,27 +746,27 @@ class CheckboxGroupExtension(Extension):
             self.call_method("_render_checkboxgroup", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endcheckboxgroup"], drop_needle=True),
+            parser.parse_statements(("name:endcheckboxgroup",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_checkboxgroup(
         self,
-        caller,
-        id=None,
-        options=None,
-        selected=None,
-        width=20,
-        orientation="vertical",
-        border_style=None,
-        title=None,
-        action=None,
-        bind=True,
+        caller: Any,
+        id: str | None = None,
+        options: list[Any] | None = None,
+        selected: list[Any] | None = None,
+        width: int = 20,
+        orientation: Literal["vertical", "horizontal"] = "vertical",
+        border_style: BorderStyle | Literal["single", "double", "rounded"] | None = None,
+        title: str | None = None,
+        action: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the checkboxgroup tag."""
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -778,7 +780,7 @@ class CheckboxGroupExtension(Extension):
         # If binding is enabled, try to get selected values from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -866,7 +868,7 @@ class RadioGroupExtension(Extension):
 
     tags = {"radiogroup"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the radiogroup tag."""
         lineno = next(parser.stream).lineno
 
@@ -888,28 +890,28 @@ class RadioGroupExtension(Extension):
             self.call_method("_render_radiogroup", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endradiogroup"], drop_needle=True),
+            parser.parse_statements(("name:endradiogroup",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_radiogroup(
         self,
-        caller,
-        name,
-        id=None,
-        options=None,
-        selected=None,
-        width=20,
-        orientation="vertical",
-        border_style=None,
-        title=None,
-        action=None,
-        bind=True,
+        caller: Any,
+        name: str,
+        id: str | None = None,
+        options: list[Any] | None = None,
+        selected: str | None = None,
+        width: int = 20,
+        orientation: Literal["vertical", "horizontal"] = "vertical",
+        border_style: BorderStyle | Literal["single", "double", "rounded"] | None = None,
+        title: str | None = None,
+        action: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the radiogroup tag."""
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -923,7 +925,7 @@ class RadioGroupExtension(Extension):
         # If binding is enabled, try to get selected value from state[name]
         if bind and name:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if name in state:
@@ -1004,7 +1006,7 @@ class TextAreaExtension(Extension):
 
     tags = {"textarea"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.Node:
         """Parse the textarea tag.
 
         Parameters
@@ -1037,24 +1039,24 @@ class TextAreaExtension(Extension):
             self.call_method("_render_textarea", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endtextarea"], drop_needle=True),
+            parser.parse_statements(("name:endtextarea",), drop_needle=True),
         ).set_lineno(lineno)
 
         return node
 
     def _render_textarea(
         self,
-        caller,
-        id=None,
-        value="",
-        width="auto",
-        height="auto",
-        wrap_mode="none",
-        max_lines=None,
-        show_scrollbar=True,
-        border_style="single",
-        action=None,
-        bind=True,
+        caller: Any,
+        id: str | None = None,
+        value: str = "",
+        width: int | str = "auto",
+        height: int | str = "auto",
+        wrap_mode: Literal["none", "soft", "hard"] = "none",
+        max_lines: int | None = None,
+        show_scrollbar: bool = True,
+        border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
+        action: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the textarea tag.
 
@@ -1089,7 +1091,7 @@ class TextAreaExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -1130,7 +1132,7 @@ class TextAreaExtension(Extension):
         # (state value takes precedence over body/value parameter)
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:

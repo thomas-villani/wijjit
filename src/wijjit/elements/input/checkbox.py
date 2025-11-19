@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Any
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
@@ -67,7 +67,7 @@ class Checkbox(Element):
         label: str = "",
         checked: bool = False,
         value: str = "",
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
         self.focusable = True
@@ -254,8 +254,8 @@ class CheckboxGroup(Element):
     def __init__(
         self,
         id: str | None = None,
-        options: list | None = None,
-        selected_values: list | None = None,
+        options: list[Any] | None = None,
+        selected_values: list[Any] | None = None,
         width: int = 20,
         orientation: Literal["vertical", "horizontal"] = "vertical",
         border_style: (
@@ -308,7 +308,7 @@ class CheckboxGroup(Element):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
-    def _normalize_options(self, options: list) -> list[dict]:
+    def _normalize_options(self, options: list[Any]) -> list[dict]:
         """Normalize options to internal format with value and label."""
         normalized = []
         for opt in options:
@@ -343,7 +343,7 @@ class CheckboxGroup(Element):
             new_values = list(self.selected_values)
             self._emit_change(old_values, new_values)
 
-    def _emit_change(self, old_values: list, new_values: list) -> None:
+    def _emit_change(self, old_values: list, new_values: list[Any]) -> None:
         """Emit change event."""
         if self.on_change and old_values != new_values:
             self.on_change(old_values, new_values)

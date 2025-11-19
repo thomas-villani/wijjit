@@ -1,5 +1,5 @@
 # ${DIR_PATH}/${FILE_NAME}
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -106,7 +106,7 @@ class ListView(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        items: list | None = None,
+        items: list[Any] | None = None,
         width: int = 40,
         height: int = 10,
         bullet: str | None = "bullet",
@@ -116,7 +116,7 @@ class ListView(ScrollableElement):
         title: str | None = None,
         indent_details: int = 2,
         dim_details: bool = True,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
@@ -192,7 +192,7 @@ class ListView(ScrollableElement):
 
         return max(1, content_width)
 
-    def _normalize_items(self, items: list) -> list[dict]:
+    def _normalize_items(self, items: list[Any]) -> list[dict]:
         """Normalize items to internal format.
 
         Parameters
@@ -328,7 +328,7 @@ class ListView(ScrollableElement):
         if not self.rendered_lines:
             self.rendered_lines = [""]
 
-    def set_items(self, items: list) -> None:
+    def set_items(self, items: list[Any]) -> None:
         """Update list items and re-render.
 
         Parameters
@@ -382,7 +382,7 @@ class ListView(ScrollableElement):
         else:
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def handle_key(self, key: Key) -> bool:

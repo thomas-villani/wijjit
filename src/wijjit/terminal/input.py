@@ -268,7 +268,7 @@ class InputHandler:
         self,
         enable_mouse: bool = False,
         mouse_tracking_mode: Optional["MouseTrackingMode"] = None,
-    ):
+    ) -> None:
         self._input = create_input()
         self._raw_mode = None
 

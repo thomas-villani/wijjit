@@ -61,7 +61,7 @@ class MarkdownView(ScrollableElement):
         show_scrollbar: bool = True,
         border_style: str = "single",
         title: str | None = None,
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
@@ -265,7 +265,7 @@ class MarkdownView(ScrollableElement):
         else:
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def handle_key(self, key: Key) -> bool:

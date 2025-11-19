@@ -51,7 +51,7 @@ class ElementWiringManager:
         Set of registered menu trigger shortcut handler IDs
     """
 
-    def __init__(self, app: Wijjit):
+    def __init__(self, app: Wijjit) -> None:
         """Initialize the element wiring manager.
 
         Parameters

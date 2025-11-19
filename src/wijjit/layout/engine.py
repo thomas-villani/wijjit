@@ -66,7 +66,7 @@ class SizeConstraints:
     preferred_width: int | None = None
     preferred_height: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Set preferred sizes to min sizes if not specified."""
         if self.preferred_width is None:
             self.preferred_width = self.min_width
@@ -108,7 +108,7 @@ class LayoutNode(ABC):
         width: int | str | Size = "auto",
         height: int | str | Size = "auto",
         id: str | None = None,
-    ):
+    ) -> None:
         self.width_spec = parse_size(width)
         self.height_spec = parse_size(height)
         self.id = id
@@ -178,7 +178,7 @@ class ElementNode(LayoutNode):
         element: Element,
         width: int | str | Size = "auto",
         height: int | str | Size = "auto",
-    ):
+    ) -> None:
         super().__init__(width, height, id=element.id)
         self.element = element
 
@@ -314,7 +314,7 @@ class Container(LayoutNode):
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
         id: str | None = None,
-    ):
+    ) -> None:
         super().__init__(width, height, id)
         self.children = children or []
         self.spacing = spacing
@@ -385,7 +385,7 @@ class VStack(Container):
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
         id: str | None = None,
-    ):
+    ) -> None:
         super().__init__(
             children, width, height, spacing, padding, margin, align_h, align_v, id
         )
@@ -617,7 +617,7 @@ class HStack(Container):
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
         id: str | None = None,
-    ):
+    ) -> None:
         super().__init__(
             children, width, height, spacing, padding, margin, align_h, align_v, id
         )
@@ -870,7 +870,7 @@ class FrameNode(Container):
         content_align_h: HAlign = "stretch",
         content_align_v: VAlign = "stretch",
         id: str | None = None,
-    ):
+    ) -> None:
 
         # Use frame dimensions if not specified
         if width is None:
@@ -1135,7 +1135,7 @@ class LayoutEngine:
         Available height
     """
 
-    def __init__(self, root: LayoutNode, width: int, height: int):
+    def __init__(self, root: LayoutNode, width: int, height: int) -> None:
         self.root = root
         self.width = width
         self.height = height

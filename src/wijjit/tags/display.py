@@ -1,6 +1,9 @@
 # ${DIR_PATH}/${FILE_NAME}
+from typing import Any, Callable, Literal, cast
+
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
 from wijjit.elements.display.modal import ModalElement
@@ -8,7 +11,7 @@ from wijjit.elements.display.table import Table
 from wijjit.elements.display.tree import Tree
 from wijjit.layout.engine import ElementNode
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import process_body_content
+from wijjit.tags.layout import LayoutContext, process_body_content
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -29,7 +32,7 @@ class TableExtension(Extension):
 
     tags = {"table"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the table tag.
 
         Parameters
@@ -45,7 +48,7 @@ class TableExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endtable"
         ):
@@ -62,24 +65,24 @@ class TableExtension(Extension):
             self.call_method("_render_table", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endtable"], drop_needle=True),
+            parser.parse_statements(("name:endtable",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_table(
         self,
-        caller,
-        id=None,
-        data=None,
-        columns=None,
-        width=60,
-        height=10,
-        sortable=False,
-        show_header=True,
-        show_scrollbar=True,
-        border_style="single",
-        bind=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        data: list[dict[str, Any]] | None = None,
+        columns: list[Any] | None = None,
+        width: int = 60,
+        height: int = 10,
+        sortable: bool = False,
+        show_header: bool = True,
+        show_scrollbar: bool = True,
+        border_style: str = "single",
+        bind: bool = True,
     ) -> str:
         """Render the table tag.
 
@@ -114,7 +117,7 @@ class TableExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             # No layout context available, skip
             return ""
@@ -133,7 +136,7 @@ class TableExtension(Extension):
         # If binding is enabled and id is provided, try to get data from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -174,7 +177,7 @@ class TableExtension(Extension):
             scroll_key = f"_scroll_{id}"
             table.scroll_state_key = scroll_key
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -215,7 +218,7 @@ class TreeExtension(Extension):
 
     tags = {"tree"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the tree tag.
 
         Parameters
@@ -231,7 +234,7 @@ class TreeExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endtree"
         ):
@@ -248,27 +251,27 @@ class TreeExtension(Extension):
             self.call_method("_render_tree", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endtree"], drop_needle=True),
+            parser.parse_statements(("name:endtree",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_tree(
         self,
-        caller,
-        id=None,
-        data=None,
-        width=40,
-        height=15,
-        show_scrollbar=True,
-        show_root=True,
-        indent_size=2,
-        on_select=None,
-        expanded=None,
-        bind=True,
-        border="none",
-        title=None,
-        indicator_style="triangles_large",
+        caller: Callable[[], str],
+        id: str | None = None,
+        data: dict[str, Any] | list[Any] | None = None,
+        width: int = 40,
+        height: int = 15,
+        show_scrollbar: bool = True,
+        show_root: bool = True,
+        indent_size: int = 2,
+        on_select: str | None = None,
+        expanded: str | list[Any] | None = None,
+        bind: bool = True,
+        border: str = "none",
+        title: str | None = None,
+        indicator_style: str = "triangles_large",
     ) -> str:
         """Render the tree tag.
 
@@ -315,7 +318,7 @@ class TreeExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             # No layout context available, skip
             return ""
@@ -349,7 +352,7 @@ class TreeExtension(Extension):
         # If binding is enabled and id is provided, try to get data from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -399,7 +402,7 @@ class TreeExtension(Extension):
 
             # Give tree access to state dict for saving
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     tree._state_dict = ctx["state"]
             except Exception as e:
@@ -407,7 +410,7 @@ class TreeExtension(Extension):
 
             # Restore expansion state (do this first, before highlight)
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
 
@@ -447,7 +450,7 @@ class TreeExtension(Extension):
 
             # Restore scroll position
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -457,7 +460,7 @@ class TreeExtension(Extension):
 
             # Restore highlighted index
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if highlight_key in state:
@@ -491,7 +494,7 @@ class ProgressBarExtension(Extension):
 
     tags = {"progressbar"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the progressbar tag.
 
         Parameters
@@ -507,7 +510,7 @@ class ProgressBarExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endprogressbar"
         ):
@@ -524,24 +527,24 @@ class ProgressBarExtension(Extension):
             self.call_method("_render_progressbar", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endprogressbar"], drop_needle=True),
+            parser.parse_statements(("name:endprogressbar",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_progressbar(
         self,
-        caller,
-        id=None,
-        value=0,
-        max=100,
-        width=40,
-        style="filled",
-        color=None,
-        show_percentage=None,
-        fill_char=None,
-        empty_char=None,
-        bind=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        value: float | int = 0,
+        max: float | int = 100,
+        width: int = 40,
+        style: Literal["filled", "percentage", "gradient", "custom"] | str = "filled",
+        color: str | None = None,
+        show_percentage: bool | None = None,
+        fill_char: str | None = None,
+        empty_char: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the progressbar tag.
 
@@ -576,7 +579,7 @@ class ProgressBarExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -592,7 +595,7 @@ class ProgressBarExtension(Extension):
         # If binding is enabled and id is provided, try to get value from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -612,7 +615,7 @@ class ProgressBarExtension(Extension):
             value=value,
             max=max_val,
             width=width,
-            style=style,
+            style=cast(Literal["filled", "percentage", "gradient", "custom"], style),
             color=color,
             show_percentage=show_percentage,
             fill_char=fill_char,
@@ -646,7 +649,7 @@ class SpinnerExtension(Extension):
 
     tags = {"spinner"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the spinner tag.
 
         Parameters
@@ -662,7 +665,7 @@ class SpinnerExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endspinner"
         ):
@@ -679,20 +682,20 @@ class SpinnerExtension(Extension):
             self.call_method("_render_spinner", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endspinner"], drop_needle=True),
+            parser.parse_statements(("name:endspinner",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_spinner(
         self,
-        caller,
-        id=None,
-        active=True,
-        style="dots",
-        label="",
-        color=None,
-        bind=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        active: bool = True,
+        style: Literal["dots", "line", "bouncing", "clock"] | str = "dots",
+        label: str = "",
+        color: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the spinner tag.
 
@@ -719,7 +722,7 @@ class SpinnerExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -733,7 +736,7 @@ class SpinnerExtension(Extension):
         # If binding is enabled and id is provided, try to get active state from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -745,7 +748,7 @@ class SpinnerExtension(Extension):
         frame_index = 0
         frame_key = f"_spinner_frame_{id}"
         try:
-            ctx = self.environment.globals.get("_wijjit_current_context")
+            ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
             if ctx and "state" in ctx:
                 state = ctx["state"]
                 if frame_key in state:
@@ -759,7 +762,7 @@ class SpinnerExtension(Extension):
         spinner = Spinner(
             id=id,
             active=active,
-            style=style,
+            style=cast(Literal["dots", "line", "bouncing", "clock"], style),
             label=label,
             color=color,
             frame_index=frame_index,
@@ -770,10 +773,10 @@ class SpinnerExtension(Extension):
 
         # Store state dict reference for frame updates
         try:
-            ctx = self.environment.globals.get("_wijjit_current_context")
+            ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
             if ctx and "state" in ctx:
                 spinner._state_dict = ctx["state"]
-                spinner._frame_key = frame_key
+                spinner._frame_key = frame_key  # type: ignore[attr-defined]
         except Exception:
             pass
 
@@ -812,7 +815,7 @@ class MarkdownExtension(Extension):
 
     tags = {"markdown"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the markdown tag.
 
         Parameters
@@ -828,7 +831,7 @@ class MarkdownExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endmarkdown"
         ):
@@ -845,22 +848,22 @@ class MarkdownExtension(Extension):
             self.call_method("_render_markdown", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endmarkdown"], drop_needle=True),
+            parser.parse_statements(("name:endmarkdown",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_markdown(
         self,
-        caller,
-        id=None,
-        content=None,
-        width="fill",
-        height="fill",
-        show_scrollbar=True,
-        border_style="single",
-        title=None,
-        bind=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        content: str | None = None,
+        width: int | str = "fill",
+        height: int | str = "fill",
+        show_scrollbar: bool = True,
+        border_style: str = "single",
+        title: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the markdown tag.
 
@@ -891,7 +894,7 @@ class MarkdownExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -929,7 +932,7 @@ class MarkdownExtension(Extension):
         # If binding is enabled and id is provided, try to get content from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -966,7 +969,7 @@ class MarkdownExtension(Extension):
             scroll_key = f"_scroll_{id}"
             markdown.scroll_state_key = scroll_key
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -1003,7 +1006,7 @@ class CodeBlockExtension(Extension):
 
     tags = {"code"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the code tag.
 
         Parameters
@@ -1019,7 +1022,7 @@ class CodeBlockExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endcode"
         ):
@@ -1036,27 +1039,27 @@ class CodeBlockExtension(Extension):
             self.call_method("_render_code", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endcode"], drop_needle=True),
+            parser.parse_statements(("name:endcode",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_code(
         self,
-        caller,
-        id=None,
-        code=None,
-        language="python",
-        width=60,
-        height=20,
-        show_line_numbers=True,
-        line_number_start=1,
-        show_scrollbar=True,
-        border_style="single",
-        title=None,
-        theme="monokai",
-        bind=True,
-        raw=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        code: str | None = None,
+        language: str = "python",
+        width: int = 60,
+        height: int = 20,
+        show_line_numbers: bool = True,
+        line_number_start: int = 1,
+        show_scrollbar: bool = True,
+        border_style: str = "single",
+        title: str | None = None,
+        theme: str = "monokai",
+        bind: bool = True,
+        raw: bool = True,
     ) -> str:
         """Render the code tag.
 
@@ -1097,7 +1100,7 @@ class CodeBlockExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -1138,7 +1141,7 @@ class CodeBlockExtension(Extension):
         # If binding is enabled and id is provided, try to get code from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -1176,7 +1179,7 @@ class CodeBlockExtension(Extension):
             scroll_key = f"_scroll_{id}"
             codeblock.scroll_state_key = scroll_key
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -1231,7 +1234,7 @@ class LogViewExtension(Extension):
 
     tags = {"logview"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the logview tag.
 
         Parameters
@@ -1247,7 +1250,7 @@ class LogViewExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endlogview"
         ):
@@ -1264,27 +1267,27 @@ class LogViewExtension(Extension):
             self.call_method("_render_logview", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endlogview"], drop_needle=True),
+            parser.parse_statements(("name:endlogview",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_logview(
         self,
-        caller,
-        id=None,
-        lines=None,
-        width=80,
-        height=20,
-        auto_scroll=True,
-        soft_wrap=False,
-        show_line_numbers=False,
-        line_number_start=1,
-        detect_log_levels=True,
-        show_scrollbar=True,
-        border_style="single",
-        title=None,
-        bind=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        lines: list[str] | None = None,
+        width: int = 80,
+        height: int = 20,
+        auto_scroll: bool = True,
+        soft_wrap: bool = False,
+        show_line_numbers: bool = False,
+        line_number_start: int = 1,
+        detect_log_levels: bool = True,
+        show_scrollbar: bool = True,
+        border_style: str = "single",
+        title: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the logview tag.
 
@@ -1325,7 +1328,7 @@ class LogViewExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -1359,7 +1362,7 @@ class LogViewExtension(Extension):
         # If binding is enabled and id is provided, try to get lines from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -1414,14 +1417,14 @@ class LogViewExtension(Extension):
 
             # Give logview access to state dict for saving
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     logview._state_dict = ctx["state"]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
 
@@ -1488,7 +1491,7 @@ class ListViewExtension(Extension):
 
     tags = {"listview"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the listview tag.
 
         Parameters
@@ -1504,7 +1507,7 @@ class ListViewExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endlistview"
         ):
@@ -1521,27 +1524,27 @@ class ListViewExtension(Extension):
             self.call_method("_render_listview", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endlistview"], drop_needle=True),
+            parser.parse_statements(("name:endlistview",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_listview(
         self,
-        caller,
-        id=None,
-        items=None,
-        width=40,
-        height=10,
-        bullet="bullet",
-        show_dividers=False,
-        show_scrollbar=True,
-        border_style="single",
-        title=None,
-        indent_details=2,
-        dim_details=True,
-        bind=True,
-        raw=False,
+        caller: Callable[[], str],
+        id: str | None = None,
+        items: list[Any] | None = None,
+        width: int = 40,
+        height: int = 10,
+        bullet: str = "bullet",
+        show_dividers: bool = False,
+        show_scrollbar: bool = True,
+        border_style: str = "single",
+        title: str | None = None,
+        indent_details: int = 2,
+        dim_details: bool = True,
+        bind: bool = True,
+        raw: bool = False,
     ) -> str:
         """Render the listview tag.
 
@@ -1583,7 +1586,7 @@ class ListViewExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -1633,7 +1636,7 @@ class ListViewExtension(Extension):
         # If binding is enabled and id is provided, try to get items from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -1674,7 +1677,7 @@ class ListViewExtension(Extension):
             scroll_key = f"_scroll_{id}"
             listview.scroll_state_key = scroll_key
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -1727,7 +1730,7 @@ class OverlayExtension(Extension):
 
     tags = {"overlay"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the overlay tag.
 
         Parameters
@@ -1743,7 +1746,7 @@ class OverlayExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endoverlay"
         ):
@@ -1760,23 +1763,23 @@ class OverlayExtension(Extension):
             self.call_method("_render_overlay", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endoverlay"], drop_needle=True),
+            parser.parse_statements(("name:endoverlay",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_overlay(
         self,
-        caller,
-        id=None,
-        visible=None,
-        layer="modal",
-        width=50,
-        height=10,
-        close_on_escape=True,
-        close_on_click_outside=False,
-        trap_focus=True,
-        dim_background=False,
+        caller: Callable[[], str],
+        id: str | None = None,
+        visible: str | None = None,
+        layer: str = "modal",
+        width: int = 50,
+        height: int = 10,
+        close_on_escape: bool = True,
+        close_on_click_outside: bool = False,
+        trap_focus: bool = True,
+        dim_background: bool = False,
     ) -> str:
         """Render the overlay tag.
 
@@ -1809,7 +1812,7 @@ class OverlayExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -1817,7 +1820,7 @@ class OverlayExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     # Check if state variable is truthy
@@ -1884,8 +1887,8 @@ class OverlayExtension(Extension):
 
         # Add to context's overlay list (app will process these)
         if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+            context._overlays = []  # type: ignore[attr-defined]
+        context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""
 
@@ -1907,7 +1910,7 @@ class ModalExtension(Extension):
 
     tags = {"modal"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the modal tag.
 
         Parameters
@@ -1923,7 +1926,7 @@ class ModalExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endmodal"
         ):
@@ -1940,20 +1943,20 @@ class ModalExtension(Extension):
             self.call_method("_render_modal", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endmodal"], drop_needle=True),
+            parser.parse_statements(("name:endmodal",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_modal(
         self,
-        caller,
-        id=None,
-        visible=None,
-        title=None,
-        width=50,
-        height=12,
-        border="single",
+        caller: Callable[[], str],
+        id: str | None = None,
+        visible: str | None = None,
+        title: str | None = None,
+        width: int = 50,
+        height: int = 12,
+        border: str = "single",
     ) -> str:
         """Render the modal tag.
 
@@ -1980,7 +1983,7 @@ class ModalExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             return ""
 
@@ -1988,7 +1991,7 @@ class ModalExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))
@@ -2039,8 +2042,8 @@ class ModalExtension(Extension):
 
         # Add to context's overlay list
         if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+            context._overlays = []  # type: ignore[attr-defined]
+        context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""
 
@@ -2062,7 +2065,7 @@ class StatusBarExtension(Extension):
 
     tags = {"statusbar"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the statusbar tag.
 
         Parameters
@@ -2078,7 +2081,7 @@ class StatusBarExtension(Extension):
         lineno = next(parser.stream).lineno
 
         # Parse attributes as keyword arguments
-        kwargs = []
+        kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
             "name:endstatusbar"
         ):
@@ -2095,21 +2098,21 @@ class StatusBarExtension(Extension):
             self.call_method("_render_statusbar", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endstatusbar"], drop_needle=True),
+            parser.parse_statements(("name:endstatusbar",), drop_needle=True),
         ).set_lineno(lineno)
 
-        return node
+        return cast(nodes.CallBlock, node)
 
     def _render_statusbar(
         self,
-        caller,
-        id=None,
-        left="",
-        center="",
-        right="",
-        bg_color=None,
-        text_color=None,
-        bind=True,
+        caller: Callable[[], str],
+        id: str | None = None,
+        left: str = "",
+        center: str = "",
+        right: str = "",
+        bg_color: str | None = None,
+        text_color: str | None = None,
+        bind: bool = True,
     ) -> str:
         """Render the statusbar tag.
 
@@ -2138,7 +2141,7 @@ class StatusBarExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
         if context is None:
             # Still consume body
             caller()
@@ -2156,7 +2159,7 @@ class StatusBarExtension(Extension):
         # If binding is enabled and id is provided, try to get content from state
         if bind and id:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     # Check for individual section keys
@@ -2190,7 +2193,7 @@ class StatusBarExtension(Extension):
 
         # Store statusbar in context for app to extract
         # Similar to how overlays are stored
-        context._statusbar = statusbar
+        context._statusbar = statusbar  # type: ignore[attr-defined]
 
         # Consume body (should be empty)
         caller()

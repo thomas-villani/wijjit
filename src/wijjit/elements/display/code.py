@@ -81,7 +81,7 @@ class CodeBlock(ScrollableElement):
         border_style: str = "single",
         title: str | None = None,
         theme: str = "monokai",
-    ):
+    ) -> None:
         super().__init__(id)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
@@ -255,7 +255,7 @@ class CodeBlock(ScrollableElement):
         else:
             return self.scroll_manager.state.is_scrollable and (
                 self.scroll_manager.state.scroll_position
-                < self.scroll_manager.state.max_scroll_position
+                < self.scroll_manager.state.max_scroll
             )
 
     def handle_key(self, key: Key) -> bool:

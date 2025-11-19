@@ -3,8 +3,11 @@
 This module provides template tags for confirm, alert, and text input dialogs.
 """
 
+from typing import Any, Callable
+
 from jinja2 import nodes
 from jinja2.ext import Extension
+from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
@@ -40,7 +43,7 @@ class ConfirmDialogExtension(Extension):
 
     tags = {"confirmdialog"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the confirmdialog tag.
 
         Parameters
@@ -69,29 +72,31 @@ class ConfirmDialogExtension(Extension):
                 break
 
         # Parse body (optional message content)
+        body = parser.parse_statements(("name:endconfirmdialog",), drop_needle=True)
         node = nodes.CallBlock(
             self.call_method("_render_confirmdialog", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endconfirmdialog"], drop_needle=True),
-        ).set_lineno(lineno)
+            body,
+        )
+        node.set_lineno(lineno)
 
         return node
 
     def _render_confirmdialog(
         self,
-        caller,
-        id=None,
-        visible=None,
-        title="Confirm",
-        message=None,
-        confirm_action=None,
-        cancel_action=None,
-        confirm_label="Confirm",
-        cancel_label="Cancel",
-        width=50,
-        height=10,
-        border="single",
+        caller: Callable[[], str],
+        id: str | None = None,
+        visible: str | None = None,
+        title: str = "Confirm",
+        message: str | None = None,
+        confirm_action: str | None = None,
+        cancel_action: str | None = None,
+        confirm_label: str = "Confirm",
+        cancel_label: str = "Cancel",
+        width: int = 50,
+        height: int = 10,
+        border: str = "single",
     ) -> str:
         """Render the confirmdialog tag.
 
@@ -128,7 +133,7 @@ class ConfirmDialogExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -136,7 +141,7 @@ class ConfirmDialogExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))
@@ -223,7 +228,7 @@ class AlertDialogExtension(Extension):
 
     tags = {"alertdialog"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the alertdialog tag.
 
         Parameters
@@ -252,27 +257,29 @@ class AlertDialogExtension(Extension):
                 break
 
         # Parse body (optional message content)
+        body = parser.parse_statements(("name:endalertdialog",), drop_needle=True)
         node = nodes.CallBlock(
             self.call_method("_render_alertdialog", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endalertdialog"], drop_needle=True),
-        ).set_lineno(lineno)
+            body,
+        )
+        node.set_lineno(lineno)
 
         return node
 
     def _render_alertdialog(
         self,
-        caller,
-        id=None,
-        visible=None,
-        title="Alert",
-        message=None,
-        ok_action=None,
-        ok_label="OK",
-        width=50,
-        height=8,
-        border="single",
+        caller: Callable[[], str],
+        id: str | None = None,
+        visible: str | None = None,
+        title: str = "Alert",
+        message: str | None = None,
+        ok_action: str | None = None,
+        ok_label: str = "OK",
+        width: int = 50,
+        height: int = 8,
+        border: str = "single",
     ) -> str:
         """Render the alertdialog tag.
 
@@ -305,7 +312,7 @@ class AlertDialogExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -313,7 +320,7 @@ class AlertDialogExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))
@@ -394,7 +401,7 @@ class TextInputDialogExtension(Extension):
 
     tags = {"inputdialog"}
 
-    def parse(self, parser):
+    def parse(self, parser: Parser) -> nodes.CallBlock:
         """Parse the inputdialog tag.
 
         Parameters
@@ -423,32 +430,34 @@ class TextInputDialogExtension(Extension):
                 break
 
         # Parse body (should be empty for input dialog)
+        body = parser.parse_statements(("name:endinputdialog",), drop_needle=True)
         node = nodes.CallBlock(
             self.call_method("_render_inputdialog", [], kwargs),
             [],
             [],
-            parser.parse_statements(["name:endinputdialog"], drop_needle=True),
-        ).set_lineno(lineno)
+            body,
+        )
+        node.set_lineno(lineno)
 
         return node
 
     def _render_inputdialog(
         self,
-        caller,
-        id=None,
-        visible=None,
-        title="Input",
-        prompt="Enter value:",
-        initial_value="",
-        submit_action=None,
-        cancel_action=None,
-        placeholder="",
-        submit_label="Submit",
-        cancel_label="Cancel",
-        width=50,
-        height=12,
-        border="single",
-        input_width=30,
+        caller: Callable[[], str],
+        id: str | None = None,
+        visible: str | None = None,
+        title: str = "Input",
+        prompt: str = "Enter value:",
+        initial_value: str = "",
+        submit_action: str | None = None,
+        cancel_action: str | None = None,
+        placeholder: str = "",
+        submit_label: str = "Submit",
+        cancel_label: str = "Cancel",
+        width: int = 50,
+        height: int = 12,
+        border: str = "single",
+        input_width: int = 30,
     ) -> str:
         """Render the inputdialog tag.
 
@@ -491,7 +500,7 @@ class TextInputDialogExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = self.environment.globals.get("_wijjit_layout_context")
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
             return ""
 
@@ -499,7 +508,7 @@ class TextInputDialogExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))

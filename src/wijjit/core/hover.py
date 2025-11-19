@@ -25,7 +25,7 @@ class HoverManager:
         Currently hovered element, or None if no element is hovered
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize hover manager."""
         self.current_element: Element | None = None
         self.dirty_manager: DirtyRegionManager | None = None
