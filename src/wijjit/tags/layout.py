@@ -1,12 +1,12 @@
 # ${DIR_PATH}/${FILE_NAME}
 import textwrap
 from ast import literal_eval
-from typing import Any, Callable, Literal, cast
+from collections.abc import Callable
+from typing import Any, Literal, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
-from jinja2.runtime import Context
 
 from wijjit.elements.base import TextElement
 from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
@@ -662,8 +662,12 @@ class FrameExtension(Extension):
             border=border_style,
             title=title,
             padding=padding_parsed,
-            content_align_h=cast(Literal["left", "center", "right", "stretch"], content_align_h),
-            content_align_v=cast(Literal["top", "middle", "bottom", "stretch"], content_align_v),
+            content_align_h=cast(
+                Literal["left", "center", "right", "stretch"], content_align_h
+            ),
+            content_align_v=cast(
+                Literal["top", "middle", "bottom", "stretch"], content_align_v
+            ),
             scrollable=scrollable,
             show_scrollbar=show_scrollbar,
             overflow_y=overflow_y,
@@ -734,8 +738,12 @@ class FrameExtension(Extension):
             margin=margin_parsed,
             align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
             align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
-            content_align_h=cast(Literal["left", "center", "right", "stretch"], content_align_h),
-            content_align_v=cast(Literal["top", "middle", "bottom", "stretch"], content_align_v),
+            content_align_h=cast(
+                Literal["left", "center", "right", "stretch"], content_align_h
+            ),
+            content_align_v=cast(
+                Literal["top", "middle", "bottom", "stretch"], content_align_v
+            ),
             id=id,
         )
 

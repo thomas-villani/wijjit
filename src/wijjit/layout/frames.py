@@ -7,7 +7,7 @@ exceeds the frame height.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar

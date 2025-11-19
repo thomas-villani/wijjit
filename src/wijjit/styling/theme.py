@@ -229,9 +229,13 @@ class DefaultTheme(Theme):
             "tree.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # TextArea styles
             "textarea": Style(fg_color=(255, 255, 255)),
-            "textarea:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "textarea:focus": Style(fg_color=(255, 255, 255)),
             "textarea.border": Style(fg_color=(100, 100, 100)),
             "textarea.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            "textarea.selection": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 100, 180),
+            ),
             # ProgressBar styles
             "progress": Style(fg_color=(255, 255, 255)),
             "progress.fill": Style(fg_color=(0, 255, 0)),
@@ -445,7 +449,7 @@ class DarkTheme(Theme):
             "tree.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # TextArea styles
             "textarea": Style(fg_color=(200, 200, 220)),
-            "textarea:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "textarea:focus": Style(fg_color=(220, 220, 255)),
             "textarea.border": Style(fg_color=(80, 80, 100)),
             "textarea.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # ProgressBar styles

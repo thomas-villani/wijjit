@@ -107,7 +107,7 @@ class StatusBar(Element):
         color_name = self.text_color.upper()
         return getattr(ANSIColor, color_name, None)
 
-    def render_to(self, ctx: "PaintContext") -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render the status bar using cell-based rendering (NEW API).
 
         Parameters

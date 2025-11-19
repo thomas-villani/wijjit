@@ -158,7 +158,12 @@ class State(UserDict[str, Any]):
             # Set as state data
             self[name] = value
 
-    def on_change(self, callback: Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]) -> None:
+    def on_change(
+        self,
+        callback: (
+            Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]
+        ),
+    ) -> None:
         """Register a callback for any state change.
 
         Supports both synchronous and asynchronous callbacks.
@@ -180,7 +185,11 @@ class State(UserDict[str, Any]):
             )
 
     def watch(
-        self, key: str, callback: Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]
+        self,
+        key: str,
+        callback: (
+            Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]
+        ),
     ) -> None:
         """Watch a specific state key for changes.
 
@@ -207,7 +216,15 @@ class State(UserDict[str, Any]):
                 f"(async={is_async})"
             )
 
-    def unwatch(self, key: str, callback: Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]] | None = None) -> None:
+    def unwatch(
+        self,
+        key: str,
+        callback: (
+            Callable[[str, Any, Any], None]
+            | Callable[[str, Any, Any], Awaitable[None]]
+            | None
+        ) = None,
+    ) -> None:
         """Stop watching a state key.
 
         Parameters

@@ -13,8 +13,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import cast
-from typing import Any
+from typing import Any, cast
 
 from wijjit.terminal.mouse import (
     MouseButton,
@@ -512,7 +511,9 @@ class HandlerRegistry:
             # Invoke callback based on type
             if handler.is_async:
                 # Cast to async callback type since is_async is True
-                async_callback = cast(Callable[[Event], Awaitable[None]], handler.callback)
+                async_callback = cast(
+                    Callable[[Event], Awaitable[None]], handler.callback
+                )
                 await async_callback(event)
             else:
                 # Run sync callback in executor to avoid blocking

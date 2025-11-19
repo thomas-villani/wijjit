@@ -5,6 +5,7 @@ with automatic log level detection, coloring, auto-scroll, and soft-wrap.
 """
 
 import re
+from typing import Any
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar

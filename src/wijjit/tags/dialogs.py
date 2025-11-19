@@ -3,7 +3,8 @@
 This module provides template tags for confirm, alert, and text input dialogs.
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from jinja2 import nodes
 from jinja2.ext import Extension

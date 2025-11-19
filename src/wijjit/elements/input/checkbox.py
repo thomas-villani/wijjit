@@ -1,6 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle

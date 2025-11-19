@@ -225,6 +225,24 @@ PROMPT_TOOLKIT_KEY_MAP = {
     PTKeys.ControlEnd: Key("ctrl+end", KeyType.SPECIAL),
     PTKeys.ControlLeft: Key("ctrl+left", KeyType.SPECIAL),
     PTKeys.ControlRight: Key("ctrl+right", KeyType.SPECIAL),
+    # Shift+navigation keys
+    PTKeys.ShiftUp: Key("shift+up", KeyType.SPECIAL),
+    PTKeys.ShiftDown: Key("shift+down", KeyType.SPECIAL),
+    PTKeys.ShiftLeft: Key("shift+left", KeyType.SPECIAL),
+    PTKeys.ShiftRight: Key("shift+right", KeyType.SPECIAL),
+    PTKeys.ShiftHome: Key("shift+home", KeyType.SPECIAL),
+    PTKeys.ShiftEnd: Key("shift+end", KeyType.SPECIAL),
+    PTKeys.ShiftPageUp: Key("shift+pageup", KeyType.SPECIAL),
+    PTKeys.ShiftPageDown: Key("shift+pagedown", KeyType.SPECIAL),
+    # Control+Shift+navigation keys
+    PTKeys.ControlShiftUp: Key("ctrl+shift+up", KeyType.SPECIAL),
+    PTKeys.ControlShiftDown: Key("ctrl+shift+down", KeyType.SPECIAL),
+    PTKeys.ControlShiftLeft: Key("ctrl+shift+left", KeyType.SPECIAL),
+    PTKeys.ControlShiftRight: Key("ctrl+shift+right", KeyType.SPECIAL),
+    PTKeys.ControlShiftHome: Key("ctrl+shift+home", KeyType.SPECIAL),
+    PTKeys.ControlShiftEnd: Key("ctrl+shift+end", KeyType.SPECIAL),
+    PTKeys.ControlShiftPageUp: Key("ctrl+shift+pageup", KeyType.SPECIAL),
+    PTKeys.ControlShiftPageDown: Key("ctrl+shift+pagedown", KeyType.SPECIAL),
     # Function keys
     PTKeys.F1: Keys.F1,
     PTKeys.F2: Keys.F2,
@@ -363,6 +381,19 @@ class InputHandler:
                 logger.debug(
                     f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"
                 )
+
+                # Check for paste: multiple printable characters at once
+                if len(keys) > 1:
+                    # Check if all keys are regular characters (paste detection)
+                    all_chars = all(
+                        len(k.key) == 1 and k.key.isprintable() for k in keys
+                    )
+                    if all_chars:
+                        # This looks like a paste operation - combine all characters
+                        pasted_text = "".join(k.key for k in keys)
+                        logger.debug(f"Detected paste: {pasted_text!r}")
+                        # Return a synthetic paste key that includes all the text
+                        return Key(pasted_text, KeyType.CHARACTER, pasted_text)
 
                 # Check for Alt+key (escape followed immediately by a character in same read)
                 if (
@@ -523,6 +554,19 @@ class InputHandler:
                 logger.debug(
                     f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"
                 )
+
+                # Check for paste: multiple printable characters at once
+                if len(keys) > 1:
+                    # Check if all keys are regular characters (paste detection)
+                    all_chars = all(
+                        len(k.key) == 1 and k.key.isprintable() for k in keys
+                    )
+                    if all_chars:
+                        # This looks like a paste operation - combine all characters
+                        pasted_text = "".join(k.key for k in keys)
+                        logger.debug(f"Detected paste: {pasted_text!r}")
+                        # Return a synthetic paste key that includes all the text
+                        return Key(pasted_text, KeyType.CHARACTER, pasted_text)
 
                 # Check for Alt+key (escape followed immediately by a character in same read)
                 if (

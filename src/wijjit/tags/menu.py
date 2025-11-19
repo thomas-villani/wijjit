@@ -3,7 +3,8 @@
 This module provides template tags for creating dropdown menus and context menus.
 """
 
-from typing import Any, Callable, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
@@ -99,7 +100,7 @@ class MenuItemExtension(Extension):
         # Get the current menu being built
         menu_stack = cast(
             list[list[MenuItem]] | None,
-            self.environment.globals.get("_wijjit_menu_stack")
+            self.environment.globals.get("_wijjit_menu_stack"),
         )
         if not menu_stack:
             logger.warning("menuitem tag used outside of dropdown/contextmenu")
@@ -240,7 +241,7 @@ class DropdownExtension(Extension):
         # even if not visible, to avoid "menuitem outside dropdown" errors
         menu_stack = cast(
             list[list[MenuItem]] | None,
-            self.environment.globals.get("_wijjit_menu_stack")
+            self.environment.globals.get("_wijjit_menu_stack"),
         )
         if menu_stack is None:
             menu_stack = []
@@ -402,7 +403,7 @@ class ContextMenuExtension(Extension):
         # even if not visible, to avoid "menuitem outside dropdown" errors
         menu_stack = cast(
             list[list[MenuItem]] | None,
-            self.environment.globals.get("_wijjit_menu_stack")
+            self.environment.globals.get("_wijjit_menu_stack"),
         )
         if menu_stack is None:
             menu_stack = []

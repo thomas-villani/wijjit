@@ -1,5 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
-from typing import Any, Callable, Literal, cast
+from collections.abc import Callable
+from typing import Any, Literal, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
@@ -117,7 +118,9 @@ class TableExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             # No layout context available, skip
             return ""
@@ -136,7 +139,10 @@ class TableExtension(Extension):
         # If binding is enabled and id is provided, try to get data from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -177,7 +183,10 @@ class TableExtension(Extension):
             scroll_key = f"_scroll_{id}"
             table.scroll_state_key = scroll_key
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -318,7 +327,9 @@ class TreeExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             # No layout context available, skip
             return ""
@@ -352,7 +363,10 @@ class TreeExtension(Extension):
         # If binding is enabled and id is provided, try to get data from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -402,7 +416,10 @@ class TreeExtension(Extension):
 
             # Give tree access to state dict for saving
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     tree._state_dict = ctx["state"]
             except Exception as e:
@@ -410,7 +427,10 @@ class TreeExtension(Extension):
 
             # Restore expansion state (do this first, before highlight)
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
 
@@ -450,7 +470,10 @@ class TreeExtension(Extension):
 
             # Restore scroll position
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -460,7 +483,10 @@ class TreeExtension(Extension):
 
             # Restore highlighted index
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if highlight_key in state:
@@ -579,7 +605,9 @@ class ProgressBarExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -595,7 +623,10 @@ class ProgressBarExtension(Extension):
         # If binding is enabled and id is provided, try to get value from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -722,7 +753,9 @@ class SpinnerExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -736,7 +769,10 @@ class SpinnerExtension(Extension):
         # If binding is enabled and id is provided, try to get active state from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -748,7 +784,10 @@ class SpinnerExtension(Extension):
         frame_index = 0
         frame_key = f"_spinner_frame_{id}"
         try:
-            ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+            ctx = cast(
+                dict[str, Any] | None,
+                self.environment.globals.get("_wijjit_current_context"),
+            )
             if ctx and "state" in ctx:
                 state = ctx["state"]
                 if frame_key in state:
@@ -773,7 +812,10 @@ class SpinnerExtension(Extension):
 
         # Store state dict reference for frame updates
         try:
-            ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+            ctx = cast(
+                dict[str, Any] | None,
+                self.environment.globals.get("_wijjit_current_context"),
+            )
             if ctx and "state" in ctx:
                 spinner._state_dict = ctx["state"]
                 spinner._frame_key = frame_key  # type: ignore[attr-defined]
@@ -894,7 +936,9 @@ class MarkdownExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -932,7 +976,10 @@ class MarkdownExtension(Extension):
         # If binding is enabled and id is provided, try to get content from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -969,7 +1016,10 @@ class MarkdownExtension(Extension):
             scroll_key = f"_scroll_{id}"
             markdown.scroll_state_key = scroll_key
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -1100,7 +1150,9 @@ class CodeBlockExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -1141,7 +1193,10 @@ class CodeBlockExtension(Extension):
         # If binding is enabled and id is provided, try to get code from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -1179,7 +1234,10 @@ class CodeBlockExtension(Extension):
             scroll_key = f"_scroll_{id}"
             codeblock.scroll_state_key = scroll_key
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -1328,7 +1386,9 @@ class LogViewExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -1362,7 +1422,10 @@ class LogViewExtension(Extension):
         # If binding is enabled and id is provided, try to get lines from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -1417,14 +1480,20 @@ class LogViewExtension(Extension):
 
             # Give logview access to state dict for saving
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     logview._state_dict = ctx["state"]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
 
@@ -1586,7 +1655,9 @@ class ListViewExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -1636,7 +1707,10 @@ class ListViewExtension(Extension):
         # If binding is enabled and id is provided, try to get items from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if id in state:
@@ -1677,7 +1751,10 @@ class ListViewExtension(Extension):
             scroll_key = f"_scroll_{id}"
             listview.scroll_state_key = scroll_key
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     if scroll_key in state:
@@ -1812,7 +1889,9 @@ class OverlayExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -1820,7 +1899,10 @@ class OverlayExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     # Check if state variable is truthy
@@ -1983,7 +2065,9 @@ class ModalExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             return ""
 
@@ -1991,7 +2075,10 @@ class ModalExtension(Extension):
         is_visible = False
         if visible:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     is_visible = bool(state.get(visible, False))
@@ -2141,7 +2228,9 @@ class StatusBarExtension(Extension):
             Rendered output
         """
         # Get layout context from environment globals
-        context = cast(LayoutContext | None, self.environment.globals.get("_wijjit_layout_context"))
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
         if context is None:
             # Still consume body
             caller()
@@ -2159,7 +2248,10 @@ class StatusBarExtension(Extension):
         # If binding is enabled and id is provided, try to get content from state
         if bind and id:
             try:
-                ctx = cast(dict[str, Any] | None, self.environment.globals.get("_wijjit_current_context"))
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
                 if ctx and "state" in ctx:
                     state = ctx["state"]
                     # Check for individual section keys

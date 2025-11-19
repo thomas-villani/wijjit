@@ -333,7 +333,7 @@ class Wijjit:
             priority=priority,
         )
 
-    def on_key(self, key: str, allow_ctrl_c: bool = False) -> Callable:
+    def on_key(self, key: str, allow_ctrl_q: bool = False, **kwargs) -> Callable:
         """Decorator to register a key press handler.
 
         Use this to handle specific key presses globally in your application.
@@ -342,9 +342,9 @@ class Wijjit:
         ----------
         key : str
             The key to handle (e.g., "d", "q", "enter", "space")
-        allow_ctrl_c : bool, optional
-            Allow binding to Ctrl+C (default: False). Use with caution as
-            Ctrl+C is normally reserved for exiting the application.
+        allow_ctrl_q : bool, optional
+            Allow binding to Ctrl+Q (default: False). Use with caution as
+            Ctrl+Q is normally reserved for exiting the application.
 
         Returns
         -------
@@ -354,7 +354,7 @@ class Wijjit:
         Raises
         ------
         ValueError
-            If attempting to bind Ctrl+C without allow_ctrl_c=True
+            If attempting to bind Ctrl+Q without allow_ctrl_q=True
 
         Examples
         --------
@@ -362,16 +362,17 @@ class Wijjit:
         ... def delete_handler(event):
         ...     print("Delete key pressed!")
 
-        >>> @app.on_key("ctrl+c", allow_ctrl_c=True)
+        >>> @app.on_key("ctrl+q", allow_ctrl_q=True)
         ... def custom_exit(event):
-        ...     print("Custom Ctrl+C handler")
+        ...     print("Custom Ctrl+Q handler")
         """
-        # Validate that Ctrl+C is not being bound (reserved for app exit)
+        # Validate that Ctrl+Q is not being bound (reserved for app exit)
         key_lower = key.lower()
-        if not allow_ctrl_c and key_lower in ("ctrl+c", "c-c"):
+        allow_ctrl_q = kwargs.get("allow_ctrl_q", False)
+        if not allow_ctrl_q and key_lower in ("ctrl+q", "c-q"):
             raise ValueError(
-                "Cannot bind Ctrl+C: it is reserved for exiting the application. "
-                "Use allow_ctrl_c=True to override this restriction."
+                "Cannot bind Ctrl+Q: it is reserved for exiting the application. "
+                "Use allow_ctrl_q=True to override this restriction."
             )
 
         def decorator(func: Callable[..., Any]) -> Callable:
@@ -445,9 +446,9 @@ class Wijjit:
         Enters the main event loop:
         1. Render initial view
         2. Loop: read input -> dispatch events -> re-render if needed
-        3. Exit on quit or Ctrl+C
+        3. Exit on quit or Ctrl+Q
 
-        The loop continues until quit() is called or the user presses Ctrl+C.
+        The loop continues until quit() is called or the user presses Ctrl+Q.
         """
         self.event_loop.run()
 

@@ -199,7 +199,9 @@ class ButtonExtension(Extension):
 
         return node
 
-    def _render_button(self, caller: Any, id: str | None = None, action: str | None = None) -> str:
+    def _render_button(
+        self, caller: Any, id: str | None = None, action: str | None = None
+    ) -> str:
         """Render the button tag.
 
         Parameters
@@ -331,7 +333,9 @@ class SelectExtension(Extension):
         visible_rows: int = 5,
         action: str | None = None,
         bind: bool = True,
-        border_style: BorderStyle | Literal["single", "double", "rounded"] | None = None,
+        border_style: (
+            BorderStyle | Literal["single", "double", "rounded"] | None
+        ) = None,
         title: str | None = None,
     ) -> str:
         """Render the select tag.
@@ -759,7 +763,9 @@ class CheckboxGroupExtension(Extension):
         selected: list[Any] | None = None,
         width: int = 20,
         orientation: Literal["vertical", "horizontal"] = "vertical",
-        border_style: BorderStyle | Literal["single", "double", "rounded"] | None = None,
+        border_style: (
+            BorderStyle | Literal["single", "double", "rounded"] | None
+        ) = None,
         title: str | None = None,
         action: str | None = None,
         bind: bool = True,
@@ -904,7 +910,9 @@ class RadioGroupExtension(Extension):
         selected: str | None = None,
         width: int = 20,
         orientation: Literal["vertical", "horizontal"] = "vertical",
-        border_style: BorderStyle | Literal["single", "double", "rounded"] | None = None,
+        border_style: (
+            BorderStyle | Literal["single", "double", "rounded"] | None
+        ) = None,
         title: str | None = None,
         action: str | None = None,
         bind: bool = True,
@@ -1166,6 +1174,40 @@ class TextAreaExtension(Extension):
 
         # Store bind setting
         textarea.bind = bind
+
+        # Restore cursor, selection, and scroll state if binding is enabled
+        if bind and id:
+            try:
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+
+                    # Restore scroll position FIRST (before cursor restoration)
+                    scroll_key = f"__{id}_scroll"
+                    if scroll_key in state:
+                        scroll_data = state[scroll_key]
+                        scroll_pos = scroll_data.get("position", 0)
+                        textarea.scroll_manager.scroll_to(scroll_pos)
+
+                    # Restore cursor position
+                    cursor_key = f"__{id}_cursor"
+                    if cursor_key in state:
+                        cursor_data = state[cursor_key]
+                        textarea.cursor_row = cursor_data.get("row", 0)
+                        textarea.cursor_col = cursor_data.get("col", 0)
+                        # Don't call _ensure_cursor_visible() here - it interferes with
+                        # mouse wheel scrolling. Cursor visibility is ensured when cursor
+                        # is moved by user input, not during restoration.
+
+                    # Restore selection state
+                    selection_key = f"__{id}_selection"
+                    if selection_key in state:
+                        selection_data = state[selection_key]
+                        textarea.selection_anchor = selection_data.get("anchor")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to restore cursor/selection/scroll for textarea '{id}': {e}"
+                )
 
         # Create ElementNode
         # Use width_spec/height_spec directly for ElementNode (supports "fill")

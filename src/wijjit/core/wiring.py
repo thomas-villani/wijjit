@@ -14,7 +14,7 @@ from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
-from wijjit.elements.input.text import TextInput
+from wijjit.elements.input.text import TextArea, TextInput
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
 from wijjit.logging_config import get_logger
 
@@ -118,6 +118,10 @@ class ElementWiringManager:
         if isinstance(elem, TextInput):
             self._wire_textinput(elem, state)
 
+        # Wire up TextArea callbacks
+        if isinstance(elem, TextArea):
+            self._wire_textarea(elem, state)
+
         # Wire up Select callbacks
         if isinstance(elem, Select):
             self._wire_select(elem, state)
@@ -178,6 +182,76 @@ class ElementWiringManager:
                 state[eid] = new_val
 
             elem.on_change = on_change_handler
+
+    def _wire_textarea(self, elem: TextArea, state: State) -> None:
+        """Wire TextArea callbacks.
+
+        Parameters
+        ----------
+        elem : TextArea
+            TextArea element to wire
+        state : State
+            Application state
+        """
+        # Wire up action callback if action is specified
+        if hasattr(elem, "action") and elem.action:
+            action_id = elem.action
+            elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
+
+        # Wire up state binding if enabled
+        if hasattr(elem, "bind") and elem.bind and elem.id:
+            # Note: Cursor and selection restoration happens in TextAreaExtension
+            # during element creation for proper visual rendering
+
+            # Set up two-way binding
+            elem_id = elem.id
+
+            def save_state_to_storage():
+                """Helper to save cursor, selection, and scroll state."""
+                state[f"__{elem_id}_cursor"] = {
+                    "row": elem.cursor_row,
+                    "col": elem.cursor_col,
+                }
+                state[f"__{elem_id}_selection"] = {
+                    "anchor": elem.selection_anchor,
+                }
+                state[f"__{elem_id}_scroll"] = {
+                    "position": elem.scroll_manager.state.scroll_position,
+                }
+                logger.debug(
+                    f"Saved state for {elem_id}: cursor=({elem.cursor_row},{elem.cursor_col}), "
+                    f"selection={elem.selection_anchor}, scroll={elem.scroll_manager.state.scroll_position}"
+                )
+
+            def on_change_handler(old_val, new_val, eid=elem_id):
+                # Update content state
+                state[eid] = new_val
+                # Also save cursor and selection state
+                save_state_to_storage()
+
+            elem.on_change = on_change_handler
+
+            # Wrap handle_key to save cursor/selection after every key press
+            original_handle_key = elem.handle_key
+
+            def wrapped_handle_key(key):
+                result = original_handle_key(key)
+                # Always save cursor/selection state after key handling
+                save_state_to_storage()
+                return result
+
+            elem.handle_key = wrapped_handle_key
+
+            # Wrap handle_mouse to save cursor/selection after mouse interactions
+            original_handle_mouse = elem.handle_mouse
+
+            def wrapped_handle_mouse(event):
+                result = original_handle_mouse(event)
+                # Always save cursor/selection state after mouse handling
+                save_state_to_storage()
+                return result
+
+            elem.handle_mouse = wrapped_handle_mouse
 
     def _wire_select(self, elem: Select, state: State) -> None:
         """Wire Select callbacks.

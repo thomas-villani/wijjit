@@ -358,9 +358,9 @@ class EventLoop:
         input_event : Key
             The keyboard input event
         """
-        # Handle Ctrl+C
-        if input_event.is_ctrl_c:
-            logger.info("Received Ctrl+C, exiting application")
+        # Handle Ctrl+Q (quit application)
+        if input_event.name == "ctrl+q":
+            logger.info("Received Ctrl+Q, exiting application")
             self.running = False
             return
 
@@ -453,9 +453,9 @@ class EventLoop:
         input_event : Key
             The keyboard input event
         """
-        # Handle Ctrl+C
-        if input_event.is_ctrl_c:
-            logger.info("Received Ctrl+C, exiting application")
+        # Handle Ctrl+Q (quit application)
+        if input_event.name == "ctrl+q":
+            logger.info("Received Ctrl+Q, exiting application")
             self.running = False
             return
 
@@ -562,22 +562,33 @@ class EventLoop:
         try:
             # Skip if event was cancelled by another handler
             if event.cancelled:
+                logger.debug(
+                    f"Key event {event.key} was cancelled, not routing to focused element"
+                )
                 return
 
             # Get the focused element
             focused_elem = self.app.focus_manager.get_focused_element()
             if focused_elem is None:
+                logger.debug("No focused element to route key to")
                 return
+
+            logger.debug(
+                f"Routing key {event.key} to focused element: "
+                f"{focused_elem.id if hasattr(focused_elem, 'id') else type(focused_elem).__name__}"
+            )
 
             # Use the original Key object from the event
             # This ensures we use the exact same Key constants that InputHandler created
             if event.key_obj is None:
+                logger.debug("No key_obj in event, cannot route")
                 return
 
             key = event.key_obj
 
             # Let the element handle the key
             handled = focused_elem.handle_key(key)
+            logger.debug(f"Element handled key: {handled}")
 
             if handled:
                 # Mark event as handled and trigger re-render

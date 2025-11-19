@@ -23,6 +23,10 @@ if TYPE_CHECKING:
     from wijjit.styling.style import Style
 
 
+# Internal clipboard for fallback when system clipboard is unavailable
+_FALLBACK_CLIPBOARD: str = ""
+
+
 class InputStyle(Enum):
     """Visual style for text input rendering.
 
@@ -471,6 +475,14 @@ class TextArea(Element):
         self.cursor_row = 0
         self.cursor_col = 0
 
+        # Selection state
+        self.selection_anchor: tuple[int, int] | None = (
+            None  # (row, col) where selection started
+        )
+        self._mouse_down: bool = False  # Track mouse button state for drag selection
+        self._last_click_time: float = 0.0  # For detecting double-clicks
+        self._last_click_pos: tuple[int, int] | None = None  # Last click position
+
         # Scroll management
         self.scroll_manager = ScrollManager(
             content_size=1, viewport_size=height  # One line initially
@@ -742,89 +754,136 @@ class TextArea(Element):
         """
         old_value = self.get_value()
 
-        # Character input
+        # Check if Shift is being held
+        # Keys can have shift in modifiers OR be named with 's-' prefix (like 's-right')
+        shift_held = "shift" in key.modifiers or (
+            key.name and key.name.startswith("s-")
+        )
+
+        # Character input - replaces selection if any
         if key.is_char and key.char:
+            # Delete selection first if exists
+            if self._has_selection():
+                self._delete_selection()
+                old_value = self.get_value()  # Update old value after deletion
+
             handled = self._insert_char(key.char)
             if handled:
                 self._emit_change(old_value, self.get_value())
             return handled
 
-        # Enter key - create new line
+        # Enter key - replaces selection or creates new line
         elif key == Keys.ENTER:
+            # Delete selection first if exists
+            if self._has_selection():
+                self._delete_selection()
+                old_value = self.get_value()
+
             handled = self._insert_newline()
             if handled:
                 self._emit_change(old_value, self.get_value())
             return handled
 
-        # Backspace
+        # Backspace - deletes selection or single character
         elif key == Keys.BACKSPACE:
-            handled = self._backspace()
+            if self._has_selection():
+                handled = self._delete_selection()
+            else:
+                handled = self._backspace()
+
             if handled:
                 self._emit_change(old_value, self.get_value())
             return handled
 
-        # Delete
+        # Delete - deletes selection or single character
         elif key == Keys.DELETE:
-            handled = self._delete()
+            if self._has_selection():
+                handled = self._delete_selection()
+            else:
+                handled = self._delete()
+
             if handled:
                 self._emit_change(old_value, self.get_value())
             return handled
 
-        # Navigation - Arrow keys
-        elif key == Keys.UP:
-            return self._move_cursor_up()
+        # Ctrl+A - Select all
+        elif key.name == "ctrl+a":
+            self._select_all()
+            return True
 
-        elif key == Keys.DOWN:
-            return self._move_cursor_down()
+        # Ctrl+C - Copy
+        elif key.name == "ctrl+c":
+            return self._copy_selection()
 
-        elif key == Keys.LEFT:
-            return self._move_cursor_left()
+        # Ctrl+X - Cut
+        elif key.name == "ctrl+x":
+            handled = self._cut_selection()
+            if handled:
+                self._emit_change(old_value, self.get_value())
+            return handled
 
-        elif key == Keys.RIGHT:
-            return self._move_cursor_right()
+        # Ctrl+V - Paste
+        elif key.name == "ctrl+v":
+            handled = self._paste()
+            if handled:
+                self._emit_change(old_value, self.get_value())
+            return handled
 
-        # Ctrl+Arrow for word boundaries
-        elif key.name == "ctrl+left":
-            return self._word_boundary_left()
+        # Navigation - Arrow keys (with optional Shift for selection)
+        elif key.name in ("up", "shift+up", "s-up"):
+            return self._move_cursor_up(extend_selection=shift_held)
 
-        elif key.name == "ctrl+right":
-            return self._word_boundary_right()
+        elif key.name in ("down", "shift+down", "s-down"):
+            return self._move_cursor_down(extend_selection=shift_held)
 
-        # Navigation - Home/End
-        elif key == Keys.HOME:
-            return self._move_to_line_start()
+        elif key.name in ("left", "shift+left", "s-left"):
+            return self._move_cursor_left(extend_selection=shift_held)
 
-        elif key == Keys.END:
-            return self._move_to_line_end()
+        elif key.name in ("right", "shift+right", "s-right"):
+            return self._move_cursor_right(extend_selection=shift_held)
 
-        # Ctrl+Home/End for document start/end
-        elif key.name == "ctrl+home":
-            return self._move_to_document_start()
+        # Ctrl+Arrow for word boundaries (with optional Shift for selection)
+        elif key.name in ("ctrl+left", "ctrl+shift+left", "c-s-left"):
+            return self._word_boundary_left(extend_selection=shift_held)
 
-        elif key.name == "ctrl+end":
-            return self._move_to_document_end()
+        elif key.name in ("ctrl+right", "ctrl+shift+right", "c-s-right"):
+            return self._word_boundary_right(extend_selection=shift_held)
 
-        # Navigation - Page Up/Down
-        elif key == Keys.PAGE_UP:
-            return self._page_up()
+        # Navigation - Home/End (with optional Shift for selection)
+        elif key.name in ("home", "shift+home", "s-home"):
+            return self._move_to_line_start(extend_selection=shift_held)
 
-        elif key == Keys.PAGE_DOWN:
-            return self._page_down()
+        elif key.name in ("end", "shift+end", "s-end"):
+            return self._move_to_line_end(extend_selection=shift_held)
+
+        # Ctrl+Home/End for document start/end (with optional Shift for selection)
+        elif key.name in ("ctrl+home", "ctrl+shift+home", "c-s-home"):
+            return self._move_to_document_start(extend_selection=shift_held)
+
+        elif key.name in ("ctrl+end", "ctrl+shift+end", "c-s-end"):
+            return self._move_to_document_end(extend_selection=shift_held)
+
+        # Navigation - Page Up/Down (with optional Shift for selection)
+        elif key.name in ("pageup", "shift+pageup", "s-pageup"):
+            return self._page_up(extend_selection=shift_held)
+
+        elif key.name in ("pagedown", "shift+pagedown", "s-pagedown"):
+            return self._page_down(extend_selection=shift_held)
 
         return False
 
     def _insert_char(self, char: str) -> bool:
-        """Insert a character at the cursor position.
+        """Insert character(s) at the cursor position.
 
         Parameters
         ----------
         char : str
-            Character to insert
+            Character or string to insert (may be multi-character from paste)
 
         Returns
         -------
         bool
-            True if character was inserted
+            True if character(s) were inserted
         """
         # Filter out non-printable characters (control characters, ANSI escapes, etc.)
         if not char.isprintable():
@@ -833,14 +892,15 @@ class TextArea(Element):
         # Get current line
         current_line = self.lines[self.cursor_row]
 
-        # Insert character at cursor position
+        # Insert character(s) at cursor position
+        # Note: char may be a single character or multiple characters (from paste)
         new_line = (
             current_line[: self.cursor_col] + char + current_line[self.cursor_col :]
         )
         self.lines[self.cursor_row] = new_line
 
-        # Advance cursor
-        self.cursor_col += 1
+        # Advance cursor by length of inserted text
+        self.cursor_col += len(char)
 
         # Apply hard wrapping if enabled and line exceeds width
         if self.wrap_mode == "hard":
@@ -1003,8 +1063,13 @@ class TextArea(Element):
             # Cursor stays in same position
             return True
 
-    def _move_cursor_up(self) -> bool:
+    def _move_cursor_up(self, extend_selection: bool = False) -> bool:
         """Move cursor up one line.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1013,6 +1078,12 @@ class TextArea(Element):
         """
         if self.cursor_row == 0:
             return False
+
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
 
         self.cursor_row -= 1
         # Clamp column to new line length
@@ -1024,8 +1095,13 @@ class TextArea(Element):
         self._ensure_cursor_visible()
         return True
 
-    def _move_cursor_down(self) -> bool:
+    def _move_cursor_down(self, extend_selection: bool = False) -> bool:
         """Move cursor down one line.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1034,6 +1110,12 @@ class TextArea(Element):
         """
         if self.cursor_row >= len(self.lines) - 1:
             return False
+
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
 
         self.cursor_row += 1
         # Clamp column to new line length
@@ -1045,14 +1127,25 @@ class TextArea(Element):
         self._ensure_cursor_visible()
         return True
 
-    def _move_cursor_left(self) -> bool:
+    def _move_cursor_left(self, extend_selection: bool = False) -> bool:
         """Move cursor left one character (wrap to previous line if needed).
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
         bool
             True if cursor moved
         """
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         if self.cursor_col > 0:
             self.cursor_col -= 1
             return True
@@ -1066,14 +1159,25 @@ class TextArea(Element):
         else:
             return False
 
-    def _move_cursor_right(self) -> bool:
+    def _move_cursor_right(self, extend_selection: bool = False) -> bool:
         """Move cursor right one character (wrap to next line if needed).
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
         bool
             True if cursor moved
         """
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         line_len = len(self.lines[self.cursor_row])
 
         if self.cursor_col < line_len:
@@ -1089,8 +1193,13 @@ class TextArea(Element):
         else:
             return False
 
-    def _move_to_line_start(self) -> bool:
+    def _move_to_line_start(self, extend_selection: bool = False) -> bool:
         """Move cursor to start of current line.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1100,11 +1209,22 @@ class TextArea(Element):
         if self.cursor_col == 0:
             return False
 
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         self.cursor_col = 0
         return True
 
-    def _move_to_line_end(self) -> bool:
+    def _move_to_line_end(self, extend_selection: bool = False) -> bool:
         """Move cursor to end of current line.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1116,11 +1236,22 @@ class TextArea(Element):
         if self.cursor_col == line_len:
             return False
 
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         self.cursor_col = line_len
         return True
 
-    def _move_to_document_start(self) -> bool:
+    def _move_to_document_start(self, extend_selection: bool = False) -> bool:
         """Move cursor to start of document.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1130,14 +1261,25 @@ class TextArea(Element):
         if self.cursor_row == 0 and self.cursor_col == 0:
             return False
 
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         self.cursor_row = 0
         self.cursor_col = 0
         # Auto-scroll to keep cursor visible
         self._ensure_cursor_visible()
         return True
 
-    def _move_to_document_end(self) -> bool:
+    def _move_to_document_end(self, extend_selection: bool = False) -> bool:
         """Move cursor to end of document.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1149,6 +1291,12 @@ class TextArea(Element):
 
         if self.cursor_row == last_row and self.cursor_col == last_col:
             return False
+
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
 
         self.cursor_row = last_row
         self.cursor_col = last_col
@@ -1193,8 +1341,13 @@ class TextArea(Element):
                 target_scroll = cursor_visual_row - self.height + 1
                 self.scroll_manager.scroll_to(max(0, target_scroll))
 
-    def _page_up(self) -> bool:
+    def _page_up(self, extend_selection: bool = False) -> bool:
         """Scroll up by one viewport height.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1202,6 +1355,12 @@ class TextArea(Element):
             True if scrolled
         """
         old_position = self.scroll_manager.state.scroll_position
+
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
 
         # Scroll viewport up
         self.scroll_manager.page_up()
@@ -1218,8 +1377,13 @@ class TextArea(Element):
 
         return scroll_delta > 0
 
-    def _page_down(self) -> bool:
+    def _page_down(self, extend_selection: bool = False) -> bool:
         """Scroll down by one viewport height.
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
@@ -1227,6 +1391,12 @@ class TextArea(Element):
             True if scrolled
         """
         old_position = self.scroll_manager.state.scroll_position
+
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
 
         # Scroll viewport down
         self.scroll_manager.page_down()
@@ -1258,14 +1428,25 @@ class TextArea(Element):
         """
         return ch.isalnum() or ch == "_"
 
-    def _word_boundary_left(self) -> bool:
+    def _word_boundary_left(self, extend_selection: bool = False) -> bool:
         """Move cursor to start of previous word (Ctrl+Left).
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
         bool
             True if cursor moved
         """
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         # Start from current position
         row, col = self.cursor_row, self.cursor_col
 
@@ -1327,14 +1508,25 @@ class TextArea(Element):
         self._ensure_cursor_visible()
         return True
 
-    def _word_boundary_right(self) -> bool:
+    def _word_boundary_right(self, extend_selection: bool = False) -> bool:
         """Move cursor to start of next word (Ctrl+Right).
+
+        Parameters
+        ----------
+        extend_selection : bool, optional
+            If True, extend selection while moving (default: False)
 
         Returns
         -------
         bool
             True if cursor moved
         """
+        # Set selection anchor if extending and not already set
+        if extend_selection and self.selection_anchor is None:
+            self.selection_anchor = (self.cursor_row, self.cursor_col)
+        elif not extend_selection:
+            self._clear_selection()
+
         # Start from current position
         row, col = self.cursor_row, self.cursor_col
 
@@ -1378,6 +1570,392 @@ class TextArea(Element):
         self.cursor_col = col
         # Auto-scroll to keep cursor visible
         self._ensure_cursor_visible()
+        return True
+
+    def _has_selection(self) -> bool:
+        """Check if there is an active text selection.
+
+        Returns
+        -------
+        bool
+            True if selection exists and is non-empty
+        """
+        if self.selection_anchor is None:
+            return False
+
+        # Check if anchor and cursor are at different positions
+        return self.selection_anchor != (self.cursor_row, self.cursor_col)
+
+    def _is_position_selected(self, row: int, col: int) -> bool:
+        """Check if a position is within the current selection.
+
+        Parameters
+        ----------
+        row : int
+            Line index
+        col : int
+            Column index
+
+        Returns
+        -------
+        bool
+            True if position is selected, False otherwise
+        """
+        selection_range = self._get_selection_range()
+        if selection_range is None:
+            return False
+
+        (start_row, start_col), (end_row, end_col) = selection_range
+
+        # Check if position is within selection range
+        if row < start_row or row > end_row:
+            return False
+
+        if row == start_row == end_row:
+            # Single line selection
+            return start_col <= col < end_col
+        elif row == start_row:
+            # First line of multi-line selection
+            return col >= start_col
+        elif row == end_row:
+            # Last line of multi-line selection
+            return col < end_col
+        else:
+            # Middle line of multi-line selection
+            return True
+
+    def _clear_selection(self) -> None:
+        """Clear the current text selection."""
+        self.selection_anchor = None
+
+    def _get_selection_range(self) -> tuple[tuple[int, int], tuple[int, int]] | None:
+        """Get normalized selection range (start, end).
+
+        Returns
+        -------
+        tuple of tuple of int or None
+            ((start_row, start_col), (end_row, end_col)) with start <= end,
+            or None if no selection exists
+
+        Notes
+        -----
+        Normalizes selection so start is always before end in document order.
+        """
+        if not self._has_selection():
+            return None
+
+        anchor_row, anchor_col = self.selection_anchor
+        cursor_row, cursor_col = self.cursor_row, self.cursor_col
+
+        # Normalize so start is before end
+        if (anchor_row < cursor_row) or (
+            anchor_row == cursor_row and anchor_col < cursor_col
+        ):
+            return ((anchor_row, anchor_col), (cursor_row, cursor_col))
+        else:
+            return ((cursor_row, cursor_col), (anchor_row, anchor_col))
+
+    def _get_selected_text(self) -> str:
+        """Get the currently selected text.
+
+        Returns
+        -------
+        str
+            Selected text, or empty string if no selection
+        """
+        selection_range = self._get_selection_range()
+        if selection_range is None:
+            return ""
+
+        (start_row, start_col), (end_row, end_col) = selection_range
+
+        # Single line selection
+        if start_row == end_row:
+            return self.lines[start_row][start_col:end_col]
+
+        # Multi-line selection
+        result_lines = []
+
+        # First line (from start_col to end)
+        result_lines.append(self.lines[start_row][start_col:])
+
+        # Middle lines (complete lines)
+        for row in range(start_row + 1, end_row):
+            result_lines.append(self.lines[row])
+
+        # Last line (from start to end_col)
+        result_lines.append(self.lines[end_row][:end_col])
+
+        return "\n".join(result_lines)
+
+    def _delete_selection(self) -> bool:
+        """Delete the currently selected text.
+
+        Returns
+        -------
+        bool
+            True if text was deleted, False if no selection
+
+        Notes
+        -----
+        Deletes selected text and positions cursor at selection start.
+        Clears selection after deletion.
+        """
+        selection_range = self._get_selection_range()
+        if selection_range is None:
+            return False
+
+        (start_row, start_col), (end_row, end_col) = selection_range
+
+        # Single line selection
+        if start_row == end_row:
+            self.lines[start_row] = (
+                self.lines[start_row][:start_col] + self.lines[start_row][end_col:]
+            )
+        else:
+            # Multi-line selection
+            # Merge start and end lines
+            merged_line = (
+                self.lines[start_row][:start_col] + self.lines[end_row][end_col:]
+            )
+
+            # Delete all lines in selection
+            del self.lines[start_row : end_row + 1]
+
+            # Insert merged line
+            self.lines.insert(start_row, merged_line)
+
+        # Ensure at least one line exists
+        if not self.lines:
+            self.lines = [""]
+
+        # Position cursor at selection start
+        self.cursor_row = start_row
+        self.cursor_col = start_col
+
+        # Clear selection
+        self._clear_selection()
+
+        # Update scroll manager
+        visual_line_count = self._calculate_total_visual_lines()
+        self.scroll_manager.update_content_size(visual_line_count)
+
+        return True
+
+    def _select_word_at_position(self, row: int, col: int) -> None:
+        """Select the word at the given position.
+
+        Parameters
+        ----------
+        row : int
+            Line index
+        col : int
+            Column index
+
+        Notes
+        -----
+        Used for double-click word selection.
+        Sets selection anchor and cursor to word boundaries.
+        """
+        if row >= len(self.lines):
+            return
+
+        line = self.lines[row]
+        if not line or col >= len(line):
+            return
+
+        # Find word boundaries
+        # Start by checking if we're on a word character
+        if not self._is_word_char(line[col]):
+            # Not on a word, select just this character
+            self.selection_anchor = (row, col)
+            self.cursor_row = row
+            self.cursor_col = min(col + 1, len(line))
+            return
+
+        # Find word start
+        word_start = col
+        while word_start > 0 and self._is_word_char(line[word_start - 1]):
+            word_start -= 1
+
+        # Find word end
+        word_end = col
+        while word_end < len(line) and self._is_word_char(line[word_end]):
+            word_end += 1
+
+        # Set selection
+        self.selection_anchor = (row, word_start)
+        self.cursor_row = row
+        self.cursor_col = word_end
+
+    def _select_all(self) -> None:
+        """Select all text in the textarea.
+
+        Notes
+        -----
+        Sets selection from start of document to end.
+        """
+        # Set anchor at document start
+        self.selection_anchor = (0, 0)
+
+        # Move cursor to document end
+        self.cursor_row = len(self.lines) - 1
+        self.cursor_col = len(self.lines[self.cursor_row])
+
+    def _copy_to_clipboard(self, text: str) -> None:
+        """Copy text to clipboard.
+
+        Parameters
+        ----------
+        text : str
+            Text to copy to clipboard
+
+        Notes
+        -----
+        Tries to use system clipboard via pyperclip, falls back to internal clipboard.
+        """
+        global _FALLBACK_CLIPBOARD
+
+        # Always store in fallback for within-app use
+        _FALLBACK_CLIPBOARD = text
+
+        # Try to also copy to system clipboard
+        try:
+            import pyperclip
+
+            pyperclip.copy(text)
+        except Exception:
+            # System clipboard not available, fallback is already set
+            pass
+
+    def _paste_from_clipboard(self) -> str:
+        """Get text from clipboard.
+
+        Returns
+        -------
+        str
+            Text from clipboard, or empty string if clipboard is empty
+
+        Notes
+        -----
+        Tries system clipboard first, falls back to internal clipboard.
+        """
+        global _FALLBACK_CLIPBOARD
+
+        # Try system clipboard first
+        try:
+            import pyperclip
+
+            text = pyperclip.paste()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        # Fall back to internal clipboard
+        return _FALLBACK_CLIPBOARD
+
+    def _copy_selection(self) -> bool:
+        """Copy selected text to clipboard.
+
+        Returns
+        -------
+        bool
+            True if text was copied, False if no selection
+        """
+        if not self._has_selection():
+            return False
+
+        selected_text = self._get_selected_text()
+        self._copy_to_clipboard(selected_text)
+        return True
+
+    def _cut_selection(self) -> bool:
+        """Cut selected text to clipboard.
+
+        Returns
+        -------
+        bool
+            True if text was cut, False if no selection
+        """
+        if not self._has_selection():
+            return False
+
+        selected_text = self._get_selected_text()
+        self._copy_to_clipboard(selected_text)
+        self._delete_selection()
+        return True
+
+    def _paste(self) -> bool:
+        """Paste text from clipboard at cursor position.
+
+        Returns
+        -------
+        bool
+            True if text was pasted
+
+        Notes
+        -----
+        Replaces selection if one exists, otherwise inserts at cursor.
+        """
+        clipboard_text = self._paste_from_clipboard()
+        if not clipboard_text:
+            return False
+
+        # Delete selection if exists
+        if self._has_selection():
+            self._delete_selection()
+
+        # Split clipboard text into lines
+        paste_lines = clipboard_text.replace("\r\n", "\n").split("\n")
+
+        if len(paste_lines) == 1:
+            # Single line paste - insert into current line
+            current_line = self.lines[self.cursor_row]
+            new_line = (
+                current_line[: self.cursor_col]
+                + paste_lines[0]
+                + current_line[self.cursor_col :]
+            )
+            self.lines[self.cursor_row] = new_line
+            self.cursor_col += len(paste_lines[0])
+        else:
+            # Multi-line paste
+            current_line = self.lines[self.cursor_row]
+            before_cursor = current_line[: self.cursor_col]
+            after_cursor = current_line[self.cursor_col :]
+
+            # First line: merge with existing line before cursor
+            self.lines[self.cursor_row] = before_cursor + paste_lines[0]
+
+            # Insert middle lines
+            insert_pos = self.cursor_row + 1
+            for i in range(1, len(paste_lines) - 1):
+                self.lines.insert(insert_pos, paste_lines[i])
+                insert_pos += 1
+
+            # Last line: merge with existing line after cursor
+            self.lines.insert(insert_pos, paste_lines[-1] + after_cursor)
+
+            # Update cursor position to end of pasted content
+            self.cursor_row = insert_pos
+            self.cursor_col = len(paste_lines[-1])
+
+        # Apply max_lines constraint if needed
+        if self.max_lines is not None and len(self.lines) > self.max_lines:
+            self.lines = self.lines[: self.max_lines]
+            # Ensure cursor is still valid
+            if self.cursor_row >= len(self.lines):
+                self.cursor_row = len(self.lines) - 1
+                self.cursor_col = len(self.lines[self.cursor_row])
+
+        # Update scroll manager
+        visual_line_count = self._calculate_total_visual_lines()
+        self.scroll_manager.update_content_size(visual_line_count)
+
+        # Ensure cursor visible
+        self._ensure_cursor_visible()
+
         return True
 
     def _calculate_total_visual_lines(self) -> int:
@@ -1651,33 +2229,91 @@ class TextArea(Element):
             self.scroll_manager.scroll_by(3)
             return old_position != self.scroll_manager.state.scroll_position
 
-        # Handle clicks to position cursor
-        elif event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
-            # Convert absolute screen coordinates to textarea-relative coordinates
-            # If bounds are set, convert from absolute to relative coordinates
-            if self.bounds:
-                relative_x = event.x - self.bounds.x
-                relative_y = event.y - self.bounds.y
+        # Convert absolute screen coordinates to textarea-relative coordinates
+        if self.bounds:
+            relative_x = event.x - self.bounds.x
+            relative_y = event.y - self.bounds.y
 
-                # Account for borders if present
-                if self.border_style is not None:
-                    relative_y -= 1  # Top border
-                    relative_x -= 1  # Left border
+            # Account for borders if present
+            if self.border_style is not None:
+                relative_y -= 1  # Top border
+                relative_x -= 1  # Left border
+        else:
+            # If bounds not set, assume coordinates are already relative
+            relative_x = event.x
+            relative_y = event.y
+
+        # Validate coordinates are within textarea bounds
+        if relative_x < 0 or relative_y < 0:
+            return False
+
+        # Calculate actual content area dimensions (excluding borders)
+        content_width = self.width
+        content_height = self.height
+        if self.border_style is not None:
+            content_width -= 2  # Left and right borders
+            content_height -= 2  # Top and bottom borders
+
+        # Check if click is beyond right or bottom edge
+        if relative_x >= content_width or relative_y >= content_height:
+            return False
+
+        # Convert to content position
+        row, col = self._screen_to_content_position(relative_x, relative_y)
+
+        # Handle mouse press - start selection
+        if event.type == MouseEventType.PRESS:
+            self._mouse_down = True
+
+            # If shift is held, extend existing selection
+            if event.shift:
+                # Set anchor if not already set
+                if self.selection_anchor is None:
+                    self.selection_anchor = (self.cursor_row, self.cursor_col)
             else:
-                # If bounds not set, assume coordinates are already relative
-                relative_x = event.x
-                relative_y = event.y
-
-            # Validate coordinates are within textarea
-            if relative_x < 0 or relative_y < 0:
-                return False
-
-            # Convert to content position
-            row, col = self._screen_to_content_position(relative_x, relative_y)
+                # Clear existing selection and set new anchor
+                self.selection_anchor = (row, col)
 
             # Update cursor position
             self.cursor_row = row
             self.cursor_col = col
+
+            return True
+
+        # Handle mouse drag - extend selection
+        elif event.type == MouseEventType.DRAG:
+            if self._mouse_down:
+                # Update cursor position to extend selection
+                self.cursor_row = row
+                self.cursor_col = col
+                return True
+
+        # Handle mouse release - end selection
+        elif event.type == MouseEventType.RELEASE:
+            self._mouse_down = False
+            return True
+
+        # Handle double-click - select word
+        elif event.type == MouseEventType.DOUBLE_CLICK:
+            self._select_word_at_position(row, col)
+            self._mouse_down = False
+            return True
+
+        # Handle single click
+        elif event.type == MouseEventType.CLICK:
+            # Shift+click extends selection
+            if event.shift:
+                # Set anchor if not already set
+                if self.selection_anchor is None:
+                    self.selection_anchor = (self.cursor_row, self.cursor_col)
+                # Move cursor to click position to extend selection
+                self.cursor_row = row
+                self.cursor_col = col
+            else:
+                # Normal click: clear selection and move cursor
+                self._clear_selection()
+                self.cursor_row = row
+                self.cursor_col = col
 
             return True
 
@@ -1926,8 +2562,12 @@ class TextArea(Element):
             italic=content_style.italic,
         )
 
+        # Get selection style from theme
+        selection_style = ctx.style_resolver.resolve_style(self, "textarea.selection")
+
         content_attrs = content_style.to_cell_attrs()
         cursor_attrs = cursor_style.to_cell_attrs()
+        selection_attrs = selection_style.to_cell_attrs()
 
         if self.wrap_mode == "none":
             # Original rendering logic for no wrapping
@@ -1952,12 +2592,21 @@ class TextArea(Element):
 
                 # Write line cells
                 for x, char in enumerate(display_line):
-                    # Check if this is cursor position
+                    # Check if this position is selected
+                    is_selected = self._is_position_selected(actual_line_idx, x)
+
+                    # Check if this is cursor position (cursor takes priority over selection)
                     if show_cursor and x == self.cursor_col:
                         ctx.buffer.set_cell(
                             ctx.bounds.x + x,
                             ctx.bounds.y + start_y + i,
                             Cell(char=char, **cursor_attrs),
+                        )
+                    elif is_selected:
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + x,
+                            ctx.bounds.y + start_y + i,
+                            Cell(char=char, **selection_attrs),
                         )
                     else:
                         ctx.buffer.set_cell(
@@ -1987,6 +2636,9 @@ class TextArea(Element):
 
                 wrapped_segments = wrap_text(line, content_width)
 
+                # Track column offset in actual line
+                actual_col_offset = 0
+
                 for _seg_idx, segment in enumerate(wrapped_segments):
                     # Check if this visual line is in the visible range
                     if visible_start <= visual_line_idx < visible_end:
@@ -2006,12 +2658,28 @@ class TextArea(Element):
 
                         # Write line cells
                         for x, char in enumerate(display_line):
-                            # Check if this is cursor position
+                            # Calculate actual column position in the original line
+                            actual_col = actual_col_offset + x
+
+                            # Check if this position is selected
+                            is_selected = self._is_position_selected(
+                                _actual_row, actual_col
+                            )
+
+                            # Check if this is cursor position (cursor takes priority)
                             if show_cursor and x == cursor_visual_col:
                                 ctx.buffer.set_cell(
                                     ctx.bounds.x + x,
                                     ctx.bounds.y + start_y + rendered_line_count,
                                     Cell(char=char, **cursor_attrs),
+                                )
+                            elif (
+                                is_selected and x < seg_len
+                            ):  # Only highlight actual content, not padding
+                                ctx.buffer.set_cell(
+                                    ctx.bounds.x + x,
+                                    ctx.bounds.y + start_y + rendered_line_count,
+                                    Cell(char=char, **selection_attrs),
                                 )
                             else:
                                 ctx.buffer.set_cell(
@@ -2024,6 +2692,8 @@ class TextArea(Element):
                         if rendered_line_count >= height:
                             break
 
+                    # Update column offset for next segment
+                    actual_col_offset += visible_length(segment)
                     visual_line_idx += 1
 
             # Pad remaining lines to height
@@ -2088,6 +2758,93 @@ class TextArea(Element):
 
         return before_cursor + cursor_with_style + after_cursor
 
+    def _apply_selection_to_line_ansi(
+        self, line: str, actual_row: int, start_col: int = 0
+    ) -> str:
+        """Apply selection highlighting to a line using ANSI escape codes.
+
+        Parameters
+        ----------
+        line : str
+            The line to apply selection to (may contain ANSI codes)
+        actual_row : int
+            The actual row number in the content
+        start_col : int
+            The starting column offset for this line segment (for wrapped lines)
+
+        Returns
+        -------
+        str
+            Line with selection background applied to selected portions
+
+        Notes
+        -----
+        This method strips existing ANSI codes, determines which characters
+        are selected, then rebuilds the line with selection background color
+        applied to selected characters.
+        """
+        if not self._has_selection():
+            return line
+
+        # Get selection range
+        selection_range = self._get_selection_range()
+        if not selection_range:
+            return line
+
+        (sel_start_row, sel_start_col), (sel_end_row, sel_end_col) = selection_range
+
+        # Check if this row is in selection range
+        if actual_row < sel_start_row or actual_row > sel_end_row:
+            return line
+
+        # Strip ANSI codes to work with visible positions
+        stripped = strip_ansi(line)
+
+        # Determine which columns in this line are selected
+        line_len = len(stripped)
+        if actual_row == sel_start_row and actual_row == sel_end_row:
+            # Selection starts and ends on this line
+            sel_col_start = max(0, sel_start_col - start_col)
+            sel_col_end = min(line_len, sel_end_col - start_col)
+        elif actual_row == sel_start_row:
+            # Selection starts on this line
+            sel_col_start = max(0, sel_start_col - start_col)
+            sel_col_end = line_len
+        elif actual_row == sel_end_row:
+            # Selection ends on this line
+            sel_col_start = 0
+            sel_col_end = min(line_len, sel_end_col - start_col)
+        else:
+            # Entire line is selected
+            sel_col_start = 0
+            sel_col_end = line_len
+
+        # If no characters in this segment are selected, return as is
+        if sel_col_start >= line_len or sel_col_end <= 0:
+            return line
+
+        # Build result with selection background applied
+        # Selection colors from theme: fg=(255,255,255) bg=(0,100,180)
+        selection_bg = "\x1b[48;2;0;100;180m"  # Blue background
+        selection_fg = "\x1b[38;2;255;255;255m"  # White foreground
+        reset = "\x1b[0m"
+
+        # Split into unselected prefix, selected middle, unselected suffix
+        prefix = stripped[:sel_col_start]
+        selected = stripped[sel_col_start:sel_col_end]
+        suffix = stripped[sel_col_end:]
+
+        # Build result
+        result = ""
+        if prefix:
+            result += prefix
+        if selected:
+            result += f"{selection_bg}{selection_fg}{selected}{reset}"
+        if suffix:
+            result += suffix
+
+        return result
+
     def render(self) -> str:
         """Render the text area (LEGACY ANSI rendering).
 
@@ -2145,6 +2902,11 @@ class TextArea(Element):
                     # Pad short lines
                     display_line = line.ljust(content_width)
 
+                # Apply selection highlighting
+                display_line = self._apply_selection_to_line_ansi(
+                    display_line, actual_line_idx
+                )
+
                 # Add cursor if this is the cursor line and textarea is focused
                 if self.focused and actual_line_idx == self.cursor_row:
                     display_line = self._render_cursor_in_line(
@@ -2159,8 +2921,11 @@ class TextArea(Element):
             visual_line_idx = 0  # Tracks which visual line we're rendering
 
             # Iterate through actual lines and render wrapped segments
-            for _actual_row, line in enumerate(self.lines):
+            for actual_row, line in enumerate(self.lines):
                 wrapped_segments = wrap_text(line, content_width)
+
+                # Track column offset in the actual line for each segment
+                col_offset = 0
 
                 for _seg_idx, segment in enumerate(wrapped_segments):
                     # Check if this visual line is in the visible range
@@ -2177,6 +2942,11 @@ class TextArea(Element):
                             # Pad to content width
                             display_line = segment + " " * (content_width - seg_len)
 
+                        # Apply selection highlighting (pass column offset for wrapped segments)
+                        display_line = self._apply_selection_to_line_ansi(
+                            display_line, actual_row, start_col=col_offset
+                        )
+
                         # Add cursor if this is the cursor's visual line and textarea is focused
                         if self.focused and visual_line_idx == cursor_visual_row:
                             display_line = self._render_cursor_in_line(
@@ -2184,6 +2954,9 @@ class TextArea(Element):
                             )
 
                         rendered_lines.append(display_line)
+
+                    # Update column offset for next segment
+                    col_offset += visible_length(segment)
 
                     visual_line_idx += 1
 

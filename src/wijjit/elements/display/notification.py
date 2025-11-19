@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from enum import Enum
+from typing import Any
 
 from wijjit.elements.base import OverlayElement
 from wijjit.elements.input.button import Button

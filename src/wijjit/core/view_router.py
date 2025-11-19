@@ -229,7 +229,9 @@ class ViewRouter:
             else:
                 # User provided static data dict - wrap in lambda
                 # Type assertion: we know data_value should be dict-like if not callable
-                static_data: dict[str, Any] = data_value if isinstance(data_value, dict) else {}
+                static_data: dict[str, Any] = (
+                    data_value if isinstance(data_value, dict) else {}
+                )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
                     return static_data
@@ -273,7 +275,9 @@ class ViewRouter:
             else:
                 # User provided static data dict - wrap in lambda
                 # Type assertion: we know data_value should be dict-like if not callable
-                static_data: dict[str, Any] = data_value if isinstance(data_value, dict) else {}
+                static_data: dict[str, Any] = (
+                    data_value if isinstance(data_value, dict) else {}
+                )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
                     return static_data

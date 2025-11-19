@@ -6,8 +6,9 @@ custom extensions and filters for terminal UI rendering.
 
 import os
 import shutil
+from collections.abc import Callable
 from copy import copy
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from jinja2 import BaseLoader, DictLoader, Environment, FileSystemLoader, Template
 
@@ -91,7 +92,9 @@ class Renderer:
         Cache of string templates
     """
 
-    def __init__(self, template_dir: str | None = None, autoescape: bool = False) -> None:
+    def __init__(
+        self, template_dir: str | None = None, autoescape: bool = False
+    ) -> None:
         # Create loader based on template_dir
         loader: BaseLoader
         if template_dir and os.path.isdir(template_dir):
