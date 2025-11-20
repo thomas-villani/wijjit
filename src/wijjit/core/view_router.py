@@ -8,6 +8,7 @@ view functions and lifecycle hooks.
 from __future__ import annotations
 
 import asyncio
+import copy
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -252,8 +253,10 @@ class ViewRouter:
                 )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
-                    # Return a copy to prevent mutations from persisting across renders
-                    return dict(static_data)
+                    # Return a deep copy to prevent mutations from persisting across renders
+                    # Deep copy is necessary because nested dicts/lists would be shared
+                    # with shallow copy, allowing template mutations to leak across renders
+                    return copy.deepcopy(static_data)
 
                 view_config.data = data_func
 
@@ -300,8 +303,10 @@ class ViewRouter:
                 )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
-                    # Return a copy to prevent mutations from persisting across renders
-                    return dict(static_data)
+                    # Return a deep copy to prevent mutations from persisting across renders
+                    # Deep copy is necessary because nested dicts/lists would be shared
+                    # with shallow copy, allowing template mutations to leak across renders
+                    return copy.deepcopy(static_data)
 
                 view_config.data = data_func
 

@@ -94,13 +94,27 @@ class Renderer:
     def __init__(
         self, template_dir: str | None = None, autoescape: bool = False
     ) -> None:
+        # Store template_dir for introspection
+        self.template_dir = template_dir
+
         # Create loader based on template_dir
         loader: BaseLoader
-        if template_dir and os.path.isdir(template_dir):
+        if template_dir:
+            # User specified a template_dir, validate it exists
+            if not os.path.isdir(template_dir):
+                raise FileNotFoundError(
+                    f"Template directory '{template_dir}' does not exist. "
+                    f"Please create the directory or use inline template strings instead. "
+                    f"To use inline templates, don't pass template_dir to Wijjit()."
+                )
             loader = FileSystemLoader(template_dir)
+            self.using_file_loader = True
+            logger.info(f"Using FileSystemLoader for templates from: {template_dir}")
         else:
-            # Use DictLoader for string templates
+            # No template_dir specified, use DictLoader for string templates
             loader = DictLoader({})
+            self.using_file_loader = False
+            logger.debug("Using DictLoader for inline string templates")
 
         # Create Jinja2 environment with custom extensions
         self.env = Environment(
@@ -525,8 +539,9 @@ class Renderer:
         self._last_base_buffer = buffer
         self._last_displayed_buffer = buffer
 
-        # Clear dirty regions now that rendering is complete
-        self.dirty_manager.clear()
+        # NOTE: Dirty regions are NOT cleared here because overlay compositing
+        # may still need them. The caller (app._render) will clear them after
+        # all compositing is complete.
 
         # Return both output and buffer
         return output, buffer

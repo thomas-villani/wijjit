@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from wijjit.core.events import KeyEvent
@@ -38,6 +39,9 @@ class EventLoop:
     ----------
     app : Wijjit
         Reference to the main application
+    executor : ThreadPoolExecutor, optional
+        Thread pool for running sync handlers off the event loop thread.
+        If None, sync handlers run directly on the event loop (blocking).
 
     Attributes
     ----------
@@ -45,18 +49,24 @@ class EventLoop:
         Application reference
     running : bool
         Whether the event loop is currently running
+    executor : ThreadPoolExecutor or None
+        Thread pool executor for sync handlers (if configured)
     """
 
-    def __init__(self, app: Wijjit) -> None:
+    def __init__(self, app: Wijjit, executor: ThreadPoolExecutor | None = None) -> None:
         """Initialize the event loop.
 
         Parameters
         ----------
         app : Wijjit
             Reference to the main application
+        executor : ThreadPoolExecutor, optional
+            Thread pool for running sync handlers. If None, sync handlers
+            run directly on event loop thread (may block).
         """
         self.app = app
         self.running = False
+        self.executor = executor
 
     def run(self) -> None:
         """Run the main event loop.
@@ -178,6 +188,11 @@ class EventLoop:
             # Close input handler to exit raw mode
             self.app.input_handler.close()
             logger.debug("Closed input handler")
+            # Shutdown executor if configured
+            if self.executor:
+                logger.debug("Shutting down executor")
+                self.executor.shutdown(wait=True)
+                logger.debug("Executor shutdown complete")
             logger.info("Application shutdown complete")
 
     def stop(self) -> None:
@@ -491,7 +506,7 @@ class EventLoop:
             modifiers=input_event.modifiers,
             key_obj=input_event,  # Store original Key object
         )
-        await self.app.handler_registry.dispatch_async(event)
+        await self.app.handler_registry.dispatch_async(event, executor=self.executor)
 
         # Check for registered key handlers
         if not event.cancelled:
@@ -502,9 +517,15 @@ class EventLoop:
                     if asyncio.iscoroutinefunction(handler):
                         await handler(event)
                     else:
-                        # Run sync handler directly on main thread
-                        # Sync handlers are expected to be non-blocking
-                        handler(event)
+                        # Handle sync handler
+                        if self.executor is not None:
+                            # Run in executor to avoid blocking event loop
+                            loop = asyncio.get_event_loop()
+                            await loop.run_in_executor(self.executor, handler, event)
+                        else:
+                            # Run sync handler directly on main thread
+                            # WARNING: May block event loop if handler does I/O
+                            handler(event)
                     self.app.needs_render = True
                 except Exception as e:
                     logger.error(

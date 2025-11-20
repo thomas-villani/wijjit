@@ -17,6 +17,7 @@ import shutil
 import sys
 import traceback
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from wijjit.core.event_loop import EventLoop
@@ -155,7 +156,8 @@ class Wijjit:
 
         # Initialize routing and event managers
         self.view_router = ViewRouter(self)
-        self.event_loop = EventLoop(self)
+        self._executor: ThreadPoolExecutor | None = None  # Set via configure()
+        self.event_loop = EventLoop(self, executor=None)  # Updated by configure()
         self.mouse_router = MouseEventRouter(self)
         self.wiring_manager = ElementWiringManager(self)
 
@@ -196,6 +198,83 @@ class Wijjit:
             scope=HandlerScope.GLOBAL,
             priority=100,  # High priority so it runs early
         )
+
+    def configure(
+        self,
+        *,
+        run_sync_handlers_in_executor: bool = False,
+        executor_max_workers: int | None = None,
+    ) -> None:
+        """Configure application threading and execution options.
+
+        This method allows you to configure how the application handles
+        synchronous event handlers and other threading-related settings.
+
+        Parameters
+        ----------
+        run_sync_handlers_in_executor : bool
+            If True, synchronous event handlers will run in a ThreadPoolExecutor
+            instead of directly on the event loop thread. This prevents blocking
+            the UI if handlers perform I/O operations. Default is False for
+            backward compatibility, but True is recommended for production apps.
+        executor_max_workers : int, optional
+            Maximum number of worker threads in the executor pool. If None,
+            defaults to min(32, (os.cpu_count() or 1) + 4) as per ThreadPoolExecutor.
+            Only used if run_sync_handlers_in_executor is True.
+
+        Notes
+        -----
+        Threading model:
+        - With run_sync_handlers_in_executor=False (default):
+          * Async handlers run on event loop
+          * Sync handlers run directly on event loop thread (may block UI)
+          * Simple but can freeze UI if handlers do blocking operations
+
+        - With run_sync_handlers_in_executor=True (recommended):
+          * Async handlers run on event loop
+          * Sync handlers run in thread pool executor (non-blocking)
+          * Prevents UI freezes from blocking sync handlers
+          * Small overhead from thread context switching
+
+        Examples
+        --------
+        Enable executor for production apps with potential blocking handlers:
+
+        >>> app = Wijjit()
+        >>> app.configure(run_sync_handlers_in_executor=True)
+        >>> @app.on_key("s")
+        ... def save_file(event):
+        ...     with open("data.txt", "w") as f:  # Blocking I/O
+        ...         f.write("data")  # Won't freeze UI with executor enabled
+
+        Raises
+        ------
+        RuntimeError
+            If called after the event loop has started (must configure before app.run())
+        """
+        if self.running:
+            raise RuntimeError(
+                "Cannot configure app after event loop has started. "
+                "Call app.configure() before app.run()."
+            )
+
+        # Setup executor if requested
+        if run_sync_handlers_in_executor:
+            if self._executor is None:
+                self._executor = ThreadPoolExecutor(max_workers=executor_max_workers)
+                logger.info(
+                    f"Created ThreadPoolExecutor for sync handlers "
+                    f"(max_workers={executor_max_workers or 'default'})"
+                )
+            # Update event loop with executor
+            self.event_loop.executor = self._executor
+        else:
+            # Ensure no executor
+            if self._executor is not None:
+                self._executor.shutdown(wait=False)
+                self._executor = None
+                logger.info("Disabled executor for sync handlers")
+            self.event_loop.executor = None
 
     @property
     def views(self) -> dict[str, ViewConfig]:
@@ -504,11 +583,8 @@ class Wijjit:
                 if focused_elem and hasattr(focused_elem, "id"):
                     focused_id = focused_elem.id
 
-                # Check if this is the first render (no focused element yet)
-                first_render = focused_id is None
-
                 # Pass focused ID and context to renderer so template extensions
-                # can create elements with correct focus state from the start
+                # can create elements with correct focus state
                 self.renderer.add_global("_wijjit_current_context", data)
                 self.renderer.add_global("_wijjit_focused_id", focused_id)
 
@@ -548,44 +624,6 @@ class Wijjit:
                         if hasattr(elem, "bounds") and elem.bounds
                     ]
                     self.focus_manager.set_elements(overlay_focusable)
-
-                # If this was the first render, re-render with focus now set
-                if (
-                    first_render
-                    and self.focus_manager.get_focused_element() is not None
-                ):
-                    # Get newly focused element ID
-                    focused_elem = self.focus_manager.get_focused_element()
-                    if focused_elem and hasattr(focused_elem, "id"):
-                        focused_id = focused_elem.id
-
-                    # Clear buffers so the diff renderer treats this as a first render
-                    # The first render's output was never shown to the user, so we need a full render
-                    self.renderer._last_base_buffer = None
-                    self.renderer._last_displayed_buffer = None
-                    self.renderer.dirty_manager.clear()
-
-                    # Render again with focused element (will be treated as first render = full screen)
-                    self.renderer.add_global("_wijjit_focused_id", focused_id)
-                    if view.template_file:
-                        # Load from file
-                        output, elements, layout_ctx = self.renderer.render_with_layout(
-                            template_name=view.template_file,
-                            context=data,
-                            width=term_size.columns,
-                            height=term_size.lines,
-                            overlay_manager=self.overlay_manager,
-                        )
-                    else:
-                        # Inline template string
-                        output, elements, layout_ctx = self.renderer.render_with_layout(
-                            template_string=view.template,
-                            context=data,
-                            width=term_size.columns,
-                            height=term_size.lines,
-                            overlay_manager=self.overlay_manager,
-                        )
-                    self.positioned_elements = elements
 
                 # Clean up globals
                 self.renderer.add_global("_wijjit_current_context", None)
@@ -642,6 +680,9 @@ class Wijjit:
             # Note: When overlays are dismissed (overlays_changed=True but no overlays present),
             # the diff rendering in _compose_output_cells already handled clearing them
             # because it diffed from old displayed (with overlays) to new base (without overlays)
+
+            # Clear dirty regions after ALL compositing (including overlays) is complete
+            self.renderer.dirty_manager.clear()
 
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)

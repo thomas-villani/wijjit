@@ -328,7 +328,9 @@ class InputHandler:
                             keys = self._input.read_keys()
                             if keys:
                                 self._input_queue.put(keys)
-                        except Exception as e:
+                        except (Exception, KeyboardInterrupt) as e:
+                            # Catch both Exception and KeyboardInterrupt (BaseException)
+                            # KeyboardInterrupt doesn't inherit from Exception in Python 3+
                             logger.error(f"Error in reader thread: {e}")
                             # On error, put None to signal error condition
                             self._input_queue.put(None)

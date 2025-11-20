@@ -69,6 +69,9 @@ class State(UserDict[str, Any]):
         object.__setattr__(
             self, "_async_mode", False
         )  # Track if we're in async context
+        object.__setattr__(
+            self, "_pending_tasks", set()
+        )  # Track pending async callback tasks
 
         # Validate keys don't conflict with dict methods
         if data:
@@ -248,8 +251,8 @@ class State(UserDict[str, Any]):
         """Trigger change callbacks (synchronous).
 
         This method handles both sync and async callbacks, but async callbacks
-        are scheduled as background tasks. For proper async handling, use
-        _trigger_change_async() instead.
+        are scheduled as background tasks without awaiting completion. For proper
+        async handling with guaranteed completion, use set_async() instead.
 
         Parameters
         ----------
@@ -259,15 +262,23 @@ class State(UserDict[str, Any]):
             The previous value
         new_value : Any
             The new value
+
+        Notes
+        -----
+        Async callbacks are tracked in _pending_tasks set for cleanup and monitoring.
+        Use flush_pending_async() to wait for all callbacks to complete.
         """
         # Trigger global change callbacks
         for callback in self._change_callbacks:
             try:
                 if asyncio.iscoroutinefunction(callback):
-                    # Schedule async callback as a task
+                    # Schedule async callback as a task and track it
                     try:
                         loop = asyncio.get_event_loop()
-                        loop.create_task(callback(key, old_value, new_value))
+                        task = loop.create_task(callback(key, old_value, new_value))
+                        self._pending_tasks.add(task)
+                        # Remove task from pending set when done
+                        task.add_done_callback(lambda t: self._pending_tasks.discard(t))
                     except RuntimeError:
                         # No event loop running - log warning
                         logger.warning(
@@ -275,7 +286,7 @@ class State(UserDict[str, Any]):
                             f"outside of async context"
                         )
                 else:
-                    # Call sync callback immediately
+                    # Call sync callback immediately on this thread
                     callback(key, old_value, new_value)
             except Exception as e:
                 # Log error but don't stop other callbacks
@@ -289,10 +300,14 @@ class State(UserDict[str, Any]):
             for callback in self._watchers[key]:
                 try:
                     if asyncio.iscoroutinefunction(callback):
-                        # Schedule async callback as a task
+                        # Schedule async callback as a task and track it
                         try:
                             loop = asyncio.get_event_loop()
-                            loop.create_task(callback(key, old_value, new_value))
+                            task = loop.create_task(callback(key, old_value, new_value))
+                            self._pending_tasks.add(task)
+                            task.add_done_callback(
+                                lambda t: self._pending_tasks.discard(t)
+                            )
                         except RuntimeError:
                             # No event loop running - log warning
                             logger.warning(
@@ -300,7 +315,7 @@ class State(UserDict[str, Any]):
                                 f"outside of async context"
                             )
                     else:
-                        # Call sync callback immediately
+                        # Call sync callback immediately on this thread
                         callback(key, old_value, new_value)
                 except Exception as e:
                     logger.error(
@@ -359,6 +374,79 @@ class State(UserDict[str, Any]):
                         f"Error in state watcher for key '{key}': {e}", exc_info=True
                     )
 
+    async def set_async(self, key: str, value: Any) -> None:
+        """Set a state value and await all triggered callbacks (async).
+
+        This method provides guaranteed completion semantics for state changes.
+        Unlike the sync __setitem__, this method awaits all callbacks before
+        returning, ensuring state changes are fully processed.
+
+        Parameters
+        ----------
+        key : str
+            The state key
+        value : Any
+            The new value
+
+        Raises
+        ------
+        ValueError
+            If key is a reserved dict method name
+
+        Notes
+        -----
+        Use this method when you need to ensure all state change side effects
+        have completed before proceeding. Async callbacks are awaited, sync
+        callbacks are run in the default executor to avoid blocking.
+
+        Examples
+        --------
+        >>> state = State()
+        >>> async def save_to_db(key, old, new):
+        ...     await db.save(key, new)
+        >>> state.on_change(save_to_db)
+        >>> await state.set_async("user", {"name": "Alice"})
+        # Database save is guaranteed to have completed
+        """
+        # Validate key
+        if key in self._RESERVED_NAMES:
+            raise ValueError(
+                f"State key '{key}' is reserved (conflicts with dict method). "
+                f"Please use a different key name such as '{key}_list' or '{key}_data'. "
+                f"In templates, use state['{key}_list'] instead of state.{key}."
+            )
+
+        old_value = self.data.get(key)
+        super().__setitem__(key, value)
+
+        # Only trigger callbacks if value actually changed
+        if old_value != value:
+            logger.debug(f"State change (async): {key} = {value} (was {old_value})")
+            await self._trigger_change_async(key, old_value, value)
+
+    async def flush_pending_async(self) -> None:
+        """Wait for all pending async callback tasks to complete.
+
+        This method waits for any background tasks created by state changes
+        (via __setitem__) to finish executing.
+
+        Notes
+        -----
+        Useful for testing or ensuring cleanup before shutdown. In normal
+        operation, you usually want fire-and-forget behavior for callbacks.
+
+        Examples
+        --------
+        >>> state['count'] = 1  # Triggers async callback as background task
+        >>> await state.flush_pending_async()  # Wait for callback to finish
+        """
+        if self._pending_tasks:
+            logger.debug(
+                f"Flushing {len(self._pending_tasks)} pending state callback tasks"
+            )
+            await asyncio.gather(*self._pending_tasks, return_exceptions=True)
+            logger.debug("All pending state callback tasks completed")
+
     def update(self, other: dict[str, Any], /, **kwargs: Any) -> None:  # type: ignore[override]
         """Update multiple state values at once.
 
@@ -368,7 +456,29 @@ class State(UserDict[str, Any]):
             Dictionary of values to update
         **kwargs : Any
             Additional key-value pairs to update
+
+        Raises
+        ------
+        ValueError
+            If any key is a reserved dict method name
+
+        Notes
+        -----
+        This method validates all keys before updating to ensure none are
+        reserved. Each update triggers change callbacks via __setitem__.
         """
+        # Validate all keys first (from both dict and kwargs)
+        all_keys = set(other.keys()) | set(kwargs.keys())
+        reserved_found = all_keys & self._RESERVED_NAMES
+        if reserved_found:
+            raise ValueError(
+                f"State keys cannot use reserved dict method names: {sorted(reserved_found)}. "
+                f"These names conflict with dict methods and will cause issues in Jinja2 templates. "
+                f"Please use different key names, such as: "
+                f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_found))}"
+            )
+
+        # All keys are valid, proceed with update
         for key, value in other.items():
             self[key] = value
         for key, value in kwargs.items():

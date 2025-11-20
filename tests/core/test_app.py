@@ -88,10 +88,25 @@ class TestWijjitInit:
 
     def test_app_with_template_dir(self):
         """Test app with template directory."""
-        app = Wijjit(template_dir="/templates")
+        import tempfile
 
-        # Renderer should be initialized
-        assert app.renderer is not None
+        # Create a temporary directory for templates
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = Wijjit(template_dir=tmpdir)
+
+            # Renderer should be initialized with file loader
+            assert app.renderer is not None
+            assert app.renderer.using_file_loader is True
+            assert app.renderer.template_dir == tmpdir
+
+    def test_app_with_invalid_template_dir(self):
+        """Test app with non-existent template directory raises error."""
+        import pytest
+
+        with pytest.raises(
+            FileNotFoundError, match="Template directory.*does not exist"
+        ):
+            Wijjit(template_dir="/nonexistent/templates")
 
 
 class TestViewRegistration:

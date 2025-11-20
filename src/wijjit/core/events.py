@@ -10,6 +10,7 @@ interactions in Wijjit applications. It includes:
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -488,7 +489,9 @@ class HandlerRegistry:
             if not handler.is_async:
                 handler.callback(event)
 
-    async def dispatch_async(self, event: Event) -> None:
+    async def dispatch_async(
+        self, event: Event, executor: ThreadPoolExecutor | None = None
+    ) -> None:
         """Dispatch an event to matching handlers (async).
 
         Supports both synchronous and asynchronous handlers.
@@ -499,6 +502,20 @@ class HandlerRegistry:
         ----------
         event : Event
             The event to dispatch
+        executor : ThreadPoolExecutor, optional
+            Thread pool to use for synchronous handlers. If None, sync
+            handlers run directly on the event loop thread (may block).
+            If provided, sync handlers are executed in the thread pool
+            to prevent blocking the event loop.
+
+        Notes
+        -----
+        Threading model:
+        - Async handlers always execute on the event loop
+        - Sync handlers run in executor if provided, otherwise on event loop
+        - Running sync handlers on event loop may cause UI freezes if they
+          perform blocking operations (file I/O, network calls, sleep, etc.)
+        - For production use, configure an executor to run sync handlers safely
         """
         # Find matching handlers
         matching = self._find_matching_handlers(event)
@@ -516,10 +533,15 @@ class HandlerRegistry:
                 )
                 await async_callback(event)
             else:
-                # Run sync callback directly on main thread
-                # Sync handlers are expected to be non-blocking
-                # If they need to do blocking I/O, they should be async
-                handler.callback(event)
+                # Handle sync callback
+                if executor is not None:
+                    # Run sync callback in thread pool to avoid blocking event loop
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(executor, handler.callback, event)
+                else:
+                    # Run sync callback directly on main thread
+                    # WARNING: This may block the event loop if handler does I/O
+                    handler.callback(event)
 
     def _find_matching_handlers(self, event: Event) -> list[Handler]:
         """Find handlers that match the given event.
