@@ -11,7 +11,7 @@ Run with: python examples/statusbar_demo.py
 """
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
+from wijjit.core.events import EventType, HandlerScope  # Keep for view-scoped handlers
 
 # Create app with initial state
 app = Wijjit(
@@ -239,27 +239,25 @@ def handle_go_to_stats(event):
 
 
 # Global keyboard navigation handlers
-def setup_global_handlers():
-    """Set up global navigation key handlers."""
+@app.on_key("1")
+def on_key_1(event):
+    """Navigate to home view."""
+    app.navigate("home")
 
-    def on_number_keys(event):
-        """Handle number key navigation."""
-        if event.key == "1":
-            app.navigate("home")
-        elif event.key == "2":
-            app.navigate("editor")
 
-    def on_quit_key(event):
-        """Handle quit key."""
-        if event.key == "q":
-            app.quit()
+@app.on_key("2")
+def on_key_2(event):
+    """Navigate to editor view."""
+    app.navigate("editor")
 
-    app.on(EventType.KEY, on_number_keys, scope=HandlerScope.GLOBAL)
-    app.on(EventType.KEY, on_quit_key, scope=HandlerScope.GLOBAL)
+
+@app.on_key("q")
+def on_quit(event):
+    """Quit the application."""
+    app.quit()
 
 
 if __name__ == "__main__":
-    setup_global_handlers()
 
     print("StatusBar Demo")
     print("==============")

@@ -14,7 +14,6 @@ Controls:
 """
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
 
 # Sample markdown content
 SAMPLE_MARKDOWN = """# Welcome to Wijjit MarkdownView
@@ -165,28 +164,12 @@ def main():
         return {
             "template": template,
             "data": {},
-            "on_enter": setup_handlers,
         }
 
-    def setup_handlers():
-        """Set up keyboard handlers."""
-
-        def on_key(event):
-            """Handle keyboard events."""
-            # Quit with 'q'
-            if event.key == "q":
-                app.quit()
-                event.cancel()
-                return
-
-        # Register key handler
-        app.on(
-            EventType.KEY,
-            on_key,
-            scope=HandlerScope.VIEW,
-            view_name="main",
-            priority=100,
-        )
+    @app.on_key("q")
+    def on_quit(event):
+        """Handle 'q' key to quit."""
+        app.quit()
 
     try:
         app.run()

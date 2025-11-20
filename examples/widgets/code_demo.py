@@ -14,7 +14,6 @@ Controls:
 """
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
 from wijjit.logging_config import configure_logging
 
 # Enable debug logging
@@ -138,25 +137,12 @@ def create_app():
         return {
             "template": template,
             "data": {},
-            "on_enter": setup_handlers,
         }
 
-    def setup_handlers():
-        """Set up keyboard handlers."""
-
-        def on_key(event):
-            """Handle keyboard events."""
-            if event.key == "q":
-                app.quit()
-                event.cancel()
-
-        app.on(
-            EventType.KEY,
-            on_key,
-            scope=HandlerScope.VIEW,
-            view_name="main",
-            priority=100,
-        )
+    @app.on_key("q")
+    def on_quit(event):
+        """Handle 'q' key to quit."""
+        app.quit()
 
     return app
 

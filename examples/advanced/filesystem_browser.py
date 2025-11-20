@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
 from wijjit.helpers import load_filesystem_tree
 
 # Get directory to browse from command line, default to current directory
@@ -179,14 +178,10 @@ def handle_quit(event):
     app.quit()
 
 
+@app.on_key("q")
 def handle_key_q(event):
     """Handle 'q' key to quit."""
-    if event.key == "q":
-        app.quit()
-        event.cancel()
-
-
-app.on(EventType.KEY, handle_key_q, scope=HandlerScope.GLOBAL)
+    app.quit()
 
 
 if __name__ == "__main__":

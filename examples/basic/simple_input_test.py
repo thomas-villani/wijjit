@@ -16,9 +16,17 @@ def main_view():
 {% vstack width=50 height=10 %}
   Status: {{ state.test }}
   {% textinput id="test" placeholder="Type here" width=30 %}{% endtextinput %}
+
+  Press 'q' to quit
 {% endvstack %}
         """,
     }
+
+
+@app.on_key("q")
+def on_quit(event):
+    """Handle 'q' key to quit."""
+    app.quit()
 
 
 if __name__ == "__main__":

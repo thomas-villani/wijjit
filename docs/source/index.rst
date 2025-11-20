@@ -105,6 +105,10 @@ Documentation Contents
    api_reference/layout
    api_reference/elements
    api_reference/tags
+   api_reference/terminal
+   api_reference/rendering
+   api_reference/styling
+   api_reference/helpers
 
 .. toctree::
    :maxdepth: 2

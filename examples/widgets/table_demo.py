@@ -9,7 +9,6 @@ This example demonstrates:
 """
 
 from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
 
 # Sample data
 users_data = [
@@ -162,14 +161,10 @@ def handle_quit(event):
     app.quit()
 
 
+@app.on_key("q")
 def handle_key_q(event):
     """Handle 'q' key to quit."""
-    if event.key == "q":
-        app.quit()
-        event.cancel()
-
-
-app.on(EventType.KEY, handle_key_q, scope=HandlerScope.GLOBAL)
+    app.quit()
 
 
 if __name__ == "__main__":

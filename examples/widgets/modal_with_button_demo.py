@@ -12,7 +12,7 @@ Press ESC to cancel/close modal
 import shutil
 
 from wijjit import Wijjit
-from wijjit.core.events import ActionEvent, EventType, HandlerScope
+from wijjit.core.events import ActionEvent
 from wijjit.elements.input.button import Button
 from wijjit.layout.bounds import Bounds
 from wijjit.terminal.ansi import supports_unicode
@@ -310,12 +310,10 @@ def open_modal(event):
 
 
 # Register key handler for 'o' key to open modal
-def handle_key(event):
-    if event.key == "o":
-        open_modal(None)
-
-
-app.on(EventType.KEY, handle_key, scope=HandlerScope.GLOBAL)
+@app.on_key("o")
+def handle_key_o(event):
+    """Open modal on 'o' key press."""
+    open_modal(None)
 
 
 if __name__ == "__main__":
