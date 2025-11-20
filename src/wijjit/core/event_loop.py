@@ -430,20 +430,18 @@ class EventLoop:
     def _handle_mouse_event(self, terminal_event: TerminalMouseEvent) -> None:
         """Handle a mouse event (synchronous - deprecated).
 
+        This method is deprecated. Use _handle_mouse_event_async instead.
+
         Parameters
         ----------
         terminal_event : TerminalMouseEvent
             The mouse event from terminal layer
         """
-        logger.debug(
-            f"Mouse event: {terminal_event.type} at ({terminal_event.x}, {terminal_event.y})"
+        # Note: This synchronous method cannot call the async route_mouse_event
+        # Use _handle_mouse_event_async instead for full async support
+        logger.warning(
+            "Synchronous _handle_mouse_event is deprecated. Use async version."
         )
-        # Delegate to mouse router
-        hover_changed = self.app.mouse_router.route_mouse_event(terminal_event)
-
-        # Only re-render if hover changed or event was handled
-        if hover_changed:
-            self.app.needs_render = True
 
     async def _handle_key_event_async(self, input_event: Key) -> None:
         """Handle a keyboard event (async).
@@ -504,9 +502,9 @@ class EventLoop:
                     if asyncio.iscoroutinefunction(handler):
                         await handler(event)
                     else:
-                        # Run sync handler in executor
-                        loop = asyncio.get_event_loop()
-                        await loop.run_in_executor(None, handler, event)
+                        # Run sync handler directly on main thread
+                        # Sync handlers are expected to be non-blocking
+                        handler(event)
                     self.app.needs_render = True
                 except Exception as e:
                     logger.error(
@@ -541,8 +539,8 @@ class EventLoop:
         logger.debug(
             f"Mouse event: {terminal_event.type} at ({terminal_event.x}, {terminal_event.y})"
         )
-        # Delegate to mouse router
-        hover_changed = self.app.mouse_router.route_mouse_event(terminal_event)
+        # Delegate to mouse router (async to support async mouse handlers)
+        hover_changed = await self.app.mouse_router.route_mouse_event(terminal_event)
 
         # Only re-render if hover changed or event was handled
         if hover_changed:

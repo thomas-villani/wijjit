@@ -516,9 +516,10 @@ class HandlerRegistry:
                 )
                 await async_callback(event)
             else:
-                # Run sync callback in executor to avoid blocking
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, handler.callback, event)
+                # Run sync callback directly on main thread
+                # Sync handlers are expected to be non-blocking
+                # If they need to do blocking I/O, they should be async
+                handler.callback(event)
 
     def _find_matching_handlers(self, event: Event) -> list[Handler]:
         """Find handlers that match the given event.

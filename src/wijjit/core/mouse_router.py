@@ -52,7 +52,7 @@ class MouseEventRouter:
         """
         self.app = app
 
-    def route_mouse_event(self, event: TerminalMouseEvent) -> bool:
+    async def route_mouse_event(self, event: TerminalMouseEvent) -> bool:
         """Route mouse event to appropriate handler.
 
         This method:
@@ -94,8 +94,8 @@ class MouseEventRouter:
             # Focus element on click if it's focusable
             self._handle_focus_on_click(event, target_element)
 
-            # Route to element
-            self._route_to_element(event, target_element)
+            # Route to element (async to support async mouse handlers)
+            await self._route_to_element(event, target_element)
 
             return hover_changed
 
@@ -273,7 +273,7 @@ class MouseEventRouter:
                 if focus_changed:
                     self.app.needs_render = True
 
-    def _route_to_element(
+    async def _route_to_element(
         self, event: TerminalMouseEvent, target_element: Element | None
     ) -> None:
         """Route event to target element.
@@ -295,8 +295,8 @@ class MouseEventRouter:
             ),
         )
 
-        # Dispatch through handler registry
-        self.app.handler_registry.dispatch(mouse_event)
+        # Dispatch through handler registry (async to support async handlers)
+        await self.app.handler_registry.dispatch_async(mouse_event)
 
         # If event was cancelled, we're done
         if mouse_event.cancelled:

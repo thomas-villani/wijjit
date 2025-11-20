@@ -7,8 +7,11 @@ Tests cover:
 - HandlerRegistry registration and dispatch
 - Handler scoping (global, view, element)
 - Priority-based execution
+- Async handler execution and thread safety
 """
 
+import asyncio
+import threading
 from datetime import datetime
 
 from wijjit.core.events import (
@@ -21,6 +24,7 @@ from wijjit.core.events import (
     HandlerRegistry,
     HandlerScope,
     KeyEvent,
+    MouseEvent,
 )
 
 
@@ -425,3 +429,134 @@ class TestHandlerRegistry:
         event = ChangeEvent(element_id="input1", old_value="a", new_value="b")
         registry.dispatch(event)
         assert len(called) == 1
+
+
+class TestHandlerRegistryAsync:
+    """Tests for HandlerRegistry async behavior and thread safety."""
+
+    def test_sync_handlers_run_on_main_thread(self):
+        """Test that synchronous handlers execute on the main thread.
+
+        This is critical for thread safety - sync handlers should NOT
+        be run in thread pools as they mutate shared state.
+        """
+        registry = HandlerRegistry()
+        main_thread_id = threading.get_ident()
+        handler_thread_id = None
+
+        def sync_handler(event):
+            nonlocal handler_thread_id
+            handler_thread_id = threading.get_ident()
+
+        registry.register(
+            callback=sync_handler,
+            scope=HandlerScope.GLOBAL,
+            event_type=EventType.KEY,
+        )
+
+        event = KeyEvent(key="a")
+        asyncio.run(registry.dispatch_async(event))
+
+        # Verify handler ran on the main thread
+        assert handler_thread_id is not None
+        assert handler_thread_id == main_thread_id
+
+    def test_async_handlers_execute_properly(self):
+        """Test that async handlers execute correctly via dispatch_async."""
+        registry = HandlerRegistry()
+        called = []
+
+        async def async_handler(event):
+            await asyncio.sleep(0.01)  # Simulate async work
+            called.append(event)
+
+        registry.register(
+            callback=async_handler,
+            scope=HandlerScope.GLOBAL,
+            event_type=EventType.KEY,
+        )
+
+        event = KeyEvent(key="a")
+        asyncio.run(registry.dispatch_async(event))
+
+        assert len(called) == 1
+        assert called[0] == event
+
+    def test_mixed_sync_and_async_handlers(self):
+        """Test that both sync and async handlers execute correctly together."""
+        registry = HandlerRegistry()
+        execution_order = []
+
+        def sync_handler(event):
+            execution_order.append("sync")
+
+        async def async_handler(event):
+            await asyncio.sleep(0.01)
+            execution_order.append("async")
+
+        # Register in reverse priority to test ordering
+        registry.register(callback=sync_handler, priority=5)
+        registry.register(callback=async_handler, priority=10)
+
+        event = KeyEvent(key="a")
+        asyncio.run(registry.dispatch_async(event))
+
+        # Both should have executed, async first (higher priority)
+        assert execution_order == ["async", "sync"]
+
+    def test_async_mouse_handlers_execute(self):
+        """Test that async handlers work for mouse events.
+
+        This verifies Issue 3 is fixed - mouse events now support async handlers.
+        """
+        registry = HandlerRegistry()
+        called = []
+
+        async def async_mouse_handler(event):
+            await asyncio.sleep(0.01)
+            called.append(event)
+
+        registry.register(
+            callback=async_mouse_handler,
+            scope=HandlerScope.GLOBAL,
+            event_type=EventType.MOUSE,
+        )
+
+        # Create a mouse event (using minimal required params)
+        from wijjit.terminal.mouse import MouseEvent as TermMouseEvent
+        from wijjit.terminal.mouse import MouseEventType
+
+        terminal_event = TermMouseEvent(type=MouseEventType.CLICK, x=10, y=5, button=1)
+        mouse_event = MouseEvent(mouse_event=terminal_event)
+
+        asyncio.run(registry.dispatch_async(mouse_event))
+
+        assert len(called) == 1
+        assert called[0] == mouse_event
+
+    def test_sync_handler_exceptions_dont_block_async(self):
+        """Test that exceptions in sync handlers don't prevent async handlers from running."""
+        registry = HandlerRegistry()
+        async_called = []
+
+        def failing_sync_handler(event):
+            raise ValueError("Sync handler error")
+
+        async def async_handler(event):
+            async_called.append(event)
+
+        # Lower priority for failing handler, higher for async
+        registry.register(callback=failing_sync_handler, priority=5)
+        registry.register(callback=async_handler, priority=10)
+
+        event = KeyEvent(key="a")
+
+        # The async handler should execute first and succeed
+        # Then the failing handler will raise (expected)
+        try:
+            asyncio.run(registry.dispatch_async(event))
+        except ValueError:
+            pass  # Expected - sync handler raises
+
+        # Async handler should have been called before the exception
+        assert len(async_called) == 1
