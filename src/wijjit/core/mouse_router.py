@@ -72,8 +72,8 @@ class MouseEventRouter:
             True if hover state changed (indicating need for re-render)
         """
         try:
-            # Check overlays first (highest z-index)
-            if self._route_to_overlay(event):
+            # Check overlays first (highest z-index) - use async version
+            if await self._route_to_overlay_async(event):
                 return False
 
             # Check for click outside overlays
@@ -95,7 +95,7 @@ class MouseEventRouter:
             self._handle_focus_on_click(event, target_element)
 
             # Route to element (async to support async mouse handlers)
-            await self._route_to_element(event, target_element)
+            await self._route_to_element_async(event, target_element)
 
             return hover_changed
 
@@ -103,8 +103,48 @@ class MouseEventRouter:
             self.app._handle_error("Error handling mouse event", e)
             return False
 
+    async def _route_to_overlay_async(self, event: TerminalMouseEvent) -> bool:
+        """Route event to overlay if mouse is over one (async).
+
+        Parameters
+        ----------
+        event : TerminalMouseEvent
+            The mouse event
+
+        Returns
+        -------
+        bool
+            True if event was routed to overlay, False otherwise
+
+        Notes
+        -----
+        Checks for handle_mouse_async() first, falls back to handle_mouse()
+        for backwards compatibility.
+        """
+        overlay = self.app.overlay_manager.get_at_position(event.x, event.y)
+
+        if overlay:
+            # Mouse event is on an overlay - route to overlay element
+            # Check for async handler first
+            if hasattr(overlay.element, "handle_mouse_async"):
+                handled = await overlay.element.handle_mouse_async(event)
+                if handled:
+                    self.app.needs_render = True
+            elif hasattr(overlay.element, "handle_mouse"):
+                # Fallback to sync handler
+                handled = overlay.element.handle_mouse(event)
+                if handled:
+                    self.app.needs_render = True
+            # Overlay consumed the event even if not handled
+            return True
+
+        return False
+
     def _route_to_overlay(self, event: TerminalMouseEvent) -> bool:
-        """Route event to overlay if mouse is over one.
+        """Route event to overlay if mouse is over one (sync wrapper).
+
+        This method exists for backwards compatibility but should not be used.
+        Use _route_to_overlay_async() instead.
 
         Parameters
         ----------
@@ -273,10 +313,10 @@ class MouseEventRouter:
                 if focus_changed:
                     self.app.needs_render = True
 
-    async def _route_to_element(
+    async def _route_to_element_async(
         self, event: TerminalMouseEvent, target_element: Element | None
     ) -> None:
-        """Route event to target element.
+        """Route event to target element (async).
 
         Parameters
         ----------
@@ -284,6 +324,11 @@ class MouseEventRouter:
             The mouse event
         target_element : Element or None
             Element under mouse cursor
+
+        Notes
+        -----
+        Checks for handle_mouse_async() first on each element, falls back
+        to handle_mouse() for backwards compatibility.
         """
         # Create core MouseEvent for handler registry
         mouse_event = MouseEvent(
@@ -303,12 +348,20 @@ class MouseEventRouter:
             return
 
         # Dispatch to target element if it exists
+        # Check for async handler first, fall back to sync
         handled = False
-        if target_element and hasattr(target_element, "handle_mouse"):
-            handled = target_element.handle_mouse(event)
-            if handled:
-                # Element handled the event, trigger re-render
-                self.app.needs_render = True
+        if target_element:
+            if hasattr(target_element, "handle_mouse_async"):
+                handled = await target_element.handle_mouse_async(event)
+                if handled:
+                    # Element handled the event, trigger re-render
+                    self.app.needs_render = True
+            elif hasattr(target_element, "handle_mouse"):
+                # Fallback to sync handler
+                handled = target_element.handle_mouse(event)
+                if handled:
+                    # Element handled the event, trigger re-render
+                    self.app.needs_render = True
 
         # If scroll event wasn't handled and element has a scrollable parent, try parent
         if (
@@ -319,10 +372,33 @@ class MouseEventRouter:
             and target_element.parent_frame is not None
         ):
             parent = target_element.parent_frame
-            if hasattr(parent, "handle_mouse"):
+            # Check for async handler first on parent
+            if hasattr(parent, "handle_mouse_async"):
+                handled = await parent.handle_mouse_async(event)
+                if handled:
+                    self.app.needs_render = True
+            elif hasattr(parent, "handle_mouse"):
+                # Fallback to sync handler
                 handled = parent.handle_mouse(event)
                 if handled:
                     self.app.needs_render = True
+
+    async def _route_to_element(
+        self, event: TerminalMouseEvent, target_element: Element | None
+    ) -> None:
+        """Route event to target element (deprecated).
+
+        This method is deprecated in favor of _route_to_element_async().
+        Kept for backwards compatibility.
+
+        Parameters
+        ----------
+        event : TerminalMouseEvent
+            The mouse event
+        target_element : Element or None
+            Element under mouse cursor
+        """
+        await self._route_to_element_async(event, target_element)
 
     def _find_element_at(self, x: int, y: int) -> Element | None:
         """Find the element at the given coordinates.

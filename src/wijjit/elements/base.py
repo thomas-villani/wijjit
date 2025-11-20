@@ -244,7 +244,7 @@ class Element(ABC):
         return False
 
     def handle_mouse(self, event: MouseEvent) -> bool:
-        """Handle a mouse event.
+        """Handle a mouse event (synchronous).
 
         Parameters
         ----------
@@ -255,6 +255,38 @@ class Element(ABC):
         -------
         bool
             True if the event was handled, False otherwise
+
+        Notes
+        -----
+        This is the synchronous mouse event handler. For async mouse handling,
+        override handle_mouse_async() instead. The mouse router will check for
+        handle_mouse_async() first and fall back to this method if not defined.
+        """
+        return False
+
+    async def handle_mouse_async(self, event: MouseEvent) -> bool:
+        """Handle a mouse event (asynchronous).
+
+        Parameters
+        ----------
+        event : MouseEvent
+            The mouse event that occurred
+
+        Returns
+        -------
+        bool
+            True if the event was handled, False otherwise
+
+        Notes
+        -----
+        This is the asynchronous mouse event handler. Elements that need to
+        perform async operations during mouse handling (e.g., calling async
+        APIs, awaiting async state updates) should override this method instead
+        of handle_mouse().
+
+        The default implementation returns False (not handled). Subclasses
+        should override either this method OR handle_mouse(), not both.
+        The mouse router checks for this async version first.
         """
         return False
 

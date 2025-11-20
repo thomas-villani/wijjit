@@ -1,509 +1,433 @@
-Tutorial: Building a Todo List App
-===================================
+Tutorial: Persistent Todo App
+=============================
 
-In this tutorial, you'll build a complete todo list application using Wijjit. This will teach you the core concepts of Wijjit including state management, templates, event handling, and interactive components.
+This tutorial walks through a production-style Wijjit project: a todo list that survives restarts by saving to a JSON file. Along the way you will touch state management, templates, actions, keyboard shortcuts, and small helper modules.
 
-What You'll Build
+What you’ll build
 -----------------
 
-A todo list app that allows you to:
-
-* Add new todos
-* Mark todos as complete/incomplete
-* Delete todos
-* Navigate through todos with keyboard
-* See progress (how many completed)
-
-By the end, you'll have a fully functional terminal application!
+* Add, complete, and delete todos.
+* Filter between “all / active / done”.
+* Display progress and friendly status messages.
+* Persist todos to ``~/.wijjit_todos.json`` automatically.
 
 Prerequisites
 -------------
 
-* Python 3.8 or later
+* Python 3.11+
 * Wijjit installed (see :doc:`installation`)
-* Basic Python knowledge
-* Familiarity with Jinja2 templates (helpful but not required)
+* Familiarity with virtual environments and running Python scripts
 
-Step 1: Create the Basic App Structure
----------------------------------------
+Project layout
+--------------
 
-Let's start with a basic Wijjit app and initial state:
+Create a new directory (``tutorial_todo/``) with a single file to start:
+
+.. code-block:: text
+
+    tutorial_todo/
+    └── todo_app.py
+
+Open ``todo_app.py`` in your editor; we’ll expand it step by step.
+
+Step 1 – bootstrap the app and storage helpers
+---------------------------------------------
+
+Start with the imports, storage helpers, and ``Wijjit`` instance:
 
 .. code-block:: python
+   :caption: todo_app.py
+
+    from __future__ import annotations
+
+    import json
+    from pathlib import Path
+    from typing import Any
 
     from wijjit import Wijjit
-    from wijjit.core.events import EventType, HandlerScope
 
-    # Create app with initial state
-    app = Wijjit(initial_state={
-        "todos": [
-            {"id": 1, "text": "Learn Wijjit", "done": False},
-            {"id": 2, "text": "Build a TUI app", "done": False},
-        ],
-        "next_id": 3,
-    })
+    DATA_PATH = Path.home() / ".wijjit_todos.json"
 
-    @app.view("main", default=True)
-    def main_view():
-        return {
-            "template": "Todo List (coming soon!)",
+
+    def load_todos() -> tuple[list[dict[str, Any]], int]:
+        if not DATA_PATH.exists():
+            return [], 1
+        payload = json.loads(DATA_PATH.read_text())
+        todos = payload.get("todos", [])
+        next_id = payload.get("next_id", len(todos) + 1)
+        return todos, next_id
+
+
+    def save_todos(todos: list[dict[str, Any]], next_id: int) -> None:
+        DATA_PATH.write_text(json.dumps({"todos": todos, "next_id": next_id}, indent=2))
+
+
+    todos, next_id = load_todos()
+
+    app = Wijjit(
+        initial_state={
+            "todos": todos,
+            "next_id": next_id,
+            "filter": "all",
+            "status": "Press Enter to add a task",
         }
+    )
 
-    if __name__ == '__main__':
-        app.run()
+This gives us persistence before writing any UI. The state keys will drive the template shortly.
 
-Save this as ``todo_app.py`` and run it:
+Step 2 – render the UI with template tags
+-----------------------------------------
 
-.. code-block:: bash
-
-    python todo_app.py
-
-You should see "Todo List (coming soon!)" in your terminal. Press Ctrl+C to exit.
-
-Understanding the State
-~~~~~~~~~~~~~~~~~~~~~~~
-
-We're storing:
-
-* ``todos``: A list of todo objects, each with ``id``, ``text``, and ``done`` fields
-* ``next_id``: A counter for generating unique IDs
-
-Step 2: Display the Todos
---------------------------
-
-Now let's display the todos in a frame with a nice border:
+Add the main view below the app definition:
 
 .. code-block:: python
 
     @app.view("main", default=True)
     def main_view():
         todos = app.state["todos"]
+        filter_mode = app.state["filter"]
+
+        filtered = [
+            todo for todo in todos
+            if filter_mode == "all"
+            or (filter_mode == "active" and not todo["done"])
+            or (filter_mode == "done" and todo["done"])
+        ]
         completed = sum(1 for todo in todos if todo["done"])
-        total = len(todos)
-
-        # Build todo list display
-        todo_lines = []
-        for todo in todos:
-            checkbox = "[X]" if todo["done"] else "[ ]"
-            todo_lines.append(f"{checkbox} {todo['text']}")
-
-        todo_list_text = "\n".join(todo_lines)
 
         return {
             "template": """
-    {% frame title="Todo List" border="rounded" width=60 %}
+    {% frame title="Wijjit Todos" border="rounded" width=70 height=24 %}
       {% vstack spacing=1 padding=1 %}
-        Progress: {{ completed }}/{{ total }} completed
+        {{ state.status }}
 
-        {{ todo_list }}
+        {% hstack spacing=1 %}
+          {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" %}
+          {% endtextinput %}
+          {% button action="clear_done" variant="secondary" %}Clear Done{% endbutton %}
+        {% endhstack %}
 
-        [a] Add  [d] Delete  [Space] Toggle  [q] Quit
+        {% hstack spacing=1 %}
+          {% button action="filter_all" variant="secondary" %}All{% endbutton %}
+          {% button action="filter_active" variant="secondary" %}Active{% endbutton %}
+          {% button action="filter_done" variant="secondary" %}Done{% endbutton %}
+          {% spacer width="fill" %}
+          Completed: {{ completed }}/{{ todos|length }}
+        {% endhstack %}
+
+        {% frame title="Tasks" height="fill" scrollable=True %}
+          {% vstack spacing=0 %}
+            {% for todo in filtered %}
+              {% hstack spacing=1 padding=0 %}
+                {% checkbox id="todo_{{ todo.id }}" bind=False
+                             action="toggle_{{ todo.id }}"
+                             checked=todo.done %}
+                {% endcheckbox %}
+                {% text element="span" %}
+                  {{ todo.text }}
+                {% endtext %}
+                {% spacer width="fill" %}
+                {% button action="delete_{{ todo.id }}" variant="ghost" %}×{% endbutton %}
+              {% endhstack %}
+            {% else %}
+              No tasks matching this filter.
+            {% endfor %}
+          {% endvstack %}
+        {% endframe %}
       {% endvstack %}
     {% endframe %}
             """,
             "data": {
+                "todos": todos,
+                "filtered": filtered,
                 "completed": completed,
-                "total": total,
-                "todo_list": todo_list_text,
             },
         }
 
-Run it again. You should now see a nicely formatted todo list with checkboxes!
+Run ``python todo_app.py`` now. You’ll see the frame, inputs, and buttons, though actions don’t do anything yet.
 
-What's Happening Here?
-~~~~~~~~~~~~~~~~~~~~~~
+Step 3 – wire actions and keyboard shortcuts
+--------------------------------------------
 
-1. We calculate ``completed`` and ``total`` counts
-2. We build a formatted string with checkboxes for each todo
-3. We use a Jinja2 template with ``{% frame %}`` and ``{% vstack %}`` tags
-4. We pass data to the template via the ``data`` dict
-
-Step 3: Add Keyboard Handlers
-------------------------------
-
-Let's add the ability to quit with 'q':
+Add the handlers at the bottom of the file:
 
 .. code-block:: python
 
-    @app.view("main", default=True)
-    def main_view():
-        # ... (same as before) ...
-        return {
-            "template": """...""",
-            "data": {...},
-            "on_enter": setup_handlers,  # Add this line
-        }
+    from wijjit.core.events import ActionEvent, EventType, HandlerScope
 
-    def setup_handlers():
-        """Set up keyboard handlers for the main view."""
-        def on_quit_key(event):
-            if event.key == "q":
-                app.quit()
 
-        app.on(EventType.KEY, on_quit_key, scope=HandlerScope.VIEW, view_name="main")
+    def persist() -> None:
+        save_todos(app.state["todos"], app.state["next_id"])
 
-Now you can press 'q' to quit the app!
 
-Step 4: Toggle Todo Completion
--------------------------------
+    @app.on_action("add_todo")
+    def add_todo(_event):
+        text = app.state.get("new_todo", "").strip()
+        if not text:
+            app.state["status"] = "Enter something before pressing Enter."
+            return
 
-Add the ability to toggle todos with the spacebar:
+        todo = {"id": app.state["next_id"], "text": text, "done": False}
+        app.state["todos"] = app.state["todos"] + [todo]
+        app.state["next_id"] += 1
+        app.state["new_todo"] = ""
+        app.state["status"] = f"Created '{text}'."
+        persist()
 
-.. code-block:: python
 
-    def setup_handlers():
-        # ... previous quit handler ...
+    @app.on_action("clear_done")
+    def clear_completed(_event):
+        before = len(app.state["todos"])
+        app.state["todos"] = [todo for todo in app.state["todos"] if not todo["done"]]
+        removed = before - len(app.state["todos"])
+        app.state["status"] = f"Cleared {removed} completed task(s)."
+        persist()
 
-        # Add state for selected todo
-        app.state.setdefault("selected_index", 0)
 
-        def on_toggle_key(event):
-            if event.key == "space":
-                todos = app.state["todos"]
-                selected_index = app.state["selected_index"]
-                if 0 <= selected_index < len(todos):
-                    todos[selected_index]["done"] = not todos[selected_index]["done"]
-                    app.refresh()  # Manually refresh the UI
+    FILTER_ACTIONS = {
+        "filter_all": "all",
+        "filter_active": "active",
+        "filter_done": "done",
+    }
 
-        app.on(EventType.KEY, on_toggle_key, scope=HandlerScope.VIEW, view_name="main")
 
-        # ... register handlers ...
+    for action_name, mode in FILTER_ACTIONS.items():
+        @app.on_action(action_name)
+        def _set_filter(_event, mode=mode):
+            app.state["filter"] = mode
+            app.state["status"] = f"Showing {mode} tasks."
 
-Update the view to show which todo is selected:
 
-.. code-block:: python
-
-    def main_view():
-        # ... (previous code) ...
-
-        # Update todo list to show selection
-        todo_lines = []
-        for i, todo in enumerate(todos):
-            checkbox = "[X]" if todo["done"] else "[ ]"
-            marker = ">" if i == app.state.get("selected_index", 0) else " "
-            todo_lines.append(f"{marker} {checkbox} {todo['text']}")
-
-        # ... rest of the code ...
-
-Now the selected todo has a ``>`` marker, and you can press Space to toggle it!
-
-Step 5: Navigate Through Todos
--------------------------------
-
-Add up/down arrow navigation:
-
-.. code-block:: python
-
-    def setup_handlers():
-        # ... previous handlers ...
-
-        def on_navigate_key(event):
+    @app.on(EventType.ACTION, scope=HandlerScope.VIEW)
+    def handle_item_actions(event: ActionEvent):
+        action = (event.action_id or "")
+        if action.startswith("toggle_"):
+            todo_id = int(action.split("_", 1)[1])
             todos = app.state["todos"]
-            if event.key == "up":
-                if todos and app.state["selected_index"] > 0:
-                    app.state["selected_index"] -= 1
-            elif event.key == "down":
-                if todos and app.state["selected_index"] < len(todos) - 1:
-                    app.state["selected_index"] += 1
+            for todo in todos:
+                if todo["id"] == todo_id:
+                    todo["done"] = not todo["done"]
+                    app.state["status"] = (
+                        f"Marked '{todo['text']}' as "
+                        + ("done." if todo["done"] else "active.")
+                    )
+                    break
+            app.state["todos"] = list(todos)
+            persist()
+        elif action.startswith("delete_"):
+            todo_id = int(action.split("_", 1)[1])
+            todos = app.state["todos"]
+            app.state["todos"] = [todo for todo in todos if todo["id"] != todo_id]
+            app.state["status"] = "Task deleted."
+            persist()
 
-        app.on(EventType.KEY, on_navigate_key, scope=HandlerScope.VIEW, view_name="main")
+This setup keeps the code compact: a single handler inspects ``ActionEvent.action_id`` to determine whether the user clicked a checkbox or delete button, so you don’t need to dynamically register per-item callbacks.
 
-Now you can navigate with arrow keys!
+Step 4 – polish and run
+-----------------------
 
-Step 6: Delete Todos
---------------------
-
-Add the ability to delete todos with 'd':
-
-.. code-block:: python
-
-    def setup_handlers():
-        # ... previous handlers ...
-
-        def on_delete_key(event):
-            if event.key == "d":
-                todos = app.state["todos"]
-                selected_index = app.state["selected_index"]
-                if 0 <= selected_index < len(todos):
-                    todos.pop(selected_index)
-                    # Adjust selection if needed
-                    if app.state["selected_index"] >= len(todos) and todos:
-                        app.state["selected_index"] = len(todos) - 1
-                    app.refresh()
-
-        app.on(EventType.KEY, on_delete_key, scope=HandlerScope.VIEW, view_name="main")
-
-Step 7: Add New Todos
----------------------
-
-This is more complex. We'll add an "add mode" with a text input:
-
-First, add state for the add mode:
+Add a manual save shortcut (handy before quitting) and start the app:
 
 .. code-block:: python
 
-    app = Wijjit(initial_state={
-        "todos": [...],
-        "next_id": 3,
-        "new_todo": "",
-        "adding_todo": False,  # Controls whether input field is visible
-    })
+    @app.on_key("ctrl+s")
+    def save_now(_event):
+        persist()
+        app.state["status"] = "Saved manually."
 
-Update the template to show the input when in add mode:
 
-.. code-block:: python
+    if __name__ == "__main__":
+        app.run()
 
-    def main_view():
-        # ... (previous code) ...
+Save the file, run ``python todo_app.py``, and exercise the workflow:
 
-        return {
-            "template": """
-    {% frame title="Todo List" border="rounded" width=60 %}
-      {% vstack spacing=1 padding=1 %}
-        Progress: {{ completed }}/{{ total }} completed
+* Type a task, press Enter → task appears and persists.
+* Press the checkbox or hit the toggle button → status updates.
+* Switch filters using the filter buttons.
+* Quit with ``Ctrl+C`` and restart → todos rehydrate from disk.
 
-        {% if state.adding_todo %}
-          {% hstack spacing=2 %}
-            {% textinput id="new_todo" placeholder="Enter new todo..." width=30 action="add_todo" %}{% endtextinput %}
-            {% button action="add_todo" %}Add{% endbutton %}
-            {% button action="cancel_add" %}Cancel{% endbutton %}
-          {% endhstack %}
-        {% else %}
-          Press 'a' to add a new todo
-        {% endif %}
+Full source listing
+-------------------
 
-        {{ todo_list }}
-
-        {% if state.adding_todo %}
-          [Enter] Add  [Esc] Cancel
-        {% else %}
-          [a] Add  [d] Delete  [Space] Toggle  [Up/Down] Navigate  [q] Quit
-        {% endif %}
-      {% endvstack %}
-    {% endframe %}
-            """,
-            "data": {...},
-        }
-
-Add handlers for entering and exiting add mode:
+If you prefer a single block to copy, here is the finished script:
 
 .. code-block:: python
+   :caption: todo_app.py
 
-    def setup_handlers():
-        # ... previous handlers ...
+    from __future__ import annotations
 
-        def on_add_key(event):
-            if event.key == "a" and not app.state.get("adding_todo", False):
-                app.state["adding_todo"] = True
-                app.state["new_todo"] = ""
-
-        def on_escape_key(event):
-            if event.key == "escape" and app.state.get("adding_todo", False):
-                app.state["adding_todo"] = False
-
-        app.on(EventType.KEY, on_add_key, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_escape_key, scope=HandlerScope.VIEW, view_name="main")
-
-Add action handlers for the buttons:
-
-.. code-block:: python
-
-    @app.on_action("add_todo")
-    def handle_add_todo(event):
-        """Handle add todo action from button or Enter key in input."""
-        todo_text = app.state.get('new_todo', '').strip()
-
-        if todo_text:
-            new_id = app.state["next_id"]
-            app.state["todos"].append({
-                "id": new_id,
-                "text": todo_text,
-                "done": False,
-            })
-            app.state["next_id"] = new_id + 1
-            app.state["new_todo"] = ""
-            app.state["adding_todo"] = False
-
-    @app.on_action("cancel_add")
-    def handle_cancel_add(event):
-        """Handle cancel action."""
-        app.state["adding_todo"] = False
-        app.state["new_todo"] = ""
-
-Complete Code
--------------
-
-Here's the complete todo app:
-
-.. code-block:: python
+    import json
+    from pathlib import Path
+    from typing import Any
 
     from wijjit import Wijjit
-    from wijjit.core.events import EventType, HandlerScope
+    from wijjit.core.events import ActionEvent, EventType, HandlerScope
 
-    app = Wijjit(initial_state={
-        "todos": [
-            {"id": 1, "text": "Learn Wijjit", "done": False},
-            {"id": 2, "text": "Build a TUI app", "done": False},
-        ],
-        "next_id": 3,
-        "new_todo": "",
-        "selected_index": 0,
-        "adding_todo": False,
-    })
+    DATA_PATH = Path.home() / ".wijjit_todos.json"
+
+
+    def load_todos() -> tuple[list[dict[str, Any]], int]:
+        if not DATA_PATH.exists():
+            return [], 1
+        payload = json.loads(DATA_PATH.read_text())
+        todos = payload.get("todos", [])
+        next_id = payload.get("next_id", len(todos) + 1)
+        return todos, next_id
+
+
+    def save_todos(todos: list[dict[str, Any]], next_id: int) -> None:
+        DATA_PATH.write_text(json.dumps({"todos": todos, "next_id": next_id}, indent=2))
+
+
+    todos, next_id = load_todos()
+
+    app = Wijjit(
+        initial_state={
+            "todos": todos,
+            "next_id": next_id,
+            "filter": "all",
+            "status": "Press Enter to add a task",
+            "new_todo": "",
+        }
+    )
+
 
     @app.view("main", default=True)
     def main_view():
         todos = app.state["todos"]
+        filter_mode = app.state["filter"]
+
+        filtered = [
+            todo
+            for todo in todos
+            if filter_mode == "all"
+            or (filter_mode == "active" and not todo["done"])
+            or (filter_mode == "done" and todo["done"])
+        ]
         completed = sum(1 for todo in todos if todo["done"])
-        total = len(todos)
-
-        todo_lines = []
-        for i, todo in enumerate(todos):
-            checkbox = "[X]" if todo["done"] else "[ ]"
-            marker = ">" if i == app.state["selected_index"] else " "
-            todo_lines.append(f"{marker} {checkbox} {todo['text']}")
-
-        if not todo_lines:
-            todo_lines = ["  No todos yet! Type a todo and click Add."]
-
-        todo_list_text = "\n".join(todo_lines)
 
         return {
             "template": """
-    {% frame title="Todo List" border="rounded" width=60 %}
+    {% frame title="Wijjit Todos" border="rounded" width=70 height=24 %}
       {% vstack spacing=1 padding=1 %}
-        Progress: {{ completed }}/{{ total }} completed
+        {{ state.status }}
 
-        {% if state.adding_todo %}
-          {% hstack spacing=2 %}
-            {% textinput id="new_todo" placeholder="Enter new todo..." width=30 action="add_todo" %}{% endtextinput %}
-            {% button action="add_todo" %}Add{% endbutton %}
-            {% button action="cancel_add" %}Cancel{% endbutton %}
-          {% endhstack %}
-        {% else %}
-          Press 'a' to add a new todo
-        {% endif %}
+        {% hstack spacing=1 %}
+          {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" %}
+          {% endtextinput %}
+          {% button action="clear_done" variant="secondary" %}Clear Done{% endbutton %}
+        {% endhstack %}
 
-        {{ todo_list }}
+        {% hstack spacing=1 %}
+          {% button action="filter_all" variant="secondary" %}All{% endbutton %}
+          {% button action="filter_active" variant="secondary" %}Active{% endbutton %}
+          {% button action="filter_done" variant="secondary" %}Done{% endbutton %}
+          {% spacer width="fill" %}
+          Completed: {{ completed }}/{{ todos|length }}
+        {% endhstack %}
 
-        {% if state.adding_todo %}
-          [Enter] Add  [Esc] Cancel
-        {% else %}
-          [a] Add  [d] Delete  [Space] Toggle  [Up/Down] Navigate  [q] Quit
-        {% endif %}
+        {% frame title="Tasks" height="fill" scrollable=True %}
+          {% vstack spacing=0 %}
+            {% for todo in filtered %}
+              {% hstack spacing=1 padding=0 %}
+                {% checkbox id="todo_{{ todo.id }}" bind=False action="toggle_{{ todo.id }}" checked=todo.done %}
+                {% endcheckbox %}
+                {% text element="span" %}
+                  {{ todo.text }}
+                {% endtext %}
+                {% spacer width="fill" %}
+                {% button action="delete_{{ todo.id }}" variant="ghost" %}×{% endbutton %}
+              {% endhstack %}
+            {% else %}
+              No tasks matching this filter.
+            {% endfor %}
+          {% endvstack %}
+        {% endframe %}
       {% endvstack %}
     {% endframe %}
             """,
-            "data": {
-                "completed": completed,
-                "total": total,
-                "todo_list": todo_list_text,
-            },
-            "on_enter": setup_handlers,
+            "data": {"todos": todos, "filtered": filtered, "completed": completed},
         }
 
-    def setup_handlers():
-        def on_quit_key(event):
-            if event.key == "q":
-                app.quit()
 
-        def on_add_key(event):
-            if event.key == "a" and not app.state.get("adding_todo", False):
-                app.state["adding_todo"] = True
-                app.state["new_todo"] = ""
+    def persist() -> None:
+        save_todos(app.state["todos"], app.state["next_id"])
 
-        def on_escape_key(event):
-            if event.key == "escape" and app.state.get("adding_todo", False):
-                app.state["adding_todo"] = False
-
-        def on_delete_key(event):
-            if event.key == "d" and not app.state.get("adding_todo", False):
-                todos = app.state["todos"]
-                selected_index = app.state["selected_index"]
-                if 0 <= selected_index < len(todos):
-                    todos.pop(selected_index)
-                    if app.state["selected_index"] >= len(todos) and todos:
-                        app.state["selected_index"] = len(todos) - 1
-                    app.refresh()
-
-        def on_toggle_key(event):
-            if event.key == "space" and not app.state.get("adding_todo", False):
-                todos = app.state["todos"]
-                selected_index = app.state["selected_index"]
-                if 0 <= selected_index < len(todos):
-                    todos[selected_index]["done"] = not todos[selected_index]["done"]
-                    app.refresh()
-
-        def on_navigate_key(event):
-            if not app.state.get("adding_todo", False):
-                todos = app.state["todos"]
-                if event.key == "up" and todos and app.state["selected_index"] > 0:
-                    app.state["selected_index"] -= 1
-                elif event.key == "down" and todos:
-                    if app.state["selected_index"] < len(todos) - 1:
-                        app.state["selected_index"] += 1
-
-        app.on(EventType.KEY, on_quit_key, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_add_key, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_escape_key, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_delete_key, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_toggle_key, scope=HandlerScope.VIEW, view_name="main")
-        app.on(EventType.KEY, on_navigate_key, scope=HandlerScope.VIEW, view_name="main")
 
     @app.on_action("add_todo")
-    def handle_add_todo(event):
-        todo_text = app.state.get('new_todo', '').strip()
-        if todo_text:
-            new_id = app.state["next_id"]
-            app.state["todos"].append({
-                "id": new_id,
-                "text": todo_text,
-                "done": False,
-            })
-            app.state["next_id"] = new_id + 1
-            app.state["new_todo"] = ""
-            app.state["adding_todo"] = False
+    def add_todo(_event):
+        text = app.state.get("new_todo", "").strip()
+        if not text:
+            app.state["status"] = "Enter something before pressing Enter."
+            return
 
-    @app.on_action("cancel_add")
-    def handle_cancel_add(event):
-        app.state["adding_todo"] = False
+        todo = {"id": app.state["next_id"], "text": text, "done": False}
+        app.state["todos"] = app.state["todos"] + [todo]
+        app.state["next_id"] += 1
         app.state["new_todo"] = ""
+        app.state["status"] = f"Created '{text}'."
+        persist()
 
-    if __name__ == '__main__':
+
+    @app.on_action("clear_done")
+    def clear_completed(_event):
+        before = len(app.state["todos"])
+        app.state["todos"] = [todo for todo in app.state["todos"] if not todo["done"]]
+        removed = before - len(app.state["todos"])
+        app.state["status"] = f"Cleared {removed} completed task(s)."
+        persist()
+
+
+    FILTER_ACTIONS = {
+        "filter_all": "all",
+        "filter_active": "active",
+        "filter_done": "done",
+    }
+
+
+    for action_name, mode in FILTER_ACTIONS.items():
+        @app.on_action(action_name)
+        def _set_filter(_event, mode=mode):
+            app.state["filter"] = mode
+            app.state["status"] = f"Showing {mode} tasks."
+
+
+    @app.on(EventType.ACTION, scope=HandlerScope.VIEW)
+    def handle_item_actions(event: ActionEvent):
+        action = (event.action_id or "")
+        if action.startswith("toggle_"):
+            todo_id = int(action.split("_", 1)[1])
+            todos = app.state["todos"]
+            for todo in todos:
+                if todo["id"] == todo_id:
+                    todo["done"] = not todo["done"]
+                    app.state["status"] = (
+                        f"Marked '{todo['text']}' as "
+                        + ("done." if todo["done"] else "active.")
+                    )
+                    break
+            app.state["todos"] = list(todos)
+            persist()
+        elif action.startswith("delete_"):
+            todo_id = int(action.split("_", 1)[1])
+            todos = app.state["todos"]
+            app.state["todos"] = [todo for todo in todos if todo["id"] != todo_id]
+            app.state["status"] = "Task deleted."
+            persist()
+
+
+    @app.on_key("ctrl+s")
+    def save_now(_event):
+        persist()
+        app.state["status"] = "Saved manually."
+
+
+    if __name__ == "__main__":
         app.run()
 
-Congratulations!
-----------------
-
-You've built a complete, functional todo list application! You've learned:
-
-* State management with reactive updates
-* Jinja2 templates with custom tags
-* Event handling (keyboard and actions)
-* Conditional rendering (``{% if %}`` in templates)
-* Layout components (frames, stacks)
-* Input components (textinput, button)
-
-Next Steps
+Next steps
 ----------
 
-Now that you've completed the tutorial, you can:
-
-* Explore more :doc:`../examples/index` for inspiration
-* Learn about all available :doc:`../user_guide/components`
-* Read about :doc:`../user_guide/state_management` in depth
-* Check out the :doc:`../user_guide/layout_system` for complex layouts
-
-Challenges
-----------
-
-Try extending the app with these features:
-
-1. **Persistence**: Save todos to a file and load them on startup
-2. **Categories**: Add tags or categories to todos
-3. **Due Dates**: Add due dates and highlight overdue items
-4. **Priority**: Add priority levels (high, medium, low)
-5. **Search**: Add a search feature to filter todos
-6. **Multi-view**: Create separate views for different todo lists
-
-For examples of these features, check out ``examples/todo_app.py`` in the Wijjit repository!
+* Explore :doc:`../user_guide/state_management` to learn more about watchers and derived data.
+* Try splitting the storage helpers into a separate module or injecting different persistence backends (SQLite, HTTP API) to fit your workflow.
+* Add overlays for confirmation (see :doc:`../user_guide/modal_dialogs`) or richer lists (tables, drag-and-drop) by browsing :doc:`../examples/index`.

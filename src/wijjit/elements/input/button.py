@@ -105,7 +105,7 @@ class Button(Element):
         return False
 
     def handle_mouse(self, event: MouseEvent) -> bool:
-        """Handle mouse input.
+        """Handle mouse input (synchronous).
 
         Parameters
         ----------
@@ -116,10 +116,42 @@ class Button(Element):
         -------
         bool
             True if event was handled
+
+        Notes
+        -----
+        This is the legacy synchronous handler. For async callback support,
+        handle_mouse_async() is now preferred and will be called by the
+        mouse router if available.
         """
         # Activate on click or double-click
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             self.activate()
+            return True
+
+        return False
+
+    async def handle_mouse_async(self, event: MouseEvent) -> bool:
+        """Handle mouse input (asynchronous).
+
+        Parameters
+        ----------
+        event : MouseEvent
+            Mouse event to handle
+
+        Returns
+        -------
+        bool
+            True if event was handled
+
+        Notes
+        -----
+        This async version supports async on_click and on_activate callbacks.
+        It's preferred over handle_mouse() and will be called by the mouse
+        router when available.
+        """
+        # Activate on click or double-click
+        if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+            await self.activate_async()
             return True
 
         return False
@@ -129,6 +161,11 @@ class Button(Element):
 
         Creates an ActionEvent with the button's action_id and element id,
         and passes it to both on_click and on_activate callbacks.
+
+        Notes
+        -----
+        This is the synchronous activation method. For async callback support,
+        use activate_async() instead.
         """
         # Create ActionEvent with button context
         event = ActionEvent(
@@ -142,6 +179,39 @@ class Button(Element):
 
         if self.on_activate:
             self.on_activate(event)
+
+    async def activate_async(self) -> None:
+        """Activate the button asynchronously (trigger async callbacks).
+
+        Creates an ActionEvent with the button's action_id and element id,
+        and passes it to both on_click and on_activate callbacks.
+        Supports both sync and async callbacks.
+
+        Notes
+        -----
+        This method supports async callbacks. If callbacks are sync, they
+        are called directly. If async, they are awaited.
+        """
+        import inspect
+
+        # Create ActionEvent with button context
+        event = ActionEvent(
+            action_id=self.action or "",
+            source_element_id=self.id,
+            data={"label": self.label},
+        )
+
+        if self.on_click:
+            if inspect.iscoroutinefunction(self.on_click):
+                await self.on_click(event)
+            else:
+                self.on_click(event)
+
+        if self.on_activate:
+            if inspect.iscoroutinefunction(self.on_activate):
+                await self.on_activate(event)
+            else:
+                self.on_activate(event)
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render button using cell-based rendering (NEW API).

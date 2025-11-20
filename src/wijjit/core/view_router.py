@@ -319,8 +319,10 @@ class ViewRouter:
     ) -> None:
         """Navigate to a different view.
 
-        Calls on_exit hook of current view, switches to new view,
-        and calls on_enter hook of new view.
+        Automatically detects async context and handles both sync and async
+        view functions and lifecycle hooks. When called from an async context
+        (which is typical in Wijjit applications), navigation is scheduled as
+        an async task to support async hooks.
 
         Parameters
         ----------
@@ -333,6 +335,46 @@ class ViewRouter:
         ------
         ValueError
             If view_name doesn't exist
+
+        Notes
+        -----
+        This method replaces the previous separate navigate() and navigate_async()
+        methods. It auto-detects the execution context:
+        - If running in async event loop: schedules async navigation task
+        - If running in sync context: performs synchronous navigation
+
+        The async path supports both sync and async lifecycle hooks (on_enter,
+        on_exit) and view functions, while the sync path only supports sync hooks.
+        """
+        # Check if we're running in an async event loop
+        try:
+            _loop = asyncio.get_running_loop()
+            # We're in an async context - schedule async navigation
+            asyncio.create_task(self._navigate_async_impl(view_name, params))
+        except RuntimeError:
+            # No event loop running - use sync navigation
+            self._navigate_sync_impl(view_name, params)
+
+    def _navigate_sync_impl(
+        self,
+        view_name: str,
+        params: dict[str, Any] | None = None,
+    ) -> None:
+        """Synchronous navigation implementation (internal).
+
+        Parameters
+        ----------
+        view_name : str
+            Name of view to navigate to
+        params : dict, optional
+            Parameters to pass to the view's data function
+
+        Raises
+        ------
+        ValueError
+            If view_name doesn't exist
+        RuntimeError
+            If view has async hooks or view functions (use async context)
         """
         if view_name not in self.views:
             logger.error(f"Navigation failed: view '{view_name}' not found")
@@ -345,7 +387,7 @@ class ViewRouter:
             f"(params={list(params.keys())})"
         )
 
-        # Initialize the new view
+        # Initialize the new view (sync)
         self._initialize_view(self.views[view_name])
 
         # Call current view's on_exit hook
@@ -353,6 +395,11 @@ class ViewRouter:
             current = self.views[self.current_view]
             self._initialize_view(current)
             if current.on_exit:
+                if asyncio.iscoroutinefunction(current.on_exit):
+                    raise RuntimeError(
+                        f"View '{self.current_view}' has async on_exit hook. "
+                        f"Navigation must be called from async context (within event loop)."
+                    )
                 try:
                     current.on_exit()
                 except Exception as e:
@@ -374,6 +421,11 @@ class ViewRouter:
         # Call new view's on_enter hook
         new_view = self.views[view_name]
         if new_view.on_enter:
+            if asyncio.iscoroutinefunction(new_view.on_enter):
+                raise RuntimeError(
+                    f"View '{view_name}' has async on_enter hook. "
+                    f"Navigation must be called from async context (within event loop)."
+                )
             try:
                 new_view.on_enter()
             except Exception as e:
@@ -382,14 +434,14 @@ class ViewRouter:
         # Trigger re-render
         self.app.needs_render = True
 
-    async def navigate_async(
+    async def _navigate_async_impl(
         self,
         view_name: str,
         params: dict[str, Any] | None = None,
     ) -> None:
-        """Navigate to a different view (async version).
+        """Asynchronous navigation implementation (internal).
 
-        Supports both sync and async on_exit/on_enter hooks.
+        Supports both sync and async on_exit/on_enter hooks and view functions.
         Calls on_exit hook of current view, switches to new view,
         and calls on_enter hook of new view.
 

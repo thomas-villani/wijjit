@@ -8,6 +8,7 @@ Supports both synchronous and asynchronous operations.
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -127,6 +128,14 @@ class NotificationManager:
         Edge margin
     notifications : list
         List of active notifications (oldest first)
+    _lock : threading.Lock
+        Thread lock for protecting notification list access
+
+    Notes
+    -----
+    All notification list access is protected by a threading.Lock to ensure
+    thread safety when notifications are added, removed, or checked from
+    multiple threads or async tasks.
     """
 
     def __init__(
@@ -145,6 +154,7 @@ class NotificationManager:
         self.spacing = spacing
         self.margin = margin
         self.notifications: list[ActiveNotification] = []
+        self._lock = threading.Lock()  # Protect notification list access
 
     def add(
         self,
@@ -172,8 +182,10 @@ class NotificationManager:
         # Generate unique ID
         notification_id = str(uuid.uuid4())
 
-        # Calculate position for this notification
-        x, y = self._calculate_position(element, len(self.notifications))
+        # Calculate position for this notification (needs lock for list read)
+        with self._lock:
+            stack_index = len(self.notifications)
+        x, y = self._calculate_position(element, stack_index)
 
         # Set element bounds - element width/height must be set before adding
         assert element.width is not None, "Notification element must have width set"
@@ -213,7 +225,9 @@ class NotificationManager:
         )
 
         # Add to stack (append to end - newest on bottom when rendering)
-        self.notifications.append(notification)
+        # Thread-safe append
+        with self._lock:
+            self.notifications.append(notification)
 
         logger.debug(
             f"Added notification {notification_id}: {element.message[:50]}... "
@@ -235,25 +249,33 @@ class NotificationManager:
         bool
             True if notification was removed, False if not found
         """
-        for notification in self.notifications:
-            if notification.id == notification_id:
-                # Remove from overlay manager only if it's still there
-                # (it might have been removed by ESC key or other means)
-                if notification.overlay in self.overlay_manager.overlays:
-                    self.overlay_manager.pop(notification.overlay)
+        # Thread-safe search and remove
+        with self._lock:
+            # Find notification with matching ID
+            notification = None
+            for notif in self.notifications:
+                if notif.id == notification_id:
+                    notification = notif
+                    break
 
-                # Remove from list (use remove() not pop(i) to avoid race condition)
-                # Check if still in list before removing (double-call protection)
-                if notification in self.notifications:
-                    self.notifications.remove(notification)
+            if notification is None:
+                return False
 
-                # Update positions of remaining notifications
-                self.update_positions()
+            # Remove from overlay manager only if it's still there
+            # (it might have been removed by ESC key or other means)
+            if notification.overlay in self.overlay_manager.overlays:
+                self.overlay_manager.pop(notification.overlay)
 
-                logger.debug(f"Removed notification {notification_id}")
-                return True
+            # Remove from list (use remove() not pop(i) to avoid race condition)
+            # Check if still in list before removing (double-call protection)
+            if notification in self.notifications:
+                self.notifications.remove(notification)
 
-        return False
+        # Update positions of remaining notifications (outside lock)
+        self.update_positions()
+
+        logger.debug(f"Removed notification {notification_id}")
+        return True
 
     def check_expired(self) -> bool:
         """Check for expired notifications and remove them (synchronous).
@@ -263,31 +285,34 @@ class NotificationManager:
         bool
             True if any notifications were removed, False otherwise
         """
-        if not self.notifications:
-            return False
+        # Thread-safe check for empty list
+        with self._lock:
+            if not self.notifications:
+                return False
+            # Make a copy to iterate over (outside lock to minimize lock time)
+            notifications_to_check = list(self.notifications)
 
-        # Make a copy to iterate over to avoid race conditions
-        # (notifications can be removed by other handlers while we're checking)
-        notifications_to_check = list(self.notifications)
         removed_any = False
 
         for notification in notifications_to_check:
             if notification.is_expired():
-                # Check if still in the list (might have been removed by another handler)
-                if notification in self.notifications:
-                    try:
-                        # Remove from list
-                        self.notifications.remove(notification)
-                        # Remove overlay only if it's still there
-                        if notification.overlay in self.overlay_manager.overlays:
-                            self.overlay_manager.pop(notification.overlay)
-                        removed_any = True
-                        logger.debug(f"Expired notification: {notification.id}")
-                    except (ValueError, IndexError):
-                        # Already removed by another handler, skip
-                        pass
+                # Thread-safe removal
+                with self._lock:
+                    # Check if still in the list (might have been removed by another handler)
+                    if notification in self.notifications:
+                        try:
+                            # Remove from list
+                            self.notifications.remove(notification)
+                            # Remove overlay only if it's still there
+                            if notification.overlay in self.overlay_manager.overlays:
+                                self.overlay_manager.pop(notification.overlay)
+                            removed_any = True
+                            logger.debug(f"Expired notification: {notification.id}")
+                        except (ValueError, IndexError):
+                            # Already removed by another handler, skip
+                            pass
 
-        # Update positions if we removed any
+        # Update positions if we removed any (outside lock)
         if removed_any:
             self.update_positions()
 
@@ -304,34 +329,37 @@ class NotificationManager:
         bool
             True if any notifications were removed, False otherwise
         """
-        if not self.notifications:
-            return False
+        # Thread-safe check for empty list
+        with self._lock:
+            if not self.notifications:
+                return False
+            # Make a copy to iterate over (outside lock to minimize lock time)
+            notifications_to_check = list(self.notifications)
 
-        # Make a copy to iterate over to avoid race conditions
-        # (notifications can be removed by other handlers while we're checking)
-        notifications_to_check = list(self.notifications)
         removed_any = False
 
         for notification in notifications_to_check:
             if notification.is_expired():
-                # Check if still in the list (might have been removed by another handler)
-                if notification in self.notifications:
-                    try:
-                        # Remove from list
-                        self.notifications.remove(notification)
-                        # Remove overlay only if it's still there
-                        if notification.overlay in self.overlay_manager.overlays:
-                            self.overlay_manager.pop(notification.overlay)
-                        removed_any = True
-                        logger.debug(f"Expired notification: {notification.id}")
-                    except (ValueError, IndexError):
-                        # Already removed by another handler, skip
-                        pass
+                # Thread-safe removal
+                with self._lock:
+                    # Check if still in the list (might have been removed by another handler)
+                    if notification in self.notifications:
+                        try:
+                            # Remove from list
+                            self.notifications.remove(notification)
+                            # Remove overlay only if it's still there
+                            if notification.overlay in self.overlay_manager.overlays:
+                                self.overlay_manager.pop(notification.overlay)
+                            removed_any = True
+                            logger.debug(f"Expired notification: {notification.id}")
+                        except (ValueError, IndexError):
+                            # Already removed by another handler, skip
+                            pass
 
-                # Yield to event loop periodically
+                # Yield to event loop periodically (outside lock)
                 await asyncio.sleep(0)
 
-        # Update positions if we removed any
+        # Update positions if we removed any (outside lock)
         if removed_any:
             self.update_positions()
 
@@ -343,7 +371,11 @@ class NotificationManager:
         This should be called after adding/removing notifications or
         when terminal size changes.
         """
-        for i, notification in enumerate(self.notifications):
+        # Thread-safe iteration: copy list for iteration
+        with self._lock:
+            notifications_copy = list(self.notifications)
+
+        for i, notification in enumerate(notifications_copy):
             x, y = self._calculate_position(notification.element, i)
             # Element width/height should be set (checked when added)
             assert notification.element.width is not None
@@ -378,14 +410,17 @@ class NotificationManager:
         int
             Number of notifications removed
         """
-        count = len(self.notifications)
+        # Thread-safe clear: get count and copy, then clear
+        with self._lock:
+            count = len(self.notifications)
+            notifications_to_clear = list(self.notifications)
+            # Clear list immediately (while locked)
+            self.notifications.clear()
 
-        # Remove all overlays
-        for notification in self.notifications:
+        # Remove all overlays (outside lock)
+        for notification in notifications_to_clear:
+            # Always attempt to pop - overlay_manager will handle if not found
             self.overlay_manager.pop(notification.overlay)
-
-        # Clear list
-        self.notifications.clear()
 
         logger.debug(f"Cleared {count} notification(s)")
         return count
@@ -398,12 +433,15 @@ class NotificationManager:
         bool
             True if a notification was dismissed, False if none exist
         """
-        if not self.notifications:
-            return False
+        # Thread-safe check and access
+        with self._lock:
+            if not self.notifications:
+                return False
+            # Get oldest notification ID
+            oldest_id = self.notifications[0].id
 
-        # Remove the first notification (oldest)
-        oldest = self.notifications[0]
-        return self.remove(oldest.id)
+        # Remove using the ID (remove() handles its own locking)
+        return self.remove(oldest_id)
 
     def dismiss_topmost(self) -> bool:
         """Dismiss the topmost (most recent) notification.
@@ -413,12 +451,15 @@ class NotificationManager:
         bool
             True if a notification was dismissed, False if none exist
         """
-        if not self.notifications:
-            return False
+        # Thread-safe check and access
+        with self._lock:
+            if not self.notifications:
+                return False
+            # Get topmost notification ID
+            topmost_id = self.notifications[-1].id
 
-        # Remove the last notification (newest)
-        topmost = self.notifications[-1]
-        return self.remove(topmost.id)
+        # Remove using the ID (remove() handles its own locking)
+        return self.remove(topmost_id)
 
     def _calculate_position(
         self, element: NotificationElement, stack_index: int
@@ -442,12 +483,14 @@ class NotificationManager:
         assert element.height is not None, "Element must have height"
 
         # Calculate accumulated height of notifications above this one
+        # Thread-safe list access for reading
         accumulated_height = 0
-        for i in range(stack_index):
-            if i < len(self.notifications):
-                notif_element = self.notifications[i].element
-                assert notif_element.height is not None
-                accumulated_height += notif_element.height + self.spacing
+        with self._lock:
+            for i in range(stack_index):
+                if i < len(self.notifications):
+                    notif_element = self.notifications[i].element
+                    assert notif_element.height is not None
+                    accumulated_height += notif_element.height + self.spacing
 
         # Calculate x position based on position setting
         if "right" in self.position:
