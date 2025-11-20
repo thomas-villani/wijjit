@@ -83,6 +83,125 @@ class ScreenBuffer:
             self.cells[y][x] = cell
             self.mark_dirty(x, y, 1, 1)
 
+    def set_cells_horizontal(self, x: int, y: int, cells: list[Cell]) -> None:
+        """Set multiple cells horizontally in a single operation.
+
+        This is optimized for performance, avoiding individual cell comparisons
+        and marking the entire region dirty once instead of cell-by-cell.
+
+        Parameters
+        ----------
+        x : int
+            Starting column position (0-indexed)
+        y : int
+            Row position (0-indexed)
+        cells : list of Cell
+            Cells to set horizontally
+
+        Notes
+        -----
+        Out-of-bounds cells are clipped. The entire region is marked dirty
+        regardless of whether individual cells changed, which is more efficient
+        than checking each cell when most cells are expected to change.
+        """
+        if not (0 <= y < self.height) or not cells:
+            return
+
+        # Clip to screen bounds
+        start_x = max(0, x)
+        end_x = min(x + len(cells), self.width)
+        if start_x >= end_x:
+            return
+
+        # Set cells directly without individual comparisons
+        offset = start_x - x
+        row = self.cells[y]
+        for i, cell in enumerate(cells[offset : end_x - x], start=start_x):
+            row[i] = cell
+
+        # Mark entire region dirty once
+        self.mark_dirty(start_x, y, end_x - start_x, 1)
+
+    def set_cells_vertical(self, x: int, y: int, cells: list[Cell]) -> None:
+        """Set multiple cells vertically in a single operation.
+
+        This is optimized for performance, avoiding individual cell comparisons
+        and marking the entire region dirty once instead of cell-by-cell.
+
+        Parameters
+        ----------
+        x : int
+            Column position (0-indexed)
+        y : int
+            Starting row position (0-indexed)
+        cells : list of Cell
+            Cells to set vertically
+
+        Notes
+        -----
+        Out-of-bounds cells are clipped. The entire region is marked dirty
+        regardless of whether individual cells changed, which is more efficient
+        than checking each cell when most cells are expected to change.
+        """
+        if not (0 <= x < self.width) or not cells:
+            return
+
+        # Clip to screen bounds
+        start_y = max(0, y)
+        end_y = min(y + len(cells), self.height)
+        if start_y >= end_y:
+            return
+
+        # Set cells directly without individual comparisons
+        offset = start_y - y
+        for i, cell in enumerate(cells[offset : end_y - y], start=start_y):
+            self.cells[i][x] = cell
+
+        # Mark entire region dirty once
+        self.mark_dirty(x, start_y, 1, end_y - start_y)
+
+    def fill_rect(self, x: int, y: int, width: int, height: int, cell: Cell) -> None:
+        """Fill a rectangular region with the same cell.
+
+        This is highly optimized for filling regions with a single character,
+        such as backgrounds or padding areas.
+
+        Parameters
+        ----------
+        x : int
+            Left edge of rectangle
+        y : int
+            Top edge of rectangle
+        width : int
+            Rectangle width
+        height : int
+            Rectangle height
+        cell : Cell
+            Cell to fill with
+
+        Notes
+        -----
+        The entire region is marked dirty once. This is much more efficient
+        than individual set_cell() calls for filling large areas.
+        """
+        # Clip to screen bounds
+        start_x = max(0, x)
+        end_x = min(x + width, self.width)
+        start_y = max(0, y)
+        end_y = min(y + height, self.height)
+
+        if start_x >= end_x or start_y >= end_y:
+            return
+
+        # Fill cells directly
+        for row_idx in range(start_y, end_y):
+            row = self.cells[row_idx]
+            for col_idx in range(start_x, end_x):
+                row[col_idx] = cell
+
+        # Mark entire region dirty once
+        self.mark_dirty(start_x, start_y, end_x - start_x, end_y - start_y)
+
     def get_cell(self, x: int, y: int) -> Cell | None:
         """Get the cell at the specified position.
 

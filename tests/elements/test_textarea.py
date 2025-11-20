@@ -857,33 +857,20 @@ class TestTextAreaClipboard:
         textarea = TextArea(value="Hello World")
         assert not textarea._cut_selection()
 
-    def test_paste_single_line(self):
+    def test_paste_single_line(self, mock_clipboard):
         """Test pasting single line text."""
-        import sys
-
+        mock_clipboard.paste.return_value = "Hello "
         textarea = TextArea(value="World")
-        # Set fallback clipboard directly via sys.modules
-        text_mod = sys.modules["wijjit.elements.input.text"]
-        old_clipboard = text_mod._FALLBACK_CLIPBOARD
-        text_mod._FALLBACK_CLIPBOARD = "Hello "
 
         result = textarea._paste()
         assert result
         assert textarea.get_value() == "Hello World"
         assert textarea.cursor_col == 6
 
-        # Restore
-        text_mod._FALLBACK_CLIPBOARD = old_clipboard
-
-    def test_paste_multiline(self):
+    def test_paste_multiline(self, mock_clipboard):
         """Test pasting multi-line text."""
-        import sys
-
+        mock_clipboard.paste.return_value = "Hello\nWorld\n"
         textarea = TextArea(value="End")
-        # Set fallback clipboard directly via sys.modules
-        text_mod = sys.modules["wijjit.elements.input.text"]
-        old_clipboard = text_mod._FALLBACK_CLIPBOARD
-        text_mod._FALLBACK_CLIPBOARD = "Hello\nWorld\n"
 
         result = textarea._paste()
         assert result
@@ -891,27 +878,16 @@ class TestTextAreaClipboard:
         assert textarea.cursor_row == 2
         assert textarea.cursor_col == 0
 
-        # Restore
-        text_mod._FALLBACK_CLIPBOARD = old_clipboard
-
-    def test_paste_replaces_selection(self):
+    def test_paste_replaces_selection(self, mock_clipboard):
         """Test pasting replaces selected text."""
-        import sys
-
+        mock_clipboard.paste.return_value = "Python"
         textarea = TextArea(value="Hello World")
         textarea.selection_anchor = (0, 6)
         textarea.cursor_col = 11  # Select "World"
-        # Set fallback clipboard directly via sys.modules
-        text_mod = sys.modules["wijjit.elements.input.text"]
-        old_clipboard = text_mod._FALLBACK_CLIPBOARD
-        text_mod._FALLBACK_CLIPBOARD = "Python"
 
         result = textarea._paste()
         assert result
         assert textarea.get_value() == "Hello Python"
-
-        # Restore
-        text_mod._FALLBACK_CLIPBOARD = old_clipboard
 
     def test_paste_empty_clipboard(self):
         """Test pasting from empty clipboard returns False."""
@@ -945,23 +921,15 @@ class TestTextAreaClipboard:
         assert result
         assert textarea.get_value() == " World"
 
-    def test_ctrl_v_pastes(self):
+    def test_ctrl_v_pastes(self, mock_clipboard):
         """Test Ctrl+V pastes clipboard content."""
-        import sys
-
+        mock_clipboard.paste.return_value = "Hello "
         textarea = TextArea(value="World")
-        # Set fallback clipboard directly via sys.modules
-        text_mod = sys.modules["wijjit.elements.input.text"]
-        old_clipboard = text_mod._FALLBACK_CLIPBOARD
-        text_mod._FALLBACK_CLIPBOARD = "Hello "
         key = Key("ctrl+v", KeyType.CONTROL)
 
         result = textarea.handle_key(key)
         assert result
         assert textarea.get_value() == "Hello World"
-
-        # Restore
-        text_mod._FALLBACK_CLIPBOARD = old_clipboard
 
 
 class TestTextAreaSelectionEditing:
@@ -1163,25 +1131,17 @@ class TestTextAreaSelectionEdgeCases:
         assert textarea.get_value() == "Herld"
         assert len(textarea.lines) == 1
 
-    def test_paste_multiline_in_middle_of_line(self):
+    def test_paste_multiline_in_middle_of_line(self, mock_clipboard):
         """Test pasting multi-line text in middle of line."""
-        import sys
-
+        mock_clipboard.paste.return_value = "A\nB\nC"
         textarea = TextArea(value="HelloWorld")
         textarea.cursor_col = 5
-        # Set fallback clipboard directly via sys.modules
-        text_mod = sys.modules["wijjit.elements.input.text"]
-        old_clipboard = text_mod._FALLBACK_CLIPBOARD
-        text_mod._FALLBACK_CLIPBOARD = "A\nB\nC"
 
         result = textarea._paste()
         assert result
         assert textarea.get_value() == "HelloA\nB\nCWorld"
         assert textarea.cursor_row == 2
         assert textarea.cursor_col == 1
-
-        # Restore
-        text_mod._FALLBACK_CLIPBOARD = old_clipboard
 
     def test_selection_with_wrapping_none(self):
         """Test selection works with wrap_mode none."""

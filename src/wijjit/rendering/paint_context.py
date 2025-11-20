@@ -290,7 +290,7 @@ class PaintContext:
         ...           'h': '-', 'v': '|'}
         >>> ctx.draw_border(0, 0, 20, 10, style, custom)
         """
-        from wijjit.terminal.cell import Cell
+        from wijjit.terminal.cell import get_pooled_cell
 
         # Default single-line box drawing characters
         if border_chars is None:
@@ -310,52 +310,51 @@ class PaintContext:
         abs_x = self.bounds.x + x
         abs_y = self.bounds.y + y
 
-        # Draw corners
+        # OPTIMIZED: Use batch operations and cell pooling to reduce overhead
+        # Pre-create cell objects from pool for reuse
+        h_cell = get_pooled_cell(char=border_chars["h"], **cell_attrs)
+        v_cell = get_pooled_cell(char=border_chars["v"], **cell_attrs)
+
+        # Draw corners (from pool)
         if width >= 2 and height >= 2:
             self.buffer.set_cell(
-                abs_x, abs_y, Cell(char=border_chars["tl"], **cell_attrs)
+                abs_x, abs_y, get_pooled_cell(char=border_chars["tl"], **cell_attrs)
             )
             self.buffer.set_cell(
-                abs_x + width - 1, abs_y, Cell(char=border_chars["tr"], **cell_attrs)
+                abs_x + width - 1,
+                abs_y,
+                get_pooled_cell(char=border_chars["tr"], **cell_attrs),
             )
             self.buffer.set_cell(
-                abs_x, abs_y + height - 1, Cell(char=border_chars["bl"], **cell_attrs)
+                abs_x,
+                abs_y + height - 1,
+                get_pooled_cell(char=border_chars["bl"], **cell_attrs),
             )
             self.buffer.set_cell(
                 abs_x + width - 1,
                 abs_y + height - 1,
-                Cell(char=border_chars["br"], **cell_attrs),
+                get_pooled_cell(char=border_chars["br"], **cell_attrs),
             )
 
-        # Draw horizontal edges
+        # Draw horizontal edges using batch operation
         if width > 2:
-            for col in range(1, width - 1):
-                # Top edge
-                self.buffer.set_cell(
-                    abs_x + col, abs_y, Cell(char=border_chars["h"], **cell_attrs)
-                )
-                # Bottom edge
-                if height >= 2:
-                    self.buffer.set_cell(
-                        abs_x + col,
-                        abs_y + height - 1,
-                        Cell(char=border_chars["h"], **cell_attrs),
-                    )
+            # Create cell list for horizontal edges
+            h_cells = [h_cell] * (width - 2)
+            # Top edge
+            self.buffer.set_cells_horizontal(abs_x + 1, abs_y, h_cells)
+            # Bottom edge
+            if height >= 2:
+                self.buffer.set_cells_horizontal(abs_x + 1, abs_y + height - 1, h_cells)
 
-        # Draw vertical edges
+        # Draw vertical edges using batch operation
         if height > 2:
-            for row in range(1, height - 1):
-                # Left edge
-                self.buffer.set_cell(
-                    abs_x, abs_y + row, Cell(char=border_chars["v"], **cell_attrs)
-                )
-                # Right edge
-                if width >= 2:
-                    self.buffer.set_cell(
-                        abs_x + width - 1,
-                        abs_y + row,
-                        Cell(char=border_chars["v"], **cell_attrs),
-                    )
+            # Create cell list for vertical edges
+            v_cells = [v_cell] * (height - 2)
+            # Left edge
+            self.buffer.set_cells_vertical(abs_x, abs_y + 1, v_cells)
+            # Right edge
+            if width >= 2:
+                self.buffer.set_cells_vertical(abs_x + width - 1, abs_y + 1, v_cells)
 
     def clear(self, style: "Style | None" = None) -> None:
         """Clear the element's bounds region.

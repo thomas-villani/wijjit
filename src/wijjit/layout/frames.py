@@ -1344,25 +1344,28 @@ class Frame(ScrollableElement):
         scrollbar_width : int
             Scrollbar width
         """
-        from wijjit.terminal.cell import Cell
+        from wijjit.terminal.cell import get_pooled_cell
 
-        # Left border
+        # Left border (from pool)
         ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
+            ctx.bounds.x,
+            ctx.bounds.y + y,
+            get_pooled_cell(char=chars["v"], **border_attrs),
         )
 
-        # Empty content (padding + inner + padding + scrollbar)
+        # OPTIMIZED: Use fill_rect and cell pooling for empty content
         total_inner = padding_left + inner_width + padding_right + scrollbar_width
-        for i in range(total_inner):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + i, ctx.bounds.y + y, Cell(char=" ", **border_attrs)
+        if total_inner > 0:
+            space_cell = get_pooled_cell(char=" ", **border_attrs)
+            ctx.buffer.fill_rect(
+                ctx.bounds.x + 1, ctx.bounds.y + y, total_inner, 1, space_cell
             )
 
-        # Right border
+        # Right border (from pool)
         ctx.buffer.set_cell(
             ctx.bounds.x + self.width - 1,
             ctx.bounds.y + y,
-            Cell(char=chars["v"], **border_attrs),
+            get_pooled_cell(char=chars["v"], **border_attrs),
         )
 
     def _render_to_content_line(

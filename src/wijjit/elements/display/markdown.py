@@ -77,6 +77,9 @@ class MarkdownView(ScrollableElement):
         # Rendered content cache
         self.rendered_lines: list[str] = []
 
+        # Cache for Rich rendering (content_hash -> rendered_lines)
+        self._render_cache_key: tuple[str, int] | None = None
+
         # Render initial content
         self._render_content()
 
@@ -184,14 +187,25 @@ class MarkdownView(ScrollableElement):
         """Render markdown content to ANSI strings using Rich.
 
         Updates the rendered_lines cache with the current content.
+
+        Notes
+        -----
+        Uses caching to avoid re-rendering when content and width haven't changed.
+        This significantly improves performance when resizing without content changes.
         """
+        # Get content width for rendering
+        content_width = self._get_content_width()
+
+        # Check cache - only re-render if content or width changed
+        cache_key = (self.content, content_width)
+        if self._render_cache_key == cache_key:
+            # Content and width unchanged - use cached result
+            return
+
         from io import StringIO
 
         from rich.console import Console
         from rich.markdown import Markdown
-
-        # Get content width for rendering
-        content_width = self._get_content_width()
 
         # Render markdown using Rich
         md = Markdown(self.content)
@@ -211,6 +225,9 @@ class MarkdownView(ScrollableElement):
         # Ensure at least one line
         if not self.rendered_lines:
             self.rendered_lines = [""]
+
+        # Update cache key
+        self._render_cache_key = cache_key
 
     def set_content(self, content: str) -> None:
         """Update markdown content and re-render.
@@ -516,7 +533,7 @@ class MarkdownView(ScrollableElement):
             Content area width
         """
         from wijjit.layout.frames import BORDER_CHARS, BorderStyle
-        from wijjit.terminal.cell import Cell
+        from wijjit.terminal.cell import get_pooled_cell
 
         # Get border characters
         border_map = {
@@ -546,73 +563,39 @@ class MarkdownView(ScrollableElement):
                 left_len = remaining // 2
                 right_len = remaining - left_len
 
-                # Top-left corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
+                # OPTIMIZED: Use batch operations and pooled cells
+                h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
 
-                # Left line
-                for i in range(left_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
+                # Build top border with title using batch operations
+                top_cells = []
+                top_cells.append(
+                    get_pooled_cell(char=chars["tl"], **border_attrs)
+                )  # Corner
+                top_cells.extend([h_cell] * left_len)  # Left line
+                top_cells.extend(
+                    [get_pooled_cell(char=c, **border_attrs) for c in title_text]
+                )  # Title
+                top_cells.extend([h_cell] * right_len)  # Right line
+                top_cells.append(
+                    get_pooled_cell(char=chars["tr"], **border_attrs)
+                )  # Corner
 
-                # Title
-                for i, char in enumerate(title_text):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + i,
-                        ctx.bounds.y,
-                        Cell(char=char, **border_attrs),
-                    )
-
-                # Right line
-                for i in range(right_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + title_len + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Top-right corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
-                )
+                # Set entire top border in one batch
+                ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
             else:
-                # Title too long
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-                for i in range(border_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
-                )
+                # Title too long - OPTIMIZED: Use batch operation
+                h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
+                top_cells = [get_pooled_cell(char=chars["tl"], **border_attrs)]
+                top_cells.extend([h_cell] * border_width)
+                top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
+                ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
         else:
-            # No title
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-            )
-            for i in range(1, total_width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + i,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y,
-                Cell(char=chars["tr"], **border_attrs),
-            )
+            # No title - OPTIMIZED: Use batch operation
+            h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
+            top_cells = [get_pooled_cell(char=chars["tl"], **border_attrs)]
+            top_cells.extend([h_cell] * (total_width - 2))
+            top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
+            ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
 
         # Render content area (starting at y=1, inside border)
         # Create sub-context for content (inside borders)
@@ -626,38 +609,25 @@ class MarkdownView(ScrollableElement):
             content_width,
         )
 
-        # Render side borders for content area
-        for y in range(content_height):
-            # Left border
-            ctx.buffer.set_cell(
-                ctx.bounds.x,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
-            # Right border
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        # OPTIMIZED: Render side borders using vertical batch operations
+        v_cell = get_pooled_cell(char=chars["v"], **border_attrs)
+        v_cells = [v_cell] * content_height
 
-        # Render bottom border
-        bottom_y = content_height + 1
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["bl"], **border_attrs),
+        # Left border
+        ctx.buffer.set_cells_vertical(ctx.bounds.x, ctx.bounds.y + 1, v_cells)
+        # Right border
+        ctx.buffer.set_cells_vertical(
+            ctx.bounds.x + total_width - 1, ctx.bounds.y + 1, v_cells
         )
-        for i in range(1, total_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + i,
-                ctx.bounds.y + bottom_y,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + total_width - 1,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["br"], **border_attrs),
+
+        # OPTIMIZED: Render bottom border using horizontal batch operation
+        bottom_y = content_height + 1
+        h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
+        bottom_cells = [get_pooled_cell(char=chars["bl"], **border_attrs)]
+        bottom_cells.extend([h_cell] * (total_width - 2))
+        bottom_cells.append(get_pooled_cell(char=chars["br"], **border_attrs))
+        ctx.buffer.set_cells_horizontal(
+            ctx.bounds.x, ctx.bounds.y + bottom_y, bottom_cells
         )
 
     def _render_to_content(
@@ -708,49 +678,43 @@ class MarkdownView(ScrollableElement):
 
         while current_y < start_y + content_height and rendered_line_idx < visible_end:
             if rendered_line_idx >= len(self.rendered_lines):
-                # Pad with empty lines
-                for x in range(content_width):
-                    from wijjit.terminal.cell import Cell
+                # OPTIMIZED: Pad with empty lines using batch operation
+                from wijjit.terminal.cell import get_pooled_cell
 
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + current_y,
-                        Cell(char=" "),
-                    )
+                space_cell = get_pooled_cell(char=" ")
+                empty_line = [space_cell] * content_width
+                ctx.buffer.set_cells_horizontal(
+                    ctx.bounds.x, ctx.bounds.y + current_y, empty_line
+                )
                 current_y += 1
                 rendered_line_idx += 1
                 continue
 
             ansi_line = self.rendered_lines[rendered_line_idx]
 
-            # Convert ANSI string to cells (preserves Rich formatting)
+            # OPTIMIZED: Convert ANSI string to cells (preserves Rich formatting)
             cells = ansi_string_to_cells(ansi_line)
 
-            # Write cells to buffer
-            for x, cell in enumerate(cells[:content_width]):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    cell,
-                )
+            # Prepare full line of cells (content + padding)
+            line_cells = cells[:content_width]  # Clip to width
 
             # Pad remaining width with spaces
-            for x in range(len(cells), content_width):
-                from wijjit.terminal.cell import Cell
+            if len(line_cells) < content_width:
+                from wijjit.terminal.cell import get_pooled_cell
 
-                # Use last cell's style for padding if available, otherwise empty
-                if cells:
-                    # Preserve background color from last cell
-                    last_bg = cells[-1].bg_color if cells else None
-                    pad_cell = Cell(char=" ", bg_color=last_bg)
+                # Use last cell's style for padding if available
+                if line_cells:
+                    last_bg = line_cells[-1].bg_color
+                    pad_cell = get_pooled_cell(char=" ", bg_color=last_bg)
                 else:
-                    pad_cell = Cell(char=" ")
+                    pad_cell = get_pooled_cell(char=" ")
 
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    pad_cell,
-                )
+                line_cells.extend([pad_cell] * (content_width - len(line_cells)))
+
+            # OPTIMIZED: Write entire line in one batch operation
+            ctx.buffer.set_cells_horizontal(
+                ctx.bounds.x, ctx.bounds.y + current_y, line_cells
+            )
 
             # Add scrollbar character if needed
             if needs_scrollbar:
@@ -778,36 +742,37 @@ class MarkdownView(ScrollableElement):
             current_y += 1
             rendered_line_idx += 1
 
-        # Fill remaining rows if any
-        while current_y < start_y + content_height:
-            for x in range(content_width):
-                from wijjit.terminal.cell import Cell
+        # OPTIMIZED: Fill remaining rows if any using batch operation
+        if current_y < start_y + content_height:
+            from wijjit.terminal.cell import get_pooled_cell
 
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=" "),
+            space_cell = get_pooled_cell(char=" ")
+            empty_line = [space_cell] * content_width
+
+            while current_y < start_y + content_height:
+                ctx.buffer.set_cells_horizontal(
+                    ctx.bounds.x, ctx.bounds.y + current_y, empty_line
                 )
 
-            if needs_scrollbar:
-                scrollbar_idx = current_y - start_y
-                if scrollbar_idx < len(scrollbar_chars):
-                    if self.focused:
-                        scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "markdown.border:focus"
+                if needs_scrollbar:
+                    scrollbar_idx = current_y - start_y
+                    if scrollbar_idx < len(scrollbar_chars):
+                        if self.focused:
+                            scrollbar_style = ctx.style_resolver.resolve_style(
+                                self, "markdown.border:focus"
+                            )
+                        else:
+                            scrollbar_style = ctx.style_resolver.resolve_style(
+                                self, "markdown.border"
+                            )
+                        scrollbar_attrs = scrollbar_style.to_cell_attrs()
+
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + content_width,
+                            ctx.bounds.y + current_y,
+                            get_pooled_cell(
+                                char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs
+                            ),
                         )
-                    else:
-                        scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "markdown.border"
-                        )
-                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
 
-                    from wijjit.terminal.cell import Cell
-
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + content_width,
-                        ctx.bounds.y + current_y,
-                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
-                    )
-
-            current_y += 1
+                current_y += 1

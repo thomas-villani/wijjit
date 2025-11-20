@@ -278,6 +278,39 @@ def sample_keys():
     return Keys
 
 
+@pytest.fixture
+def mock_clipboard():
+    """Mock pyperclip clipboard for isolated testing.
+
+    This fixture prevents tests from depending on system clipboard state
+    by mocking the pyperclip module. Tests can set clipboard content by
+    calling mock_clipboard.paste.return_value = "text".
+
+    Returns
+    -------
+    Mock
+        Mock pyperclip module with paste() and copy() methods
+
+    Examples
+    --------
+    >>> def test_paste(mock_clipboard):
+    ...     mock_clipboard.paste.return_value = "Hello World"
+    ...     textarea = TextArea()
+    ...     textarea._paste()
+    ...     assert textarea.get_value() == "Hello World"
+    """
+    from unittest.mock import MagicMock, patch
+
+    # Mock pyperclip module directly since it's imported dynamically inside methods
+    with patch("pyperclip.paste") as mock_paste, patch("pyperclip.copy") as mock_copy:
+        mock_paste.return_value = ""
+        # Create a simple mock object with paste and copy methods for convenience
+        mock_pyperclip = MagicMock()
+        mock_pyperclip.paste = mock_paste
+        mock_pyperclip.copy = mock_copy
+        yield mock_pyperclip
+
+
 class FrameBuilder:
     """Builder for creating Frame instances with fluent API.
 
