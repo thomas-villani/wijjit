@@ -228,13 +228,6 @@ class EventLoop:
                 if self.app.notification_manager.check_expired():
                     self.app.needs_render = True
 
-                # Disable auto-refresh if no notifications remain
-                if (
-                    len(self.app.notification_manager.notifications) == 0
-                    and self.app.refresh_interval == 0.1
-                ):
-                    self.app.refresh_interval = None
-
                 self.app._last_refresh_time = current_time
 
         # Check for terminal resize
@@ -255,18 +248,34 @@ class EventLoop:
             self.app._last_terminal_size = current_size
             self.app.needs_render = True
 
+        # Render immediately if needed (before disabling auto-refresh)
+        # This ensures the final notification removal is rendered
+        if self.app.needs_render:
+            self.app._render()
+            self.app._last_refresh_time = time.time()
+
+        # Disable auto-refresh if no notifications remain
+        # Do this AFTER rendering to ensure the final state is displayed
+        if (
+            self.app.notification_manager.is_empty()
+            and self.app.refresh_interval == 0.1
+        ):
+            self.app.refresh_interval = None
+
         # Read input - use short timeout if refresh_interval is set
         # This allows animations to run smoothly without requiring user input
-        timeout = (
-            self.app.refresh_interval / 2
-            if self.app.refresh_interval is not None
-            else None
-        )
+        # Use a fallback timeout of 0.5s when refresh_interval is None to support
+        # background thread updates via app.refresh()
+        if self.app.refresh_interval is not None:
+            timeout = self.app.refresh_interval / 2
+        else:
+            timeout = 0.5  # Fallback: check for pending renders every 0.5s
+
         input_event = self.app.input_handler.read_input(timeout=timeout)
 
         if input_event is None:
             # Timeout or error reading input
-            # Check if refresh is needed (for animations/expiry checks)
+            # Check if a background thread requested a render
             if self.app.needs_render:
                 self.app._render()
                 self.app._last_refresh_time = time.time()
@@ -308,13 +317,6 @@ class EventLoop:
                 if await self.app.notification_manager.check_expired_async():
                     self.app.needs_render = True
 
-                # Disable auto-refresh if no notifications remain
-                if (
-                    len(self.app.notification_manager.notifications) == 0
-                    and self.app.refresh_interval == 0.1
-                ):
-                    self.app.refresh_interval = None
-
                 self.app._last_refresh_time = current_time
 
         # Check for terminal resize
@@ -335,18 +337,34 @@ class EventLoop:
             self.app._last_terminal_size = current_size
             self.app.needs_render = True
 
+        # Render immediately if needed (before disabling auto-refresh)
+        # This ensures the final notification removal is rendered
+        if self.app.needs_render:
+            self.app._render()
+            self.app._last_refresh_time = time.time()
+
+        # Disable auto-refresh if no notifications remain
+        # Do this AFTER rendering to ensure the final state is displayed
+        if (
+            self.app.notification_manager.is_empty()
+            and self.app.refresh_interval == 0.1
+        ):
+            self.app.refresh_interval = None
+
         # Read input asynchronously - use short timeout if refresh_interval is set
         # This allows animations to run smoothly without requiring user input
-        timeout = (
-            self.app.refresh_interval / 2
-            if self.app.refresh_interval is not None
-            else None
-        )
+        # Use a fallback timeout of 0.5s when refresh_interval is None to support
+        # background thread updates via app.refresh()
+        if self.app.refresh_interval is not None:
+            timeout = self.app.refresh_interval / 2
+        else:
+            timeout = 0.5  # Fallback: check for pending renders every 0.5s
+
         input_event = await self.app.input_handler.read_input_async(timeout=timeout)
 
         if input_event is None:
             # Timeout or error reading input
-            # Check if refresh is needed (for animations/expiry checks)
+            # Check if a background thread requested a render
             if self.app.needs_render:
                 self.app._render()
                 self.app._last_refresh_time = time.time()

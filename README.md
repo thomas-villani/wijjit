@@ -321,44 +321,85 @@ app.show_modal(dialog)
 
 ## Examples
 
-The `examples/` directory contains 40+ working examples demonstrating various features:
+The `examples/` directory contains **50+ working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
 
-**Basic Examples:**
-- `hello_world.py` - Minimal app
-- `simple_input_test.py` - Basic text input
-- `form_demo.py` - Complete form
+### Basic Examples (`examples/basic/`)
 
-**Template-Based Apps:**
-- `login_form.py` - Login form with validation
-- `todo_app.py` - Full todo list application
+Introductory examples demonstrating core concepts:
+- `hello_world.py` - Minimal "Hello World" app
+- `simple_input_test.py` - Basic text input with quit handler
+- `async_demo.py` - Async/await event handlers
+- `mouse_demo.py` - Mouse interaction (clicks, hovers, scrolling)
+- `debug_keys.py` - Key event debugging tool
+- `alignment_demo.py` - Content alignment in layouts
+
+### Widget Examples (`examples/widgets/`)
+
+Individual UI component demonstrations (20+ widgets):
+
+**Input Elements:**
+- `checkbox_demo.py` - Individual checkboxes and checkbox groups
+- `radio_demo.py` - Radio button groups with multiple examples
+- `select_demo.py`, `dropdown_demo.py` - Dropdown selection menus
+- `textarea_demo.py` - Multi-line text input with selection
+
+**Display Elements:**
+- `table_demo.py` - Sortable data tables with Rich integration
+- `tree_demo.py`, `tree_indicator_styles_demo.py` - Hierarchical tree views
+- `listview_demo.py` - Scrollable lists with selection
+- `logview_demo.py` - Auto-scrolling log viewer
+- `progress_demo.py` - Progress bars and indicators
+- `spinner_demo.py` - Loading spinners with animations
+- `markdown_demo.py`, `test_markdown_tag.py` - Markdown rendering
+- `code_demo.py` - Syntax-highlighted code display
+- `statusbar_demo.py` - Status bar component
+- `notification_demo.py` - Toast notifications
+
+**Dialogs:**
+- `dialog_showcase.py` - All dialog types (alert, confirm, input)
+- `alert_dialog_demo.py` - Alert messages
+- `confirm_dialog_demo.py` - Confirmation prompts
+- `input_dialog_demo.py` - Input dialogs with validation
+- `modal_with_button_demo.py` - Advanced modal with interactive elements
+- `centered_dialog.py` - Dialog positioning
+
+### Advanced Examples (`examples/advanced/`)
+
+Complete applications and advanced patterns:
+
+**Complete Applications:**
+- `todo_app.py` - Full-featured todo list with filtering
+- `form_demo.py` - Registration form with comprehensive validation
+- `data_entry_demo.py` - Business order entry form
+- `preferences_demo.py` - Settings/preferences editor
+- `dashboard_demo.py` - Multi-panel monitoring dashboard
 - `filesystem_browser.py` - File browser with tree view
 
-**Widget Demos:**
-- `checkbox_demo.py` - Checkboxes and groups
-- `radio_demo.py` - Radio buttons
-- `select_demo.py` - Select dropdown
-- `table_demo.py` - Rich table with sorting
-- `tree_demo.py` - Hierarchical tree
-- `progress_demo.py` - Progress indicators
-- `spinner_demo.py` - Loading spinners
-- `textarea_demo.py` - Multi-line input
+**Layout & Design:**
+- `complex_layout_demo.py` - Nested layouts and sizing
+- `scroll_demo.py`, `scrollable_minimal.py`, `scrollable_children_demo.py` - Scrolling patterns
+- `frame_overflow_demo.py` - Frame sizing modes and overflow
+- `login_form.py` - Login UI with validation
 
-**Layout Examples:**
-- `frame_sizing_demo.py` - Frame sizing modes
-- `complex_layout_demo.py` - Nested layouts
-- `alignment_demo.py` - Content alignment
-- `scroll_demo.py` - Scrolling features
-
-**Advanced Examples:**
-- `modal_with_button_demo.py` - Modal dialogs
-- `confirm_dialog_demo.py` - Confirmation prompts
-- `alert_dialog_demo.py` - Alert messages
-- `navigation_demo.py` - Multi-view navigation
+**Advanced Patterns:**
+- `navigation_demo.py` - Multi-view navigation with lifecycle hooks
+- `state_management_demo.py` - State watchers, async callbacks, derived state
+- `event_patterns_demo.py` - Event scopes, priorities, and propagation
+- `error_handling_demo.py` - Error handling and graceful degradation
+- `executor_demo.py` - ThreadPoolExecutor configuration
+- `context_menu_demo.py` - Right-click context menus
+- `rich_content_demo.py` - Combined markdown and code display
+- `download_simulator.py` - Progress tracking
+- `template_demo.py`, `rich_content_template_demo.py` - Template features
 
 Run any example with:
 ```bash
-python examples/<example_name>.py
+python examples/basic/hello_world.py
+python examples/widgets/table_demo.py
+python examples/advanced/todo_app.py
 ```
+
+See `examples/README.md` for a complete categorized list with descriptions.
 
 ## Architecture
 
@@ -439,7 +480,8 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 ### Working Features ✓
 
 - ✅ Core App API with view decorator
-- ✅ State management with change detection
+- ✅ State management with change detection and watchers
+- ✅ Async/await support for event handlers and callbacks
 - ✅ Template rendering with Jinja2
 - ✅ Layout engine (VStack, HStack, Frame)
 - ✅ All input elements (TextInput, TextArea, Button, Checkbox, Radio, Select)
@@ -449,16 +491,16 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Scrolling system with scrollbars
 - ✅ Modal/overlay system with dialogs
 - ✅ Event handling and dispatch
+- ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 40+ working examples
+- ✅ 50+ working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations
 
 - **Performance**: Not optimized for large datasets (no virtual scrolling)
 - **Windows**: Some Unicode characters may not display correctly
-- **Async**: No async/await support (all operations are synchronous)
-- **Documentation**: Limited to code comments and examples
+- **Documentation**: Limited to code comments, examples, and this README
 - **Plugin System**: Framework is monolithic (no plugin architecture)
 
 ### Planned Features (Future)
@@ -468,7 +510,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - Animation/transition support
 - Drag-and-drop
 - Chart/graph components
-- Async/await support
+- Virtual scrolling for large datasets
 - Plugin system
 
 ## Use Cases

@@ -23,6 +23,9 @@ Controls:
 
 from wijjit import Wijjit
 from wijjit.core.events import EventType, HandlerScope
+from wijjit.logging_config import configure_logging
+
+configure_logging("notification-demo.log", "DEBUG")
 
 app = Wijjit()
 
@@ -48,7 +51,7 @@ def main_view():
     [8] Multiple notifications (stack test)
     [9] Clear all notifications
 
-    Press Ctrl+C to quit
+    Press Ctrl+Q to quit
 
     ---
     Active notifications: {{ state.active_count or 0 }}

@@ -250,9 +250,9 @@ class NotificationManager:
             True if notification was removed, False if not found
         """
         # Thread-safe search and remove
+        notification = None
         with self._lock:
             # Find notification with matching ID
-            notification = None
             for notif in self.notifications:
                 if notif.id == notification_id:
                     notification = notif
@@ -261,15 +261,15 @@ class NotificationManager:
             if notification is None:
                 return False
 
-            # Remove from overlay manager only if it's still there
-            # (it might have been removed by ESC key or other means)
-            if notification.overlay in self.overlay_manager.overlays:
-                self.overlay_manager.pop(notification.overlay)
-
             # Remove from list (use remove() not pop(i) to avoid race condition)
             # Check if still in list before removing (double-call protection)
             if notification in self.notifications:
                 self.notifications.remove(notification)
+
+        # Remove from overlay manager outside the lock to avoid blocking
+        # (it might have been removed by ESC key or other means)
+        if notification.overlay in self.overlay_manager.overlays:
+            self.overlay_manager.pop(notification.overlay)
 
         # Update positions of remaining notifications (outside lock)
         self.update_positions()
@@ -293,6 +293,7 @@ class NotificationManager:
             notifications_to_check = list(self.notifications)
 
         removed_any = False
+        overlays_to_remove = []
 
         for notification in notifications_to_check:
             if notification.is_expired():
@@ -303,14 +304,19 @@ class NotificationManager:
                         try:
                             # Remove from list
                             self.notifications.remove(notification)
-                            # Remove overlay only if it's still there
+                            # Collect overlay for removal outside lock
                             if notification.overlay in self.overlay_manager.overlays:
-                                self.overlay_manager.pop(notification.overlay)
+                                overlays_to_remove.append(notification.overlay)
                             removed_any = True
                             logger.debug(f"Expired notification: {notification.id}")
                         except (ValueError, IndexError):
                             # Already removed by another handler, skip
                             pass
+
+        # Remove overlays outside the lock to avoid blocking
+        for overlay in overlays_to_remove:
+            if overlay in self.overlay_manager.overlays:
+                self.overlay_manager.pop(overlay)
 
         # Update positions if we removed any (outside lock)
         if removed_any:
@@ -337,6 +343,7 @@ class NotificationManager:
             notifications_to_check = list(self.notifications)
 
         removed_any = False
+        overlays_to_remove = []
 
         for notification in notifications_to_check:
             if notification.is_expired():
@@ -347,9 +354,9 @@ class NotificationManager:
                         try:
                             # Remove from list
                             self.notifications.remove(notification)
-                            # Remove overlay only if it's still there
+                            # Collect overlay for removal outside lock
                             if notification.overlay in self.overlay_manager.overlays:
-                                self.overlay_manager.pop(notification.overlay)
+                                overlays_to_remove.append(notification.overlay)
                             removed_any = True
                             logger.debug(f"Expired notification: {notification.id}")
                         except (ValueError, IndexError):
@@ -358,6 +365,11 @@ class NotificationManager:
 
                 # Yield to event loop periodically (outside lock)
                 await asyncio.sleep(0)
+
+        # Remove overlays outside the lock to avoid blocking
+        for overlay in overlays_to_remove:
+            if overlay in self.overlay_manager.overlays:
+                self.overlay_manager.pop(overlay)
 
         # Update positions if we removed any (outside lock)
         if removed_any:
@@ -460,6 +472,17 @@ class NotificationManager:
 
         # Remove using the ID (remove() handles its own locking)
         return self.remove(topmost_id)
+
+    def is_empty(self) -> bool:
+        """Check if there are any active notifications (thread-safe).
+
+        Returns
+        -------
+        bool
+            True if no notifications are active, False otherwise
+        """
+        with self._lock:
+            return len(self.notifications) == 0
 
     def _calculate_position(
         self, element: NotificationElement, stack_index: int

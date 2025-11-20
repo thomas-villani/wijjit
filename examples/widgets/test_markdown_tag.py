@@ -2,15 +2,17 @@
 
 from wijjit import Wijjit
 
-app = Wijjit(initial_state={"text": "# Hello World\n\nThis is a **test**."})
+app = Wijjit(initial_state={"text": "# Hello World\n\nThis is a **test**.\n\n> Did it work?"})
 
 
 @app.view("main", default=True)
 def main_view():
     return {
         "template": """
-{% markdown id="test" content=state.text width=40 height=10 %}
+{% frame %}
+{% markdown id="test" content=state.text width=40 height=20 %}
 {% endmarkdown %}
+{% endframe %}
         """,
         "data": {},
     }
