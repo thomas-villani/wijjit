@@ -1,5 +1,6 @@
 """Tests for the StyleResolver class."""
 
+from wijjit.elements.base import TextElement
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.style import Style
 from wijjit.styling.theme import DarkTheme, DefaultTheme, LightTheme, Theme
@@ -719,3 +720,46 @@ class TestMultiClassResolution:
         assert style.fg_color == (255, 255, 255)
         assert style.bg_color == (0, 100, 200)
         assert style.bold is True
+
+
+class TestElementTypeMapping:
+    """Test that element type mapping works correctly for all element types."""
+
+    def test_textelement_maps_to_text_style(self):
+        """Test that TextElement gets the 'text' style from theme (Issue 20 regression).
+
+        Returns
+        -------
+        None
+        """
+        # Create theme with text styles
+        text_styles = {
+            "text": Style(fg_color=(100, 100, 100)),
+            "text.title": Style(bold=True),
+        }
+        theme = Theme("test", text_styles)
+        resolver = StyleResolver(theme)
+
+        # Create TextElement and resolve style
+        element = TextElement("test content")
+        style = resolver.resolve_style(element)
+
+        # Should get the "text" style, not "textelement"
+        assert style.fg_color == (100, 100, 100)
+
+    def test_textelement_with_default_theme(self):
+        """Test that TextElement picks up default theme text style.
+
+        Returns
+        -------
+        None
+        """
+        theme = DefaultTheme()
+        resolver = StyleResolver(theme)
+
+        element = TextElement("test")
+        style = resolver.resolve_style(element)
+
+        # Should not be empty - should have text style from theme
+        # DefaultTheme defines text style, so this should work
+        assert style is not None

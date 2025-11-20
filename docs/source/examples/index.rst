@@ -1,71 +1,67 @@
 Examples
 ========
 
-.. note::
-   This documentation is under development.
+Wijjit ships with 40+ runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app.
 
-Wijjit includes 40+ working examples in the ``examples/`` directory. Each example demonstrates specific features and can be run directly.
-
-Running Examples
-----------------
-
-To run any example:
-
-.. code-block:: bash
-
-    python examples/<example_name>.py
-
-For example:
-
-.. code-block:: bash
-
-    python examples/hello_world.py
-    python examples/login_form.py
-    python examples/todo_app.py
-
-Example Categories
+Running an example
 ------------------
 
-Basic Examples
-~~~~~~~~~~~~~~
+.. code-block:: bash
 
-* ``hello_world.py`` - Minimal app
-* ``simple_input_test.py`` - Basic text input
-* ``form_demo.py`` - Complete form
+    cd <repo-root>
+    uv run python examples/hello_world.py
 
-Template-Based Apps
-~~~~~~~~~~~~~~~~~~~
+Any Python interpreter works; ``uv run`` keeps dependencies isolated.
 
-* ``login_form.py`` - Login form with validation
-* ``todo_app.py`` - Full todo list application
-* ``filesystem_browser.py`` - File browser with tree view
+Basics & essentials
+-------------------
 
-Widget Demos
-~~~~~~~~~~~~
+* ``hello_world.py`` – smallest possible Wijjit app; illustrates ``@app.view`` + inline template.
+* ``simple_input_test.py`` – demonstrates text inputs, change events, and live validation.
+* ``form_demo.py`` – multi-field form with buttons and status messages.
 
-* ``checkbox_demo.py`` - Checkboxes and groups
-* ``radio_demo.py`` - Radio buttons
-* ``select_demo.py`` - Select dropdown
-* ``table_demo.py`` - Rich table with sorting
-* ``tree_demo.py`` - Hierarchical tree
-* ``progress_demo.py`` - Progress indicators
-* ``spinner_demo.py`` - Loading spinners
-* ``textarea_demo.py`` - Multi-line input
+Forms & workflows
+-----------------
 
-Layout Examples
-~~~~~~~~~~~~~~~
+* ``login_form.py`` – login screen with validation, focus hints, and error notifications.
+* ``filesystem_browser.py`` – explores list navigation, buttons, and status feedback.
+* ``centered_dialog.py`` – wizard-style layout with buttons driving modal overlays.
 
-* ``frame_sizing_demo.py`` - Frame sizing modes
-* ``complex_layout_demo.py`` - Nested layouts
-* ``alignment_demo.py`` - Content alignment
-* ``scroll_demo.py`` - Scrolling features
+Data display
+------------
 
-Advanced Examples
-~~~~~~~~~~~~~~~~~
+* ``table_demo.py`` – sortable table with zebra striping and scroll support.
+* ``tree_demo.py`` / ``tree_indicator_styles_demo.py`` – hierarchical navigation with custom indicators.
+* ``logview_demo.py`` – streaming log viewer with severity-based styling.
+* ``markdown_demo.py`` / ``code_demo.py`` – render markdown and syntax-highlighted panes.
 
-* ``modal_with_button_demo.py`` - Modal dialogs
-* ``confirm_dialog_demo.py`` - Confirmation prompts
-* ``alert_dialog_demo.py`` - Alert messages
-* ``navigation_demo.py`` - Multi-view navigation
+Layout patterns
+---------------
 
-Full list available in the `examples directory <https://github.com/yourusername/wijjit/tree/main/examples>`_.
+* ``alignment_demo.py`` – shows how ``align_h``/``align_v`` impact stacks.
+* ``complex_layout_demo.py`` – dashboard composed of nested frames and stacks.
+* ``scroll_demo.py`` / ``scrollable_children_demo.py`` – deep dive into scroll containers and focus retention.
+* ``frame_sizing_demo.py`` / ``frame_overflow_demo.py`` – compare width/height modes, padding, and overflow handling.
+
+Interaction & advanced UI
+-------------------------
+
+* ``checkbox_demo.py``, ``radio_demo.py``, ``select_demo.py`` – widget-specific explorations.
+* ``modal_with_button_demo.py`` / ``confirm_dialog_demo.py`` / ``alert_dialog_demo.py`` – overlay interactions.
+* ``dropdown_demo.py`` – buttons that spawn dropdown menus with nested actions.
+* ``mouse_demo.py`` – showcases hover, clicks, and scroll routing.
+* ``notification_demo.py`` – toast notifications with auto-dismiss logic.
+
+Performance & utilities
+-----------------------
+
+* ``async_demo.py`` / ``download_simulator.py`` – background tasks updating state.
+* ``debug_keys.py`` – raw key event logger, ideal for customizing shortcuts.
+* ``statusbar_demo.py`` – persistent footer with modal triggers.
+
+Where to next
+-------------
+
+* Pair each example with the relevant user-guide chapter (layout, events, modals) for deeper explanations.
+* Add new examples under ``examples/`` and reference them here; follow the naming conventions above.
+* For higher-level recipes, see :doc:`cookbook`.

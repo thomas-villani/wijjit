@@ -20,6 +20,11 @@ _SGR_PATTERN = re.compile(r"\x1b\[([0-9;]*)m")
 # This matches CSI sequences: ESC [ (params) (letter) where letter is NOT 'm' (which is SGR)
 _OTHER_ANSI_PATTERN = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
+# OSC (Operating System Command) sequences to strip
+# Format: ESC ] ... BEL or ESC ] ... ESC \
+# Used by Rich for hyperlinks, terminal titles, etc.
+_OSC_PATTERN = re.compile(r"\x1b\].*?(?:\x07|\x1b\\)")
+
 
 def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     """Parse ANSI escape sequence string and convert to Cell objects.
@@ -93,12 +98,19 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
             i = match.end()
             continue
 
-        # Check for other escape sequences that might not match the pattern above
-        # (e.g., OSC sequences, etc.)
+        # Check for OSC (Operating System Command) sequences
+        # These are used by Rich for hyperlinks, window titles, etc.
+        match = _OSC_PATTERN.match(ansi_str, i)
+        if match:
+            # Skip entire OSC sequence
+            i = match.end()
+            continue
+
+        # Check for other escape sequences that might not match the patterns above
         if ansi_str[i] == "\x1b":
             # Look ahead to see if this is some other escape sequence
-            # If we see ESC followed by something other than '[', skip it
-            if i + 1 < len(ansi_str) and ansi_str[i + 1] != "[":
+            # If we see ESC followed by something other than '[' or ']', skip it
+            if i + 1 < len(ansi_str) and ansi_str[i + 1] not in "[":
                 # Skip ESC and next char (simple heuristic)
                 i += 2
                 continue

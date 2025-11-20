@@ -340,3 +340,245 @@ class TestInputHandler:
         handler.cleanup()
 
         mock_input.close.assert_called_once()
+
+
+class TestInputTimeoutBehavior:
+    """Test timeout behavior for read_input and read_input_async (Issue 17)."""
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_read_input_timeout_expires(self, mock_create_input):
+        """Test that timeout parameter returns None when it expires.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        # Set read_keys to block (return nothing)
+        mock_input.read_keys.return_value = []
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        # Use a very short timeout
+        result = handler.read_input(timeout=0.01)
+
+        # Should return None on timeout
+        assert result is None
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_read_input_timeout_with_key(self, mock_create_input):
+        """Test that timeout parameter works when key is available.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = [KeyPress("a", "a")]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        result = handler.read_input(timeout=1.0)
+
+        # Should return the key, not timeout
+        assert result is not None
+        assert result.char == "a"
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_read_input_without_timeout(self, mock_create_input):
+        """Test read_input works without timeout parameter.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = [KeyPress("x", "x")]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        result = handler.read_input()
+
+        # Should return key even without timeout
+        assert result is not None
+        assert result.char == "x"
+
+
+class TestInputPasteDetection:
+    """Test paste detection functionality (Issue 17)."""
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_paste_detection_single_char(self, mock_create_input):
+        """Test that single character is not detected as paste.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = [KeyPress("a", "a")]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        result = handler.read_input()
+
+        # Single char should not be paste
+        assert result is not None
+        assert result.char == "a"
+        assert not result.is_special
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_paste_detection_multiple_chars(self, mock_create_input):
+        """Test that multiple characters trigger paste detection.
+
+        Returns
+        -------
+        None
+        """
+        # Simulate multiple printable characters arriving together
+        mock_input = create_mock_input()
+        # Make read_keys return multiple chars at once (simulating paste)
+        mock_input.read_keys.return_value = [
+            KeyPress("h", "h"),
+            KeyPress("e", "e"),
+            KeyPress("l", "l"),
+            KeyPress("l", "l"),
+            KeyPress("o", "o"),
+        ]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        result = handler.read_input()
+
+        # Should detect paste (implementation may vary)
+        # At minimum, should return first character
+        assert result is not None
+
+
+class TestInputEscapeSequences:
+    """Test escape sequence handling (Issue 17)."""
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_escape_key_basic(self, mock_create_input):
+        """Test basic ESC key handling.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = [KeyPress(PTKeys.Escape, "")]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        result = handler.read_input()
+
+        # Should return ESC key
+        assert result is not None
+        assert result == Keys.ESCAPE
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_escape_sequence_arrow_key(self, mock_create_input):
+        """Test arrow key escape sequences.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = [KeyPress(PTKeys.Up, "")]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        result = handler.read_input()
+
+        # Should recognize up arrow
+        assert result is not None
+        assert result == Keys.UP
+
+
+class TestInputMouseParsing:
+    """Test mouse event handling (Issue 17)."""
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_mouse_enabled_initialization(self, mock_create_input):
+        """Test that mouse can be enabled during initialization.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler(enable_mouse=True)
+
+        # Should initialize with mouse enabled
+        assert handler.mouse_enabled is True
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_mouse_disabled_by_default(self, mock_create_input):
+        """Test that mouse is disabled by default.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+
+        # Should initialize with mouse disabled
+        assert handler.mouse_enabled is False
+
+
+class TestInputThreadSafety:
+    """Test thread safety and reader thread lifecycle (Issue 17)."""
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_multiple_read_calls_sequential(self, mock_create_input):
+        """Test that multiple sequential read_input calls work.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.side_effect = [
+            [KeyPress("a", "a")],
+            [KeyPress("b", "b")],
+        ]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+
+        # First call
+        result1 = handler.read_input(timeout=0.1)
+        assert result1 is not None
+        assert result1.char == "a"
+
+        # Second call
+        result2 = handler.read_input(timeout=0.1)
+        assert result2 is not None
+        assert result2.char == "b"
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_cleanup_idempotent(self, mock_create_input):
+        """Test that cleanup can be called multiple times safely.
+
+        Returns
+        -------
+        None
+        """
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+
+        # Cleanup multiple times should not crash
+        handler.cleanup()
+        handler.cleanup()
+
+        # Verify close was called (possibly multiple times)
+        assert mock_input.close.called

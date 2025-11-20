@@ -279,6 +279,7 @@ class StyleResolver:
         type_map = {
             "textinput": "input",
             "textarea": "input",
+            "textelement": "text",
             "checkbox": "checkbox",
             "radiobutton": "radio",
             "button": "button",
