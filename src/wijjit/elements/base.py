@@ -591,6 +591,8 @@ class TextElement(Element):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
         """
+        from wijjit.terminal.ansi import clip_to_width
+
         text = self._wrapped_text if self._wrapped_text is not None else self.text
         # Resolve style for text element
         style = ctx.style_resolver.resolve_style(self, "text")
@@ -602,4 +604,6 @@ class TextElement(Element):
             # Stop if we've exceeded the element's height
             if i >= ctx.bounds.height:
                 break
-            ctx.write_text(0, i, line, style)
+            # Clip line to available width to prevent overflow
+            clipped = clip_to_width(line, ctx.bounds.width, ellipsis="")
+            ctx.write_text(0, i, clipped, style)

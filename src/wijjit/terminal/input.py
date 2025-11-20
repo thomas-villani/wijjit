@@ -6,7 +6,9 @@ and ANSI mouse events. Supports both synchronous and asynchronous input reading.
 """
 
 import asyncio
+import queue
 import sys
+import threading
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional, Union
@@ -302,6 +304,42 @@ class InputHandler:
         # Queue for handling lookahead keys (used for Alt detection and mouse parsing)
         self._key_queue = []
 
+        # Queue-based input reading to avoid thread leaks
+        # This queue receives raw key lists from prompt_toolkit
+        self._input_queue: queue.Queue = queue.Queue()
+        self._reader_thread: threading.Thread | None = None
+        self._shutdown: threading.Event = threading.Event()
+        self._reader_lock: threading.Lock = threading.Lock()
+
+    def _ensure_reader_thread(self) -> None:
+        """Ensure the persistent reader thread is running.
+
+        This method starts a single background thread that continuously
+        reads from prompt_toolkit and pushes results to a queue. This
+        avoids spawning new threads for every timeout-based read.
+        """
+        with self._reader_lock:
+            if self._reader_thread is None or not self._reader_thread.is_alive():
+                self._shutdown.clear()
+
+                def reader_loop():
+                    while not self._shutdown.is_set():
+                        try:
+                            keys = self._input.read_keys()
+                            if keys:
+                                self._input_queue.put(keys)
+                        except Exception as e:
+                            logger.error(f"Error in reader thread: {e}")
+                            # On error, put None to signal error condition
+                            self._input_queue.put(None)
+                            break
+
+                self._reader_thread = threading.Thread(
+                    target=reader_loop, daemon=True, name="InputReaderThread"
+                )
+                self._reader_thread.start()
+                logger.debug("Started persistent input reader thread")
+
     def read_input(
         self, timeout: float | None = None
     ) -> Union[Key, "MouseEvent", None]:
@@ -327,11 +365,10 @@ class InputHandler:
         Timeout support is critical for enabling animations (spinners) and
         time-based UI updates (notification expiry) without requiring user input.
 
-        Cross-platform implementation uses threading for timeout on Windows
-        and select.select() on Unix systems.
+        This implementation uses a persistent reader thread with a queue to
+        avoid spawning new threads for every timeout-based read, preventing
+        thread leaks.
         """
-        import threading
-
         try:
             # Enter raw mode if not already in it
             if self._raw_mode is None:
@@ -343,40 +380,19 @@ class InputHandler:
                 key_press = self._key_queue.pop(0)
                 logger.debug(f"Processing queued key: {key_press.key!r}")
             else:
-                # If timeout specified, use platform-appropriate timeout mechanism
-                if timeout is not None:
-                    # On Windows, select.select() only works with sockets, not file descriptors
-                    # Use threading-based timeout for cross-platform compatibility
-                    keys_result = [None]
-                    read_complete = threading.Event()
+                # Ensure persistent reader thread is running
+                self._ensure_reader_thread()
 
-                    def read_thread():
-                        try:
-                            keys_result[0] = self._input.read_keys()
-                        except Exception as e:
-                            logger.error(f"Error reading input in thread: {e}")
-                            keys_result[0] = []
-                        finally:
-                            read_complete.set()
-
-                    thread = threading.Thread(target=read_thread, daemon=True)
-                    thread.start()
-
-                    # Wait for read to complete or timeout
-                    if read_complete.wait(timeout):
-                        # Read completed within timeout
-                        keys = keys_result[0]
-                        if not keys:
-                            return None
-                    else:
-                        # Timeout expired
-                        logger.debug(f"read_input timeout after {timeout}s")
+                # Read from queue with timeout
+                try:
+                    keys = self._input_queue.get(timeout=timeout)
+                    if keys is None:
+                        # Error condition signaled by reader thread
                         return None
-                else:
-                    # No timeout - blocking read
-                    keys = self._input.read_keys()
-                    if not keys:
-                        return None
+                except queue.Empty:
+                    # Timeout expired
+                    logger.debug(f"read_input timeout after {timeout}s")
+                    return None
 
                 logger.debug(
                     f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"
@@ -518,6 +534,10 @@ class InputHandler:
         -----
         This async version properly integrates with asyncio event loops,
         allowing other async tasks to run while waiting for input.
+
+        This implementation uses a persistent reader thread with a queue to
+        avoid spawning new executor tasks for every timeout-based read,
+        preventing task leaks.
         """
         loop = asyncio.get_event_loop()
 
@@ -532,24 +552,23 @@ class InputHandler:
                 key_press = self._key_queue.pop(0)
                 logger.debug(f"Processing queued key: {key_press.key!r}")
             else:
-                # Read input asynchronously
-                if timeout is not None:
-                    # Use asyncio.wait_for for timeout
-                    try:
-                        keys = await asyncio.wait_for(
-                            loop.run_in_executor(None, self._input.read_keys),
-                            timeout=timeout,
-                        )
-                        if not keys:
-                            return None
-                    except TimeoutError:
-                        logger.debug(f"read_input_async timeout after {timeout}s")
+                # Ensure persistent reader thread is running
+                self._ensure_reader_thread()
+
+                # Read from queue asynchronously with timeout
+                try:
+                    keys = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            None, self._input_queue.get, True, timeout or None
+                        ),
+                        timeout=timeout,
+                    )
+                    if keys is None:
+                        # Error condition signaled by reader thread
                         return None
-                else:
-                    # No timeout - wait indefinitely
-                    keys = await loop.run_in_executor(None, self._input.read_keys)
-                    if not keys:
-                        return None
+                except (TimeoutError, queue.Empty):
+                    logger.debug(f"read_input_async timeout after {timeout}s")
+                    return None
 
                 logger.debug(
                     f"read_keys() returned {len(keys)} key(s): {[k.key for k in keys]}"
@@ -699,6 +718,52 @@ class InputHandler:
             logger.debug(f"Input read terminated: {type(e).__name__}")
             return None
 
+    def close(self) -> None:
+        """Close the input handler and clean up all resources.
+
+        This method should be called when the InputHandler is no longer
+        needed to ensure proper cleanup of background threads, mouse
+        tracking, raw mode, and input resources.
+        """
+        logger.debug("Shutting down input handler")
+
+        # Shutdown persistent reader thread
+        self._shutdown.set()
+        if self._reader_thread and self._reader_thread.is_alive():
+            self._reader_thread.join(timeout=1.0)
+            if self._reader_thread.is_alive():
+                logger.warning("Reader thread did not terminate within timeout")
+
+        # Disable mouse tracking if enabled
+        if self.mouse_enabled:
+            try:
+                self.disable_mouse_tracking()
+            except Exception as e:
+                logger.debug(f"Error disabling mouse tracking: {e}")
+
+        # Exit raw mode if active
+        if self._raw_mode is not None:
+            try:
+                self._raw_mode.__exit__(None, None, None)
+            except Exception as e:
+                logger.debug(f"Error exiting raw mode during cleanup: {e}")
+            self._raw_mode = None
+
+        # Close the input
+        if self._input:
+            try:
+                self._input.close()
+            except Exception as e:
+                logger.debug(f"Error closing input: {e}")
+
+    def __del__(self) -> None:
+        """Cleanup when InputHandler is garbage collected."""
+        try:
+            self.close()
+        except Exception:
+            # Avoid errors during garbage collection
+            pass
+
     def read_key(self) -> Key | None:
         """Read a single key press.
 
@@ -761,22 +826,6 @@ class InputHandler:
         sys.stdout.flush()
 
         self.mouse_enabled = False
-
-    def close(self) -> None:
-        """Close the input handler and clean up resources."""
-        # Disable mouse tracking if enabled
-        self.disable_mouse_tracking()
-
-        # Exit raw mode if we entered it
-        if self._raw_mode is not None:
-            try:
-                self._raw_mode.__exit__(None, None, None)
-            except Exception as e:
-                logger.debug(f"Error exiting raw mode during cleanup: {e}")
-            self._raw_mode = None
-
-        if self._input:
-            self._input.close()
 
     def cleanup(self) -> None:
         """Clean up input handler state.

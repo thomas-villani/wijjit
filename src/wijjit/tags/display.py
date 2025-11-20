@@ -77,8 +77,8 @@ class TableExtension(Extension):
         id: str | None = None,
         data: list[dict[str, Any]] | None = None,
         columns: list[Any] | None = None,
-        width: int = 60,
-        height: int = 10,
+        width: int | str = 60,
+        height: int | str = 10,
         sortable: bool = False,
         show_header: bool = True,
         show_scrollbar: bool = True,
@@ -97,10 +97,10 @@ class TableExtension(Extension):
             Table data
         columns : list, optional
             Column definitions
-        width : int
-            Table width (default: 60)
-        height : int
-            Table height (default: 10)
+        width : int or str
+            Table width (default: 60). Can be int, "fill", "auto", or percentage
+        height : int or str
+            Table height (default: 10). Can be int, "fill", "auto", or percentage
         sortable : bool
             Whether columns are sortable (default: False)
         show_header : bool
@@ -125,9 +125,22 @@ class TableExtension(Extension):
             # No layout context available, skip
             return ""
 
-        # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 10  # Default for initial render
+        else:
+            element_height = int(height)
+
         sortable = bool(sortable)
         show_header = bool(show_header)
         show_scrollbar = bool(show_scrollbar)
@@ -167,8 +180,8 @@ class TableExtension(Extension):
             id=id,
             data=data,
             columns=columns,
-            width=width,
-            height=height,
+            width=element_width,
+            height=element_height,
             sortable=sortable,
             show_header=show_header,
             show_scrollbar=show_scrollbar,
@@ -195,8 +208,9 @@ class TableExtension(Extension):
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
-        # Table has fixed dimensions, so use exact width and height
-        node = ElementNode(table, width=width, height=height)
+        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
+        # This allows the layout engine to properly handle dynamic sizing
+        node = ElementNode(table, width=width_spec, height=height_spec)
 
         # Add to layout context
         context.add_element(node)
@@ -270,8 +284,8 @@ class TreeExtension(Extension):
         caller: Callable[[], str],
         id: str | None = None,
         data: dict[str, Any] | list[Any] | None = None,
-        width: int = 40,
-        height: int = 15,
+        width: int | str = 40,
+        height: int | str = 15,
         show_scrollbar: bool = True,
         show_root: bool = True,
         indent_size: int = 2,
@@ -292,10 +306,10 @@ class TreeExtension(Extension):
             Element identifier
         data : dict or list, optional
             Tree data (nested dict or flat list)
-        width : int
-            Tree width (default: 40)
-        height : int
-            Tree height (default: 15)
+        width : int or str
+            Tree width (default: 40). Can be int, "fill", "auto", or percentage
+        height : int or str
+            Tree height (default: 15). Can be int, "fill", "auto", or percentage
         show_scrollbar : bool
             Whether to show scrollbar (default: True)
         show_root : bool
@@ -334,9 +348,22 @@ class TreeExtension(Extension):
             # No layout context available, skip
             return ""
 
-        # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        # If width/height are "fill" or other string specs, use default numeric values
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 40  # Default for initial render
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 15  # Default for initial render
+        else:
+            element_height = int(height)
+
         indent_size = int(indent_size)
         show_scrollbar = bool(show_scrollbar)
         show_root = bool(show_root)
@@ -378,8 +405,8 @@ class TreeExtension(Extension):
         tree = Tree(
             id=id,
             data=data,
-            width=width,
-            height=height,
+            width=element_width,
+            height=element_height,
             show_scrollbar=show_scrollbar,
             show_root=show_root,
             indent_size=indent_size,
@@ -495,8 +522,9 @@ class TreeExtension(Extension):
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create ElementNode
-        # Tree has fixed dimensions, so use exact width and height
-        node = ElementNode(tree, width=width, height=height)
+        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
+        # This allows the layout engine to properly handle dynamic sizing
+        node = ElementNode(tree, width=width_spec, height=height_spec)
 
         # Add to layout context
         context.add_element(node)

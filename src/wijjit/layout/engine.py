@@ -1104,6 +1104,17 @@ class FrameNode(Container):
                 for elem in child_elements:
                     elem.parent_frame = self.frame
 
+                    # Ensure scrollable child elements have scroll_state_key for persistence
+                    # This allows scroll positions to survive re-renders even for unnamed elements
+                    if hasattr(elem, "scroll_state_key") and hasattr(
+                        elem, "scroll_position"
+                    ):
+                        if not elem.scroll_state_key:
+                            # Synthesize a stable key based on frame and element IDs
+                            frame_id = self.frame.id or "frame"
+                            elem_id = elem.id or elem.__class__.__name__
+                            elem.scroll_state_key = f"_scroll_{frame_id}_{elem_id}"
+
             elements.extend(child_elements)
 
         return elements
