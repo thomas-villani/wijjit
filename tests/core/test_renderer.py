@@ -348,3 +348,102 @@ class TestRenderer:
         assert text_inputs[0].id == "textinput_0"
         assert text_inputs[1].id == "textinput_1"
         assert selects[0].id == "select_0"
+
+    def test_render_with_layout_from_file(self):
+        """Test rendering layout template from file using template_name parameter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a template file with layout tags
+            template_path = os.path.join(tmpdir, "test_layout.tui")
+            with open(template_path, "w") as f:
+                f.write(
+                    """
+{% frame title="Hello" width=40 height=10 %}
+  Welcome, {{ name }}!
+{% endframe %}
+"""
+                )
+
+            renderer = Renderer(template_dir=tmpdir)
+            output, elements, layout_ctx = renderer.render_with_layout(
+                template_name="test_layout.tui",
+                context={"name": "Alice"},
+                width=80,
+                height=24,
+            )
+
+            # Should have rendered successfully
+            assert output is not None
+            assert len(output) > 0
+
+            # Should have created frame element
+            assert layout_ctx.root is not None
+
+    def test_render_with_layout_from_file_with_variables(self):
+        """Test rendering template from file with Jinja2 variables."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create template with variables and loops
+            template_path = os.path.join(tmpdir, "dynamic.tui")
+            with open(template_path, "w") as f:
+                f.write(
+                    """
+{% frame width=50 height=15 %}
+  {% for item in items %}
+    - {{ item }}
+  {% endfor %}
+{% endframe %}
+"""
+                )
+
+            renderer = Renderer(template_dir=tmpdir)
+            context = {"title": "My List", "items": ["Apple", "Banana", "Cherry"]}
+            output, elements, layout_ctx = renderer.render_with_layout(
+                template_name="dynamic.tui", context=context, width=80, height=24
+            )
+
+            # Should have rendered the items
+            buffer_text = renderer.get_buffer_as_text()
+            assert "Apple" in buffer_text
+            assert "Banana" in buffer_text
+            assert "Cherry" in buffer_text
+
+    def test_render_with_layout_file_not_found(self):
+        """Test that missing template file raises TemplateNotFound."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            renderer = Renderer(template_dir=tmpdir)
+
+            with pytest.raises(TemplateNotFound):
+                renderer.render_with_layout(
+                    template_name="nonexistent.tui", width=80, height=24
+                )
+
+    def test_render_with_layout_string_vs_file(self):
+        """Test that template_string and template_name are mutually exclusive."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a file template
+            template_path = os.path.join(tmpdir, "file_template.tui")
+            with open(template_path, "w") as f:
+                f.write(
+                    "{% frame title='From File' width=40 height=10 %}File Content{% endframe %}"
+                )
+
+            renderer = Renderer(template_dir=tmpdir)
+
+            # Test with template_name (should use file)
+            output1, _, _ = renderer.render_with_layout(
+                template_name="file_template.tui", width=80, height=24
+            )
+            buffer_text1 = renderer.get_buffer_as_text()
+            assert "From File" in buffer_text1
+            assert "File Content" in buffer_text1
+
+            # Test with template_string (should use inline)
+            renderer._last_base_buffer = None  # Reset buffer
+            renderer._last_displayed_buffer = None
+            output2, _, _ = renderer.render_with_layout(
+                template_string="{% frame title='Inline' width=40 height=10 %}Inline Content{% endframe %}",
+                width=80,
+                height=24,
+            )
+            buffer_text2 = renderer.get_buffer_as_text()
+            assert "Inline" in buffer_text2
+            assert "Inline Content" in buffer_text2

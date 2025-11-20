@@ -238,7 +238,8 @@ class Wijjit:
         """Decorator to register a view (delegates to ViewRouter).
 
         The decorated function should return a dict with:
-        - template: str (required) - Template string or file path
+        - template: str - Inline template string (use this OR template_file)
+        - template_file: str - Template filename to load from template_dir (use this OR template)
         - data: dict (optional) - Data for template rendering
         - on_enter: callable (optional) - Hook for view entry
         - on_exit: callable (optional) - Hook for view exit
@@ -257,11 +258,22 @@ class Wijjit:
 
         Examples
         --------
+        Inline template:
+
         >>> @app.view("main", default=True)
         ... def main_view():
         ...     return {
         ...         "template": "Hello, {{ name }}!",
         ...         "data": {"name": "World"},
+        ...     }
+
+        Load from file:
+
+        >>> @app.view("dashboard")
+        ... def dashboard_view():
+        ...     return {
+        ...         "template_file": "dashboard.tui",
+        ...         "data": {"stats": get_stats()},
         ...     }
         """
         return self.view_router.view_decorator(name, default)
@@ -475,8 +487,14 @@ class Wijjit:
             # Add state to template context
             data["state"] = self.state
 
-            # Check if template has layout tags
-            has_layout = self._has_layout_tags(view.template)
+            # Determine which template to use (file or inline string)
+            # template_content = view.template_file or view.template
+
+            # Check if template has layout tags (only for inline templates)
+            # File-based templates are always rendered with layout engine
+            has_layout = bool(view.template_file) or self._has_layout_tags(
+                view.template
+            )
             logger.debug(f"View has layout tags: {has_layout}")
 
             if has_layout:
@@ -496,13 +514,24 @@ class Wijjit:
 
                 # Render with layout (elements will be created with correct focus state)
                 term_size = shutil.get_terminal_size()
-                output, elements, layout_ctx = self.renderer.render_with_layout(
-                    view.template,
-                    context=data,
-                    width=term_size.columns,
-                    height=term_size.lines,
-                    overlay_manager=self.overlay_manager,
-                )
+                if view.template_file:
+                    # Load from file
+                    output, elements, layout_ctx = self.renderer.render_with_layout(
+                        template_name=view.template_file,
+                        context=data,
+                        width=term_size.columns,
+                        height=term_size.lines,
+                        overlay_manager=self.overlay_manager,
+                    )
+                else:
+                    # Inline template string
+                    output, elements, layout_ctx = self.renderer.render_with_layout(
+                        template_string=view.template,
+                        context=data,
+                        width=term_size.columns,
+                        height=term_size.lines,
+                        overlay_manager=self.overlay_manager,
+                    )
 
                 # Store elements and update focus manager
                 self.positioned_elements = elements
@@ -538,13 +567,24 @@ class Wijjit:
 
                     # Render again with focused element (will be treated as first render = full screen)
                     self.renderer.add_global("_wijjit_focused_id", focused_id)
-                    output, elements, layout_ctx = self.renderer.render_with_layout(
-                        view.template,
-                        context=data,
-                        width=term_size.columns,
-                        height=term_size.lines,
-                        overlay_manager=self.overlay_manager,
-                    )
+                    if view.template_file:
+                        # Load from file
+                        output, elements, layout_ctx = self.renderer.render_with_layout(
+                            template_name=view.template_file,
+                            context=data,
+                            width=term_size.columns,
+                            height=term_size.lines,
+                            overlay_manager=self.overlay_manager,
+                        )
+                    else:
+                        # Inline template string
+                        output, elements, layout_ctx = self.renderer.render_with_layout(
+                            template_string=view.template,
+                            context=data,
+                            width=term_size.columns,
+                            height=term_size.lines,
+                            overlay_manager=self.overlay_manager,
+                        )
                     self.positioned_elements = elements
 
                 # Clean up globals

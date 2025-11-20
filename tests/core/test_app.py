@@ -18,7 +18,7 @@ import pytest
 from wijjit.core.app import ViewConfig, Wijjit
 from wijjit.core.events import EventType, HandlerScope, KeyEvent
 from wijjit.core.state import State
-from wijjit.terminal.input import Keys
+from wijjit.terminal.input import Key, KeyType
 
 
 class TestViewConfig:
@@ -542,7 +542,7 @@ class TestRun:
             with patch.object(app.screen_manager, "exit_alternate_buffer"):
                 # Mock async read_input_async
                 async def mock_read(*args, **kwargs):
-                    return Keys.CTRL_C
+                    return Key("ctrl+q", KeyType.CONTROL, "\x11")
 
                 with patch.object(
                     app.input_handler, "read_input_async", side_effect=mock_read
@@ -550,7 +550,7 @@ class TestRun:
                     with patch.object(app, "_render"):
                         app.run()
 
-                        # Should have set running to True (then stopped on Ctrl+C)
+                        # Should have set running to True (then stopped on Ctrl+Q)
                         assert app.running is False
 
     def test_run_calls_initial_on_enter(self):
@@ -572,7 +572,7 @@ class TestRun:
             with patch.object(app.screen_manager, "exit_alternate_buffer"):
                 # Mock async read_input_async
                 async def mock_read(*args, **kwargs):
-                    return Keys.CTRL_C
+                    return Key("ctrl+q", KeyType.CONTROL, "\x11")
 
                 with patch.object(
                     app.input_handler, "read_input_async", side_effect=mock_read
@@ -594,7 +594,7 @@ class TestRun:
             with patch.object(app.screen_manager, "exit_alternate_buffer") as mock_exit:
                 # Mock async read_input_async
                 async def mock_read(*args, **kwargs):
-                    return Keys.CTRL_C
+                    return Key("ctrl+q", KeyType.CONTROL, "\x11")
 
                 with patch.object(
                     app.input_handler, "read_input_async", side_effect=mock_read

@@ -203,39 +203,3 @@ class TestOverlayLayerTypesE2E:
         output, _ = render_view(app, "main", width=80, height=24)
         assert len(app.overlay_manager.overlays) == 1
         assert app.overlay_manager.overlays[0].layer_type == LayerType.MODAL
-
-    def test_dropdown_layer_type(self):
-        """Test that dropdown layer type works correctly."""
-        app = Wijjit(initial_state={"show_overlay": True})
-
-        @app.view("main", default=True)
-        def main_view():
-            return {
-                "template": """
-{% frame width="80" height="24" %}
-    {% overlay id="d" layer="dropdown" visible="show_overlay" %}Content{% endoverlay %}
-{% endframe %}
-                """
-            }
-
-        output, _ = render_view(app, "main", width=80, height=24)
-        assert len(app.overlay_manager.overlays) == 1
-        assert app.overlay_manager.overlays[0].layer_type == LayerType.DROPDOWN
-
-    def test_tooltip_layer_type(self):
-        """Test that tooltip layer type works correctly."""
-        app = Wijjit(initial_state={"show_overlay": True})
-
-        @app.view("main", default=True)
-        def main_view():
-            return {
-                "template": """
-{% frame width="80" height="24" %}
-    {% overlay id="t" layer="tooltip" visible="show_overlay" %}Content{% endoverlay %}
-{% endframe %}
-                """
-            }
-
-        output, _ = render_view(app, "main", width=80, height=24)
-        assert len(app.overlay_manager.overlays) == 1
-        assert app.overlay_manager.overlays[0].layer_type == LayerType.TOOLTIP

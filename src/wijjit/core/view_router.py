@@ -31,7 +31,9 @@ class ViewConfig:
     name : str
         Unique name for this view
     template : str
-        Template string or path to template file
+        Template string (inline template content)
+    template_file : str
+        Template filename to load from template_dir
     data : Optional[Callable[..., Dict[str, Any]]]
         Function that returns data dict for template rendering
     on_enter : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
@@ -50,7 +52,9 @@ class ViewConfig:
     name : str
         Unique name for this view
     template : str
-        Template string or path to template file
+        Template string (inline template content)
+    template_file : str
+        Template filename to load from template_dir
     data : Optional[Callable[..., Dict[str, Any]]]
         Function that returns data dict for template rendering
     on_enter : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
@@ -67,6 +71,7 @@ class ViewConfig:
 
     name: str
     template: str = ""
+    template_file: str = ""
     data: Callable[..., dict[str, Any]] | None = None
     on_enter: Callable[[], None] | Callable[[], Awaitable[None]] | None = None
     on_exit: Callable[[], None] | Callable[[], Awaitable[None]] | None = None
@@ -125,7 +130,8 @@ class ViewRouter:
         """Create a decorator to register a view.
 
         The decorated function should return a dict with:
-        - template: str (required) - Template string or file path
+        - template: str - Inline template string (use this OR template_file)
+        - template_file: str - Template filename to load from template_dir (use this OR template)
         - data: dict (optional) - Data for template rendering
         - on_enter: callable (optional) - Hook for view entry
         - on_exit: callable (optional) - Hook for view exit
@@ -144,11 +150,22 @@ class ViewRouter:
 
         Examples
         --------
+        Inline template string:
+
         >>> @app.view("main", default=True)
         ... def main_view():
         ...     return {
         ...         "template": "Hello, {{ name }}!",
         ...         "data": {"name": "World"},
+        ...     }
+
+        Load from file:
+
+        >>> @app.view("dashboard")
+        ... def dashboard_view():
+        ...     return {
+        ...         "template_file": "dashboard.tui",
+        ...         "data": {"stats": get_stats()},
         ...     }
         """
 
@@ -217,6 +234,7 @@ class ViewRouter:
 
             # Extract static config components
             view_config.template = config_dict.get("template", "")
+            view_config.template_file = config_dict.get("template_file", "")
             view_config.on_enter = config_dict.get("on_enter")
             view_config.on_exit = config_dict.get("on_exit")
 
@@ -234,7 +252,8 @@ class ViewRouter:
                 )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
-                    return static_data
+                    # Return a copy to prevent mutations from persisting across renders
+                    return dict(static_data)
 
                 view_config.data = data_func
 
@@ -263,6 +282,7 @@ class ViewRouter:
 
             # Extract static config components
             view_config.template = config_dict.get("template", "")
+            view_config.template_file = config_dict.get("template_file", "")
             view_config.on_enter = config_dict.get("on_enter")
             view_config.on_exit = config_dict.get("on_exit")
 
@@ -280,7 +300,8 @@ class ViewRouter:
                 )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
-                    return static_data
+                    # Return a copy to prevent mutations from persisting across renders
+                    return dict(static_data)
 
                 view_config.data = data_func
 

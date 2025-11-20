@@ -36,7 +36,6 @@ from wijjit.tags.display import (
     LogViewExtension,
     MarkdownExtension,
     ModalExtension,
-    OverlayExtension,
     ProgressBarExtension,
     SpinnerExtension,
     StatusBarExtension,
@@ -130,7 +129,6 @@ class Renderer:
                 MarkdownExtension,
                 CodeBlockExtension,
                 TextAreaExtension,
-                OverlayExtension,
                 ModalExtension,
                 ConfirmDialogExtension,
                 AlertDialogExtension,
@@ -268,11 +266,12 @@ class Renderer:
 
     def render_with_layout(
         self,
-        template_string: str,
+        template_string: str = "",
         context: dict[str, Any] | None = None,
         width: int | None = None,
         height: int | None = None,
         overlay_manager: Optional["OverlayManager"] = None,
+        template_name: str | None = None,
     ) -> tuple[str, list[Element], "LayoutContext"]:
         """Render a template with layout engine support.
 
@@ -284,8 +283,8 @@ class Renderer:
 
         Parameters
         ----------
-        template_string : str
-            The template string to render
+        template_string : str, optional
+            The template string to render (use this OR template_name)
         context : dict, optional
             Context variables for template rendering
         width : int, optional
@@ -294,6 +293,8 @@ class Renderer:
             Available height (default: terminal height)
         overlay_manager : OverlayManager, optional
             Overlay manager (deprecated, no longer used - overlays handled by caller)
+        template_name : str, optional
+            Name of template file to load from template_dir (use this OR template_string)
 
         Returns
         -------
@@ -320,24 +321,30 @@ class Renderer:
         # Also add to template context for CallBlock tags
         context["_wijjit_layout_context"] = layout_ctx
 
-        # Compile template
-        if template_string in self._string_templates:
+        # Compile or load template
+        if template_name:
+            # Load template from file (via FileSystemLoader)
+            template = self.env.get_template(template_name)
+        elif template_string in self._string_templates:
+            # Use cached string template
             template = self._string_templates[template_string]
         else:
+            # Compile and cache new string template
             template = self.env.from_string(template_string)
             self._string_templates[template_string] = template
 
         # Render template (this builds the layout tree)
-        template.render(**context)
+        # Capture output in case there are no layout tags (to avoid double-rendering)
+        rendered_output = template.render(**context)
 
         # Clean up globals
         self.env.globals.pop("_wijjit_layout_context", None)
 
         # Check if we have a layout tree
         if layout_ctx.root is None:
-            # No layout tags used, fall back to simple rendering
-            output = template.render(**context)
-            return output, [], layout_ctx
+            # No layout tags used, return the already-rendered output
+            # This avoids double-rendering templates without layout tags
+            return rendered_output, [], layout_ctx
 
         # Check if a statusbar was created during template rendering
         # If yes, reduce available height by 1 to make room for it

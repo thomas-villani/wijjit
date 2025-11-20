@@ -14,15 +14,13 @@ Generate comparison:
     pytest tests/benchmarks/ --benchmark-compare
 """
 
-import os
-
 import pytest
 
-# Disable diff rendering for benchmarks - benchmarks repeatedly render identical
-# content, which triggers the diff renderer to skip output since nothing changed.
-# Benchmarks should measure full render performance, not diff performance.
-os.environ["WIJJIT_DIFF_RENDERING"] = "false"
-
+# Note on benchmarking strategy:
+# These benchmarks test the production rendering pipeline with diff rendering enabled.
+# To ensure consistent full renders (not diff-only renders), each benchmark clears
+# the renderer's buffer (renderer._last_displayed_buffer = None) before each iteration.
+# This approach measures realistic performance while avoiding diff caching effects.
 from tests.helpers import render_element
 from wijjit.core.app import Wijjit
 from wijjit.core.renderer import Renderer
@@ -35,10 +33,21 @@ pytestmark = pytest.mark.benchmark
 
 
 class TestLayoutPerformance:
-    """Benchmark layout calculation performance."""
+    """Benchmark full render pipeline performance with various layout configurations.
+
+    These benchmarks test the complete rendering pipeline (template parsing,
+    layout calculation, element rendering, and ANSI generation) with different
+    layout structures. Diff rendering is enabled to test production code paths,
+    but buffers are cleared before each iteration to ensure consistent full renders.
+    """
 
     def test_simple_vstack_layout(self, benchmark):
-        """Benchmark simple vertical stack layout calculation.
+        """Benchmark full render pipeline with simple vertical stack layout.
+
+        This benchmarks the complete rendering pipeline including template parsing,
+        layout calculation, element rendering, and ANSI generation. Diff rendering
+        is enabled (production mode), but the buffer is cleared before each iteration
+        to ensure consistent full renders.
 
         Parameters
         ----------
@@ -55,11 +64,18 @@ class TestLayoutPerformance:
 {% endvstack %}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=60, height=20)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=60, height=20)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]  # Should produce output
 
     def test_complex_nested_layout(self, benchmark):
-        """Benchmark complex nested layout calculation.
+        """Benchmark full render pipeline with complex nested layout.
+
+        This benchmarks the complete rendering pipeline with deeply nested
+        layout structures. Tests production code path with diff rendering enabled.
 
         Parameters
         ----------
@@ -89,11 +105,18 @@ class TestLayoutPerformance:
 {% endvstack %}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=80, height=24)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=80, height=24)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]
 
     def test_percentage_based_layout(self, benchmark):
-        """Benchmark percentage-based sizing calculations.
+        """Benchmark full render pipeline with percentage-based sizing.
+
+        Tests layout engine's percentage-based dimension calculations
+        in the full rendering pipeline.
 
         Parameters
         ----------
@@ -109,11 +132,18 @@ class TestLayoutPerformance:
 {% endhstack %}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=100, height=20)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=100, height=20)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]
 
     def test_fill_sizing_calculation(self, benchmark):
-        """Benchmark fill sizing calculations.
+        """Benchmark full render pipeline with fill-based sizing.
+
+        Tests layout engine's fill-based dimension calculations
+        in the full rendering pipeline.
 
         Parameters
         ----------
@@ -130,7 +160,11 @@ class TestLayoutPerformance:
 {% endvstack %}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=60, height=30)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=60, height=30)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]
 
 
@@ -426,7 +460,9 @@ class TestStressTests:
     """Stress tests with extreme parameters."""
 
     def test_very_wide_layout(self, benchmark):
-        """Benchmark layout with very wide dimensions.
+        """Benchmark full render pipeline with very wide dimensions.
+
+        Stress test for rendering performance with unusually wide layouts.
 
         Parameters
         ----------
@@ -440,11 +476,17 @@ class TestStressTests:
 {% endframe %}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=200, height=10)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=200, height=10)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]
 
     def test_very_tall_layout(self, benchmark):
-        """Benchmark layout with very tall dimensions.
+        """Benchmark full render pipeline with very tall dimensions.
+
+        Stress test for rendering performance with unusually tall layouts.
 
         Parameters
         ----------
@@ -458,11 +500,17 @@ class TestStressTests:
 {% endframe %}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=40, height=100)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=40, height=100)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]
 
     def test_many_siblings(self, benchmark):
-        """Benchmark layout with many sibling elements.
+        """Benchmark full render pipeline with many sibling elements.
+
+        Stress test for layout engine with 50 sibling frame elements.
 
         Parameters
         ----------
@@ -481,7 +529,11 @@ class TestStressTests:
 {{% endvstack %}}
         """
 
-        result = benchmark(renderer.render_with_layout, template, width=60, height=100)
+        def render_with_clean_buffer():
+            renderer._last_displayed_buffer = None  # Force full render
+            return renderer.render_with_layout(template, width=60, height=100)
+
+        result = benchmark(render_with_clean_buffer)
         assert result[0]
 
     def test_rapid_state_updates(self, benchmark):

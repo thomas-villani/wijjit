@@ -87,31 +87,6 @@ class TestOverlayTags:
         # Modal should not be in overlay_manager when visible=False
         assert len(app.overlay_manager.overlays) == 0
 
-    def test_overlay_tag_creates_overlay_info(self):
-        """Test that {% overlay %} tag creates overlay info.
-
-        Verifies that generic overlay tag properly creates overlay_info
-        with specified layer type and options.
-        """
-        app = Wijjit()
-        app.state.show_overlay = True
-
-        template = """
-        {% frame width="80" height="24" %}
-            {% overlay id="test_overlay" layer="dropdown" visible="show_overlay" %}
-                Overlay content
-            {% endoverlay %}
-        {% endframe %}
-        """
-
-        output, elements = render_template(app, template)
-
-        # Verify overlay was pushed
-        assert len(app.overlay_manager.overlays) == 1
-        overlay = app.overlay_manager.overlays[0]
-        assert overlay.layer_type == LayerType.DROPDOWN
-        assert overlay.element.id == "test_overlay"
-
     def test_confirmdialog_tag_creates_overlay_info(self):
         """Test that {% confirmdialog %} tag creates overlay info.
 
@@ -235,34 +210,6 @@ class TestOverlayTags:
         app.state.show_modal1 = True
         output, elements = render_template(app, template)
         assert len(app.overlay_manager.overlays) == 2
-
-    def test_overlay_tag_with_tooltip_layer(self):
-        """Test overlay tag with tooltip layer type.
-
-        Verifies that different layer types are properly applied.
-        """
-        app = Wijjit()
-        app.state.show_overlay = True
-
-        template = """
-        {% frame width="80" height="24" %}
-            {% overlay
-                id="custom_overlay"
-                layer="tooltip"
-                visible="show_overlay"
-            %}
-                Custom overlay
-            {% endoverlay %}
-        {% endframe %}
-        """
-
-        output, elements = render_template(app, template)
-
-        # Verify layer type was applied correctly
-        assert len(app.overlay_manager.overlays) == 1
-        overlay = app.overlay_manager.overlays[0]
-        assert overlay.layer_type == LayerType.TOOLTIP
-        assert overlay.element.id == "custom_overlay"
 
 
 class TestRendererOverlayIntegration:
