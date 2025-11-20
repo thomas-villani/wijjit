@@ -12,10 +12,10 @@ High-level flow:
 
     ┌────────────────────┐      ┌────────────────────┐      ┌────────────────────┐
     │  Templates (Jinja) │────▶ │ Layout Engine      │────▶ │ Rendering Pipeline │
-    └────────┬───────────┘      └────────┬──────────┘      └────────┬──────────┘
-             │                            │                           │
-             │   state / data context     │   bounds & elements        │  ANSI cells
-             ▼                            ▼                           ▼
+    └────────┬───────────┘      └────────┬───────────┘      └────────┬───────────┘
+             │                           │                           │
+             │   state / data context    │   bounds & elements       │  ANSI cells
+             ▼                           ▼                           ▼
         ┌──────────┐               ┌──────────┐               ┌────────────────┐
         │  Wijjit  │◀──────────────│ Event    │◀──────────────│ Terminal (PTK) │
         │  core    │  actions/keys │ Loop     │  input events │ Screen/Mouse   │
