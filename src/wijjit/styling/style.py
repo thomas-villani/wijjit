@@ -21,16 +21,16 @@ class Style:
         Foreground RGB color (0-255 each) or None for default terminal color
     bg_color : tuple of (int, int, int) or None, optional
         Background RGB color (0-255 each) or None for default terminal color
-    bold : bool, optional
-        Bold text attribute (default: False)
-    italic : bool, optional
-        Italic text attribute (default: False)
-    underline : bool, optional
-        Underline text attribute (default: False)
-    dim : bool, optional
-        Dim/faint text attribute (default: False)
-    reverse : bool, optional
-        Reverse video (swap fg/bg colors) attribute (default: False)
+    bold : bool or None, optional
+        Bold text attribute. None means unspecified (default: None)
+    italic : bool or None, optional
+        Italic text attribute. None means unspecified (default: None)
+    underline : bool or None, optional
+        Underline text attribute. None means unspecified (default: None)
+    dim : bool or None, optional
+        Dim/faint text attribute. None means unspecified (default: None)
+    reverse : bool or None, optional
+        Reverse video (swap fg/bg colors) attribute. None means unspecified (default: None)
 
     Attributes
     ----------
@@ -38,16 +38,16 @@ class Style:
         Foreground color in RGB
     bg_color : tuple of (int, int, int) or None
         Background color in RGB
-    bold : bool
-        Bold attribute
-    italic : bool
-        Italic attribute
-    underline : bool
-        Underline attribute
-    dim : bool
-        Dim attribute
-    reverse : bool
-        Reverse video attribute
+    bold : bool or None
+        Bold attribute (None = unspecified)
+    italic : bool or None
+        Italic attribute (None = unspecified)
+    underline : bool or None
+        Underline attribute (None = unspecified)
+    dim : bool or None
+        Dim attribute (None = unspecified)
+    reverse : bool or None
+        Reverse video attribute (None = unspecified)
 
     Examples
     --------
@@ -69,6 +69,16 @@ class Style:
     >>> merged.bold
     True
 
+    Disable attributes via merge:
+
+    >>> base = Style(bold=True, italic=True)
+    >>> override = Style(bold=False)  # Explicitly disable bold
+    >>> merged = base.merge(override)
+    >>> merged.bold
+    False
+    >>> merged.italic
+    True
+
     Convert to Cell attributes:
 
     >>> style = Style(fg_color=(255, 0, 0), bold=True)
@@ -81,11 +91,11 @@ class Style:
 
     fg_color: tuple[int, int, int] | None = None
     bg_color: tuple[int, int, int] | None = None
-    bold: bool = False
-    italic: bool = False
-    underline: bool = False
-    dim: bool = False
-    reverse: bool = False
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool | None = None
+    dim: bool | None = None
+    reverse: bool | None = None
 
     def merge(self, other: "Style") -> "Style":
         """Merge another style on top of this one (CSS cascade).
@@ -142,11 +152,13 @@ class Style:
         return Style(
             fg_color=other.fg_color if other.fg_color is not None else self.fg_color,
             bg_color=other.bg_color if other.bg_color is not None else self.bg_color,
-            bold=other.bold or self.bold,
-            italic=other.italic or self.italic,
-            underline=other.underline or self.underline,
-            dim=other.dim or self.dim,
-            reverse=other.reverse or self.reverse,
+            bold=other.bold if other.bold is not None else self.bold,
+            italic=other.italic if other.italic is not None else self.italic,
+            underline=(
+                other.underline if other.underline is not None else self.underline
+            ),
+            dim=other.dim if other.dim is not None else self.dim,
+            reverse=other.reverse if other.reverse is not None else self.reverse,
         )
 
     def to_cell_attrs(self) -> dict[str, Any]:
@@ -184,11 +196,11 @@ class Style:
         return {
             "fg_color": self.fg_color,
             "bg_color": self.bg_color,
-            "bold": self.bold,
-            "italic": self.italic,
-            "underline": self.underline,
-            "reverse": self.reverse,
-            "dim": self.dim,
+            "bold": self.bold if self.bold is not None else False,
+            "italic": self.italic if self.italic is not None else False,
+            "underline": self.underline if self.underline is not None else False,
+            "reverse": self.reverse if self.reverse is not None else False,
+            "dim": self.dim if self.dim is not None else False,
         }
 
     def to_ansi(self) -> str:
@@ -226,7 +238,7 @@ class Style:
         """
         codes = []
 
-        # Text attributes
+        # Text attributes (treat None as False)
         if self.bold:
             codes.append("1")
         if self.dim:
@@ -285,11 +297,11 @@ class Style:
         return (
             self.fg_color is not None
             or self.bg_color is not None
-            or self.bold
-            or self.italic
-            or self.underline
-            or self.dim
-            or self.reverse
+            or (self.bold is not None and self.bold)
+            or (self.italic is not None and self.italic)
+            or (self.underline is not None and self.underline)
+            or (self.dim is not None and self.dim)
+            or (self.reverse is not None and self.reverse)
         )
 
 

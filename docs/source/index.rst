@@ -1,60 +1,48 @@
 Wijjit Documentation
 ====================
 
-**Flask for the Console: A declarative TUI framework for Python**
+Wijjit helps you build rich terminal user interfaces using the same mindset as Flask + Jinja. Views are declared with decorators, layouts use expressive template tags, and the runtime takes care of state, focus, mouse, and rendering.
 
-*Wijjit is Just Jinja in Terminal* (a recursive acronym, like GNU)
+Why Wijjit
+----------
 
-----
-
-Welcome to Wijjit
------------------
-
-Wijjit is a Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns. If you know Flask and Jinja2, you can build rich, interactive console applications with Wijjit.
-
-Key Features
-------------
-
-* **Declarative UI**: Define layouts using Jinja2 templates, not procedural positioning code
-* **Flask-like API**: View decorators, routing, and state management that feels like web development
-* **Rich Component Library**: Pre-built elements for forms, tables, trees, progress indicators, and more
-* **Reactive State Management**: State changes automatically trigger re-renders
-* **Automatic Focus Navigation**: Tab/Shift+Tab navigation between interactive elements
-* **Modal Dialogs**: Built-in confirm, alert, and input dialogs
-* **Layout System**: Flexible frames with stacks (vertical/horizontal), scrolling, and sizing options
-* **Mouse Support**: Click buttons, scroll content, and interact with elements
-* **ANSI-Aware**: Proper handling of colors and styling throughout
+* **Web-style ergonomics** – register routes with ``@app.view`` and bind to state just like Flask or FastAPI.
+* **Jinja-first layout system** – compose frames, stacks, inputs, and display widgets with template tags instead of manual cursor math.
+* **Reactive state** – ``State`` tracks mutations, schedules renders, and keeps elements in sync automatically.
+* **Full interaction model** – keyboard, mouse, focus traversal, overlays, dialogs, and notifications are provided out of the box.
+* **Production features** – 40+ examples, comprehensive tests, and a renderer that understands ANSI styling and terminal constraints.
 
 Quick Example
 -------------
-
-Here's a simple login form in Wijjit:
 
 .. code-block:: python
 
     from wijjit import Wijjit
 
     app = Wijjit(initial_state={
-        'username': '',
-        'password': '',
-        'status': 'Please enter your credentials',
+        "username": "",
+        "password": "",
+        "status": "Please enter your credentials",
     })
 
     @app.view("login", default=True)
     def login_view():
         return {
             "template": """
-    {% frame title="Login" border="single" width=50 height=15 %}
+    {% frame title="Login" border="single" width=50 %}
       {% vstack spacing=1 padding=1 %}
         {{ state.status }}
 
         Username:
-        {% textinput id="username" placeholder="Enter username" %}{% endtextinput %}
+        {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
 
         Password:
-        {% textinput id="password" placeholder="Enter password" %}{% endtextinput %}
+        {% textinput id="password" placeholder="Enter password" width=30 action="login" %}{% endtextinput %}
 
-        {% button action="login" %}Login{% endbutton %}
+        {% hstack spacing=2 %}
+          {% button action="login" %}Login{% endbutton %}
+          {% button action="quit"  %}Quit{% endbutton %}
+        {% endhstack %}
       {% endvstack %}
     {% endframe %}
             """
@@ -62,11 +50,24 @@ Here's a simple login form in Wijjit:
 
     @app.on_action("login")
     def handle_login(event):
-        if app.state['username'] == 'admin':
-            app.state['status'] = 'Welcome!'
+        if app.state["username"] == "admin" and app.state["password"] == "password":
+            app.state["status"] = "Welcome!"
+        else:
+            app.state["status"] = "Try admin/password"
+            app.state["password"] = ""
 
-    if __name__ == '__main__':
+    @app.on_action("quit")
+    def handle_quit(event):
+        app.quit()
+
+    if __name__ == "__main__":
         app.run()
+
+Next steps:
+
+* :doc:`getting_started/quickstart` – walkthrough of views, state, and actions.
+* :doc:`user_guide/core_concepts` – architecture, data flow, and lifecycle.
+* :doc:`examples/index` – gallery of runnable demos.
 
 Documentation Contents
 ----------------------
@@ -90,6 +91,9 @@ Documentation Contents
    user_guide/layout_system
    user_guide/components
    user_guide/modal_dialogs
+   user_guide/focus_navigation
+   user_guide/mouse_support
+   user_guide/styling
 
 .. toctree::
    :maxdepth: 2
@@ -120,31 +124,13 @@ Documentation Contents
 Project Status
 --------------
 
-Wijjit is **production-ready for many use cases**, with the core framework fully implemented and stable. The project is approximately 70-75% complete compared to the original ambitious roadmap.
-
-**Working Features** ✓
-
-* Core App API with view decorator
-* State management with change detection
-* Template rendering with Jinja2
-* Layout engine (VStack, HStack, Frame)
-* All input elements (TextInput, TextArea, Button, Checkbox, Radio, Select)
-* All display elements (Table, Tree, ListView, LogView, Progress, Spinner, Markdown, Code)
-* Focus management with Tab navigation
-* Mouse support (click, scroll, hover)
-* Scrolling system with scrollbars
-* Modal/overlay system with dialogs
-* Event handling and dispatch
-* ANSI-aware text rendering
-* 40+ working examples
-* Comprehensive test suite (85%+ coverage)
+Wijjit is **production-ready for many console applications**. The core framework is stable and already powers advanced layouts, async workflows, and complex widgets. See :doc:`examples/index` for inspiration and :doc:`developer_guide/architecture` for a deeper dive into the runtime pipeline.
 
 Links
 -----
 
 * **GitHub**: https://github.com/yourusername/wijjit
-* **PyPI**: https://pypi.org/project/wijjit/ (coming soon)
-* **Examples**: 40+ examples in the `examples/ <https://github.com/yourusername/wijjit/tree/main/examples>`_ directory
+* **Examples**: `examples/ <https://github.com/yourusername/wijjit/tree/main/examples>`_
 
 Indices and tables
 ==================

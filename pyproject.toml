@@ -24,6 +24,8 @@ dev = [
     "ruff>=0.14.2",
     "syrupy>=4.0.0",
     "sphinx>=8.2.3",
+    "myst-parser>=2.0.0",
+    "sphinx-copybutton>=0.5.2",
 ]
 
 [build-system]

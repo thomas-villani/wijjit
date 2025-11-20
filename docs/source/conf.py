@@ -21,13 +21,32 @@ version = '0.1.0'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',       # Auto-generate API docs from docstrings
-    'sphinx.ext.napoleon',      # Support for NumPy-style docstrings
-    'sphinx.ext.viewcode',      # Add links to source code
-    'sphinx.ext.intersphinx',   # Link to other documentation
-    'sphinx.ext.todo',          # Support for TODO items
-    'sphinx.ext.coverage',      # Check documentation coverage
+    'sphinx.ext.autodoc',         # Auto-generate API docs from docstrings
+    'sphinx.ext.autosummary',     # Summary tables for API reference
+    'sphinx.ext.autosectionlabel',# Unique labels per section
+    'sphinx.ext.duration',        # Report build timings
+    'sphinx.ext.napoleon',        # Support for NumPy-style docstrings
+    'sphinx.ext.viewcode',        # Add links to source code
+    'sphinx.ext.intersphinx',     # Link to other documentation
+    'sphinx.ext.todo',            # Support for TODO items
+    'sphinx.ext.coverage',        # Check documentation coverage
+    'sphinx_copybutton',          # Copy button for code blocks
+    'myst_parser',                # Optional Markdown support
 ]
+
+# Autosummary/autodoc defaults
+autosummary_generate = True
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'special-members': '__init__',
+    'undoc-members': True,
+    'exclude-members': '__weakref__'
+}
+autodoc_typehints = 'description'
+
+# Autosectionlabel configuration
+autosectionlabel_prefix_document = True
 
 # Napoleon settings (for NumPy-style docstrings)
 napoleon_google_docstring = False
@@ -49,22 +68,25 @@ napoleon_attr_annotations = True
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'jinja2': ('https://jinja.palletsprojects.com/en/3.1.x/', None),
+    'prompt_toolkit': ('https://python-prompt-toolkit.readthedocs.io/en/master/', None),
+    'rich': ('https://rich.readthedocs.io/en/stable/', None),
 }
 
-# Autodoc settings
-autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
-    'undoc-members': True,
-    'exclude-members': '__weakref__'
-}
+# MyST configuration
+myst_enable_extensions = [
+    'colon_fence',
+    'deflist',
+]
+myst_heading_anchors = 4
 
 templates_path = ['_templates']
 exclude_patterns = []
 
 # The suffix(es) of source filenames
-source_suffix = '.rst'
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 # The master toctree document
 master_doc = 'index'
@@ -74,6 +96,7 @@ master_doc = 'index'
 
 # Use Read the Docs theme (install with: pip install sphinx-rtd-theme)
 html_theme = 'sphinx_rtd_theme'
+html_title = 'Wijjit Documentation'
 
 # Theme options
 html_theme_options = {

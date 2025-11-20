@@ -1,120 +1,97 @@
 Installation
 ============
 
+Wijjit targets Python 3.11+ and modern terminals (Windows Terminal, iTerm2, Kitty, Alacritty, GNOME Terminal, etc.) with UTF-8 fonts that include box-drawing characters.
+
 Requirements
 ------------
 
-Wijjit requires Python 3.8 or later.
+* Python ``>= 3.11`` (matching ``pyproject.toml``)
+* A virtual environment manager (``uv`` is recommended for reproducible, cached installs)
+* Build dependencies for Rich/Prompt Toolkit (standard on Linux/macOS, ``build-essential`` on Debian/Ubuntu)
 
-Installing from Source
-----------------------
+Install Wijjit
+--------------
 
-Currently, Wijjit is only available from source. To install:
+Using ``uv`` (recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Clone the repository:
+.. code-block:: bash
 
-   .. code-block:: bash
+    git clone https://github.com/yourusername/wijjit.git
+    cd wijjit
+    uv pip install -e .
 
-       git clone https://github.com/yourusername/wijjit.git
-       cd wijjit
+``uv`` will create an isolated environment (``.venv``) and reuse cached wheels for fast rebuilds.
 
-2. Install in development mode:
+Using ``pip``
+~~~~~~~~~~~~~
 
-   Using ``uv`` (recommended):
+.. code-block:: bash
 
-   .. code-block:: bash
+    python -m venv .venv
+    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+    pip install -U pip setuptools wheel
+    pip install -e .
 
-       uv pip install -e .
+Development dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-   Or using ``pip``:
+Install everything needed for tests, linting, types, and documentation:
 
-   .. code-block:: bash
+.. code-block:: bash
 
-       pip install -e .
+    uv pip install -e ".[dev]"
+    # or
+    pip install -e ".[dev]"
+
+This pulls in ``pytest``, ``pytest-cov``, ``ruff``, ``mypy``, ``sphinx``, ``myst-parser``, ``sphinx-copybutton``, and other tools listed in :file:`pyproject.toml`.
+
+Verify your environment
+-----------------------
+
+Run a smoke test and docs build:
+
+.. code-block:: bash
+
+    uv run pytest -m "not slow"
+    uv run python -m wijjit --version  # optional helper
+    uv run make -C docs html           # ensure Sphinx extensions import correctly
+
+You can also launch a demo:
+
+.. code-block:: bash
+
+    uv run python examples/hello_world.py
 
 Dependencies
 ------------
 
-Wijjit has the following core dependencies:
+Core libraries installed automatically:
 
-* **jinja2** (>=3.1.0) - Template engine
-* **prompt-toolkit** (>=3.0) - Cross-platform terminal I/O
-* **rich** (>=13.0) - ANSI rendering and tables
+* ``jinja2`` – template engine for layouts.
+* ``prompt-toolkit`` – keyboard/mouse input, screen buffering.
+* ``rich`` – ANSI rendering utilities and colors.
+* ``pyperclip`` – clipboard integration for text inputs.
 
-Optional dependencies:
+Optional additions in ``.[dev]``:
 
-* **pygments** (>=2.0) - Syntax highlighting for code blocks
-* **sphinx-rtd-theme** - For building documentation
+* ``myst-parser`` – Markdown support in docs.
+* ``sphinx-copybutton`` – quality-of-life improvements for code samples.
+* Testing/tooling stack (pytest, ruff, mypy, syrupy snapshots, etc.).
 
-All dependencies are automatically installed when you install Wijjit.
-
-Development Installation
-------------------------
-
-If you want to contribute to Wijjit, install the development dependencies:
-
-.. code-block:: bash
-
-    # Clone the repository
-    git clone https://github.com/yourusername/wijjit.git
-    cd wijjit
-
-    # Install in development mode with dev dependencies
-    uv pip install -e ".[dev]"
-
-    # Or with pip
-    pip install -e ".[dev]"
-
-This installs additional tools for testing and development:
-
-* **pytest** - Testing framework
-* **pytest-cov** - Coverage reporting
-* **black** - Code formatting
-* **mypy** - Type checking
-* **ruff** - Linting
-
-Verifying Installation
-----------------------
-
-To verify that Wijjit is installed correctly, try running one of the examples:
-
-.. code-block:: bash
-
-    python examples/hello_world.py
-
-You should see a simple "Hello, World!" message in your terminal. Press ``q`` to quit.
-
-Alternative: Run a quick test in Python:
-
-.. code-block:: python
-
-    from wijjit import Wijjit
-
-    app = Wijjit()
-
-    @app.view("main", default=True)
-    def main_view():
-        return {"template": "Wijjit is installed! Press Ctrl+C to exit."}
-
-    app.run()
-
-Platform-Specific Notes
------------------------
+Platform notes
+--------------
 
 Windows
 ~~~~~~~
 
-Wijjit works on Windows using Windows Terminal or the newer Windows Console. Some Unicode box-drawing characters may not display correctly in older terminal emulators.
-
-For best results, use:
-
-* Windows Terminal (recommended)
-* Windows 10/11 with modern console
+Use Windows Terminal or another modern emulator that supports UTF-8 and mouse reporting. Older ``cmd.exe`` shells will not render rounded borders correctly.
 
 Linux
 ~~~~~
 
-Wijjit works out of the box on most Linux distributions. Ensure your terminal supports UTF-8 encoding:
+Ensure locale variables are set:
 
 .. code-block:: bash
 
@@ -124,44 +101,23 @@ Wijjit works out of the box on most Linux distributions. Ensure your terminal su
 macOS
 ~~~~~
 
-Wijjit works well with iTerm2 and the default Terminal.app on macOS.
+iTerm2 offers the best experience (truecolor + inline images). Apple's default Terminal.app is also fully supported.
 
 Troubleshooting
 ---------------
 
-ImportError: No module named 'wijjit'
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``ImportError: No module named 'wijjit'``
+    Confirm the package is installed in editable mode (``pip install -e .``) and that your virtual environment is active.
 
-Make sure you installed Wijjit in development mode with ``-e`` flag:
+Broken borders or glyphs
+    Switch to a font with box-drawing characters (e.g., Fira Code, JetBrains Mono). On Windows, prefer Windows Terminal over ``cmd.exe``.
 
-.. code-block:: bash
+Slow rendering / lag
+    Disable high-frequency animations, trim overly large tables, or run inside a truecolor terminal rather than nested multiplexers.
 
-    pip install -e .
-
-Unicode/Display Issues
-~~~~~~~~~~~~~~~~~~~~~~
-
-If you see broken characters or boxes instead of proper borders:
-
-1. Ensure your terminal supports UTF-8
-2. Check that your terminal font includes box-drawing characters
-3. Try a different terminal emulator
-4. On Windows, use Windows Terminal instead of cmd.exe
-
-Performance Issues
-~~~~~~~~~~~~~~~~~~
-
-For large applications, consider:
-
-* Limiting the number of elements rendered at once
-* Using pagination for large tables/lists
-* Disabling mouse support if not needed
-
-Next Steps
+Next steps
 ----------
 
-Now that you have Wijjit installed, check out:
-
-* :doc:`quickstart` - Build your first Wijjit app
-* :doc:`tutorial` - Step-by-step tutorial building a todo list
-* :doc:`../user_guide/core_concepts` - Learn the core concepts
+* Build your first app in :doc:`quickstart`.
+* Follow the :doc:`tutorial` to assemble a complete todo list with modals.
+* Dive into architectural details in :doc:`../user_guide/core_concepts`.

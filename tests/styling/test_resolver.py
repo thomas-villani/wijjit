@@ -574,3 +574,148 @@ class TestEdgeCases:
         except Exception:
             # If it raises, that's also acceptable behavior
             pass
+
+
+class TestMultiClassResolution:
+    """Test multi-class CSS resolution for elements with multiple stylable parts."""
+
+    def test_element_with_single_style_class(self):
+        """Test element that returns a single style class.
+
+        Returns
+        -------
+        None
+        """
+
+        class SingleClassElement:
+            """Element with single style class."""
+
+            def get_style_classes(self):
+                return ["button"]
+
+        theme = DefaultTheme()
+        resolver = StyleResolver(theme)
+        element = SingleClassElement()
+
+        style = resolver.resolve_style(element)
+
+        # Should use button style from theme
+        assert style.fg_color == (255, 255, 255)
+        assert style.bg_color == (0, 100, 200)
+
+    def test_element_with_multiple_style_classes(self):
+        """Test element with multiple style classes merges correctly.
+
+        Returns
+        -------
+        None
+        """
+
+        class MultiClassElement:
+            """Element with multiple style classes."""
+
+            def get_style_classes(self):
+                return ["menu", "menu.item"]
+
+        # Create custom theme with menu styles
+        menu_styles = {
+            "menu": Style(fg_color=(200, 200, 200)),
+            "menu.item": Style(fg_color=(255, 255, 255)),
+        }
+        theme = Theme("test", menu_styles)
+        resolver = StyleResolver(theme)
+        element = MultiClassElement()
+
+        style = resolver.resolve_style(element)
+
+        # Should use menu.item style (most specific)
+        assert style.fg_color == (255, 255, 255)
+
+    def test_element_with_empty_style_classes_uses_inference(self):
+        """Test element with empty style classes uses automatic inference.
+
+        Returns
+        -------
+        None
+        """
+
+        class EmptyClassElement:
+            """Element that returns empty class list."""
+
+            def get_style_classes(self):
+                return []
+
+            def __class__(self):
+                # Mock class name for inference
+                class MockClass:
+                    __name__ = "Button"
+
+                return MockClass
+
+        theme = DefaultTheme()
+        resolver = StyleResolver(theme)
+        element = EmptyClassElement()
+
+        # Should fall back to inference
+        style = resolver.resolve_style(element, "button")
+        assert style is not None
+
+    def test_multi_class_with_pseudo_classes(self):
+        """Test that pseudo-classes apply to the most specific class.
+
+        Returns
+        -------
+        None
+        """
+
+        class MultiClassFocusableElement:
+            """Element with multiple classes and focus state."""
+
+            focused = True
+
+            def get_style_classes(self):
+                return ["menu", "menu.item"]
+
+        menu_styles = {
+            "menu": Style(fg_color=(200, 200, 200)),
+            "menu.item": Style(fg_color=(255, 255, 255)),
+            "menu.item:focus": Style(bold=True),
+        }
+        theme = Theme("test", menu_styles)
+        resolver = StyleResolver(theme)
+        element = MultiClassFocusableElement()
+
+        style = resolver.resolve_style(element)
+
+        # Should use menu.item:focus for focused state
+        assert style.fg_color == (255, 255, 255)
+        assert style.bold is True
+
+    def test_multi_class_merge_order(self):
+        """Test that multiple classes merge in correct order (least to most specific).
+
+        Returns
+        -------
+        None
+        """
+
+        class StatusBarElement:
+            """Element simulating statusbar with multiple sections."""
+
+            def get_style_classes(self):
+                return ["statusbar", "statusbar.left"]
+
+        statusbar_styles = {
+            "statusbar": Style(fg_color=(255, 255, 255), bg_color=(0, 100, 200)),
+            "statusbar.left": Style(bold=True),  # More specific adds bold
+        }
+        theme = Theme("test", statusbar_styles)
+        resolver = StyleResolver(theme)
+        element = StatusBarElement()
+
+        style = resolver.resolve_style(element)
+
+        # Should have colors from statusbar and bold from statusbar.left
+        assert style.fg_color == (255, 255, 255)
+        assert style.bg_color == (0, 100, 200)
+        assert style.bold is True

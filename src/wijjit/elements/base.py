@@ -70,6 +70,33 @@ class Element(ABC):
             None  # State key for highlight persistence
         )
 
+    def get_style_classes(self) -> list[str]:
+        """Get list of CSS class names for styling this element.
+
+        Returns
+        -------
+        list of str
+            CSS class names in order of specificity (least to most specific).
+            Empty list means use automatic inference from element type.
+
+        Notes
+        -----
+        Elements with multiple stylable parts can override this to return
+        multiple class names. For example, a menu might return ["menu", "menu.item"]
+        to enable styling both the menu container and individual items.
+
+        The StyleResolver will merge styles from all classes in order, so later
+        classes override earlier ones.
+
+        Examples
+        --------
+        StatusBar returns multiple classes for different sections:
+
+        >>> def get_style_classes(self):
+        ...     return ["statusbar", "statusbar.left"]
+        """
+        return []
+
     @abstractmethod
     def render_to(self, ctx: PaintContext) -> None:
         """Render the element to a cell-based buffer.

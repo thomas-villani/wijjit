@@ -792,12 +792,14 @@ class ThemeManager:
 
     def __init__(self) -> None:
         self.themes: dict[str, Theme] = {}
-        self.current_theme: Theme = DefaultTheme()
 
         # Register built-in themes
         self.register_theme(DefaultTheme())
         self.register_theme(DarkTheme())
         self.register_theme(LightTheme())
+
+        # Point to registered default theme so mutations persist
+        self.current_theme: Theme = self.themes["default"]
 
     def register_theme(self, theme: Theme) -> None:
         """Register a theme.

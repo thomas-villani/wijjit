@@ -24,11 +24,11 @@ class TestStyleCreation:
         style = Style()
         assert style.fg_color is None
         assert style.bg_color is None
-        assert style.bold is False
-        assert style.italic is False
-        assert style.underline is False
-        assert style.dim is False
-        assert style.reverse is False
+        assert style.bold is None
+        assert style.italic is None
+        assert style.underline is None
+        assert style.dim is None
+        assert style.reverse is None
 
     def test_style_with_colors(self):
         """Test creating style with RGB colors.
@@ -52,8 +52,8 @@ class TestStyleCreation:
         assert style.bold is True
         assert style.italic is True
         assert style.underline is True
-        assert style.dim is False
-        assert style.reverse is False
+        assert style.dim is None
+        assert style.reverse is None
 
     def test_style_with_all_attributes(self):
         """Test creating style with all attributes set.
@@ -96,7 +96,7 @@ class TestStyleMerge:
 
         assert merged.fg_color is None
         assert merged.bg_color is None
-        assert merged.bold is False
+        assert merged.bold is None
 
     def test_merge_colors_override(self):
         """Test that colors from override replace base colors.
@@ -126,7 +126,7 @@ class TestStyleMerge:
         assert merged.bg_color == (0, 0, 255)  # Preserved from base
 
     def test_merge_attributes_combine(self):
-        """Test that boolean attributes combine via OR.
+        """Test that boolean attributes combine correctly.
 
         Returns
         -------
@@ -138,21 +138,36 @@ class TestStyleMerge:
 
         assert merged.bold is True  # From base
         assert merged.italic is True  # From override
-        assert merged.underline is False  # Neither set
+        assert merged.underline is None  # Neither specified
 
-    def test_merge_attributes_or_behavior(self):
-        """Test that attributes use OR logic (True wins).
+    def test_merge_can_disable_attributes(self):
+        """Test that attributes can be explicitly disabled via merge.
+
+        Returns
+        -------
+        None
+        """
+        base = Style(bold=True, italic=True, underline=True)
+        override = Style(bold=False)  # Explicitly disable bold
+        merged = base.merge(override)
+
+        assert merged.bold is False  # Explicitly disabled
+        assert merged.italic is True  # Preserved from base
+        assert merged.underline is True  # Preserved from base
+
+    def test_merge_unspecified_attributes_preserve_base(self):
+        """Test that unspecified (None) attributes preserve base values.
 
         Returns
         -------
         None
         """
         base = Style(bold=True, italic=False)
-        override = Style(bold=False, italic=True)
+        override = Style()  # All attributes are None (unspecified)
         merged = base.merge(override)
 
-        assert merged.bold is True  # True OR False = True
-        assert merged.italic is True  # False OR True = True
+        assert merged.bold is True  # Preserved from base
+        assert merged.italic is False  # Preserved from base
 
     def test_merge_complex(self):
         """Test merging complex styles with colors and attributes.

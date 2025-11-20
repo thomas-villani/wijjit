@@ -121,37 +121,54 @@ class StyleResolver:
         >>> style.fg_color
         (255, 255, 0)
         """
-        # Start with base class style
-        if base_class is None:
-            # Try to infer from element type
-            base_class = self._infer_class_from_element(element)
+        # Get class names to apply
+        if base_class is not None:
+            # Explicit base_class provided, use it
+            class_names = [base_class]
+        elif hasattr(element, "get_style_classes"):
+            # Element provides its own class names
+            class_names = element.get_style_classes()
+            if not class_names:
+                # Empty list means use automatic inference
+                class_names = [self._infer_class_from_element(element)]
+        else:
+            # Fall back to automatic inference
+            class_names = [self._infer_class_from_element(element)]
 
-        style = self.theme.get_style(base_class)
+        # Merge base styles from all classes in order
+        style = Style()
+        for class_name in class_names:
+            class_style = self.theme.get_style(class_name)
+            if class_style:
+                style = style.merge(class_style)
 
         # Apply pseudo-class styles based on element state
+        # Use the last class name (most specific) for pseudo-classes
+        primary_class = class_names[-1] if class_names else ""
+
         if hasattr(element, "focused") and element.focused:
-            focus_style = self.theme.get_style(f"{base_class}:focus")
+            focus_style = self.theme.get_style(f"{primary_class}:focus")
             if focus_style:
                 style = style.merge(focus_style)
 
         if hasattr(element, "hovered") and element.hovered:
-            hover_style = self.theme.get_style(f"{base_class}:hover")
+            hover_style = self.theme.get_style(f"{primary_class}:hover")
             if hover_style:
                 style = style.merge(hover_style)
 
         if hasattr(element, "disabled") and element.disabled:
-            disabled_style = self.theme.get_style(f"{base_class}:disabled")
+            disabled_style = self.theme.get_style(f"{primary_class}:disabled")
             if disabled_style:
                 style = style.merge(disabled_style)
 
         # Additional state-specific pseudo-classes
         if hasattr(element, "checked") and element.checked:
-            checked_style = self.theme.get_style(f"{base_class}:checked")
+            checked_style = self.theme.get_style(f"{primary_class}:checked")
             if checked_style:
                 style = style.merge(checked_style)
 
         if hasattr(element, "selected") and element.selected:
-            selected_style = self.theme.get_style(f"{base_class}:selected")
+            selected_style = self.theme.get_style(f"{primary_class}:selected")
             if selected_style:
                 style = style.merge(selected_style)
 

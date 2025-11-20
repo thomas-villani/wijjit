@@ -609,6 +609,32 @@ class TestThemeManager:
         manager.set_theme("default")
         assert manager.get_theme().name == "default"
 
+    def test_theme_mutations_persist_across_switches(self):
+        """Test that mutations to themes persist when switching.
+
+        Returns
+        -------
+        None
+        """
+        manager = ThemeManager()
+
+        # Mutate the default theme
+        custom_style = Style(fg_color=(123, 45, 67), bold=True)
+        manager.get_theme().set_style("custom_element", custom_style)
+
+        # Switch to dark theme
+        manager.set_theme("dark")
+        assert manager.get_theme().name == "dark"
+
+        # Switch back to default
+        manager.set_theme("default")
+        assert manager.get_theme().name == "default"
+
+        # Verify mutation persists
+        style = manager.get_theme().get_style("custom_element")
+        assert style.fg_color == (123, 45, 67)
+        assert style.bold is True
+
 
 class TestThemeConsistency:
     """Test that all themes have consistent style coverage."""
