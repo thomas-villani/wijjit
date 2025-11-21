@@ -54,19 +54,15 @@ def main_view():
     """
     return {
         "template": """
-{% frame title="Application Preferences" border="double" width=90 height=38 %}
-  {% vstack spacing=1 padding=1 %}
-    {% vstack spacing=0 %}
-      {{ state.status }}
-    {% endvstack %}
+{% frame title="Application Preferences" border="double" width=90 height=45 %}
+  {% vstack spacing=1 padding=0 %}
+    {{ state.status }}
 
     {% hstack spacing=2 align_v="top" %}
-      {% vstack spacing=1 width=28 %}
+      {% vstack spacing=0 width=28 %}
         {% frame title="Appearance" border="single" width="fill" %}
-          {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              Theme:
-            {% endvstack %}
+          {% vstack spacing=1 padding=0 %}
+            Theme:
 
             {% radiogroup id="theme" orientation="vertical" %}
               {% radio value="blue" %}Blue{% endradio %}
@@ -75,9 +71,7 @@ def main_view():
               {% radio value="red" %}Red{% endradio %}
             {% endradiogroup %}
 
-            {% vstack spacing=0 %}
-              Options:
-            {% endvstack %}
+            Options:
 
             {% checkbox id="dark_mode" label="Dark mode" %}{% endcheckbox %}
             {% checkbox id="show_line_numbers" label="Show line numbers" %}{% endcheckbox %}
@@ -88,10 +82,8 @@ def main_view():
 
       {% vstack spacing=1 width=28 %}
         {% frame title="Editor" border="single" width="fill" %}
-          {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              Font Size:
-            {% endvstack %}
+          {% vstack spacing=1 padding=0 %}
+            Font Size:
 
             {% radiogroup id="font_size" orientation="vertical" %}
               {% radio value="small" %}Small (10pt){% endradio %}
@@ -100,9 +92,7 @@ def main_view():
               {% radio value="xlarge" %}X-Large (16pt){% endradio %}
             {% endradiogroup %}
 
-            {% vstack spacing=0 %}
-              Indent Size:
-            {% endvstack %}
+            Indent Size:
 
             {% radiogroup id="indent_size" orientation="horizontal" %}
               {% radio value="2" %}2{% endradio %}
@@ -110,9 +100,7 @@ def main_view():
               {% radio value="8" %}8{% endradio %}
             {% endradiogroup %}
 
-            {% vstack spacing=0 %}
-              Features:
-            {% endvstack %}
+            Features:
 
             {% checkbox id="auto_save" label="Auto-save files" %}{% endcheckbox %}
             {% checkbox id="auto_complete" label="Auto-complete" %}{% endcheckbox %}
@@ -122,34 +110,28 @@ def main_view():
 
       {% vstack spacing=1 width=28 %}
         {% frame title="Notifications" border="single" width="fill" %}
-          {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              Alert Channels:
-            {% endvstack %}
+          {% vstack spacing=1 padding=0 %}
+            Alert Channels:
 
             {% checkbox id="email_notifications" label="Email notifications" %}{% endcheckbox %}
             {% checkbox id="desktop_notifications" label="Desktop notifications" %}{% endcheckbox %}
             {% checkbox id="sound_alerts" label="Sound alerts" %}{% endcheckbox %}
 
-            {% vstack spacing=0 %}
-              Tip: Enable at least one
-              notification channel to
-              stay informed about
-              important events.
-            {% endvstack %}
+            Tip: Enable at least one
+            notification channel to
+            stay informed about
+            important events.
           {% endvstack %}
         {% endframe %}
       {% endvstack %}
     {% endhstack %}
 
     {% if state.saved %}
-      {% vstack spacing=0 %}
-        Current Settings:
-        - Theme: {{ state.theme|capitalize }} | Dark: {{ 'Yes' if state.dark_mode else 'No' }}
-        - Font: {{ state.font_size|capitalize }} | Indent: {{ state.indent_size }} spaces
-        - Auto-save: {{ 'On' if state.auto_save else 'Off' }} | Word wrap: {{ 'On' if state.word_wrap else 'Off' }}
-        - Notifications: Email={{ 'On' if state.email_notifications else 'Off' }}, Desktop={{ 'On' if state.desktop_notifications else 'Off' }}
-      {% endvstack %}
+      Current Settings:
+      - Theme: {{ state.theme|capitalize }} | Dark: {{ 'Yes' if state.dark_mode else 'No' }}
+      - Font: {{ state.font_size|capitalize }} | Indent: {{ state.indent_size }} spaces
+      - Auto-save: {{ 'On' if state.auto_save else 'Off' }} | Word wrap: {{ 'On' if state.word_wrap else 'Off' }}
+      - Notifications: Email={{ 'On' if state.email_notifications else 'Off' }}, Desktop={{ 'On' if state.desktop_notifications else 'Off' }}
     {% endif %}
 
     {% hstack spacing=2 %}
@@ -158,9 +140,7 @@ def main_view():
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
 
-    {% vstack spacing=0 %}
-      Controls: [Tab/Shift+Tab] Navigate | [Space] Toggle | [Enter] Activate | [q] Quit
-    {% endvstack %}
+    Controls: [Tab/Shift+Tab] Navigate | [Space] Toggle | [Enter] Activate | [q] Quit
   {% endvstack %}
 {% endframe %}
         """,

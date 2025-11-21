@@ -12,7 +12,7 @@ from wijjit.elements.display.table import Table
 from wijjit.elements.display.tree import Tree
 from wijjit.layout.engine import ElementNode
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import LayoutContext, process_body_content
+from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -218,8 +218,8 @@ class TableExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class TreeExtension(Extension):
@@ -532,8 +532,8 @@ class TreeExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class ProgressBarExtension(Extension):
@@ -694,7 +694,8 @@ class ProgressBarExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class SpinnerExtension(Extension):
@@ -864,7 +865,8 @@ class SpinnerExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class MarkdownExtension(Extension):
@@ -1062,7 +1064,8 @@ class MarkdownExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class CodeBlockExtension(Extension):
@@ -1297,7 +1300,8 @@ class CodeBlockExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class LogViewExtension(Extension):
@@ -1562,7 +1566,8 @@ class LogViewExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class ListViewExtension(Extension):
@@ -1812,7 +1817,8 @@ class ListViewExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class ModalExtension(Extension):

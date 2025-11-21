@@ -13,7 +13,7 @@ from wijjit.elements.input.text import TextArea, TextInput
 from wijjit.layout.engine import ElementNode
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import LayoutContext
+from wijjit.tags.layout import LayoutContext, get_element_marker
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -148,8 +148,8 @@ class TextInputExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class ButtonExtension(Extension):
@@ -251,8 +251,8 @@ class ButtonExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class SelectExtension(Extension):
@@ -481,8 +481,8 @@ class SelectExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
     def _parse_options_from_body(self, body: str) -> list[Any]:
         """Parse options from template body content.
@@ -615,7 +615,8 @@ class CheckboxExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class RadioExtension(Extension):
@@ -724,7 +725,8 @@ class RadioExtension(Extension):
         # Consume body (should be empty)
         caller()
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)
 
 
 class CheckboxGroupExtension(Extension):
@@ -867,10 +869,14 @@ class CheckboxGroupExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Save marker now, before any nested elements are processed
+        my_marker = get_element_marker(context)
+
         # Consume body (should be empty)
         caller()
 
-        return ""
+        # Return marker for text interleaving (saved before processing body)
+        return my_marker
 
 
 class RadioGroupExtension(Extension):
@@ -1016,8 +1022,31 @@ class RadioGroupExtension(Extension):
             # Add to layout context
             context.add_element(node)
 
+            # Return marker immediately for non-nested radiogroups
+            return get_element_marker(context)
+
+        # Handle nested radios (with or without frame)
+        if using_nested_radios and not using_frame:
+            # For nested radios without a frame, create a VStack container
+            from wijjit.layout.engine import VStack
+
+            vstack_container = VStack(
+                children=[],
+                width="auto",
+                height="auto",
+                spacing=0,
+                padding=0,
+                margin=0,
+                align_h="stretch",
+                align_v="stretch",
+                id=None,
+            )
+
+            # Push container onto stack so nested radios are added to it
+            context.push(vstack_container)
+
         # For nested radios with borders/titles, create a frame container
-        if using_frame:
+        elif using_frame:
             from wijjit.layout.engine import FrameNode
             from wijjit.layout.frames import BorderStyle as BS
             from wijjit.layout.frames import Frame, FrameStyle
@@ -1085,11 +1114,12 @@ class RadioGroupExtension(Extension):
             else:
                 self.environment.globals.pop("_wijjit_radiogroup_name", None)
 
-            # Pop frame from layout context if we created one
-            if using_frame:
+            # Pop container from layout context if we created one
+            if using_nested_radios:
                 context.pop()
 
-        return ""
+        # Return marker for text interleaving (get after popping so parent is on top of stack)
+        return get_element_marker(context)
 
 
 class TextAreaExtension(Extension):
@@ -1306,4 +1336,5 @@ class TextAreaExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(context)

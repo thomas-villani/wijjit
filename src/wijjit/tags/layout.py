@@ -1,4 +1,6 @@
 # ${DIR_PATH}/${FILE_NAME}
+from __future__ import annotations
+
 import textwrap
 from ast import literal_eval
 from collections.abc import Callable
@@ -40,6 +42,94 @@ def process_body_content(body_output: str, raw: bool = False) -> str:
     else:
         # Default mode: dedent and strip
         return textwrap.dedent(body_output).strip()
+
+
+def interleave_text_and_elements(
+    body_output: str,
+    children: list[LayoutNode],
+    raw: bool = False
+) -> list[LayoutNode]:
+    """Interleave text content with child elements based on markers.
+
+    Child elements insert markers like '\x00ELEM_0\x00' into body_output
+    to indicate their position in the template source. This function
+    parses those markers and rebuilds the children list with text
+    elements interleaved at the correct positions.
+
+    Parameters
+    ----------
+    body_output : str
+        Template body output containing text and element markers
+    children : list[LayoutNode]
+        Child elements that were added (in order they were added)
+    raw : bool, optional
+        If True, preserve whitespace in text. If False, dedent/strip (default: False)
+
+    Returns
+    -------
+    list[LayoutNode]
+        New children list with text and elements properly interleaved
+    """
+    import re
+
+    # Pattern to match element markers (with capture group for digit extraction)
+    marker_pattern = r'\x00ELEM_(\d+)\x00'
+
+    # Pattern for splitting (without capture group to avoid nested groups)
+    split_pattern = r'(\x00ELEM_\d+\x00)'
+
+    # Split body_output on markers, keeping the markers
+    parts = re.split(split_pattern, body_output)
+
+    result: list[LayoutNode] = []
+
+    for part in parts:
+        # Check if this is a marker
+        marker_match = re.match(marker_pattern, part)
+        if marker_match:
+            # This is an element marker
+            elem_index = int(marker_match.group(1))
+            if 0 <= elem_index < len(children):
+                result.append(children[elem_index])
+        else:
+            # This is text content
+            processed_text = process_body_content(part, raw=raw)
+            if processed_text:
+                text_elem = TextElement(processed_text, wrap=not raw)
+                text_node = ElementNode(text_elem, width="auto", height="auto")
+                result.append(text_node)
+
+    return result
+
+
+def get_element_marker(layout_context: LayoutContext) -> str:
+    """Get marker for element that was just added to layout context.
+
+    This should be called after add_element() to get the marker string
+    for the element that was just added. The marker indicates the element's
+    position in the parent's children list.
+
+    Parameters
+    ----------
+    layout_context : LayoutContext
+        Layout context
+
+    Returns
+    -------
+    str
+        Marker string to return from element extension (e.g., '\x00ELEM_0\x00')
+    """
+    if layout_context.stack:
+        parent = layout_context.stack[-1]
+        # Get the actual children list (FrameNode uses content_container.children)
+        if hasattr(parent, 'content_container'):
+            children_list = parent.content_container.children
+        else:
+            children_list = parent.children
+        # Get index of element that was just added
+        elem_index = len(children_list) - 1
+        return f"\x00ELEM_{elem_index}\x00"
+    return ""
 
 
 class LayoutContext:
@@ -341,24 +431,18 @@ class VStackExtension(Extension):
         # Push onto stack
         layout_context.push(vstack)
 
-        # Render body
+        # Render body - nested elements will add themselves to vstack.children
+        # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement
-        # Text is appended to maintain source order
-        processed_text = process_body_content(body_output, raw=raw)
-        if processed_text:
-            # When raw=True, disable text wrapping
-            text_elem = TextElement(processed_text, wrap=not raw)
-            text_node = ElementNode(text_elem, width="auto", height="auto")
-            # Append to maintain source order
-            vstack.children.append(text_node)
+        # Interleave text and elements in source order using markers
+        vstack.children = interleave_text_and_elements(body_output, vstack.children, raw=raw)
 
         # Pop from stack
         layout_context.pop()
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(layout_context)
 
 
 class HStackExtension(Extension):
@@ -546,24 +630,18 @@ class HStackExtension(Extension):
         # Push onto stack
         layout_context.push(hstack)
 
-        # Render body
+        # Render body - nested elements will add themselves to hstack.children
+        # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # If body contains non-whitespace text, create TextElement
-        # Text is appended to maintain source order
-        processed_text = process_body_content(body_output, raw=raw)
-        if processed_text:
-            # When raw=True, disable text wrapping
-            text_elem = TextElement(processed_text, wrap=not raw)
-            text_node = ElementNode(text_elem, width="auto", height="auto")
-            # Append to maintain source order
-            hstack.children.append(text_node)
+        # Interleave text and elements in source order using markers
+        hstack.children = interleave_text_and_elements(body_output, hstack.children, raw=raw)
 
         # Pop from stack
         layout_context.pop()
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(layout_context)
 
 
 class FrameExtension(Extension):
@@ -726,7 +804,7 @@ class FrameExtension(Extension):
         # Parse padding - could be int or tuple string like "(1,2,3,4)"
         padding_parsed: tuple[int, int, int, int]
         if padding is None:
-            padding_parsed = (1, 1, 1, 1)  # Default padding
+            padding_parsed = (0, 1, 0, 1)  # Default padding: horizontal only
         elif isinstance(padding, int):
             padding_parsed = (padding, padding, padding, padding)
         elif isinstance(padding, str) and padding.startswith("("):
@@ -844,25 +922,24 @@ class FrameExtension(Extension):
         # Push onto stack
         layout_context.push(frame_node)
 
-        # Render body
+        # Render body - nested elements will add themselves to frame_node.content_container.children
+        # and insert markers in body_output to indicate their positions
         body_output = caller()
 
         # Handle text content in frame
-        processed_text = process_body_content(body_output, raw=raw)
-        if processed_text:
-            # If frame has no child elements, use Frame's set_content (handles overflow_x)
-            # Otherwise, add text as a child element alongside other elements
-            if not frame_node.content_container.children:
-                # No children - set content directly on Frame for overflow_x handling
+        if not frame_node.content_container.children and body_output.strip():
+            # No children and has text - set content directly on Frame for overflow_x handling
+            processed_text = process_body_content(body_output, raw=raw)
+            if processed_text:
                 frame.set_content(processed_text)
-            else:
-                # Has children - add text as first child element
-                text_elem = TextElement(processed_text)
-                text_node = ElementNode(text_elem, width="auto", height="auto")
-                frame_node.content_container.children.insert(0, text_node)
+        else:
+            # Has children or markers - interleave text and elements in source order
+            frame_node.content_container.children = interleave_text_and_elements(
+                body_output, frame_node.content_container.children, raw=raw
+            )
 
         # Pop from stack
         layout_context.pop()
 
-        # Return empty string (layout will be processed later)
-        return ""
+        # Return marker for text interleaving
+        return get_element_marker(layout_context)
