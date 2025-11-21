@@ -1,0 +1,165 @@
+{
+  "sample": "\u001b[1;38;2;255;200;0mWARN\u001b[0m text \u001b[3;4;48;2;20;40;60;38;2;180;220;255mNOTE\u001b[0m",
+  "cells": [
+    {
+      "char": "W",
+      "fg_color": [
+        255,
+        200,
+        0
+      ],
+      "bg_color": null,
+      "bold": true,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "A",
+      "fg_color": [
+        255,
+        200,
+        0
+      ],
+      "bg_color": null,
+      "bold": true,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "R",
+      "fg_color": [
+        255,
+        200,
+        0
+      ],
+      "bg_color": null,
+      "bold": true,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "N",
+      "fg_color": [
+        255,
+        200,
+        0
+      ],
+      "bg_color": null,
+      "bold": true,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": " ",
+      "fg_color": null,
+      "bg_color": null,
+      "bold": false,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "t",
+      "fg_color": null,
+      "bg_color": null,
+      "bold": false,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "e",
+      "fg_color": null,
+      "bg_color": null,
+      "bold": false,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "x",
+      "fg_color": null,
+      "bg_color": null,
+      "bold": false,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "t",
+      "fg_color": null,
+      "bg_color": null,
+      "bold": false,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": " ",
+      "fg_color": null,
+      "bg_color": null,
+      "bold": false,
+      "italic": false,
+      "underline": false
+    },
+    {
+      "char": "N",
+      "fg_color": [
+        180,
+        220,
+        255
+      ],
+      "bg_color": [
+        20,
+        40,
+        60
+      ],
+      "bold": false,
+      "italic": true,
+      "underline": true
+    },
+    {
+      "char": "O",
+      "fg_color": [
+        180,
+        220,
+        255
+      ],
+      "bg_color": [
+        20,
+        40,
+        60
+      ],
+      "bold": false,
+      "italic": true,
+      "underline": true
+    },
+    {
+      "char": "T",
+      "fg_color": [
+        180,
+        220,
+        255
+      ],
+      "bg_color": [
+        20,
+        40,
+        60
+      ],
+      "bold": false,
+      "italic": true,
+      "underline": true
+    },
+    {
+      "char": "E",
+      "fg_color": [
+        180,
+        220,
+        255
+      ],
+      "bg_color": [
+        20,
+        40,
+        60
+      ],
+      "bold": false,
+      "italic": true,
+      "underline": true
+    }
+  ]
+}

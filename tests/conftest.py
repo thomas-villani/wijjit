@@ -18,6 +18,22 @@ from wijjit.layout.frames import Frame, FrameStyle
 from wijjit.terminal.input import Keys
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register custom pytest options for the test suite."""
+    parser.addoption(
+        "--golden-update",
+        action="store_true",
+        default=False,
+        help="Regenerate golden fixtures instead of asserting against them.",
+    )
+
+
+@pytest.fixture(scope="session")
+def golden_update(pytestconfig: pytest.Config) -> bool:
+    """Whether golden fixtures should be regenerated during this test session."""
+    return bool(pytestconfig.getoption("--golden-update"))
+
+
 class MockElement(Element):
     """Mock element for testing layout and rendering.
 
