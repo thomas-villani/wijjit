@@ -12,7 +12,7 @@ from wijjit.terminal.ansi import (
     visible_length,
 )
 from wijjit.terminal.input import Key, Keys
-from wijjit.terminal.mouse import MouseEvent, MouseEventType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -137,12 +137,29 @@ class Checkbox(Element):
         bool
             True if event was handled
         """
-        # Toggle on click or double-click
+        # Toggle on left click or double-click
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
-            self.toggle()
-            return True
+            if event.button == MouseButton.LEFT:
+                self.toggle()
+                return True
 
         return False
+
+    async def handle_mouse_async(self, event: MouseEvent) -> bool:
+        """Handle mouse input (asynchronous).
+
+        Parameters
+        ----------
+        event : MouseEvent
+            Mouse event to handle
+
+        Returns
+        -------
+        bool
+            True if event was handled
+        """
+        # Delegate to synchronous handler
+        return self.handle_mouse(event)
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render checkbox using cell-based rendering.

@@ -75,5 +75,5 @@ Testing & verification
 Where to go next
 ----------------
 
-* Browse ``examples/theme_switcher.py`` (upcoming) for a live theme palette with hot swapping.
+* Browse ``examples/advanced/preferences_demo.py`` for a live settings palette with theme + typography toggles.
 * Pair styling knowledge with :doc:`components` to craft cohesive layouts, and revisit :doc:`state_management` to drive theme toggles from user settings.

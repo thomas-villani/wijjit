@@ -62,7 +62,7 @@ You can also launch a demo:
 
 .. code-block:: bash
 
-    uv run python examples/hello_world.py
+    uv run python examples/basic/hello_world.py
 
 Dependencies
 ------------

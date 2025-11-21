@@ -657,7 +657,7 @@ class RadioExtension(Extension):
     def _render_radio(
         self,
         caller: Any,
-        name: str,
+        name: str | None = None,
         id: str | None = None,
         label: str = "",
         checked: bool = False,
@@ -675,6 +675,17 @@ class RadioExtension(Extension):
         if id is None:
             id = context.generate_id("radio")
 
+        # Get label from body content if not provided as parameter
+        if not label:
+            label = caller().strip()
+        else:
+            # Still need to consume body
+            caller()
+
+        # If name not provided, try to get it from radiogroup context
+        if name is None:
+            name = self.environment.globals.get("_wijjit_radiogroup_name")
+
         # If binding is enabled, try to get checked state from state[name]
         if bind and name:
             try:
@@ -688,7 +699,7 @@ class RadioExtension(Extension):
                 logger.warning(f"Failed to restore state for radio '{name}': {e}")
 
         # Create Radio element
-        radio = Radio(name=name, id=id, label=label, checked=checked, value=value)
+        radio = Radio(name=name or "", id=id, label=label, checked=checked, value=value)
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -904,7 +915,7 @@ class RadioGroupExtension(Extension):
     def _render_radiogroup(
         self,
         caller: Any,
-        name: str,
+        name: str | None = None,
         id: str | None = None,
         options: list[Any] | None = None,
         selected: str | None = None,
@@ -930,6 +941,10 @@ class RadioGroupExtension(Extension):
         if id is None:
             id = context.generate_id("radiogroup")
 
+        # If name not provided, use id as the state binding key
+        if name is None:
+            name = id
+
         # If binding is enabled, try to get selected value from state[name]
         if bind and name:
             try:
@@ -947,57 +962,132 @@ class RadioGroupExtension(Extension):
         elif not isinstance(options, list):
             options = list(options)
 
-        # Create RadioGroup element
-        radio_group = RadioGroup(
-            name=name,
-            id=id,
-            options=options,
-            selected_value=selected,
-            width=width,
-            orientation=orientation,
-            border_style=border_style,
-            title=title,
-        )
+        # Determine if using nested radio tags (no options provided)
+        using_nested_radios = len(options) == 0
+        using_frame = using_nested_radios and (border_style is not None or title is not None)
 
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            radio_group.focused = True
+        if not using_nested_radios:
+            # Create RadioGroup element with provided options
+            radio_group = RadioGroup(
+                name=name,
+                id=id,
+                options=options,
+                selected_value=selected,
+                width=width,
+                orientation=orientation,
+                border_style=border_style,
+                title=title,
+            )
 
-        # Store action ID if provided
-        if action:
-            radio_group.action = action
+            # Check if this element should be focused
+            focused_id = self.environment.globals.get("_wijjit_focused_id")
+            if focused_id and id and focused_id == id:
+                radio_group.focused = True
 
-        # Store bind setting
-        radio_group.bind = bind
+            # Store action ID if provided
+            if action:
+                radio_group.action = action
 
-        # Restore highlighted_index from state if available
-        if id:
-            highlight_key = f"_highlight_{id}"
-            radio_group.highlight_state_key = highlight_key
-            try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if highlight_key in state:
-                        radio_group.highlighted_index = state[highlight_key]
-            except Exception as e:
-                logger.warning(
-                    f"Failed to restore highlight state for radio_group '{id}': {e}"
-                )
+            # Store bind setting
+            radio_group.bind = bind
 
-        # Create ElementNode
-        # Calculate total height accounting for borders
-        total_height = len(options) + (2 if border_style is not None else 0)
-        total_width = width + (2 if border_style is not None else 0)
+            # Restore highlighted_index from state if available
+            if id:
+                highlight_key = f"_highlight_{id}"
+                radio_group.highlight_state_key = highlight_key
+                try:
+                    ctx = self.environment.globals.get("_wijjit_current_context")
+                    if ctx and "state" in ctx:
+                        state = ctx["state"]
+                        if highlight_key in state:
+                            radio_group.highlighted_index = state[highlight_key]
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to restore highlight state for radio_group '{id}': {e}"
+                    )
 
-        node = ElementNode(radio_group, width=total_width, height=total_height)
+            # Create ElementNode
+            # Calculate total height accounting for borders
+            total_height = len(options) + (2 if border_style is not None else 0)
+            total_width = width + (2 if border_style is not None else 0)
 
-        # Add to layout context
-        context.add_element(node)
+            node = ElementNode(radio_group, width=total_width, height=total_height)
 
-        # Consume body (should be empty)
-        caller()
+            # Add to layout context
+            context.add_element(node)
+
+        # For nested radios with borders/titles, create a frame container
+        if using_frame:
+            from wijjit.layout.engine import FrameNode
+            from wijjit.layout.frames import BorderStyle as BS
+            from wijjit.layout.frames import Frame, FrameStyle
+
+            # Map border_style string to BorderStyle enum
+            border_style_map = {
+                "single": BS.SINGLE,
+                "double": BS.DOUBLE,
+                "rounded": BS.ROUNDED,
+            }
+            if isinstance(border_style, str):
+                border_enum = border_style_map.get(border_style.lower(), BS.SINGLE)
+            else:
+                border_enum = border_style if border_style is not None else BS.SINGLE
+
+            # Create frame style
+            frame_style = FrameStyle(
+                border=border_enum,
+                title=title,
+                padding=(1, 1, 1, 1),  # Standard padding
+                content_align_h="left",
+                content_align_v="top",
+                scrollable=False,
+                show_scrollbar=False,
+                overflow_y="clip",
+                overflow_x="clip",
+            )
+
+            # Create frame
+            frame = Frame(
+                width=width if isinstance(width, int) else 40,
+                height=10,  # Auto-calculate based on children
+                style=frame_style,
+                id=id,
+            )
+
+            # Create frame node
+            frame_node = FrameNode(
+                frame=frame,
+                children=[],
+                width="auto",
+                height="auto",
+                margin=0,
+                align_h="stretch",
+                align_v="stretch",
+                content_align_h="stretch",
+                content_align_v="stretch",
+                id=id,
+            )
+
+            # Push frame onto layout context stack
+            context.push(frame_node)
+
+        # Set radiogroup name in environment for nested radio tags to access
+        old_radiogroup_name = self.environment.globals.get("_wijjit_radiogroup_name")
+        self.environment.globals["_wijjit_radiogroup_name"] = name
+
+        try:
+            # Render body (may contain nested {% radio %} tags)
+            caller()
+        finally:
+            # Restore previous radiogroup context
+            if old_radiogroup_name is not None:
+                self.environment.globals["_wijjit_radiogroup_name"] = old_radiogroup_name
+            else:
+                self.environment.globals.pop("_wijjit_radiogroup_name", None)
+
+            # Pop frame from layout context if we created one
+            if using_frame:
+                context.pop()
 
         return ""
 

@@ -12,7 +12,7 @@ from wijjit.terminal.ansi import (
     visible_length,
 )
 from wijjit.terminal.input import Key, Keys
-from wijjit.terminal.mouse import MouseEvent, MouseEventType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -138,14 +138,11 @@ class Radio(Element):
         bool
             True if key was handled
         """
-        # Space - select this radio
-        if key == Keys.SPACE:
+        # Space or Enter - select this radio
+        if key == Keys.SPACE or key == Keys.ENTER:
             self.select()
-            return True
-
-        # Enter - trigger action
-        elif key == Keys.ENTER:
-            if self.on_action:
+            # Also trigger action on Enter
+            if key == Keys.ENTER and self.on_action:
                 self.on_action()
             return True
 
@@ -181,12 +178,29 @@ class Radio(Element):
         bool
             True if event was handled
         """
-        # Select on click or double-click
+        # Select on left click or double-click
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
-            self.select()
-            return True
+            if event.button == MouseButton.LEFT:
+                self.select()
+                return True
 
         return False
+
+    async def handle_mouse_async(self, event: MouseEvent) -> bool:
+        """Handle mouse input (asynchronous).
+
+        Parameters
+        ----------
+        event : MouseEvent
+            Mouse event to handle
+
+        Returns
+        -------
+        bool
+            True if event was handled
+        """
+        # Delegate to synchronous handler
+        return self.handle_mouse(event)
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render radio button using cell-based rendering.

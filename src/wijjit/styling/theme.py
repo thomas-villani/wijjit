@@ -148,27 +148,23 @@ class DefaultTheme(Theme):
             ),
             # Checkbox styles
             "checkbox": Style(
-                fg_color=(0, 255, 0),
+                fg_color=(255, 255, 255),  # White
             ),
             "checkbox:focus": Style(
-                fg_color=(0, 255, 0),
-                bold=True,
+                fg_color=(0, 255, 255),  # Cyan
             ),
             "checkbox:checked": Style(
-                fg_color=(0, 255, 0),
-                bold=True,
+                fg_color=(0, 255, 0),  # Green
             ),
             # Radio button styles
             "radio": Style(
-                fg_color=(0, 255, 0),
+                fg_color=(255, 255, 255),  # White
             ),
             "radio:focus": Style(
-                fg_color=(0, 255, 0),
-                bold=True,
+                fg_color=(0, 255, 255),  # Cyan
             ),
             "radio:selected": Style(
-                fg_color=(0, 255, 0),
-                bold=True,
+                fg_color=(0, 255, 0),  # Green
             ),
             # Select styles
             "select": Style(fg_color=(255, 255, 255)),
@@ -367,27 +363,23 @@ class DarkTheme(Theme):
             ),
             # Checkbox styles
             "checkbox": Style(
-                fg_color=(100, 255, 100),
+                fg_color=(255, 255, 255),  # White
             ),
             "checkbox:focus": Style(
-                fg_color=(150, 255, 150),
-                bold=True,
+                fg_color=(0, 255, 255),  # Cyan
             ),
             "checkbox:checked": Style(
-                fg_color=(100, 255, 100),
-                bold=True,
+                fg_color=(0, 255, 0),  # Green
             ),
             # Radio button styles
             "radio": Style(
-                fg_color=(100, 255, 100),
+                fg_color=(255, 255, 255),  # White
             ),
             "radio:focus": Style(
-                fg_color=(150, 255, 150),
-                bold=True,
+                fg_color=(0, 255, 255),  # Cyan
             ),
             "radio:selected": Style(
-                fg_color=(100, 255, 100),
-                bold=True,
+                fg_color=(0, 255, 0),  # Green
             ),
             # Select styles
             "select": Style(fg_color=(200, 200, 220)),
@@ -578,27 +570,23 @@ class LightTheme(Theme):
             ),
             # Checkbox styles
             "checkbox": Style(
-                fg_color=(0, 150, 0),
+                fg_color=(50, 50, 50),  # Dark gray for light background
             ),
             "checkbox:focus": Style(
-                fg_color=(0, 200, 0),
-                bold=True,
+                fg_color=(0, 150, 200),  # Darker cyan for light background
             ),
             "checkbox:checked": Style(
-                fg_color=(0, 150, 0),
-                bold=True,
+                fg_color=(0, 150, 0),  # Green
             ),
             # Radio button styles
             "radio": Style(
-                fg_color=(0, 150, 0),
+                fg_color=(50, 50, 50),  # Dark gray for light background
             ),
             "radio:focus": Style(
-                fg_color=(0, 200, 0),
-                bold=True,
+                fg_color=(0, 150, 200),  # Darker cyan for light background
             ),
             "radio:selected": Style(
-                fg_color=(0, 150, 0),
-                bold=True,
+                fg_color=(0, 150, 0),  # Green
             ),
             # Select styles
             "select": Style(fg_color=(0, 0, 0)),

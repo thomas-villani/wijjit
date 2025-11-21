@@ -44,7 +44,7 @@ def main_view():
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=25 %}
         {% frame title="Select Size" border="rounded" width="fill" %}
-          {% radiogroup id="size" orientation="vertical" %}
+          {% radiogroup id="size" title="Size" border_style="single" orientation="vertical" %}
             {% radio value="xs" %}Extra Small{% endradio %}
             {% radio value="s" %}Small{% endradio %}
             {% radio value="m" %}Medium{% endradio %}

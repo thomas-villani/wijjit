@@ -6,7 +6,7 @@ Short, repeatable recipes for everyday Wijjit tasks. Each entry links to a worki
 Form validation with inline errors
 ----------------------------------
 
-Source: ``examples/login_form.py``
+Source: ``examples/advanced/login_form.py``
 
 1. Bind text inputs to state keys (``id="username"``/``"password"``).
 2. Use ``@app.on_action("login")`` to validate fields; populate ``state.form_errors`` with error messages.
@@ -33,7 +33,7 @@ Source: tutorial todo app (see :doc:`../getting_started/tutorial`)
 Multi-view navigation with keyboard shortcuts
 ---------------------------------------------
 
-Source: ``examples/centered_dialog.py`` (modal navigation) and ``examples/dropdown_demo.py`` (actions)
+Source: ``examples/widgets/centered_dialog.py`` (modal navigation) and ``examples/widgets/dropdown_demo.py`` (actions)
 
 1. Register multiple views with ``@app.view("home", default=True)`` and ``@app.view("settings")``.
 2. Use ``@app.on_action("go_settings")`` to call ``app.navigate("settings")``.
@@ -43,7 +43,7 @@ Source: ``examples/centered_dialog.py`` (modal navigation) and ``examples/dropdo
 Background tasks & progress indicators
 --------------------------------------
 
-Source: ``examples/async_demo.py`` and ``examples/download_simulator.py``
+Source: ``examples/basic/async_demo.py`` and ``examples/advanced/download_simulator.py``
 
 1. Mark the handler ``async def`` (Wijjit awaits coroutines).
 2. Update ``state["progress"]`` inside the coroutine and call ``await asyncio.sleep(...)`` between iterations.
@@ -53,7 +53,7 @@ Source: ``examples/async_demo.py`` and ``examples/download_simulator.py``
 Modal confirmations before destructive actions
 ----------------------------------------------
 
-Source: ``examples/modal_with_button_demo.py``
+Source: ``examples/widgets/modal_with_button_demo.py``
 
 1. Define a template snippet with ``{% confirmdialog action_ok="confirm_delete" action_cancel="cancel_delete" %}``.
 2. Show the dialog by updating a boolean in state or by returning overlay metadata from the view.
@@ -63,7 +63,7 @@ Source: ``examples/modal_with_button_demo.py``
 Data tables with selection
 --------------------------
 
-Source: ``examples/table_demo.py``
+Source: ``examples/widgets/table_demo.py``
 
 1. Prepare rows as list of dicts; include ``selected_row`` in state.
 2. Pass ``rows`` and ``columns`` to the table tag; use ``action="select_row_{{ row.id }}"`` on buttons/checkboxes inside cells.
@@ -73,7 +73,7 @@ Source: ``examples/table_demo.py``
 Notifications & status feedback
 -------------------------------
 
-Source: ``examples/notification_demo.py`` and ``examples/statusbar_demo.py``
+Source: ``examples/widgets/notification_demo.py`` and ``examples/widgets/statusbar_demo.py``
 
 1. For transient toasts, call ``app.notification_manager.info("Saved!")``. The manager auto-dismisses based on timeout.
 2. For persistent hints, bind a ``state.status`` string to a ``statusbar`` or text block.
@@ -82,7 +82,7 @@ Source: ``examples/notification_demo.py`` and ``examples/statusbar_demo.py``
 Theming and styling tweaks
 --------------------------
 
-Source: ``examples/spinner_demo.py`` + :doc:`../user_guide/styling`
+Source: ``examples/widgets/spinner_demo.py`` + :doc:`../user_guide/styling`
 
 1. Create a custom ``Theme`` with overrides (button colors, frame borders).
 2. Call ``app.renderer.set_theme(custom_theme)`` during startup or in response to user preference toggles.

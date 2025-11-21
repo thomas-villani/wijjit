@@ -212,7 +212,11 @@ class VStackExtension(Extension):
         width: int | str = "fill",
         height: int | str = "fill",
         spacing: int = 0,
-        padding: int = 0,
+        padding: int | str | tuple[int, ...] = 0,
+        padding_top: int | None = None,
+        padding_right: int | None = None,
+        padding_bottom: int | None = None,
+        padding_left: int | None = None,
         margin: int | str | tuple[int, ...] = 0,
         align_h: str = "stretch",
         align_v: str = "stretch",
@@ -231,8 +235,16 @@ class VStackExtension(Extension):
             Height specification (default: "fill")
         spacing : int
             Spacing between children
-        padding : int
-            Padding around children
+        padding : int or str or tuple
+            Padding around children (uniform or tuple: top, right, bottom, left)
+        padding_top : int, optional
+            Top padding (overrides padding)
+        padding_right : int, optional
+            Right padding (overrides padding)
+        padding_bottom : int, optional
+            Bottom padding (overrides padding)
+        padding_left : int, optional
+            Left padding (overrides padding)
         margin : int or tuple
             Margin around container
         align_h : str
@@ -261,7 +273,42 @@ class VStackExtension(Extension):
         width_parsed = parse_size_attr(width)
         height_parsed = parse_size_attr(height)
         spacing_int = int(spacing)
-        padding_int = int(padding)
+
+        # Parse padding - could be int, tuple, or directional attributes
+        padding_parsed: int | tuple[int, int, int, int]
+        if isinstance(padding, str) and padding.startswith("("):
+            # Parse tuple string like "(1,2,3,4)"
+            try:
+                padding_parsed = literal_eval(padding)
+            except (ValueError, SyntaxError, NameError):
+                padding_parsed = 0
+        elif isinstance(padding, tuple):
+            padding_parsed = padding
+        elif isinstance(padding, str):
+            try:
+                padding_parsed = int(padding)
+            except ValueError:
+                padding_parsed = 0
+        else:
+            padding_parsed = int(padding) if padding else 0
+
+        # Apply directional padding overrides
+        if any([padding_top is not None, padding_right is not None,
+                padding_bottom is not None, padding_left is not None]):
+            # Convert base padding to tuple if needed
+            if isinstance(padding_parsed, int):
+                base = padding_parsed
+                padding_tuple = (base, base, base, base)
+            else:
+                padding_tuple = padding_parsed
+
+            # Override with directional values
+            padding_parsed = (
+                padding_top if padding_top is not None else padding_tuple[0],
+                padding_right if padding_right is not None else padding_tuple[1],
+                padding_bottom if padding_bottom is not None else padding_tuple[2],
+                padding_left if padding_left is not None else padding_tuple[3],
+            )
 
         # Parse margin
         margin_parsed: int | tuple[int, int, int, int]
@@ -284,7 +331,7 @@ class VStackExtension(Extension):
             width=width_parsed,
             height=height_parsed,
             spacing=spacing_int,
-            padding=padding_int,
+            padding=padding_parsed,
             margin=margin_parsed,
             align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
             align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
@@ -370,7 +417,11 @@ class HStackExtension(Extension):
         width: int | str = "auto",
         height: int | str = "auto",
         spacing: int = 0,
-        padding: int = 0,
+        padding: int | str | tuple[int, ...] = 0,
+        padding_top: int | None = None,
+        padding_right: int | None = None,
+        padding_bottom: int | None = None,
+        padding_left: int | None = None,
         margin: int | str | tuple[int, ...] = 0,
         align_h: str = "stretch",
         align_v: str = "stretch",
@@ -389,8 +440,16 @@ class HStackExtension(Extension):
             Height specification (default: "auto")
         spacing : int
             Spacing between children
-        padding : int
-            Padding around children
+        padding : int or str or tuple
+            Padding around children (uniform or tuple: top, right, bottom, left)
+        padding_top : int, optional
+            Top padding (overrides padding)
+        padding_right : int, optional
+            Right padding (overrides padding)
+        padding_bottom : int, optional
+            Bottom padding (overrides padding)
+        padding_left : int, optional
+            Left padding (overrides padding)
         margin : int or tuple
             Margin around container
         align_h : str
@@ -419,7 +478,42 @@ class HStackExtension(Extension):
         width_parsed = parse_size_attr(width)
         height_parsed = parse_size_attr(height)
         spacing_int = int(spacing)
-        padding_int = int(padding)
+
+        # Parse padding - could be int, tuple, or directional attributes
+        padding_parsed: int | tuple[int, int, int, int]
+        if isinstance(padding, str) and padding.startswith("("):
+            # Parse tuple string like "(1,2,3,4)"
+            try:
+                padding_parsed = literal_eval(padding)
+            except (ValueError, SyntaxError, NameError):
+                padding_parsed = 0
+        elif isinstance(padding, tuple):
+            padding_parsed = padding
+        elif isinstance(padding, str):
+            try:
+                padding_parsed = int(padding)
+            except ValueError:
+                padding_parsed = 0
+        else:
+            padding_parsed = int(padding) if padding else 0
+
+        # Apply directional padding overrides
+        if any([padding_top is not None, padding_right is not None,
+                padding_bottom is not None, padding_left is not None]):
+            # Convert base padding to tuple if needed
+            if isinstance(padding_parsed, int):
+                base = padding_parsed
+                padding_tuple = (base, base, base, base)
+            else:
+                padding_tuple = padding_parsed
+
+            # Override with directional values
+            padding_parsed = (
+                padding_top if padding_top is not None else padding_tuple[0],
+                padding_right if padding_right is not None else padding_tuple[1],
+                padding_bottom if padding_bottom is not None else padding_tuple[2],
+                padding_left if padding_left is not None else padding_tuple[3],
+            )
 
         # Parse margin
         margin_parsed: int | tuple[int, int, int, int]
@@ -442,7 +536,7 @@ class HStackExtension(Extension):
             width=width_parsed,
             height=height_parsed,
             spacing=spacing_int,
-            padding=padding_int,
+            padding=padding_parsed,
             margin=margin_parsed,
             align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
             align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),

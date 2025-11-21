@@ -33,7 +33,7 @@ Views describe what should be rendered for a given route. ``@app.view("name", de
 4. Runs the new view’s ``on_enter`` hook.
 5. Flags ``needs_render`` so the event loop paints the new layout.
 
-You can keep arbitrary navigation state (breadcrumb stacks, modal routes, etc.) inside the ``State`` object or your own controller classes. The ``examples/navigation_demo.py`` script showcases multiple named views and hotkeys for moving between them.
+You can keep arbitrary navigation state (breadcrumb stacks, modal routes, etc.) inside the ``State`` object or your own controller classes. The ``examples/advanced/navigation_demo.py`` script showcases multiple named views and hotkeys for moving between them.
 
 State & reactivity
 ------------------

@@ -1,7 +1,11 @@
 Examples
 ========
 
-Wijjit ships with 40+ runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app.
+Wijjit ships with 40+ runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+
+* ``examples/basic`` – first steps, focus, events, async, alignment.
+* ``examples/widgets`` – component spotlights (tables, trees, dialogs, etc.).
+* ``examples/advanced`` – multi-view apps, complex layouts, and performance patterns.
 
 Running an example
 ------------------
@@ -9,55 +13,46 @@ Running an example
 .. code-block:: bash
 
     cd <repo-root>
-    uv run python examples/hello_world.py
+    uv run python examples/basic/hello_world.py
 
-Any Python interpreter works; ``uv run`` keeps dependencies isolated.
+Any Python interpreter works; ``uv run`` keeps dependencies isolated. See :file:`examples/README.md` for a catalog with screenshots and controls.
 
 Basics & essentials
 -------------------
 
-* ``hello_world.py`` – smallest possible Wijjit app; illustrates ``@app.view`` + inline template.
-* ``simple_input_test.py`` – demonstrates text inputs, change events, and live validation.
-* ``form_demo.py`` – multi-field form with buttons and status messages.
+* ``examples/basic/hello_world.py`` – smallest possible Wijjit app; illustrates ``@app.view`` + inline template.
+* ``examples/basic/simple_input_test.py`` – demonstrates text inputs, change events, and live validation.
+* ``examples/basic/mouse_demo.py`` – hover, click, and scroll routing.
+* ``examples/basic/async_demo.py`` – async view/event handlers with progress updates.
+* ``examples/basic/alignment_demo.py`` – compare horizontal/vertical alignment settings.
 
-Forms & workflows
------------------
+Widgets & components
+--------------------
 
-* ``login_form.py`` – login screen with validation, focus hints, and error notifications.
-* ``filesystem_browser.py`` – explores list navigation, buttons, and status feedback.
-* ``centered_dialog.py`` – wizard-style layout with buttons driving modal overlays.
+* ``examples/widgets/checkbox_demo.py`` / ``radio_demo.py`` / ``select_demo.py`` – widget-specific explorations for form controls.
+* ``examples/widgets/dropdown_demo.py`` – buttons that spawn dropdown menus with nested actions + shortcuts.
+* ``examples/widgets/dialog_showcase.py`` / ``alert_dialog_demo.py`` / ``confirm_dialog_demo.py`` – overlay interactions.
+* ``examples/widgets/table_demo.py`` – sortable table with zebra striping and scroll support.
+* ``examples/widgets/tree_demo.py`` / ``tree_indicator_styles_demo.py`` – hierarchical navigation with custom indicators.
+* ``examples/widgets/listview_demo.py`` / ``logview_demo.py`` – scrolling lists and streaming logs.
+* ``examples/widgets/markdown_demo.py`` / ``code_demo.py`` – render markdown and syntax-highlighted panes.
+* ``examples/widgets/progress_demo.py`` / ``spinner_demo.py`` – progress indicators and loading states.
+* ``examples/widgets/notification_demo.py`` / ``statusbar_demo.py`` – real-time feedback and persistent hints.
+* ``examples/widgets/textarea_demo.py`` – full-featured text editor with clipboard + mouse support.
 
-Data display
-------------
+Advanced workflows
+------------------
 
-* ``table_demo.py`` – sortable table with zebra striping and scroll support.
-* ``tree_demo.py`` / ``tree_indicator_styles_demo.py`` – hierarchical navigation with custom indicators.
-* ``logview_demo.py`` – streaming log viewer with severity-based styling.
-* ``markdown_demo.py`` / ``code_demo.py`` – render markdown and syntax-highlighted panes.
-
-Layout patterns
----------------
-
-* ``alignment_demo.py`` – shows how ``align_h``/``align_v`` impact stacks.
-* ``complex_layout_demo.py`` – dashboard composed of nested frames and stacks.
-* ``scroll_demo.py`` / ``scrollable_children_demo.py`` – deep dive into scroll containers and focus retention.
-* ``frame_sizing_demo.py`` / ``frame_overflow_demo.py`` – compare width/height modes, padding, and overflow handling.
-
-Interaction & advanced UI
--------------------------
-
-* ``checkbox_demo.py``, ``radio_demo.py``, ``select_demo.py`` – widget-specific explorations.
-* ``modal_with_button_demo.py`` / ``confirm_dialog_demo.py`` / ``alert_dialog_demo.py`` – overlay interactions.
-* ``dropdown_demo.py`` – buttons that spawn dropdown menus with nested actions.
-* ``mouse_demo.py`` – showcases hover, clicks, and scroll routing.
-* ``notification_demo.py`` – toast notifications with auto-dismiss logic.
-
-Performance & utilities
------------------------
-
-* ``async_demo.py`` / ``download_simulator.py`` – background tasks updating state.
-* ``debug_keys.py`` – raw key event logger, ideal for customizing shortcuts.
-* ``statusbar_demo.py`` – persistent footer with modal triggers.
+* ``examples/advanced/login_form.py`` / ``form_demo.py`` / ``data_entry_demo.py`` – multi-field forms with validation and status banners.
+* ``examples/advanced/preferences_demo.py`` – multi-column settings editor with grouped frames.
+* ``examples/advanced/navigation_demo.py`` – multi-view navigation with lifecycle hooks and scoped handlers.
+* ``examples/advanced/dashboard_demo.py`` – monitoring layout built from stacks, frames, and tables.
+* ``examples/advanced/filesystem_browser.py`` – list + tree composition that mirrors a file explorer.
+* ``examples/advanced/todo_app.py`` – CRUD todo list with filters, persistence hooks, and overlays.
+* ``examples/advanced/state_management_demo.py`` / ``event_patterns_demo.py`` – reactors, watchers, and custom event scopes.
+* ``examples/advanced/scroll_demo.py`` / ``scrollable_children_demo.py`` / ``frame_overflow_demo.py`` – focus-preserving scrolling patterns.
+* ``examples/advanced/executor_demo.py`` / ``download_simulator.py`` – background workers and progress coordination.
+* ``examples/advanced/error_handling_demo.py`` – graceful fallback paths when handlers fail.
 
 Where to next
 -------------
