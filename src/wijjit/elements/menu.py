@@ -37,6 +37,8 @@ class MenuItem:
         Whether this is a divider line (default: False)
     disabled : bool, optional
         Whether this item is disabled (default: False)
+    classes : str or list of str or None, optional
+        CSS classes for styling (default: None)
 
     Attributes
     ----------
@@ -50,6 +52,8 @@ class MenuItem:
         Whether this is a divider line
     disabled : bool
         Whether this item is disabled
+    classes : str or list of str or None
+        CSS classes for styling
     """
 
     label: str
@@ -57,6 +61,7 @@ class MenuItem:
     key: str | None = None
     divider: bool = False
     disabled: bool = False
+    classes: str | list[str] | None = None
 
 
 class MenuElement(OverlayElement):
@@ -97,6 +102,7 @@ class MenuElement(OverlayElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         items: list[MenuItem] | None = None,
         width: int = 30,
         border_style: BorderStyle | str = BorderStyle.SINGLE,
@@ -106,7 +112,9 @@ class MenuElement(OverlayElement):
         items = items or []
         height = len(items) + 2  # Add 2 for borders
 
-        super().__init__(id=id, width=width, height=height, centered=centered)
+        super().__init__(
+            id=id, classes=classes, width=width, height=height, centered=centered
+        )
 
         self.items = items
         self.width = width
@@ -503,6 +511,7 @@ class DropdownMenu(MenuElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         items: list[MenuItem] | None = None,
         trigger_text: str = "Menu",
         trigger_key: str | None = None,
@@ -511,6 +520,7 @@ class DropdownMenu(MenuElement):
     ) -> None:
         super().__init__(
             id=id,
+            classes=classes,
             items=items,
             width=width,
             border_style=border_style,
@@ -552,6 +562,7 @@ class ContextMenu(MenuElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         items: list[MenuItem] | None = None,
         target_element_id: str | None = None,
         width: int = 30,
@@ -559,6 +570,7 @@ class ContextMenu(MenuElement):
     ) -> None:
         super().__init__(
             id=id,
+            classes=classes,
             items=items,
             width=width,
             border_style=border_style,

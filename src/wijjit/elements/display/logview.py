@@ -138,6 +138,7 @@ class LogView(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         lines: list[str] | None = None,
         width: int = 80,
         height: int = 20,
@@ -150,7 +151,7 @@ class LogView(ScrollableElement):
         border_style: str = "single",
         title: str | None = None,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

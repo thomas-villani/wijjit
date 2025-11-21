@@ -44,10 +44,10 @@ def _compare_or_update_text(path: Path, text: str, update: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     normalized = text.rstrip("\n") + "\n"
     if update:
-        path.write_text(normalized)
+        path.write_text(normalized, encoding="utf-8")
     if not path.exists():
         raise AssertionError(f"Missing golden file: {path}")
-    expected = path.read_text()
+    expected = path.read_text(encoding="utf-8")
     assert expected.splitlines() == normalized.splitlines()
 
 

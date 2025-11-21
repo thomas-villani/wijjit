@@ -405,6 +405,9 @@ def colorize(
 ) -> str:
     """Apply ANSI colors and styles to text.
 
+    Respects NO_COLOR environment variable (https://no-color.org/).
+    If NO_COLOR is set, returns text without any ANSI codes.
+
     Parameters
     ----------
     text : str
@@ -421,8 +424,20 @@ def colorize(
     Returns
     -------
     str
-        Text with ANSI styling applied
+        Text with ANSI styling applied (or plain text if NO_COLOR is set)
+
+    Notes
+    -----
+    Respects the NO_COLOR environment variable standard.
+    See https://no-color.org/ for details.
     """
+    import os
+
+    # Respect NO_COLOR environment variable
+    # https://no-color.org/
+    if os.environ.get("NO_COLOR") is not None:
+        return text
+
     codes = []
 
     if bold:
@@ -442,6 +457,27 @@ def colorize(
 
 
 _unicode_support_cache: bool | None = None
+_unicode_mode: str | None = None  # 'auto', 'force', or 'disable'
+
+
+def set_unicode_mode(mode: str) -> None:
+    """Set unicode support mode.
+
+    Parameters
+    ----------
+    mode : str
+        Unicode mode: 'auto' (detect), 'force' (always use), or 'disable' (never use)
+
+    Notes
+    -----
+    This should be called by the application during initialization to apply
+    the UNICODE_SUPPORT configuration.
+    """
+    global _unicode_mode, _unicode_support_cache
+
+    _unicode_mode = mode
+    # Clear cache when mode changes
+    _unicode_support_cache = None
 
 
 def supports_unicode() -> bool:
@@ -451,6 +487,8 @@ def supports_unicode() -> bool:
     to determine if unicode characters can be safely displayed.
     The result is cached for performance.
 
+    Respects the UNICODE_SUPPORT configuration via set_unicode_mode().
+
     Returns
     -------
     bool
@@ -459,11 +497,19 @@ def supports_unicode() -> bool:
     Notes
     -----
     Detection is based on:
+    - Unicode mode setting (force/disable/auto)
     - System default encoding (UTF-8, utf8, etc.)
     - LANG environment variable
     - Terminal type environment variable
     """
-    global _unicode_support_cache
+    global _unicode_support_cache, _unicode_mode
+
+    # Check if mode is explicitly set
+    if _unicode_mode == "force":
+        return True
+    elif _unicode_mode == "disable":
+        return False
+    # else: 'auto' or None - proceed with detection
 
     if _unicode_support_cache is not None:
         return _unicode_support_cache

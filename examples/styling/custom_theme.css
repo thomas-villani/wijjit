@@ -1,0 +1,156 @@
+/* Custom Wijjit Theme CSS
+ *
+ * This CSS file demonstrates how to create custom styles for Wijjit applications.
+ * Supports class selectors, pseudo-classes, and terminal-compatible properties.
+ */
+
+/* Button Variants */
+.btn-primary {
+    color: rgb(255, 255, 255);
+    background-color: rgb(0, 120, 212);
+    font-weight: bold;
+}
+
+.btn-primary:hover {
+    background-color: rgb(0, 140, 232);
+}
+
+.btn-primary:focus {
+    background-color: rgb(0, 150, 255);
+    font-weight: bold;
+}
+
+.btn-danger {
+    color: white;
+    background-color: rgb(220, 53, 69);
+}
+
+.btn-danger:hover {
+    background-color: rgb(200, 35, 51);
+}
+
+.btn-success {
+    color: #ffffff;
+    background-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-warning {
+    color: black;
+    background-color: #ffc107;
+}
+
+/* Text Styling Utilities */
+.text-bold {
+    font-weight: bold;
+}
+
+.text-italic {
+    font-style: italic;
+}
+
+.text-underline {
+    text-decoration: underline;
+}
+
+.text-dim {
+    opacity: 0.5;
+}
+
+/* Text Color Utilities */
+.text-primary {
+    color: rgb(0, 120, 212);
+}
+
+.text-success {
+    color: rgb(40, 167, 69);
+}
+
+.text-danger {
+    color: rgb(220, 53, 69);
+}
+
+.text-warning {
+    color: rgb(255, 193, 7);
+}
+
+.text-info {
+    color: rgb(100, 149, 237);
+}
+
+.text-muted {
+    color: gray;
+    opacity: 0.7;
+}
+
+/* Background Color Utilities */
+.bg-primary {
+    background-color: rgb(0, 120, 212);
+}
+
+.bg-success {
+    background-color: rgb(40, 167, 69);
+}
+
+.bg-danger {
+    background-color: rgb(220, 53, 69);
+}
+
+.bg-warning {
+    background-color: rgb(255, 193, 7);
+}
+
+/* Base Element Styles */
+button {
+    color: white;
+    background-color: rgb(60, 60, 80);
+}
+
+button:focus {
+    background-color: rgb(80, 80, 120);
+    font-weight: bold;
+}
+
+button:hover {
+    background-color: rgb(70, 70, 100);
+}
+
+input {
+    color: cyan;
+    font-weight: bold;
+}
+
+input:focus {
+    color: cyan;
+    background-color: rgb(30, 30, 30);
+    text-decoration: underline;
+}
+
+/* Checkbox and Radio Styles */
+checkbox:checked {
+    color: green;
+}
+
+radio:checked {
+    color: green;
+}
+
+/* Element-specific overrides */
+.highlight-box {
+    background-color: rgb(255, 255, 100);
+    color: black;
+    font-weight: bold;
+}
+
+.error-text {
+    color: red;
+    font-weight: bold;
+}
+
+.success-text {
+    color: green;
+    font-weight: bold;
+}

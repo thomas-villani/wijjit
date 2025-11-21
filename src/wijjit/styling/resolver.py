@@ -67,7 +67,7 @@ class StyleResolver:
         base_class: str | None = None,
         inline_overrides: dict[str, Any] | None = None,
     ) -> Style:
-        """Resolve final style for an element.
+        """Resolve final style for an element with CSS class support.
 
         Parameters
         ----------
@@ -85,13 +85,12 @@ class StyleResolver:
 
         Notes
         -----
-        Resolution order:
-        1. Base class style from theme (e.g., 'button')
-        2. Pseudo-class styles if element state matches:
-           - :focus if element.focused is True
-           - :hover if element.hovered is True
-           - :disabled if element has disabled=True attribute
-        3. Inline overrides from parameters
+        Resolution order (lowest to highest specificity):
+        1. Base element type style (inferred from element type)
+        2. User CSS classes (from element.classes, e.g., .btn-primary)
+        3. Base element pseudo-classes (e.g., button:focus)
+        4. CSS class pseudo-classes (e.g., .btn-primary:focus)
+        5. Inline overrides
 
         Each layer is merged on top of the previous using Style.merge().
 
@@ -103,79 +102,123 @@ class StyleResolver:
         >>> from wijjit.styling.theme import DefaultTheme
         >>> resolver = StyleResolver(DefaultTheme())
         >>> button = Button('Click me')
-        >>> style = resolver.resolve_style(button, 'button')
+        >>> style = resolver.resolve_style(button)
+
+        With CSS classes:
+
+        >>> button = Button('Click me', classes="btn-primary")
+        >>> style = resolver.resolve_style(button)
+        >>> # Applies both 'button' and '.btn-primary' styles
 
         With focus:
 
         >>> button.focused = True
-        >>> style = resolver.resolve_style(button, 'button')
-        >>> style.bold  # button:focus is bold
-        True
+        >>> style = resolver.resolve_style(button)
+        >>> # Applies button:focus and .btn-primary:focus
 
         With override:
 
         >>> style = resolver.resolve_style(
-        ...     button, 'button',
+        ...     button,
         ...     inline_overrides={'fg_color': (255, 255, 0)}
         ... )
         >>> style.fg_color
         (255, 255, 0)
         """
-        # Get class names to apply
+        # Get base element type (for structural styling)
         if base_class is not None:
-            # Explicit base_class provided, use it
-            class_names = [base_class]
-        elif hasattr(element, "get_style_classes"):
-            # Element provides its own class names
-            class_names = element.get_style_classes()
-            if not class_names:
-                # Empty list means use automatic inference
-                class_names = [self._infer_class_from_element(element)]
+            # Explicit base_class provided (backward compatibility)
+            base_element_type = base_class
         else:
-            # Fall back to automatic inference
-            class_names = [self._infer_class_from_element(element)]
+            # Infer from element type
+            base_element_type = self._infer_class_from_element(element)
 
-        # Merge base styles from all classes in order
+        # Start with base element type style
         style = Style()
-        for class_name in class_names:
-            class_style = self.theme.get_style(class_name)
-            if class_style:
-                style = style.merge(class_style)
+        base_style = self.theme.get_style(base_element_type)
+        if base_style:
+            style = style.merge(base_style)
 
-        # Apply pseudo-class styles based on element state
-        # Use the last class name (most specific) for pseudo-classes
-        primary_class = class_names[-1] if class_names else ""
+        # Apply user CSS classes (higher specificity than base type)
+        if hasattr(element, "classes") and element.classes:
+            for class_name in sorted(element.classes):  # Sort for consistency
+                # Add dot prefix for CSS utility classes
+                css_style = self.theme.get_style(f".{class_name}")
+                if css_style:
+                    style = style.merge(css_style)
 
-        if hasattr(element, "focused") and element.focused:
-            focus_style = self.theme.get_style(f"{primary_class}:focus")
-            if focus_style:
-                style = style.merge(focus_style)
+        # Apply pseudo-classes to base element type
+        style = self._apply_pseudo_classes(style, element, base_element_type)
 
-        if hasattr(element, "hovered") and element.hovered:
-            hover_style = self.theme.get_style(f"{primary_class}:hover")
-            if hover_style:
-                style = style.merge(hover_style)
+        # Apply pseudo-classes to CSS classes
+        if hasattr(element, "classes") and element.classes:
+            for class_name in sorted(element.classes):
+                style = self._apply_pseudo_classes(style, element, f".{class_name}")
 
-        if hasattr(element, "disabled") and element.disabled:
-            disabled_style = self.theme.get_style(f"{primary_class}:disabled")
-            if disabled_style:
-                style = style.merge(disabled_style)
-
-        # Additional state-specific pseudo-classes
-        if hasattr(element, "checked") and element.checked:
-            checked_style = self.theme.get_style(f"{primary_class}:checked")
-            if checked_style:
-                style = style.merge(checked_style)
-
-        if hasattr(element, "selected") and element.selected:
-            selected_style = self.theme.get_style(f"{primary_class}:selected")
-            if selected_style:
-                style = style.merge(selected_style)
-
-        # Apply inline overrides
+        # Apply inline overrides (highest specificity)
         if inline_overrides:
             override_style = Style(**inline_overrides)
             style = style.merge(override_style)
+
+        return style
+
+    def _apply_pseudo_classes(
+        self, style: Style, element: "Element", selector: str
+    ) -> Style:
+        """Apply pseudo-class styles for a selector.
+
+        Parameters
+        ----------
+        style : Style
+            Current style to merge pseudo-class styles into
+        element : Element
+            Element to check state from
+        selector : str
+            Base selector (e.g., 'button', '.btn-primary')
+
+        Returns
+        -------
+        Style
+            Style with pseudo-class styles merged
+
+        Notes
+        -----
+        Checks element state and applies corresponding pseudo-class styles:
+        - :focus if element.focused is True
+        - :hover if element.hovered is True
+        - :disabled if element.disabled is True
+        - :checked if element.checked is True
+        - :selected if element.selected is True
+        """
+        # Focus state
+        if hasattr(element, "focused") and element.focused:
+            focus_style = self.theme.get_style(f"{selector}:focus")
+            if focus_style:
+                style = style.merge(focus_style)
+
+        # Hover state
+        if hasattr(element, "hovered") and element.hovered:
+            hover_style = self.theme.get_style(f"{selector}:hover")
+            if hover_style:
+                style = style.merge(hover_style)
+
+        # Disabled state
+        if hasattr(element, "disabled") and element.disabled:
+            disabled_style = self.theme.get_style(f"{selector}:disabled")
+            if disabled_style:
+                style = style.merge(disabled_style)
+
+        # Checked state (checkboxes, radio buttons)
+        if hasattr(element, "checked") and element.checked:
+            checked_style = self.theme.get_style(f"{selector}:checked")
+            if checked_style:
+                style = style.merge(checked_style)
+
+        # Selected state (list items, table rows)
+        if hasattr(element, "selected") and element.selected:
+            selected_style = self.theme.get_style(f"{selector}:selected")
+            if selected_style:
+                style = style.merge(selected_style)
 
         return style
 

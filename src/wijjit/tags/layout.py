@@ -45,9 +45,7 @@ def process_body_content(body_output: str, raw: bool = False) -> str:
 
 
 def interleave_text_and_elements(
-    body_output: str,
-    children: list[LayoutNode],
-    raw: bool = False
+    body_output: str, children: list[LayoutNode], raw: bool = False
 ) -> list[LayoutNode]:
     """Interleave text content with child elements based on markers.
 
@@ -73,10 +71,10 @@ def interleave_text_and_elements(
     import re
 
     # Pattern to match element markers (with capture group for digit extraction)
-    marker_pattern = r'\x00ELEM_(\d+)\x00'
+    marker_pattern = r"\x00ELEM_(\d+)\x00"
 
     # Pattern for splitting (without capture group to avoid nested groups)
-    split_pattern = r'(\x00ELEM_\d+\x00)'
+    split_pattern = r"(\x00ELEM_\d+\x00)"
 
     # Split body_output on markers, keeping the markers
     parts = re.split(split_pattern, body_output)
@@ -122,7 +120,7 @@ def get_element_marker(layout_context: LayoutContext) -> str:
     if layout_context.stack:
         parent = layout_context.stack[-1]
         # Get the actual children list (FrameNode uses content_container.children)
-        if hasattr(parent, 'content_container'):
+        if hasattr(parent, "content_container"):
             children_list = parent.content_container.children
         else:
             children_list = parent.children
@@ -246,6 +244,83 @@ def parse_size_attr(value: Any) -> Any:
     return value
 
 
+def _parse_for_render(
+    width: int | str = "fill",
+    height: int | str = "fill",
+    spacing: int = 0,
+    padding: int | str | tuple[int, ...] = 0,
+    padding_top: int | None = None,
+    padding_right: int | None = None,
+    padding_bottom: int | None = None,
+    padding_left: int | None = None,
+    margin: int | str | tuple[int, ...] = 0,
+) -> tuple:
+    """Calculate the attributes for rendering"""
+    # Parse attributes
+    width_parsed = parse_size_attr(width)
+    height_parsed = parse_size_attr(height)
+    spacing_int = int(spacing)
+
+    # Parse padding - could be int, tuple, or directional attributes
+    padding_parsed: int | tuple[int, int, int, int]
+    if isinstance(padding, str) and padding.startswith("("):
+        # Parse tuple string like "(1,2,3,4)"
+        try:
+            padding_parsed = literal_eval(padding)
+        except (ValueError, SyntaxError, NameError):
+            padding_parsed = 0
+    elif isinstance(padding, tuple):
+        padding_parsed = padding
+    elif isinstance(padding, str):
+        try:
+            padding_parsed = int(padding)
+        except ValueError:
+            padding_parsed = 0
+    else:
+        padding_parsed = int(padding) if padding else 0
+
+    # Apply directional padding overrides
+    if any(
+        [
+            padding_top is not None,
+            padding_right is not None,
+            padding_bottom is not None,
+            padding_left is not None,
+        ]
+    ):
+        # Convert base padding to tuple if needed
+        if isinstance(padding_parsed, int):
+            base = padding_parsed
+            padding_tuple = (base, base, base, base)
+        else:
+            padding_tuple = padding_parsed
+
+        # Override with directional values
+        padding_parsed = (
+            padding_top if padding_top is not None else padding_tuple[0],
+            padding_right if padding_right is not None else padding_tuple[1],
+            padding_bottom if padding_bottom is not None else padding_tuple[2],
+            padding_left if padding_left is not None else padding_tuple[3],
+        )
+
+    # Parse margin
+    margin_parsed: int | tuple[int, int, int, int]
+    if isinstance(margin, str) and margin.startswith("("):
+        try:
+            margin_parsed = literal_eval(margin)
+        except (ValueError, SyntaxError, NameError):
+            margin_parsed = 0
+    elif isinstance(margin, str):
+        try:
+            margin_parsed = int(margin)
+        except ValueError:
+            margin_parsed = 0
+    else:
+        margin_parsed = cast(int, margin)
+
+    return width_parsed, height_parsed, spacing_int, padding_parsed, margin_parsed
+
+
 class VStackExtension(Extension):
     """Jinja2 extension for {% vstack %} tag.
 
@@ -312,6 +387,7 @@ class VStackExtension(Extension):
         align_v: str = "stretch",
         raw: bool = False,
         id: str | None = None,
+        **kwargs: Any,
     ) -> str:
         """Render the vstack tag.
 
@@ -351,6 +427,9 @@ class VStackExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        # classes = kwargs.get("class", None)
+
         # Get or create layout context from environment globals
         context_obj = self.environment.globals.get("_wijjit_layout_context")
         if context_obj is None:
@@ -359,61 +438,19 @@ class VStackExtension(Extension):
         else:
             layout_context = cast(LayoutContext, context_obj)
 
-        # Parse attributes
-        width_parsed = parse_size_attr(width)
-        height_parsed = parse_size_attr(height)
-        spacing_int = int(spacing)
-
-        # Parse padding - could be int, tuple, or directional attributes
-        padding_parsed: int | tuple[int, int, int, int]
-        if isinstance(padding, str) and padding.startswith("("):
-            # Parse tuple string like "(1,2,3,4)"
-            try:
-                padding_parsed = literal_eval(padding)
-            except (ValueError, SyntaxError, NameError):
-                padding_parsed = 0
-        elif isinstance(padding, tuple):
-            padding_parsed = padding
-        elif isinstance(padding, str):
-            try:
-                padding_parsed = int(padding)
-            except ValueError:
-                padding_parsed = 0
-        else:
-            padding_parsed = int(padding) if padding else 0
-
-        # Apply directional padding overrides
-        if any([padding_top is not None, padding_right is not None,
-                padding_bottom is not None, padding_left is not None]):
-            # Convert base padding to tuple if needed
-            if isinstance(padding_parsed, int):
-                base = padding_parsed
-                padding_tuple = (base, base, base, base)
-            else:
-                padding_tuple = padding_parsed
-
-            # Override with directional values
-            padding_parsed = (
-                padding_top if padding_top is not None else padding_tuple[0],
-                padding_right if padding_right is not None else padding_tuple[1],
-                padding_bottom if padding_bottom is not None else padding_tuple[2],
-                padding_left if padding_left is not None else padding_tuple[3],
+        width_parsed, height_parsed, spacing_int, padding_parsed, margin_parsed = (
+            _parse_for_render(
+                width,
+                height,
+                spacing,
+                padding,
+                padding_top,
+                padding_right,
+                padding_bottom,
+                padding_left,
+                margin,
             )
-
-        # Parse margin
-        margin_parsed: int | tuple[int, int, int, int]
-        if isinstance(margin, str) and margin.startswith("("):
-            try:
-                margin_parsed = literal_eval(margin)
-            except (ValueError, SyntaxError, NameError):
-                margin_parsed = 0
-        elif isinstance(margin, str):
-            try:
-                margin_parsed = int(margin)
-            except ValueError:
-                margin_parsed = 0
-        else:
-            margin_parsed = cast(int, margin)
+        )
 
         # Create VStack node
         vstack = VStack(
@@ -436,7 +473,9 @@ class VStackExtension(Extension):
         body_output = caller()
 
         # Interleave text and elements in source order using markers
-        vstack.children = interleave_text_and_elements(body_output, vstack.children, raw=raw)
+        vstack.children = interleave_text_and_elements(
+            body_output, vstack.children, raw=raw
+        )
 
         # Pop from stack
         layout_context.pop()
@@ -511,6 +550,7 @@ class HStackExtension(Extension):
         align_v: str = "stretch",
         raw: bool = False,
         id: str | None = None,
+        **kwargs: Any,
     ) -> str:
         """Render the hstack tag.
 
@@ -550,6 +590,9 @@ class HStackExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        # classes = kwargs.get("class", None)
+
         # Get or create layout context from environment globals
         context_obj = self.environment.globals.get("_wijjit_layout_context")
         if context_obj is None:
@@ -558,61 +601,19 @@ class HStackExtension(Extension):
         else:
             layout_context = cast(LayoutContext, context_obj)
 
-        # Parse attributes
-        width_parsed = parse_size_attr(width)
-        height_parsed = parse_size_attr(height)
-        spacing_int = int(spacing)
-
-        # Parse padding - could be int, tuple, or directional attributes
-        padding_parsed: int | tuple[int, int, int, int]
-        if isinstance(padding, str) and padding.startswith("("):
-            # Parse tuple string like "(1,2,3,4)"
-            try:
-                padding_parsed = literal_eval(padding)
-            except (ValueError, SyntaxError, NameError):
-                padding_parsed = 0
-        elif isinstance(padding, tuple):
-            padding_parsed = padding
-        elif isinstance(padding, str):
-            try:
-                padding_parsed = int(padding)
-            except ValueError:
-                padding_parsed = 0
-        else:
-            padding_parsed = int(padding) if padding else 0
-
-        # Apply directional padding overrides
-        if any([padding_top is not None, padding_right is not None,
-                padding_bottom is not None, padding_left is not None]):
-            # Convert base padding to tuple if needed
-            if isinstance(padding_parsed, int):
-                base = padding_parsed
-                padding_tuple = (base, base, base, base)
-            else:
-                padding_tuple = padding_parsed
-
-            # Override with directional values
-            padding_parsed = (
-                padding_top if padding_top is not None else padding_tuple[0],
-                padding_right if padding_right is not None else padding_tuple[1],
-                padding_bottom if padding_bottom is not None else padding_tuple[2],
-                padding_left if padding_left is not None else padding_tuple[3],
+        width_parsed, height_parsed, spacing_int, padding_parsed, margin_parsed = (
+            _parse_for_render(
+                width,
+                height,
+                spacing,
+                padding,
+                padding_top,
+                padding_right,
+                padding_bottom,
+                padding_left,
+                margin,
             )
-
-        # Parse margin
-        margin_parsed: int | tuple[int, int, int, int]
-        if isinstance(margin, str) and margin.startswith("("):
-            try:
-                margin_parsed = literal_eval(margin)
-            except (ValueError, SyntaxError, NameError):
-                margin_parsed = 0
-        elif isinstance(margin, str):
-            try:
-                margin_parsed = int(margin)
-            except ValueError:
-                margin_parsed = 0
-        else:
-            margin_parsed = cast(int, margin)
+        )
 
         # Create HStack node
         hstack = HStack(
@@ -635,7 +636,9 @@ class HStackExtension(Extension):
         body_output = caller()
 
         # Interleave text and elements in source order using markers
-        hstack.children = interleave_text_and_elements(body_output, hstack.children, raw=raw)
+        hstack.children = interleave_text_and_elements(
+            body_output, hstack.children, raw=raw
+        )
 
         # Pop from stack
         layout_context.pop()
@@ -713,6 +716,7 @@ class FrameExtension(Extension):
         show_scrollbar: bool = True,
         raw: bool = False,
         id: str | None = None,
+        **kwargs: Any,
     ) -> str:
         """Render the frame tag.
 
@@ -756,6 +760,9 @@ class FrameExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        # classes = kwargs.get("class", None)
+
         # Get or create layout context from environment globals
         context_obj = self.environment.globals.get("_wijjit_layout_context")
         if context_obj is None:

@@ -198,7 +198,7 @@ def handle_divide(event):
         app.state["divide_result"] = f"{a} ÷ {b} = {result}"
         app.state["error_message"] = ""
 
-    except ValueError as e:
+    except ValueError:
         error_msg = "Invalid number format"
         app.state["error_message"] = error_msg
         app.state["divide_result"] = "Error"
@@ -236,7 +236,9 @@ def handle_parse_json(event):
             raise ValueError("JSON input is empty")
 
         data = json.loads(json_str)
-        app.state["json_result"] = f"Parsed: {type(data).__name__} with {len(data)} keys"
+        app.state["json_result"] = (
+            f"Parsed: {type(data).__name__} with {len(data)} keys"
+        )
         app.state["error_message"] = ""
 
     except json.JSONDecodeError as e:
@@ -275,19 +277,19 @@ def handle_read_file(event):
             raise ValueError("File path is empty")
 
         # Attempt to read file
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             content = f.read(100)  # Read first 100 chars
 
         app.state["file_content"] = f"Read {len(content)} characters"
         app.state["error_message"] = ""
 
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         error_msg = f"File not found: {file_path}"
         app.state["error_message"] = error_msg
         app.state["file_content"] = ""
         log_error("File Reading", error_msg)
 
-    except PermissionError as e:
+    except PermissionError:
         error_msg = f"Permission denied: {file_path}"
         app.state["error_message"] = error_msg
         app.state["file_content"] = ""
@@ -322,7 +324,7 @@ def handle_null_error(event):
         # This will raise AttributeError
         result = data.some_method()
 
-    except AttributeError as e:
+    except AttributeError:
         error_msg = "Attempted to access attribute on None object"
         app.state["error_message"] = error_msg
         log_error("Null Reference", error_msg)
@@ -348,7 +350,7 @@ def handle_type_error(event):
         # This will raise TypeError
         result = "string" + 123
 
-    except TypeError as e:
+    except TypeError:
         error_msg = "Cannot concatenate string and integer"
         app.state["error_message"] = error_msg
         log_error("Type Error", error_msg)
@@ -470,4 +472,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()

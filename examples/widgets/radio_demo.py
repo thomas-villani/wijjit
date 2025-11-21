@@ -134,7 +134,9 @@ def handle_submit(event):
     app.state["shipping_label"] = SHIPPING_LABELS.get(shipping, shipping)
 
     app.state["submitted"] = True
-    app.state["status"] = f"Order submitted: {SIZE_LABELS.get(size)} {color} shirt with {SHIPPING_LABELS.get(shipping).split('(')[0].strip()} shipping"
+    app.state["status"] = (
+        f"Order submitted: {SIZE_LABELS.get(size)} {color} shirt with {SHIPPING_LABELS.get(shipping).split('(')[0].strip()} shipping"
+    )
 
 
 @app.on_action("reset")

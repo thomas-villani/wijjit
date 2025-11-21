@@ -55,6 +55,7 @@ class MarkdownView(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         content: str = "",
         width: int = 60,
         height: int = 20,
@@ -62,7 +63,7 @@ class MarkdownView(ScrollableElement):
         border_style: str = "single",
         title: str | None = None,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

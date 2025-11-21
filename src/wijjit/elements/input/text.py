@@ -90,13 +90,14 @@ class TextInput(Element):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         placeholder: str = "",
         value: str = "",
         width: int = 20,
         max_length: int | None = None,
         style: InputStyle = InputStyle.BRACKETS,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
         self.focusable = True
         self.value = value
@@ -446,6 +447,7 @@ class TextArea(Element):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         value: str = "",
         width: int = 40,
         height: int = 10,
@@ -456,7 +458,7 @@ class TextArea(Element):
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = "single",
     ):
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
         self.focusable = True
 

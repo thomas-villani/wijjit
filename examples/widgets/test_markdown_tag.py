@@ -2,7 +2,9 @@
 
 from wijjit import Wijjit
 
-app = Wijjit(initial_state={"text": "# Hello World\n\nThis is a **test**.\n\n> Did it work?"})
+app = Wijjit(
+    initial_state={"text": "# Hello World\n\nThis is a **test**.\n\n> Did it work?"}
+)
 
 
 @app.view("main", default=True)

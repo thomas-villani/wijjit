@@ -4,6 +4,8 @@ This module provides the Theme and ThemeManager classes for defining and
 switching between visual themes (light, dark, custom, etc.).
 """
 
+from __future__ import annotations
+
 from wijjit.styling.style import Style
 
 
@@ -102,6 +104,46 @@ class Theme:
         """
         self.styles[class_name] = style
 
+    @classmethod
+    def from_css(cls, filepath: str, name: str = "custom") -> Theme:
+        """Create a Theme from a CSS file.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to CSS file
+        name : str, optional
+            Theme name (default: "custom")
+
+        Returns
+        -------
+        Theme
+            New Theme instance with styles loaded from CSS
+
+        Notes
+        -----
+        The CSS file should use Wijjit-compatible property names and values.
+        See CSSParser documentation for supported CSS syntax.
+
+        Examples
+        --------
+        Load theme from CSS file:
+
+        >>> theme = Theme.from_css("my_theme.css", "my_theme")
+
+        Or combine with built-in theme:
+
+        >>> from wijjit.styling.theme import DefaultTheme
+        >>> base_theme = DefaultTheme()
+        >>> custom_styles = Theme.from_css("overrides.css")
+        >>> # Merge custom styles into base theme
+        >>> base_theme.styles.update(custom_styles.styles)
+        """
+        from wijjit.styling.css_parser import load_css_theme
+
+        styles = load_css_theme(filepath, name)
+        return cls(name, styles)
+
 
 class DefaultTheme(Theme):
     """Default theme with sensible defaults for all elements.
@@ -163,6 +205,9 @@ class DefaultTheme(Theme):
             "radio:focus": Style(
                 fg_color=(0, 255, 255),  # Cyan
             ),
+            "radio:checked": Style(
+                fg_color=(0, 255, 0),  # Green
+            ),
             "radio:selected": Style(
                 fg_color=(0, 255, 0),  # Green
             ),
@@ -199,6 +244,7 @@ class DefaultTheme(Theme):
             # ListView styles
             "listview": Style(),
             "listview:focus": Style(bold=True),
+            "listview.item:selected": Style(reverse=True),
             "listview.label": Style(),
             "listview.details": Style(dim=True),
             "listview.divider": Style(fg_color=(100, 100, 100)),
@@ -324,6 +370,65 @@ class DefaultTheme(Theme):
             "alert.error.border": Style(fg_color=(255, 0, 0)),  # Red
             "alert.warning.border": Style(fg_color=(255, 255, 0)),  # Yellow
             "alert.info.border": Style(fg_color=(100, 149, 237)),  # Cornflower blue
+            # CSS Utility Classes - Button variants
+            ".btn-primary": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 120, 212),
+                bold=True,
+            ),
+            ".btn-primary:hover": Style(
+                bg_color=(0, 140, 232),
+            ),
+            ".btn-primary:focus": Style(
+                bg_color=(0, 150, 255),
+                bold=True,
+            ),
+            ".btn-secondary": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(200, 200, 200),
+            ),
+            ".btn-secondary:hover": Style(
+                bg_color=(210, 210, 210),
+            ),
+            ".btn-danger": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(220, 53, 69),
+            ),
+            ".btn-danger:hover": Style(
+                bg_color=(200, 35, 51),
+            ),
+            ".btn-success": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(40, 167, 69),
+            ),
+            ".btn-success:hover": Style(
+                bg_color=(33, 136, 56),
+            ),
+            ".btn-warning": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 193, 7),
+            ),
+            ".btn-warning:hover": Style(
+                bg_color=(235, 173, 0),
+            ),
+            # CSS Utility Classes - Text styling
+            ".text-bold": Style(bold=True),
+            ".text-dim": Style(dim=True),
+            ".text-italic": Style(italic=True),
+            ".text-underline": Style(underline=True),
+            # CSS Utility Classes - Text colors
+            ".text-primary": Style(fg_color=(0, 120, 212)),
+            ".text-success": Style(fg_color=(40, 167, 69)),
+            ".text-warning": Style(fg_color=(255, 193, 7)),
+            ".text-danger": Style(fg_color=(220, 53, 69)),
+            ".text-info": Style(fg_color=(100, 149, 237)),
+            ".text-muted": Style(fg_color=(128, 128, 128), dim=True),
+            # CSS Utility Classes - Background colors
+            ".bg-primary": Style(bg_color=(0, 120, 212)),
+            ".bg-success": Style(bg_color=(40, 167, 69)),
+            ".bg-warning": Style(bg_color=(255, 193, 7)),
+            ".bg-danger": Style(bg_color=(220, 53, 69)),
+            ".bg-info": Style(bg_color=(100, 149, 237)),
         }
         super().__init__("default", styles)
 
@@ -378,6 +483,9 @@ class DarkTheme(Theme):
             "radio:focus": Style(
                 fg_color=(0, 255, 255),  # Cyan
             ),
+            "radio:checked": Style(
+                fg_color=(0, 255, 0),  # Green
+            ),
             "radio:selected": Style(
                 fg_color=(0, 255, 0),  # Green
             ),
@@ -415,6 +523,7 @@ class DarkTheme(Theme):
             # ListView styles
             "listview": Style(fg_color=(200, 200, 220)),
             "listview:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "listview.item:selected": Style(bg_color=(60, 60, 100)),
             "listview.label": Style(fg_color=(200, 200, 220)),
             "listview.details": Style(fg_color=(140, 140, 160), dim=True),
             "listview.divider": Style(fg_color=(80, 80, 100)),
@@ -531,6 +640,65 @@ class DarkTheme(Theme):
             "code:focus": Style(fg_color=(220, 220, 255), bold=True),
             "code.border": Style(fg_color=(80, 80, 100)),
             "code.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # CSS Utility Classes - Button variants
+            ".btn-primary": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 120, 212),
+                bold=True,
+            ),
+            ".btn-primary:hover": Style(
+                bg_color=(0, 140, 232),
+            ),
+            ".btn-primary:focus": Style(
+                bg_color=(0, 150, 255),
+                bold=True,
+            ),
+            ".btn-secondary": Style(
+                fg_color=(220, 220, 220),
+                bg_color=(60, 60, 60),
+            ),
+            ".btn-secondary:hover": Style(
+                bg_color=(70, 70, 70),
+            ),
+            ".btn-danger": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(220, 53, 69),
+            ),
+            ".btn-danger:hover": Style(
+                bg_color=(200, 35, 51),
+            ),
+            ".btn-success": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(40, 167, 69),
+            ),
+            ".btn-success:hover": Style(
+                bg_color=(33, 136, 56),
+            ),
+            ".btn-warning": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 193, 7),
+            ),
+            ".btn-warning:hover": Style(
+                bg_color=(235, 173, 0),
+            ),
+            # CSS Utility Classes - Text styling
+            ".text-bold": Style(bold=True),
+            ".text-dim": Style(dim=True),
+            ".text-italic": Style(italic=True),
+            ".text-underline": Style(underline=True),
+            # CSS Utility Classes - Text colors
+            ".text-primary": Style(fg_color=(100, 180, 255)),
+            ".text-success": Style(fg_color=(80, 200, 120)),
+            ".text-warning": Style(fg_color=(255, 193, 7)),
+            ".text-danger": Style(fg_color=(255, 100, 100)),
+            ".text-info": Style(fg_color=(150, 190, 255)),
+            ".text-muted": Style(fg_color=(128, 128, 128), dim=True),
+            # CSS Utility Classes - Background colors
+            ".bg-primary": Style(bg_color=(0, 100, 180)),
+            ".bg-success": Style(bg_color=(30, 140, 60)),
+            ".bg-warning": Style(bg_color=(200, 150, 0)),
+            ".bg-danger": Style(bg_color=(180, 40, 50)),
+            ".bg-info": Style(bg_color=(60, 100, 180)),
         }
         super().__init__("dark", styles)
 
@@ -622,6 +790,7 @@ class LightTheme(Theme):
             # ListView styles
             "listview": Style(fg_color=(0, 0, 0)),
             "listview:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "listview.item:selected": Style(bg_color=(200, 220, 255)),
             "listview.label": Style(fg_color=(0, 0, 0)),
             "listview.details": Style(fg_color=(100, 100, 100)),
             "listview.divider": Style(fg_color=(180, 180, 180)),
@@ -740,8 +909,428 @@ class LightTheme(Theme):
             "code:focus": Style(fg_color=(0, 0, 0), bold=True),
             "code.border": Style(fg_color=(180, 180, 180)),
             "code.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # CSS Utility Classes - Button variants
+            ".btn-primary": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 100, 200),
+                bold=True,
+            ),
+            ".btn-primary:hover": Style(
+                bg_color=(0, 120, 220),
+            ),
+            ".btn-primary:focus": Style(
+                bg_color=(0, 130, 230),
+                bold=True,
+            ),
+            ".btn-secondary": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(220, 220, 220),
+            ),
+            ".btn-secondary:hover": Style(
+                bg_color=(230, 230, 230),
+            ),
+            ".btn-danger": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(200, 50, 60),
+            ),
+            ".btn-danger:hover": Style(
+                bg_color=(180, 30, 40),
+            ),
+            ".btn-success": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(30, 150, 60),
+            ),
+            ".btn-success:hover": Style(
+                bg_color=(25, 130, 50),
+            ),
+            ".btn-warning": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 180, 0),
+            ),
+            ".btn-warning:hover": Style(
+                bg_color=(235, 160, 0),
+            ),
+            # CSS Utility Classes - Text styling
+            ".text-bold": Style(bold=True),
+            ".text-dim": Style(dim=True),
+            ".text-italic": Style(italic=True),
+            ".text-underline": Style(underline=True),
+            # CSS Utility Classes - Text colors
+            ".text-primary": Style(fg_color=(0, 80, 180)),
+            ".text-success": Style(fg_color=(20, 120, 50)),
+            ".text-warning": Style(fg_color=(200, 140, 0)),
+            ".text-danger": Style(fg_color=(180, 40, 50)),
+            ".text-info": Style(fg_color=(60, 100, 180)),
+            ".text-muted": Style(fg_color=(128, 128, 128), dim=True),
+            # CSS Utility Classes - Background colors
+            ".bg-primary": Style(bg_color=(200, 220, 255)),
+            ".bg-success": Style(bg_color=(200, 255, 220)),
+            ".bg-warning": Style(bg_color=(255, 240, 200)),
+            ".bg-danger": Style(bg_color=(255, 220, 220)),
+            ".bg-info": Style(bg_color=(220, 235, 255)),
         }
         super().__init__("light", styles)
+
+
+class HighContrastTheme(Theme):
+    """High contrast theme for accessibility.
+
+    This theme uses pure black and white with bright, saturated colors
+    for maximum contrast. Optimized for users with vision impairments
+    or those requiring enhanced visibility.
+
+    Features
+    --------
+    - Pure white (255, 255, 255) on pure black (0, 0, 0)
+    - Bright, fully saturated accent colors
+    - Bold text for improved readability
+    - Strong borders and focus indicators
+    - No subtle grays or muted effects
+    """
+
+    def __init__(self) -> None:
+        styles = {
+            # Button styles - White on black with bright borders
+            "button": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            "button:focus": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 0),  # Bright yellow background
+                bold=True,
+            ),
+            "button:hover": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(50, 50, 50),
+                bold=True,
+            ),
+            "button:disabled": Style(
+                fg_color=(128, 128, 128),
+                bg_color=(0, 0, 0),
+            ),
+            # Input field styles - White text with bright focus
+            "input": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            "input:focus": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
+                bold=True,
+                underline=True,
+            ),
+            "input:disabled": Style(
+                fg_color=(128, 128, 128),
+            ),
+            # Checkbox styles - Bright colors
+            "checkbox": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "checkbox:focus": Style(
+                fg_color=(255, 255, 0),  # Bright yellow
+                bold=True,
+            ),
+            "checkbox:checked": Style(
+                fg_color=(0, 255, 0),  # Bright green
+                bold=True,
+            ),
+            # Radio button styles
+            "radio": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "radio:focus": Style(
+                fg_color=(255, 255, 0),  # Bright yellow
+                bold=True,
+            ),
+            "radio:checked": Style(
+                fg_color=(0, 255, 0),  # Bright green
+                bold=True,
+            ),
+            "radio:selected": Style(
+                fg_color=(0, 255, 0),  # Bright green
+                bold=True,
+            ),
+            # Select styles
+            "select": Style(fg_color=(255, 255, 255), bold=True),
+            "select:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "select.border": Style(fg_color=(255, 255, 255), bold=True),
+            "select.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            "select.option": Style(fg_color=(255, 255, 255), bold=True),
+            "select.option:selected": Style(fg_color=(0, 255, 0), bold=True),
+            "select.option:highlighted": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "select.option:disabled": Style(fg_color=(128, 128, 128)),
+            "select.placeholder": Style(fg_color=(128, 128, 128)),
+            # Frame styles - Strong borders
+            "frame": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "frame:focus": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "frame.border": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "frame.border:focus": Style(
+                fg_color=(255, 255, 0),  # Bright yellow border
+                bold=True,
+            ),
+            # Text styles - All bold for visibility
+            "text": Style(bold=True),
+            "text.title": Style(fg_color=(255, 255, 255), bold=True),
+            "text.subtitle": Style(fg_color=(255, 255, 255), bold=True),
+            "text.muted": Style(fg_color=(192, 192, 192), bold=True),
+            # ListView styles
+            "listview": Style(bold=True),
+            "listview:focus": Style(bold=True),
+            "listview.item:selected": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "listview.label": Style(fg_color=(255, 255, 255), bold=True),
+            "listview.details": Style(fg_color=(192, 192, 192), bold=True),
+            "listview.divider": Style(fg_color=(255, 255, 255)),
+            "listview.border": Style(fg_color=(255, 255, 255), bold=True),
+            "listview.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # Table styles
+            "table": Style(bold=True),
+            "table:focus": Style(bold=True),
+            "table.header": Style(fg_color=(255, 255, 255), bold=True),
+            "table.row": Style(fg_color=(255, 255, 255), bold=True),
+            "table.row:selected": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "table.row:hover": Style(bg_color=(64, 64, 64), bold=True),
+            "table.border": Style(fg_color=(255, 255, 255), bold=True),
+            "table.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # Tree styles
+            "tree": Style(fg_color=(255, 255, 255), bold=True),
+            "tree:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "tree.node": Style(fg_color=(255, 255, 255), bold=True),
+            "tree.node:highlight": Style(
+                fg_color=(255, 255, 0),
+                bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            "tree.node:selected": Style(fg_color=(0, 255, 0), bold=True),
+            "tree.node:hover": Style(bg_color=(64, 64, 64), bold=True),
+            "tree.indicator": Style(fg_color=(255, 255, 255), bold=True),
+            "tree.border": Style(fg_color=(255, 255, 255), bold=True),
+            "tree.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # TextArea styles
+            "textarea": Style(fg_color=(255, 255, 255), bold=True),
+            "textarea:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "textarea.border": Style(fg_color=(255, 255, 255), bold=True),
+            "textarea.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            "textarea.selection": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            # ProgressBar styles - Bright colors
+            "progress": Style(fg_color=(255, 255, 255), bold=True),
+            "progress.fill": Style(fg_color=(0, 255, 0), bold=True),  # Bright green
+            "progress.empty": Style(fg_color=(192, 192, 192)),
+            "progress.text": Style(fg_color=(255, 255, 255), bold=True),
+            "progress.gradient.low": Style(fg_color=(255, 0, 0), bold=True),
+            "progress.gradient.medium": Style(fg_color=(255, 255, 0), bold=True),
+            "progress.gradient.high": Style(fg_color=(0, 255, 0), bold=True),
+            # Spinner styles
+            "spinner": Style(fg_color=(255, 255, 0), bold=True),  # Bright yellow
+            "spinner.active": Style(fg_color=(255, 255, 0), bold=True),
+            "spinner.text": Style(fg_color=(255, 255, 255), bold=True),
+            # Status bar styles
+            "statusbar": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "statusbar.left": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "statusbar.center": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "statusbar.right": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            # Modal styles
+            "modal": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            "modal.backdrop": Style(dim=True),
+            # Notification styles - Bright colors
+            "notification": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "notification.info": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(0, 255, 255),  # Bright cyan
+                bold=True,
+            ),
+            "notification.success": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(0, 255, 0),  # Bright green
+                bold=True,
+            ),
+            "notification.warning": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 0),  # Bright yellow
+                bold=True,
+            ),
+            "notification.error": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(255, 0, 0),  # Bright red
+                bold=True,
+            ),
+            # Menu styles
+            "menu": Style(fg_color=(255, 255, 255), bold=True),
+            "menu:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "menu.border": Style(fg_color=(255, 255, 255), bold=True),
+            "menu.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            "menu.item": Style(fg_color=(255, 255, 255), bold=True),
+            "menu.item:highlighted": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "menu.item:disabled": Style(fg_color=(128, 128, 128)),
+            "menu.divider": Style(fg_color=(255, 255, 255)),
+            "menu.shortcut": Style(fg_color=(192, 192, 192), bold=True),
+            # LogView styles
+            "logview": Style(fg_color=(255, 255, 255), bold=True),
+            "logview:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "logview.error": Style(fg_color=(255, 0, 0), bold=True),  # Bright red
+            "logview.warning": Style(
+                fg_color=(255, 255, 0), bold=True
+            ),  # Bright yellow
+            "logview.info": Style(fg_color=(255, 255, 255), bold=True),
+            "logview.debug": Style(fg_color=(192, 192, 192), bold=True),
+            "logview.trace": Style(fg_color=(128, 128, 128)),
+            "logview.line_number": Style(fg_color=(192, 192, 192)),
+            "logview.border": Style(fg_color=(255, 255, 255), bold=True),
+            "logview.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # MarkdownView styles
+            "markdown": Style(fg_color=(255, 255, 255), bold=True),
+            "markdown:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "markdown.border": Style(fg_color=(255, 255, 255), bold=True),
+            "markdown.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # CodeBlock styles
+            "code": Style(fg_color=(255, 255, 255), bold=True),
+            "code:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "code.border": Style(fg_color=(255, 255, 255), bold=True),
+            "code.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # Alert severity styles
+            "alert.success.border": Style(
+                fg_color=(0, 255, 0), bold=True
+            ),  # Bright green
+            "alert.error.border": Style(fg_color=(255, 0, 0), bold=True),  # Bright red
+            "alert.warning.border": Style(
+                fg_color=(255, 255, 0), bold=True
+            ),  # Bright yellow
+            "alert.info.border": Style(
+                fg_color=(0, 255, 255), bold=True
+            ),  # Bright cyan
+            # CSS Utility Classes - Button variants (high contrast)
+            ".btn-primary": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 255),
+                bold=True,
+            ),
+            ".btn-primary:hover": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(192, 192, 192),
+                bold=True,
+            ),
+            ".btn-primary:focus": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 0),
+                bold=True,
+            ),
+            ".btn-secondary": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            ".btn-secondary:hover": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(64, 64, 64),
+                bold=True,
+            ),
+            ".btn-danger": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(255, 0, 0),
+                bold=True,
+            ),
+            ".btn-danger:hover": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(192, 0, 0),
+                bold=True,
+            ),
+            ".btn-success": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(0, 255, 0),
+                bold=True,
+            ),
+            ".btn-success:hover": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(0, 192, 0),
+                bold=True,
+            ),
+            ".btn-warning": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(255, 255, 0),
+                bold=True,
+            ),
+            ".btn-warning:hover": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(192, 192, 0),
+                bold=True,
+            ),
+            # CSS Utility Classes - Text styling
+            ".text-bold": Style(bold=True),
+            ".text-dim": Style(fg_color=(192, 192, 192)),  # Still visible
+            ".text-italic": Style(italic=True, bold=True),
+            ".text-underline": Style(underline=True, bold=True),
+            # CSS Utility Classes - Text colors (bright)
+            ".text-primary": Style(fg_color=(255, 255, 255), bold=True),
+            ".text-success": Style(fg_color=(0, 255, 0), bold=True),
+            ".text-warning": Style(fg_color=(255, 255, 0), bold=True),
+            ".text-danger": Style(fg_color=(255, 0, 0), bold=True),
+            ".text-info": Style(fg_color=(0, 255, 255), bold=True),
+            ".text-muted": Style(fg_color=(192, 192, 192)),
+            # CSS Utility Classes - Background colors (bright)
+            ".bg-primary": Style(bg_color=(0, 0, 255)),
+            ".bg-success": Style(bg_color=(0, 255, 0)),
+            ".bg-warning": Style(bg_color=(255, 255, 0)),
+            ".bg-danger": Style(bg_color=(255, 0, 0)),
+            ".bg-info": Style(bg_color=(0, 255, 255)),
+        }
+        super().__init__("high_contrast", styles)
 
 
 class ThemeManager:
@@ -785,6 +1374,7 @@ class ThemeManager:
         self.register_theme(DefaultTheme())
         self.register_theme(DarkTheme())
         self.register_theme(LightTheme())
+        self.register_theme(HighContrastTheme())
 
         # Point to registered default theme so mutations persist
         self.current_theme: Theme = self.themes["default"]

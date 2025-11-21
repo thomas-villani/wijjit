@@ -128,6 +128,7 @@ class Tree(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         data: dict[str, Any] | list | None = None,
         width: int = 40,
         height: int = 15,
@@ -138,7 +139,7 @@ class Tree(ScrollableElement):
         border_style: str = "none",
         title: str | None = None,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = True
 

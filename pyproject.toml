@@ -12,6 +12,7 @@ dependencies = [
     "prompt-toolkit>=3.0.52",
     "pyperclip>=1.11.0",
     "rich>=14.2.0",
+    "tinycss2>=1.5.0",
 ]
 
 [project.optional-dependencies]
@@ -70,9 +71,10 @@ ignore = []
     "E501",  # Line too long (tests often have long assertion lines)
     "F841",  # Variable assigned but never used
 ]
-"examples/*.py" = [
+"examples/**/*.py" = [
     "E501",
-    "B007"
+    "B007",
+    "F841"
 ]
 
 [tool.mypy]

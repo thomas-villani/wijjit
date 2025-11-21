@@ -36,11 +36,18 @@ class Element(ABC):
     ----------
     id : str, optional
         Unique identifier for this element
+    classes : str or list of str or set of str, optional
+        CSS class names for styling. Can be:
+        - String with space-separated classes: "btn-primary large"
+        - List of class names: ["btn-primary", "large"]
+        - Set of class names: {"btn-primary", "large"}
 
     Attributes
     ----------
     id : str or None
         Element identifier
+    classes : set of str
+        CSS class names for styling
     focusable : bool
         Whether this element can receive focus
     focused : bool
@@ -53,8 +60,22 @@ class Element(ABC):
         Type of this element
     """
 
-    def __init__(self, id: str | None = None) -> None:
+    def __init__(
+        self, id: str | None = None, classes: str | list[str] | set[str] | None = None
+    ) -> None:
         self.id = id
+
+        # Parse and normalize CSS classes
+        if classes is None:
+            self.classes: set[str] = set()
+        elif isinstance(classes, str):
+            # Split space-separated string into set
+            self.classes = set(classes.split())
+        elif isinstance(classes, list):
+            self.classes = set(classes)
+        else:
+            self.classes = classes
+
         self.focusable = False
         self.focused = False
         self.hovered = False
@@ -70,32 +91,93 @@ class Element(ABC):
             None  # State key for highlight persistence
         )
 
-    def get_style_classes(self) -> list[str]:
-        """Get list of CSS class names for styling this element.
+    def add_class(self, class_name: str) -> None:
+        """Add a CSS class to this element.
 
-        Returns
-        -------
-        list of str
-            CSS class names in order of specificity (least to most specific).
-            Empty list means use automatic inference from element type.
-
-        Notes
-        -----
-        Elements with multiple stylable parts can override this to return
-        multiple class names. For example, a menu might return ["menu", "menu.item"]
-        to enable styling both the menu container and individual items.
-
-        The StyleResolver will merge styles from all classes in order, so later
-        classes override earlier ones.
+        Parameters
+        ----------
+        class_name : str
+            CSS class name to add
 
         Examples
         --------
-        StatusBar returns multiple classes for different sections:
-
-        >>> def get_style_classes(self):
-        ...     return ["statusbar", "statusbar.left"]
+        >>> button = Button("Click me")
+        >>> button.add_class("btn-primary")
+        >>> "btn-primary" in button.classes
+        True
         """
-        return []
+        self.classes.add(class_name)
+
+    def remove_class(self, class_name: str) -> None:
+        """Remove a CSS class from this element.
+
+        Parameters
+        ----------
+        class_name : str
+            CSS class name to remove
+
+        Notes
+        -----
+        Uses discard() instead of remove() to avoid KeyError if class doesn't exist.
+
+        Examples
+        --------
+        >>> button = Button("Click me", classes="btn-primary large")
+        >>> button.remove_class("large")
+        >>> "large" in button.classes
+        False
+        """
+        self.classes.discard(class_name)
+
+    def toggle_class(self, class_name: str) -> None:
+        """Toggle a CSS class on this element.
+
+        Parameters
+        ----------
+        class_name : str
+            CSS class name to toggle
+
+        Notes
+        -----
+        If the class is present, it will be removed. If absent, it will be added.
+
+        Examples
+        --------
+        >>> button = Button("Click me")
+        >>> button.toggle_class("active")
+        >>> "active" in button.classes
+        True
+        >>> button.toggle_class("active")
+        >>> "active" in button.classes
+        False
+        """
+        if class_name in self.classes:
+            self.classes.remove(class_name)
+        else:
+            self.classes.add(class_name)
+
+    def has_class(self, class_name: str) -> bool:
+        """Check if element has a CSS class.
+
+        Parameters
+        ----------
+        class_name : str
+            CSS class name to check
+
+        Returns
+        -------
+        bool
+            True if element has the class, False otherwise
+
+        Examples
+        --------
+        >>> button = Button("Click me", classes="btn-primary")
+        >>> button.has_class("btn-primary")
+        True
+        >>> button.has_class("btn-secondary")
+        False
+        """
+        return class_name in self.classes
 
     @abstractmethod
     def render_to(self, ctx: PaintContext) -> None:
@@ -371,15 +453,19 @@ class ScrollableElement(Element, ABC):
     ...             self.on_scroll(self._scroll_offset)
     """
 
-    def __init__(self, id: str | None = None) -> None:
+    def __init__(
+        self, id: str | None = None, classes: str | list[str] | set[str] | None = None
+    ) -> None:
         """Initialize scrollable element.
 
         Parameters
         ----------
         id : str, optional
             Element identifier
+        classes : str or list of str or set of str, optional
+            CSS class names for styling
         """
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.scroll_state_key: str | None = None
         self.on_scroll: Callable[[int], None] | None = None
 
@@ -419,6 +505,8 @@ class Container(Element):
     ----------
     id : str, optional
         Unique identifier
+    classes : str or list of str or set of str, optional
+        CSS class names for styling
 
     Attributes
     ----------
@@ -426,8 +514,10 @@ class Container(Element):
         Child elements
     """
 
-    def __init__(self, id: str | None = None) -> None:
-        super().__init__(id)
+    def __init__(
+        self, id: str | None = None, classes: str | list[str] | set[str] | None = None
+    ) -> None:
+        super().__init__(id=id, classes=classes)
         self.children: list[Element] = []
 
     def add_child(self, element: Element) -> None:
@@ -495,6 +585,8 @@ class OverlayElement(Container):
     ----------
     id : str, optional
         Unique identifier
+    classes : str or list of str or set of str, optional
+        CSS class names for styling
     width : int, optional
         Desired width in characters
     height : int, optional
@@ -515,11 +607,12 @@ class OverlayElement(Container):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | set[str] | None = None,
         width: int | None = None,
         height: int | None = None,
         centered: bool = True,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.width = width
         self.height = height
         self.centered = centered
@@ -584,6 +677,8 @@ class TextElement(Element):
         Text content to display
     id : str, optional
         Unique identifier for this element
+    classes : str or list of str or set of str, optional
+        CSS class names for styling
     wrap : bool, optional
         Whether to wrap text to fit bounds width (default: True)
 
@@ -595,8 +690,14 @@ class TextElement(Element):
         Whether text wrapping is enabled
     """
 
-    def __init__(self, text: str, id: str | None = None, wrap: bool = True) -> None:
-        super().__init__(id)
+    def __init__(
+        self,
+        text: str,
+        id: str | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        wrap: bool = True,
+    ) -> None:
+        super().__init__(id=id, classes=classes)
         self.text = text
         self.element_type = ElementType.DISPLAY
         self.focusable = False

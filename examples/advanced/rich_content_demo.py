@@ -329,7 +329,9 @@ def main_view():
         """,
         "data": {
             "page": page,
-            "page_title": ["Quick Start", "State Management", "Event Handling"][page - 1],
+            "page_title": ["Quick Start", "State Management", "Event Handling"][
+                page - 1
+            ],
             "docs_content": docs,
             "code_content": code,
         },
@@ -461,4 +463,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()

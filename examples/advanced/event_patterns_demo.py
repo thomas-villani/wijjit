@@ -301,7 +301,11 @@ def setup_view3_handlers():
         priority=50,
     )
     app.on(
-        EventType.KEY, on_p_key_low, scope=HandlerScope.VIEW, view_name="view3", priority=0
+        EventType.KEY,
+        on_p_key_low,
+        scope=HandlerScope.VIEW,
+        view_name="view3",
+        priority=0,
     )
 
 
@@ -462,4 +466,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()

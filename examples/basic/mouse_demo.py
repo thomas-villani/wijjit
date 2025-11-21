@@ -98,5 +98,6 @@ def handle_key_q(event):
     """Handle 'q' key to quit."""
     app.quit()
 
+
 if __name__ == "__main__":
     app.run()

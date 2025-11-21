@@ -89,6 +89,7 @@ class Select(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         options: list[Any] | None = None,
         value: str | None = None,
         width: int = 20,
@@ -102,7 +103,7 @@ class Select(ScrollableElement):
         ) = None,
         title: str | None = None,
     ):
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.SELECTABLE
         self.focusable = True
 

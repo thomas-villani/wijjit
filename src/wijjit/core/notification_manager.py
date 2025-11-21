@@ -111,6 +111,10 @@ class NotificationManager:
         Vertical spacing between stacked notifications (default: 1)
     margin : int, optional
         Margin from screen edges (default: 2)
+    max_stack : int or None, optional
+        Maximum number of concurrent notifications. When limit is reached,
+        oldest notifications are automatically dismissed. None = unlimited
+        (default: 5)
 
     Attributes
     ----------
@@ -126,6 +130,8 @@ class NotificationManager:
         Spacing between notifications
     margin : int
         Edge margin
+    max_stack : int or None
+        Maximum stack size
     notifications : list
         List of active notifications (oldest first)
     _lock : threading.Lock
@@ -146,6 +152,7 @@ class NotificationManager:
         position: str = "top-right",
         spacing: int = 1,
         margin: int = 2,
+        max_stack: int | None = 5,
     ) -> None:
         self.overlay_manager = overlay_manager
         self.terminal_width = terminal_width
@@ -153,6 +160,7 @@ class NotificationManager:
         self.position = position
         self.spacing = spacing
         self.margin = margin
+        self.max_stack = max_stack
         self.notifications: list[ActiveNotification] = []
         self._lock = threading.Lock()  # Protect notification list access
 
@@ -163,6 +171,9 @@ class NotificationManager:
         on_close: Callable[..., Any] | None = None,
     ) -> str:
         """Add a notification to the stack.
+
+        If max_stack is set and the stack is full, the oldest notification
+        will be automatically dismissed before adding the new one.
 
         Parameters
         ----------
@@ -181,6 +192,21 @@ class NotificationManager:
         """
         # Generate unique ID
         notification_id = str(uuid.uuid4())
+
+        # Check if we need to dismiss oldest notification due to max_stack limit
+        with self._lock:
+            if self.max_stack is not None and len(self.notifications) >= self.max_stack:
+                # Remove oldest notification (first in list)
+                if self.notifications:
+                    oldest = self.notifications[0]
+                    logger.debug(
+                        f"Max stack ({self.max_stack}) reached, "
+                        f"dismissing oldest notification: {oldest.id}"
+                    )
+                    # Remove from list immediately (we have the lock)
+                    self.notifications.pop(0)
+                    # Dismiss overlay (outside lock to avoid deadlock)
+                    self.overlay_manager.pop(oldest.overlay)
 
         # Calculate position for this notification (needs lock for list read)
         with self._lock:

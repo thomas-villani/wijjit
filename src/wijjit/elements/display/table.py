@@ -87,6 +87,7 @@ class Table(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         data: list[dict] | None = None,
         columns: list[str] | list[dict] | None = None,
         width: int = 60,
@@ -96,7 +97,7 @@ class Table(ScrollableElement):
         show_scrollbar: bool = True,
         border_style: str = "single",
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

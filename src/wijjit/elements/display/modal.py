@@ -54,6 +54,7 @@ class ModalElement(OverlayElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         title: str | None = None,
         width: int = 50,
         height: int = 10,
@@ -61,7 +62,9 @@ class ModalElement(OverlayElement):
         centered: bool = True,
         padding: tuple[int, int, int, int] = (1, 2, 1, 2),
     ):
-        super().__init__(id=id, width=width, height=height, centered=centered)
+        super().__init__(
+            id=id, classes=classes, width=width, height=height, centered=centered
+        )
 
         self.title = title
         self.padding = padding

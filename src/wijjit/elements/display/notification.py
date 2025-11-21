@@ -82,6 +82,7 @@ class NotificationElement(OverlayElement):
         self,
         message: str,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         severity: str | NotificationSeverity = NotificationSeverity.INFO,
         action_label: str | None = None,
         action_callback: Callable[..., Any] | None = None,
@@ -124,7 +125,9 @@ class NotificationElement(OverlayElement):
         if action_label:
             height += 2  # spacing + button line
 
-        super().__init__(id=id, width=width, height=height, centered=False)
+        super().__init__(
+            id=id, classes=classes, width=width, height=height, centered=False
+        )
 
         self.message = message
         self.severity = severity

@@ -1,4 +1,6 @@
-# ${DIR_PATH}/${FILE_NAME}
+# src/wijjit/tags/input.py
+
+import json
 from typing import Any, Literal
 
 from jinja2 import nodes
@@ -10,8 +12,8 @@ from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextArea, TextInput
-from wijjit.layout.engine import ElementNode
-from wijjit.layout.frames import BorderStyle
+from wijjit.layout.engine import ElementNode, FrameNode, VStack
+from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker
 
@@ -75,6 +77,7 @@ class TextInputExtension(Extension):
         value: str = "",
         action: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the textinput tag.
 
@@ -94,12 +97,17 @@ class TextInputExtension(Extension):
             Action ID to dispatch when Enter is pressed
         bind : bool
             Whether to auto-bind value to state[id] (default: True)
+        classes : str, optional
+            CSS-like class names for styling
 
         Returns
         -------
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -128,7 +136,9 @@ class TextInputExtension(Extension):
                 logger.warning(f"Failed to restore state for textinput '{id}': {e}")
 
         # Create TextInput element
-        text_input = TextInput(id=id, placeholder=placeholder, value=value, width=width)
+        text_input = TextInput(
+            id=id, classes=classes, placeholder=placeholder, value=value, width=width
+        )
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -200,7 +210,11 @@ class ButtonExtension(Extension):
         return node
 
     def _render_button(
-        self, caller: Any, id: str | None = None, action: str | None = None
+        self,
+        caller: Any,
+        id: str | None = None,
+        action: str | None = None,
+        **kwargs: Any,
     ) -> str:
         """Render the button tag.
 
@@ -212,12 +226,17 @@ class ButtonExtension(Extension):
             Element identifier
         action : str, optional
             Action ID to dispatch when button is clicked
+        classes : str, optional
+            CSS-like class names for styling
 
         Returns
         -------
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get or create layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -232,7 +251,7 @@ class ButtonExtension(Extension):
             id = context.generate_id("button")
 
         # Create Button element
-        button = Button(label=label, id=id)
+        button = Button(label=label, id=id, classes=classes)
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -337,6 +356,7 @@ class SelectExtension(Extension):
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = None,
         title: str | None = None,
+        **kwargs: Any,
     ) -> str:
         """Render the select tag.
 
@@ -362,12 +382,17 @@ class SelectExtension(Extension):
             Border style: "single", "double", "rounded", or None (default: None)
         title : str, optional
             Title to display in top border (only when border_style is set)
+        classes : str, optional
+            CSS-like class names for styling
 
         Returns
         -------
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -427,6 +452,7 @@ class SelectExtension(Extension):
         # Create Select element
         select = Select(
             id=id,
+            classes=classes,
             options=cleaned_options,
             value=value,
             width=width,
@@ -508,8 +534,6 @@ class SelectExtension(Extension):
             # Try to parse as JSON dict (for value/label pairs)
             if line.startswith("{") and line.endswith("}"):
                 try:
-                    import json
-
                     opt_dict = json.loads(line)
                     options.append(opt_dict)
                     continue
@@ -567,8 +591,12 @@ class CheckboxExtension(Extension):
         value: str = "",
         action: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the checkbox tag."""
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -590,7 +618,9 @@ class CheckboxExtension(Extension):
                 logger.warning(f"Failed to restore state for checkbox '{id}': {e}")
 
         # Create Checkbox element
-        checkbox = Checkbox(id=id, label=label, checked=checked, value=value)
+        checkbox = Checkbox(
+            id=id, classes=classes, label=label, checked=checked, value=value
+        )
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -665,8 +695,12 @@ class RadioExtension(Extension):
         value: str = "",
         action: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the radio tag."""
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -700,7 +734,14 @@ class RadioExtension(Extension):
                 logger.warning(f"Failed to restore state for radio '{name}': {e}")
 
         # Create Radio element
-        radio = Radio(name=name or "", id=id, label=label, checked=checked, value=value)
+        radio = Radio(
+            name=name or "",
+            id=id,
+            classes=classes,
+            label=label,
+            checked=checked,
+            value=value,
+        )
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
@@ -782,8 +823,12 @@ class CheckboxGroupExtension(Extension):
         title: str | None = None,
         action: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the checkboxgroup tag."""
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -824,6 +869,7 @@ class CheckboxGroupExtension(Extension):
         # Create CheckboxGroup element
         checkbox_group = CheckboxGroup(
             id=id,
+            classes=classes,
             options=options,
             selected_values=selected,
             width=width,
@@ -933,8 +979,12 @@ class RadioGroupExtension(Extension):
         title: str | None = None,
         action: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the radiogroup tag."""
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -970,13 +1020,16 @@ class RadioGroupExtension(Extension):
 
         # Determine if using nested radio tags (no options provided)
         using_nested_radios = len(options) == 0
-        using_frame = using_nested_radios and (border_style is not None or title is not None)
+        using_frame = using_nested_radios and (
+            border_style is not None or title is not None
+        )
 
         if not using_nested_radios:
             # Create RadioGroup element with provided options
             radio_group = RadioGroup(
                 name=name,
                 id=id,
+                classes=classes,
                 options=options,
                 selected_value=selected,
                 width=width,
@@ -1028,7 +1081,6 @@ class RadioGroupExtension(Extension):
         # Handle nested radios (with or without frame)
         if using_nested_radios and not using_frame:
             # For nested radios without a frame, create a VStack container
-            from wijjit.layout.engine import VStack
 
             vstack_container = VStack(
                 children=[],
@@ -1047,20 +1099,21 @@ class RadioGroupExtension(Extension):
 
         # For nested radios with borders/titles, create a frame container
         elif using_frame:
-            from wijjit.layout.engine import FrameNode
-            from wijjit.layout.frames import BorderStyle as BS
-            from wijjit.layout.frames import Frame, FrameStyle
 
             # Map border_style string to BorderStyle enum
             border_style_map = {
-                "single": BS.SINGLE,
-                "double": BS.DOUBLE,
-                "rounded": BS.ROUNDED,
+                "single": BorderStyle.SINGLE,
+                "double": BorderStyle.DOUBLE,
+                "rounded": BorderStyle.ROUNDED,
             }
             if isinstance(border_style, str):
-                border_enum = border_style_map.get(border_style.lower(), BS.SINGLE)
+                border_enum = border_style_map.get(
+                    border_style.lower(), BorderStyle.SINGLE
+                )
             else:
-                border_enum = border_style if border_style is not None else BS.SINGLE
+                border_enum = (
+                    border_style if border_style is not None else BorderStyle.SINGLE
+                )
 
             # Create frame style
             frame_style = FrameStyle(
@@ -1110,7 +1163,9 @@ class RadioGroupExtension(Extension):
         finally:
             # Restore previous radiogroup context
             if old_radiogroup_name is not None:
-                self.environment.globals["_wijjit_radiogroup_name"] = old_radiogroup_name
+                self.environment.globals["_wijjit_radiogroup_name"] = (
+                    old_radiogroup_name
+                )
             else:
                 self.environment.globals.pop("_wijjit_radiogroup_name", None)
 
@@ -1185,6 +1240,7 @@ class TextAreaExtension(Extension):
         border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
         action: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the textarea tag.
 
@@ -1212,12 +1268,17 @@ class TextAreaExtension(Extension):
             Action ID to dispatch on content change
         bind : bool
             Whether to auto-bind value to state[id] (default: True)
+        classes : str, optional
+            CSS-like class names for styling
 
         Returns
         -------
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -1271,6 +1332,7 @@ class TextAreaExtension(Extension):
         # Create TextArea element
         textarea = TextArea(
             id=id,
+            classes=classes,
             value=value,
             width=element_width,
             height=element_height,

@@ -40,6 +40,7 @@ from wijjit.tags.display import (
     SpinnerExtension,
     StatusBarExtension,
     TableExtension,
+    TextExtension,
     TreeExtension,
 )
 from wijjit.tags.input import (
@@ -138,6 +139,7 @@ class Renderer:
                 ProgressBarExtension,
                 SpinnerExtension,
                 StatusBarExtension,
+                TextExtension,
                 ListViewExtension,
                 LogViewExtension,
                 MarkdownExtension,

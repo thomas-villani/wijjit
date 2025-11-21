@@ -20,6 +20,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from wijjit.config import Config, DefaultConfig
 from wijjit.core.event_loop import EventLoop
 from wijjit.core.events import (
     ActionEvent,
@@ -42,9 +43,10 @@ from wijjit.elements.base import Element
 from wijjit.elements.display.notification import NotificationElement
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
 from wijjit.layout.bounds import Bounds
-from wijjit.logging_config import get_logger
+from wijjit.logging_config import configure_logging, get_logger
 from wijjit.terminal.ansi import ANSIColor, ANSICursor, ANSIStyle, colorize
 from wijjit.terminal.input import InputHandler
+from wijjit.terminal.mouse import MouseTrackingMode
 from wijjit.terminal.screen import ScreenManager
 
 # Get logger for this module
@@ -60,13 +62,13 @@ class Wijjit:
 
     Parameters
     ----------
-    template_dir : Optional[str]
-        Directory containing template files (default: None for inline templates)
     initial_state : Optional[Dict[str, Any]]
         Initial state dictionary (default: empty dict)
 
     Attributes
     ----------
+    config : Config
+        Application configuration (Flask-like dict)
     state : State
         Application state with reactive updates
     renderer : Renderer
@@ -92,41 +94,111 @@ class Wijjit:
 
     Examples
     --------
+    Basic usage:
+
     >>> app = Wijjit()
-    >>>
+    >>> app.config['ENABLE_MOUSE'] = False
     >>> @app.view("main", default=True)
     ... def main_view():
-    ...     return {
-    ...         "template": "Hello, World!",
-    ...     }
-    >>>
+    ...     return {"template": "Hello, World!"}
+    >>> app.run()
+
+    Load configuration from file:
+
+    >>> app = Wijjit()
+    >>> app.config.from_pyfile('config.py')
+    >>> app.run()
+
+    Configure via environment variables:
+
+    >>> # export WIJJIT_DEBUG=1
+    >>> # export WIJJIT_ENABLE_MOUSE=0
+    >>> app = Wijjit()  # Auto-loads WIJJIT_* env vars
     >>> app.run()
     """
 
     def __init__(
         self,
-        template_dir: str | None = None,
         initial_state: dict[str, Any] | None = None,
+        template_dir: str | None = None,
+        enable_mouse: bool | None = None,
+        debug: bool | None = None,
+        **config_overrides,
     ) -> None:
         """Initialize Wijjit application.
 
         Parameters
         ----------
-        template_dir : Optional[str]
-            Directory containing template files
         initial_state : Optional[Dict[str, Any]]
             Initial state dictionary
+        template_dir : Optional[str]
+            Template directory path (convenience parameter for TEMPLATE_DIR config)
+        enable_mouse : Optional[bool]
+            Enable mouse support (convenience parameter for ENABLE_MOUSE config)
+        debug : Optional[bool]
+            Enable debug mode (convenience parameter for DEBUG config)
+        **config_overrides
+            Additional config overrides (e.g., quit_key='q', log_level='DEBUG')
+
+        Notes
+        -----
+        Configuration is managed via app.config. Use app.config.from_pyfile(),
+        app.config.from_object(), or app.config.update() to configure the app.
+        Environment variables with WIJJIT_ prefix are automatically loaded.
+
+        Convenience parameters (template_dir, enable_mouse, debug) and config_overrides
+        take precedence over environment variables and defaults.
         """
+        logger.info("Initializing Wijjit application")
+
+        # Initialize configuration
+        self.config = Config()
+        self.config.from_object(DefaultConfig)
+
+        # Auto-load from WIJJIT_* environment variables
+        self.config.from_prefixed_env("WIJJIT_")
+
+        # Apply convenience parameters
+        if template_dir is not None:
+            self.config["TEMPLATE_DIR"] = template_dir
+        if enable_mouse is not None:
+            self.config["ENABLE_MOUSE"] = enable_mouse
+        if debug is not None:
+            self.config["DEBUG"] = debug
+
+        # Apply any additional config overrides
+        # Convert snake_case kwargs to UPPERCASE config keys
+        for key, value in config_overrides.items():
+            config_key = key.upper()
+            self.config[config_key] = value
+
+        # Configure logging based on config
+        self._configure_logging()
+
+        # Configure unicode support mode
+        self._configure_unicode_support()
+
         logger.info(
-            f"Initializing Wijjit application (template_dir={template_dir}, "
-            f"initial_state_keys={list(initial_state.keys()) if initial_state else []})"
+            f"Config: DEBUG={self.config['DEBUG']}, "
+            f"ENABLE_MOUSE={self.config['ENABLE_MOUSE']}, "
+            f"LOG_LEVEL={self.config['LOG_LEVEL']}, "
+            f"UNICODE_SUPPORT={self.config['UNICODE_SUPPORT']}"
         )
 
         # Initialize state
         self.state = State(initial_state or {})
 
         # Initialize renderer
-        self.renderer = Renderer(template_dir=template_dir)
+        self.renderer = Renderer(template_dir=self.config["TEMPLATE_DIR"])
+
+        # Load theme file if specified
+        self._load_theme_file()
+
+        # Load style file if specified
+        self._load_style_file()
+
+        # Apply high contrast theme if enabled
+        self._apply_high_contrast_theme()
 
         # Initialize focus manager
         self.focus_manager = FocusManager()
@@ -145,6 +217,10 @@ class Wijjit:
             overlay_manager=self.overlay_manager,
             terminal_width=term_size.columns,
             terminal_height=term_size.lines,
+            position=self.config["NOTIFICATION_POSITION"],
+            spacing=self.config["NOTIFICATION_SPACING"],
+            margin=self.config["NOTIFICATION_MARGIN"],
+            max_stack=self.config["NOTIFICATION_MAX_STACK"],
         )
 
         # Initialize event system
@@ -152,12 +228,15 @@ class Wijjit:
 
         # Initialize terminal components
         self.screen_manager = ScreenManager()
-        self.input_handler = InputHandler()
+        self.input_handler = InputHandler(
+            enable_mouse=self.config["ENABLE_MOUSE"],
+            mouse_tracking_mode=self._get_mouse_tracking_mode(),
+        )
 
         # Initialize routing and event managers
         self.view_router = ViewRouter(self)
-        self._executor: ThreadPoolExecutor | None = None  # Set via configure()
-        self.event_loop = EventLoop(self, executor=None)  # Updated by configure()
+        self._executor: ThreadPoolExecutor | None = None
+        self.event_loop = EventLoop(self, executor=None)
         self.mouse_router = MouseEventRouter(self)
         self.wiring_manager = ElementWiringManager(self)
 
@@ -171,8 +250,8 @@ class Wijjit:
         # Layout system
         self.positioned_elements = []  # Elements with bounds from layout engine
 
-        # Focus navigation configuration
-        self.focus_navigation_enabled = True  # Auto-enabled, can be customized
+        # Focus navigation configuration (from config)
+        self.focus_navigation_enabled = self.config["ENABLE_FOCUS_NAVIGATION"]
 
         # Action handlers
         self._action_handlers: dict[str, Callable] = {}
@@ -180,8 +259,8 @@ class Wijjit:
         # Key handlers
         self._key_handlers: dict[str, Callable] = {}
 
-        # Auto-refresh for animations (e.g., spinners)
-        self.refresh_interval: float | None = None  # None = no auto-refresh
+        # Auto-refresh for animations (from config)
+        self.refresh_interval: float | None = self.config["REFRESH_INTERVAL"]
         self._last_refresh_time: float = 0.0
 
         # Terminal size tracking for resize detection
@@ -199,82 +278,177 @@ class Wijjit:
             priority=100,  # High priority so it runs early
         )
 
-    def configure(
-        self,
-        *,
-        run_sync_handlers_in_executor: bool = False,
-        executor_max_workers: int | None = None,
-    ) -> None:
-        """Configure application threading and execution options.
+        # Apply executor configuration from config
+        if self.config["RUN_SYNC_IN_EXECUTOR"]:
+            self._executor = ThreadPoolExecutor(
+                max_workers=self.config["EXECUTOR_MAX_WORKERS"]
+            )
+            self.event_loop.executor = self._executor
+            logger.info(
+                f"Created ThreadPoolExecutor "
+                f"(max_workers={self.config['EXECUTOR_MAX_WORKERS'] or 'default'})"
+            )
 
-        This method allows you to configure how the application handles
-        synchronous event handlers and other threading-related settings.
+    def _configure_logging(self) -> None:
+        """Configure logging based on config settings.
 
-        Parameters
-        ----------
-        run_sync_handlers_in_executor : bool
-            If True, synchronous event handlers will run in a ThreadPoolExecutor
-            instead of directly on the event loop thread. This prevents blocking
-            the UI if handlers perform I/O operations. Default is False for
-            backward compatibility, but True is recommended for production apps.
-        executor_max_workers : int, optional
-            Maximum number of worker threads in the executor pool. If None,
-            defaults to min(32, (os.cpu_count() or 1) + 4) as per ThreadPoolExecutor.
-            Only used if run_sync_handlers_in_executor is True.
+        Applies LOG_LEVEL, LOG_FILE, LOG_TO_CONSOLE, and LOG_FORMAT
+        configuration options.
+        """
+        # Configure logging from config
+        configure_logging(
+            level=self.config["LOG_LEVEL"],
+            filename=self.config["LOG_FILE"],
+            format_string=self.config["LOG_FORMAT"],
+        )
 
-        Notes
-        -----
-        Threading model:
-        - With run_sync_handlers_in_executor=False (default):
-          * Async handlers run on event loop
-          * Sync handlers run directly on event loop thread (may block UI)
-          * Simple but can freeze UI if handlers do blocking operations
+        # Log configuration details
+        if self.config["LOG_FILE"]:
+            logger.info(f"Logging to file: {self.config['LOG_FILE']}")
 
-        - With run_sync_handlers_in_executor=True (recommended):
-          * Async handlers run on event loop
-          * Sync handlers run in thread pool executor (non-blocking)
-          * Prevents UI freezes from blocking sync handlers
-          * Small overhead from thread context switching
+    def _configure_unicode_support(self) -> None:
+        """Configure unicode support based on config settings.
 
-        Examples
-        --------
-        Enable executor for production apps with potential blocking handlers:
+        Applies UNICODE_SUPPORT configuration: 'auto', 'force', or 'disable'.
+        """
+        from wijjit.terminal import ansi
 
-        >>> app = Wijjit()
-        >>> app.configure(run_sync_handlers_in_executor=True)
-        >>> @app.on_key("s")
-        ... def save_file(event):
-        ...     with open("data.txt", "w") as f:  # Blocking I/O
-        ...         f.write("data")  # Won't freeze UI with executor enabled
+        mode = self.config["UNICODE_SUPPORT"]
+        if mode not in ("auto", "force", "disable"):
+            logger.warning(f"Invalid UNICODE_SUPPORT mode '{mode}', using 'auto'")
+            mode = "auto"
+
+        ansi.set_unicode_mode(mode)
+        logger.debug(f"Unicode support mode set to: {mode}")
+
+    def _get_mouse_tracking_mode(self) -> MouseTrackingMode:
+        """Convert config string to MouseTrackingMode enum.
+
+        Returns
+        -------
+        MouseTrackingMode
+            Mouse tracking mode enum value
 
         Raises
         ------
-        RuntimeError
-            If called after the event loop has started (must configure before app.run())
+        ValueError
+            If mouse tracking mode is invalid
         """
-        if self.running:
-            raise RuntimeError(
-                "Cannot configure app after event loop has started. "
-                "Call app.configure() before app.run()."
-            )
+        mode = self.config["MOUSE_TRACKING_MODE"]
 
-        # Setup executor if requested
-        if run_sync_handlers_in_executor:
-            if self._executor is None:
-                self._executor = ThreadPoolExecutor(max_workers=executor_max_workers)
-                logger.info(
-                    f"Created ThreadPoolExecutor for sync handlers "
-                    f"(max_workers={executor_max_workers or 'default'})"
-                )
-            # Update event loop with executor
-            self.event_loop.executor = self._executor
+        if mode == "button_event":
+            return MouseTrackingMode.BUTTON_EVENT
+        elif mode == "all_events":
+            return MouseTrackingMode.ALL_EVENTS
+        elif mode == "drag":
+            return MouseTrackingMode.DRAG
         else:
-            # Ensure no executor
-            if self._executor is not None:
-                self._executor.shutdown(wait=False)
-                self._executor = None
-                logger.info("Disabled executor for sync handlers")
-            self.event_loop.executor = None
+            logger.warning(
+                f"Invalid MOUSE_TRACKING_MODE '{mode}', using 'button_event'"
+            )
+            return MouseTrackingMode.BUTTON_EVENT
+
+    def _load_theme_file(self) -> None:
+        """Load theme from THEME_FILE config if specified.
+
+        Supports CSS and JSON theme files (JSON not yet implemented).
+        Sets the loaded theme as the active theme.
+        """
+        from wijjit.styling.theme import Theme
+
+        theme_path = self.config["THEME_FILE"]
+        if not theme_path:
+            # No theme file specified, apply DEFAULT_THEME if not 'default'
+            default_theme = self.config["DEFAULT_THEME"]
+            if default_theme != "default":
+                try:
+                    self.renderer.theme_manager.set_theme(default_theme)
+                    logger.info(f"Applied theme: {default_theme}")
+                except KeyError:
+                    logger.warning(f"Theme '{default_theme}' not found, using default")
+            return
+
+        # Theme file specified - load it
+        try:
+            if theme_path.endswith(".css"):
+                # Load CSS theme
+                theme = Theme.from_css(theme_path, "custom")
+                self.renderer.theme_manager.register_theme(theme)
+                self.renderer.theme_manager.set_theme("custom")
+                logger.info(f"Loaded CSS theme from: {theme_path}")
+
+            elif theme_path.endswith(".json"):
+                # JSON themes not yet implemented
+                logger.error(
+                    f"JSON theme files not yet supported: {theme_path}\n"
+                    f"Use CSS format instead or contribute JSON theme loader!"
+                )
+
+            else:
+                logger.warning(
+                    f"Unknown theme file format: {theme_path}\n"
+                    f"Supported formats: .css"
+                )
+
+        except FileNotFoundError:
+            logger.error(f"Theme file not found: {theme_path}")
+        except Exception as e:
+            logger.error(f"Error loading theme from {theme_path}: {e}")
+
+    def _load_style_file(self) -> None:
+        """Load additional styles from STYLE_FILE config if specified.
+
+        Style files are CSS files that add to the current theme
+        rather than replacing it entirely.
+        """
+        from wijjit.styling.theme import Theme
+
+        style_path = self.config["STYLE_FILE"]
+        if not style_path:
+            return
+
+        try:
+            if style_path.endswith(".css"):
+                # Load CSS styles and merge with current theme
+                additional_styles = Theme.from_css(style_path, "additional")
+
+                # Merge styles into current theme
+                current_theme = self.renderer.theme_manager.current_theme
+                for class_name, style in additional_styles.styles.items():
+                    current_theme.set_style(class_name, style)
+
+                logger.info(f"Loaded additional styles from: {style_path}")
+
+            else:
+                logger.warning(
+                    f"Unknown style file format: {style_path}\n"
+                    f"Supported formats: .css"
+                )
+
+        except FileNotFoundError:
+            logger.error(f"Style file not found: {style_path}")
+        except Exception as e:
+            logger.error(f"Error loading styles from {style_path}: {e}")
+
+    def _apply_high_contrast_theme(self) -> None:
+        """Apply high contrast theme if HIGH_CONTRAST config is enabled.
+
+        The high contrast theme uses pure black and white with bright,
+        saturated colors for maximum accessibility. This is useful for
+        users with vision impairments.
+
+        Notes
+        -----
+        This is applied after custom theme/style files, so custom themes
+        take precedence. If you want to force high contrast regardless of
+        other theme settings, set HIGH_CONTRAST=True.
+        """
+        if self.config.get("HIGH_CONTRAST", False):
+            try:
+                self.renderer.theme_manager.set_theme("high_contrast")
+                logger.info("Applied high contrast theme for accessibility")
+            except KeyError as e:
+                logger.error(f"High contrast theme not found: {e}")
 
     @property
     def views(self) -> dict[str, ViewConfig]:
@@ -549,6 +723,11 @@ class Wijjit:
         This is an internal method called by the event loop.
         It renders the current view's template with data and displays it.
         """
+        import time
+
+        # Track render start time for performance monitoring
+        render_start = time.time()
+
         if self.current_view is None or self.current_view not in self.views:
             logger.warning("Render skipped: no current view")
             return
@@ -681,6 +860,14 @@ class Wijjit:
             # the diff rendering in _compose_output_cells already handled clearing them
             # because it diffed from old displayed (with overlays) to new base (without overlays)
 
+            # Add FPS display if enabled
+            if self.config["SHOW_FPS"] and hasattr(self.event_loop, "current_fps"):
+                output = self._add_fps_overlay(output)
+
+            # Add bounds visualization if enabled
+            if self.config["SHOW_BOUNDS"]:
+                output = self._add_bounds_overlay(output)
+
             # Clear dirty regions after ALL compositing (including overlays) is complete
             self.renderer.dirty_manager.clear()
 
@@ -700,6 +887,16 @@ class Wijjit:
                 # Fall back to encoding with error handling
                 sys.stdout.buffer.write(output.encode("utf-8", errors="replace"))
                 sys.stdout.flush()
+
+            # Check render performance if configured
+            if self.config["WARN_SLOW_RENDER_MS"]:
+                render_time_ms = (time.time() - render_start) * 1000
+                threshold = self.config["WARN_SLOW_RENDER_MS"]
+                if render_time_ms > threshold:
+                    logger.warning(
+                        f"Slow render detected: {render_time_ms:.1f}ms "
+                        f"(threshold: {threshold}ms) for view '{self.current_view}'"
+                    )
 
             self.needs_render = False
 
@@ -1328,6 +1525,129 @@ class Wijjit:
         if result:
             self.needs_render = True
         return result
+
+    def _add_fps_overlay(self, output: str) -> str:
+        """Add FPS counter overlay to output.
+
+        Parameters
+        ----------
+        output : str
+            Current rendered output
+
+        Returns
+        -------
+        str
+            Output with FPS counter added
+
+        Notes
+        -----
+        FPS counter appears in top-right corner using ANSI positioning.
+        """
+        # Get current FPS value
+        fps = self.event_loop.current_fps
+
+        # Format FPS display
+        fps_text = f"FPS: {fps:4.1f}"
+
+        # Position in top-right corner
+        # Use ANSI cursor positioning to overlay FPS counter
+        term_size = shutil.get_terminal_size()
+        column = term_size.columns - len(fps_text)
+
+        # Create FPS overlay using ANSI positioning
+        # Save cursor, move to top-right, print FPS, restore cursor
+        fps_overlay = (
+            f"{ANSICursor.save()}"
+            f"{ANSICursor.position(1, column)}"
+            f"{colorize(fps_text, color=ANSIColor.fg(0, 255, 0), bold=True)}"  # Green FPS
+            f"{ANSICursor.restore()}"
+        )
+
+        return output + fps_overlay
+
+    def _add_bounds_overlay(self, output: str) -> str:
+        """Add element bounds visualization overlay to output.
+
+        Parameters
+        ----------
+        output : str
+            Current rendered output
+
+        Returns
+        -------
+        str
+            Output with bounds rectangles added
+
+        Notes
+        -----
+        Draws colored rectangles around all positioned elements for debugging.
+        Different colors indicate different element types:
+        - Cyan: Input elements (focusable)
+        - Yellow: Display elements
+        - Magenta: Container elements
+        - Green: Other elements
+        """
+        from wijjit.elements.base import Container, ElementType
+
+        bounds_overlay = ANSICursor.save()
+
+        # Draw bounds for all positioned elements
+        for elem in self.positioned_elements:
+            if not hasattr(elem, "bounds") or elem.bounds is None:
+                continue
+
+            bounds = elem.bounds
+
+            # Skip elements with zero or negative dimensions
+            if bounds.width <= 0 or bounds.height <= 0:
+                continue
+
+            # Determine color based on element type
+            if hasattr(elem, "focusable") and elem.focusable:
+                # Input elements - cyan
+                color = ANSIColor.fg(0, 255, 255)
+            elif isinstance(elem, Container):
+                # Container elements - magenta
+                color = ANSIColor.fg(255, 0, 255)
+            elif (
+                hasattr(elem, "element_type")
+                and elem.element_type == ElementType.DISPLAY
+            ):
+                # Display elements - yellow
+                color = ANSIColor.fg(255, 255, 0)
+            else:
+                # Other elements - green
+                color = ANSIColor.fg(0, 255, 0)
+
+            # Draw top border
+            bounds_overlay += ANSICursor.position(bounds.y + 1, bounds.x + 1)
+            bounds_overlay += colorize(
+                "+" + "-" * (bounds.width - 2) + "+", color=color
+            )
+
+            # Draw side borders
+            for dy in range(1, bounds.height - 1):
+                # Left border
+                bounds_overlay += ANSICursor.position(bounds.y + dy + 1, bounds.x + 1)
+                bounds_overlay += colorize("|", color=color)
+                # Right border
+                bounds_overlay += ANSICursor.position(
+                    bounds.y + dy + 1, bounds.x + bounds.width
+                )
+                bounds_overlay += colorize("|", color=color)
+
+            # Draw bottom border (only if height > 1)
+            if bounds.height > 1:
+                bounds_overlay += ANSICursor.position(
+                    bounds.y + bounds.height, bounds.x + 1
+                )
+                bounds_overlay += colorize(
+                    "+" + "-" * (bounds.width - 2) + "+", color=color
+                )
+
+        bounds_overlay += ANSICursor.restore()
+
+        return output + bounds_overlay
 
     def _handle_error(self, message: str, exception: Exception) -> None:
         """Handle errors during app execution.

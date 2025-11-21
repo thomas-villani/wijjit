@@ -109,7 +109,7 @@ def update_derived_state(key, old_value, new_value):
         New counter value
     """
     # Compute derived state
-    app.state["counter_squared"] = new_value ** 2
+    app.state["counter_squared"] = new_value**2
 
 
 def check_form_completeness(key, old_value, new_value):
@@ -404,4 +404,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()

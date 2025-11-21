@@ -79,6 +79,7 @@ class ConfirmDialog(ModalElement):
         on_confirm: Callable[[], None] | None = None,
         on_cancel: Callable[[], None] | None = None,
         title: str = "Confirm",
+        classes: str | list[str] | None = None,
         confirm_label: str = "Confirm",
         cancel_label: str = "Cancel",
         width: int | None = 50,
@@ -104,6 +105,7 @@ class ConfirmDialog(ModalElement):
             height = max(10, min(height, 30))
 
         super().__init__(
+            classes=classes,
             title=title,
             width=width,
             height=height,
@@ -209,6 +211,7 @@ class AlertDialog(ModalElement):
         message: str,
         on_ok: Callable[[], None] | None = None,
         title: str = "Alert",
+        classes: str | list[str] | None = None,
         ok_label: str = "OK",
         severity: str | AlertSeverity | None = None,
         width: int | None = 50,
@@ -239,6 +242,7 @@ class AlertDialog(ModalElement):
             height = max(10, min(height, 30))
 
         super().__init__(
+            classes=classes,
             title=title,
             width=width,
             height=height,
@@ -413,6 +417,7 @@ class TextInputDialog(ModalElement):
         on_submit: Callable[[str], None] | None = None,
         on_cancel: Callable[[], None] | None = None,
         title: str = "Input",
+        classes: str | list[str] | None = None,
         placeholder: str = "",
         submit_label: str = "Submit",
         cancel_label: str = "Cancel",
@@ -422,6 +427,7 @@ class TextInputDialog(ModalElement):
         input_width: int = 30,
     ) -> None:
         super().__init__(
+            classes=classes,
             title=title,
             width=width,
             height=height,

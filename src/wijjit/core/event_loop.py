@@ -68,6 +68,14 @@ class EventLoop:
         self.running = False
         self.executor = executor
 
+        # FPS tracking
+        self.frame_times: list[float] = []
+        self.current_fps: float = 0.0
+        self._fps_window_size = 10  # Calculate average over last 10 frames
+
+        # Render throttling
+        self._last_render_time: float = 0.0
+
     def run(self) -> None:
         """Run the main event loop.
 
@@ -145,17 +153,23 @@ class EventLoop:
         self.running = True
 
         try:
-            # Enter alternate screen
-            self.app.screen_manager.enter_alternate_buffer()
-            logger.debug("Entered alternate screen buffer")
+            # Enter alternate screen (if configured)
+            if self.app.config["USE_ALTERNATE_SCREEN"]:
+                self.app.screen_manager.enter_alternate_buffer()
+                logger.debug("Entered alternate screen buffer")
 
-            # Hide cursor for better TUI appearance
-            self.app.screen_manager.hide_cursor()
-            logger.debug("Hidden cursor")
+            # Hide cursor for better TUI appearance (if configured)
+            if self.app.config["HIDE_CURSOR"]:
+                self.app.screen_manager.hide_cursor()
+                logger.debug("Hidden cursor")
 
-            # Enable mouse tracking
-            self.app.input_handler.enable_mouse_tracking()
-            logger.debug("Enabled mouse tracking")
+            # Enable mouse tracking (if configured and not already enabled)
+            if (
+                self.app.config["ENABLE_MOUSE"]
+                and not self.app.input_handler.mouse_enabled
+            ):
+                self.app.input_handler.enable_mouse_tracking()
+                logger.debug("Enabled mouse tracking")
 
             # Render initial view
             logger.info(f"Rendering initial view: '{self.app.current_view}'")
@@ -202,6 +216,35 @@ class EventLoop:
         to exit after the current iteration completes.
         """
         self.running = False
+
+    def _should_render_now(self) -> bool:
+        """Check if rendering should happen now based on throttle config.
+
+        Returns
+        -------
+        bool
+            True if render should proceed, False if throttled
+
+        Notes
+        -----
+        Respects RENDER_THROTTLE_MS config to prevent renders faster than
+        the specified threshold.
+        """
+        throttle_ms = self.app.config.get("RENDER_THROTTLE_MS", 0)
+
+        # No throttling if set to 0
+        if throttle_ms <= 0:
+            return True
+
+        current_time = time.time()
+        time_since_last_render = (current_time - self._last_render_time) * 1000
+
+        # Check if enough time has passed
+        if time_since_last_render >= throttle_ms:
+            self._last_render_time = current_time
+            return True
+
+        return False
 
     def _process_frame(self) -> None:
         """Process a single frame of the event loop (synchronous - deprecated).
@@ -304,6 +347,9 @@ class EventLoop:
         - Input reading and event dispatch
         - Re-rendering when needed
         """
+        # Track frame start time for FPS calculation
+        frame_start = time.time()
+
         # Check if auto-refresh is needed (for animations like spinners or notification expiry)
         if self.app.refresh_interval is not None:
             current_time = time.time()
@@ -339,7 +385,7 @@ class EventLoop:
 
         # Render immediately if needed (before disabling auto-refresh)
         # This ensures the final notification removal is rendered
-        if self.app.needs_render:
+        if self.app.needs_render and self._should_render_now():
             self.app._render()
             self.app._last_refresh_time = time.time()
 
@@ -365,7 +411,7 @@ class EventLoop:
         if input_event is None:
             # Timeout or error reading input
             # Check if a background thread requested a render
-            if self.app.needs_render:
+            if self.app.needs_render and self._should_render_now():
                 self.app._render()
                 self.app._last_refresh_time = time.time()
             return
@@ -378,10 +424,35 @@ class EventLoop:
         elif isinstance(input_event, TerminalMouseEvent):
             await self._handle_mouse_event_async(input_event)
 
-        # Re-render if needed
-        if self.app.needs_render:
+        # Re-render if needed (with throttling)
+        if self.app.needs_render and self._should_render_now():
             self.app._render()
             self.app._last_refresh_time = time.time()
+
+        # Calculate FPS if enabled
+        if self.app.config["SHOW_FPS"]:
+            frame_end = time.time()
+            frame_time = frame_end - frame_start
+
+            self.frame_times.append(frame_time)
+            if len(self.frame_times) > self._fps_window_size:
+                self.frame_times.pop(0)
+
+            # Calculate average FPS
+            avg_frame_time = sum(self.frame_times) / len(self.frame_times)
+            self.current_fps = 1.0 / avg_frame_time if avg_frame_time > 0 else 0.0
+
+        # Apply MAX_FPS frame rate limiting
+        max_fps = self.app.config.get("MAX_FPS")
+        if max_fps is not None and max_fps > 0:
+            frame_end = time.time()
+            frame_time = frame_end - frame_start
+            desired_frame_time = 1.0 / max_fps
+
+            if frame_time < desired_frame_time:
+                # Frame completed too quickly, sleep to limit FPS
+                sleep_time = desired_frame_time - frame_time
+                await asyncio.sleep(sleep_time)
 
     def _handle_key_event(self, input_event: Key) -> None:
         """Handle a keyboard event.
@@ -391,9 +462,10 @@ class EventLoop:
         input_event : Key
             The keyboard input event
         """
-        # Handle Ctrl+Q (quit application)
-        if input_event.name == "ctrl+q":
-            logger.info("Received Ctrl+Q, exiting application")
+        # Handle quit key (configurable, default Ctrl+Q)
+        quit_key = self.app.config["QUIT_KEY"]
+        if input_event.name == quit_key:
+            logger.info(f"Received {quit_key}, exiting application")
             self.running = False
             return
 
@@ -484,15 +556,24 @@ class EventLoop:
         input_event : Key
             The keyboard input event
         """
-        # Handle Ctrl+Q (quit application)
-        if input_event.name == "ctrl+q":
-            logger.info("Received Ctrl+Q, exiting application")
+        # Handle quit key (configurable, default Ctrl+Q)
+        quit_key = self.app.config["QUIT_KEY"]
+        if input_event.name == quit_key:
+            logger.info(f"Received {quit_key}, exiting application")
             self.running = False
             return
 
-        logger.debug(
-            f"Key event: {input_event.name} (modifiers={input_event.modifiers})"
-        )
+        # Debug input logging (if configured)
+        if self.app.config["DEBUG_INPUT_KEYBOARD"]:
+            logger.info(
+                f"[DEBUG_INPUT] Key: {input_event.name}, "
+                f"modifiers={input_event.modifiers}, "
+                f"char={input_event.char!r}"
+            )
+        else:
+            logger.debug(
+                f"Key event: {input_event.name} (modifiers={input_event.modifiers})"
+            )
 
         # Check for ESC key to close overlays/notifications
         if input_event.name == "escape":
@@ -575,9 +656,18 @@ class EventLoop:
         terminal_event : TerminalMouseEvent
             The mouse event from terminal layer
         """
-        logger.debug(
-            f"Mouse event: {terminal_event.type} at ({terminal_event.x}, {terminal_event.y})"
-        )
+        # Debug input logging (if configured)
+        if self.app.config["DEBUG_INPUT_MOUSE"]:
+            logger.info(
+                f"[DEBUG_INPUT] Mouse: {terminal_event.type}, "
+                f"position=({terminal_event.x}, {terminal_event.y}), "
+                f"button={terminal_event.button}"
+            )
+        else:
+            logger.debug(
+                f"Mouse event: {terminal_event.type} at ({terminal_event.x}, {terminal_event.y})"
+            )
+
         # Delegate to mouse router (async to support async mouse handlers)
         hover_changed = await self.app.mouse_router.route_mouse_event(terminal_event)
 
@@ -641,8 +731,16 @@ class EventLoop:
         This method iterates through all positioned elements, finds active
         spinners, advances their frame counters, and updates state.
         Called periodically when refresh_interval is set.
+
+        Notes
+        -----
+        Respects REDUCE_MOTION config - animations are skipped when enabled.
         """
         from wijjit.elements.display.spinner import Spinner
+
+        # Skip frame advancement if REDUCE_MOTION is enabled
+        if self.app.config.get("REDUCE_MOTION", False):
+            return
 
         for elem in self.app.positioned_elements:
             if isinstance(elem, Spinner) and elem.active:

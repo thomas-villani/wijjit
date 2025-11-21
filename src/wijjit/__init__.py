@@ -6,8 +6,8 @@ terminal user interfaces with familiar web development patterns.
 
 __version__ = "0.1.0"
 
-# from wijjit.elements.input.button import Button
-# # Core components
+# Core components
+from wijjit.config import Config, DefaultConfig
 from wijjit.core.app import Wijjit
 
 # from wijjit.core.events import (
@@ -59,13 +59,16 @@ from wijjit.core.app import Wijjit
 # from wijjit.terminal.screen import ScreenManager, alternate_screen
 
 __all__ = [
+    # Core
+    "Wijjit",
+    "Config",
+    "DefaultConfig",
     #     # Version
     #     "__version__",
     #     # Core
     #     "State",
     #     "Renderer",
     #     "FocusManager",
-    "Wijjit",
     #     "ViewConfig",
     #     # Events
     #     "Event",

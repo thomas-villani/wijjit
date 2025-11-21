@@ -64,11 +64,12 @@ class Checkbox(Element):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         label: str = "",
         checked: bool = False,
         value: str = "",
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
         self.focusable = True
         self.label = label
@@ -271,6 +272,7 @@ class CheckboxGroup(Element):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         options: list[Any] | None = None,
         selected_values: list[Any] | None = None,
         width: int = 20,
@@ -280,7 +282,7 @@ class CheckboxGroup(Element):
         ) = None,
         title: str | None = None,
     ):
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.SELECTABLE
         self.focusable = True
 

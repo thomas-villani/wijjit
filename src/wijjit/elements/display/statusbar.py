@@ -58,6 +58,7 @@ class StatusBar(Element):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         left: str = "",
         center: str = "",
         right: str = "",
@@ -65,7 +66,7 @@ class StatusBar(Element):
         text_color: str | None = None,
         width: int = 80,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = False
 

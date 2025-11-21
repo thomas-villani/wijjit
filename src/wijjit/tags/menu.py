@@ -76,6 +76,7 @@ class MenuItemExtension(Extension):
         key: str | None = None,
         divider: bool = False,
         disabled: bool = False,
+        **kwargs: Any,
     ) -> str:
         """Render the menuitem tag.
 
@@ -97,6 +98,9 @@ class MenuItemExtension(Extension):
         str
             Rendered output (empty string, item is added to parent menu)
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get the current menu being built
         menu_stack = cast(
             list[list[MenuItem]] | None,
@@ -118,6 +122,7 @@ class MenuItemExtension(Extension):
             key=key,
             divider=bool(divider),
             disabled=bool(disabled),
+            classes=classes,
         )
 
         # Add to current menu
@@ -190,6 +195,7 @@ class DropdownExtension(Extension):
         visible: str | None = None,
         width: int = 30,
         border_style: str = "single",
+        **kwargs: Any,
     ) -> str:
         """Render the dropdown tag.
 
@@ -215,6 +221,9 @@ class DropdownExtension(Extension):
         str
             Rendered output (empty string, menu is registered as overlay)
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -265,6 +274,7 @@ class DropdownExtension(Extension):
         # handle showing/hiding based on visibility state.
         dropdown = DropdownMenu(
             id=id,
+            classes=classes,
             items=items_list,
             trigger_text=trigger,
             trigger_key=key,
@@ -354,6 +364,7 @@ class ContextMenuExtension(Extension):
         visible: str | None = None,
         width: int = 30,
         border_style: str = "single",
+        **kwargs: Any,
     ) -> str:
         """Render the contextmenu tag.
 
@@ -377,6 +388,9 @@ class ContextMenuExtension(Extension):
         str
             Rendered output (empty string, menu is registered as overlay)
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -426,6 +440,7 @@ class ContextMenuExtension(Extension):
         # This allows right-click detection to be registered.
         context_menu = ContextMenu(
             id=id,
+            classes=classes,
             items=items_list,
             target_element_id=target,
             width=width,

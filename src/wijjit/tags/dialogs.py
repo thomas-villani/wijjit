@@ -98,6 +98,7 @@ class ConfirmDialogExtension(Extension):
         width: int = 50,
         height: int = 10,
         border: str = "single",
+        **kwargs: Any,
     ) -> str:
         """Render the confirmdialog tag.
 
@@ -133,6 +134,9 @@ class ConfirmDialogExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -173,6 +177,7 @@ class ConfirmDialogExtension(Extension):
         # Create confirm dialog
         dialog = ConfirmDialog(
             message=message,
+            classes=classes,
             title=title,
             confirm_label=confirm_label,
             cancel_label=cancel_label,
@@ -281,6 +286,7 @@ class AlertDialogExtension(Extension):
         width: int = 50,
         height: int = 8,
         border: str = "single",
+        **kwargs: Any,
     ) -> str:
         """Render the alertdialog tag.
 
@@ -312,6 +318,9 @@ class AlertDialogExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -352,6 +361,7 @@ class AlertDialogExtension(Extension):
         # Create alert dialog
         dialog = AlertDialog(
             message=message,
+            classes=classes,
             title=title,
             ok_label=ok_label,
             width=width,
@@ -459,6 +469,7 @@ class TextInputDialogExtension(Extension):
         height: int = 12,
         border: str = "single",
         input_width: int = 30,
+        **kwargs: Any,
     ) -> str:
         """Render the inputdialog tag.
 
@@ -500,6 +511,9 @@ class TextInputDialogExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context: Any = self.environment.globals.get("_wijjit_layout_context")
         if context is None:
@@ -538,6 +552,7 @@ class TextInputDialogExtension(Extension):
         dialog = TextInputDialog(
             prompt=prompt,
             initial_value=str(initial_value),
+            classes=classes,
             title=title,
             placeholder=placeholder,
             submit_label=submit_label,

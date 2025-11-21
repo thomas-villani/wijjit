@@ -7,6 +7,7 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
+from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.display.table import Table
 from wijjit.elements.display.tree import Tree
@@ -84,6 +85,7 @@ class TableExtension(Extension):
         show_scrollbar: bool = True,
         border_style: str = "single",
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the table tag.
 
@@ -111,12 +113,17 @@ class TableExtension(Extension):
             Rich border style (default: "single")
         bind : bool
             Whether to auto-bind data to state[id] (default: True)
+        classes : str, optional
+            CSS-like class names for styling
 
         Returns
         -------
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -178,6 +185,7 @@ class TableExtension(Extension):
         # Create Table element
         table = Table(
             id=id,
+            classes=classes,
             data=data,
             columns=columns,
             width=element_width,
@@ -295,6 +303,7 @@ class TreeExtension(Extension):
         border: str = "none",
         title: str | None = None,
         indicator_style: str = "triangles_large",
+        **kwargs: Any,
     ) -> str:
         """Render the tree tag.
 
@@ -334,12 +343,17 @@ class TreeExtension(Extension):
         indicator_style : str
             Indicator style: "triangles_large", "triangles", "circles", "squares",
             "brackets", or "minimal" (default: "triangles_large")
+        classes : str, optional
+            CSS-like class names for styling
 
         Returns
         -------
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -404,6 +418,7 @@ class TreeExtension(Extension):
         # Create Tree element
         tree = Tree(
             id=id,
+            classes=classes,
             data=data,
             width=element_width,
             height=element_height,
@@ -599,6 +614,7 @@ class ProgressBarExtension(Extension):
         fill_char: str | None = None,
         empty_char: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the progressbar tag.
 
@@ -632,6 +648,9 @@ class ProgressBarExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -671,6 +690,7 @@ class ProgressBarExtension(Extension):
 
         progressbar = ProgressBar(
             id=id,
+            classes=classes,
             value=value,
             max=max_val,
             width=width,
@@ -756,6 +776,7 @@ class SpinnerExtension(Extension):
         label: str = "",
         color: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the spinner tag.
 
@@ -781,6 +802,9 @@ class SpinnerExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -829,6 +853,7 @@ class SpinnerExtension(Extension):
 
         spinner = Spinner(
             id=id,
+            classes=classes,
             active=active,
             style=cast(Literal["dots", "line", "bouncing", "clock"], style),
             label=label,
@@ -936,6 +961,7 @@ class MarkdownExtension(Extension):
         border_style: str = "single",
         title: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the markdown tag.
 
@@ -965,6 +991,9 @@ class MarkdownExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -1022,6 +1051,7 @@ class MarkdownExtension(Extension):
 
         markdown = MarkdownView(
             id=id,
+            classes=classes,
             content=content,
             width=element_width,
             height=element_height,
@@ -1141,6 +1171,7 @@ class CodeBlockExtension(Extension):
         theme: str = "monokai",
         bind: bool = True,
         raw: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the code tag.
 
@@ -1180,6 +1211,9 @@ class CodeBlockExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -1240,6 +1274,7 @@ class CodeBlockExtension(Extension):
 
         codeblock = CodeBlock(
             id=id,
+            classes=classes,
             code=code,
             language=language,
             width=element_width,
@@ -1378,6 +1413,7 @@ class LogViewExtension(Extension):
         border_style: str = "single",
         title: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the logview tag.
 
@@ -1417,6 +1453,9 @@ class LogViewExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -1482,6 +1521,7 @@ class LogViewExtension(Extension):
 
         logview = LogView(
             id=id,
+            classes=classes,
             lines=lines,
             width=element_width,
             height=element_height,
@@ -1647,6 +1687,7 @@ class ListViewExtension(Extension):
         dim_details: bool = True,
         bind: bool = True,
         raw: bool = False,
+        **kwargs: Any,
     ) -> str:
         """Render the listview tag.
 
@@ -1687,6 +1728,9 @@ class ListViewExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -1759,6 +1803,7 @@ class ListViewExtension(Extension):
 
         listview = ListView(
             id=id,
+            classes=classes,
             items=items,
             width=element_width,
             height=element_height,
@@ -1885,6 +1930,7 @@ class ModalExtension(Extension):
         width: int = 50,
         height: int = 12,
         border: str = "single",
+        **kwargs: Any,
     ) -> str:
         """Render the modal tag.
 
@@ -1910,6 +1956,9 @@ class ModalExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -1934,6 +1983,7 @@ class ModalExtension(Extension):
         # Create modal element
         modal_element = ModalElement(
             id=id,
+            classes=classes,
             title=title,
             width=width,
             height=height,
@@ -2029,6 +2079,7 @@ class StatusBarExtension(Extension):
         bg_color: str | None = None,
         text_color: str | None = None,
         bind: bool = True,
+        **kwargs: Any,
     ) -> str:
         """Render the statusbar tag.
 
@@ -2056,6 +2107,9 @@ class StatusBarExtension(Extension):
         str
             Rendered output
         """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
         # Get layout context from environment globals
         context = cast(
             LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
@@ -2102,6 +2156,7 @@ class StatusBarExtension(Extension):
 
         statusbar = StatusBar(
             id=id,
+            classes=classes,
             left=left,
             center=center,
             right=right,
@@ -2120,3 +2175,96 @@ class StatusBarExtension(Extension):
         caller()
 
         return ""
+
+
+class TextExtension(Extension):
+    """Jinja2 extension for {% text %} tag.
+
+    Syntax:
+        {% text id="label" class="text-bold" %}Hello World{% endtext %}
+    """
+
+    tags = {"text"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the text tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endtext"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (text content)
+        node = nodes.CallBlock(
+            self.call_method("_render_text", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endtext",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_text(
+        self, caller: Callable, id: str | None = None, wrap: bool = True, **kwargs: Any
+    ) -> str:
+        """Render the text tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        wrap : bool, optional
+            Whether to wrap text (default: True)
+        **kwargs : dict
+            Additional attributes (including 'class' which gets renamed to 'classes')
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
+        classes = kwargs.get("class", None)
+
+        # Get layout context from environment globals
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            # No layout context available, skip
+            return ""
+
+        # Get body text content
+        text_content = caller().strip()
+
+        # Create text element
+        text_elem = TextElement(text=text_content, id=id, classes=classes, wrap=wrap)
+
+        # Wrap in ElementNode
+        text_node = ElementNode(text_elem, width="auto", height="auto")
+
+        # Add to layout context
+        context.add_element(text_node)
+
+        # Return marker for text interleaving
+        return get_element_marker(context)

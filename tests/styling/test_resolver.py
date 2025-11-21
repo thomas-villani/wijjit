@@ -581,7 +581,7 @@ class TestMultiClassResolution:
     """Test multi-class CSS resolution for elements with multiple stylable parts."""
 
     def test_element_with_single_style_class(self):
-        """Test element that returns a single style class.
+        """Test element with explicit base_class parameter.
 
         Returns
         -------
@@ -589,23 +589,23 @@ class TestMultiClassResolution:
         """
 
         class SingleClassElement:
-            """Element with single style class."""
+            """Element with simple structure."""
 
-            def get_style_classes(self):
-                return ["button"]
+            pass
 
         theme = DefaultTheme()
         resolver = StyleResolver(theme)
         element = SingleClassElement()
 
-        style = resolver.resolve_style(element)
+        # Use explicit base_class parameter (backward compatibility)
+        style = resolver.resolve_style(element, base_class="button")
 
         # Should use button style from theme
         assert style.fg_color == (255, 255, 255)
         assert style.bg_color == (0, 100, 200)
 
     def test_element_with_multiple_style_classes(self):
-        """Test element with multiple style classes merges correctly.
+        """Test element with multiple CSS classes merges correctly.
 
         Returns
         -------
@@ -613,15 +613,15 @@ class TestMultiClassResolution:
         """
 
         class MultiClassElement:
-            """Element with multiple style classes."""
+            """Element with CSS classes."""
 
-            def get_style_classes(self):
-                return ["menu", "menu.item"]
+            classes = {"base", "highlight"}
 
-        # Create custom theme with menu styles
+        # Create custom theme with CSS class styles
+        # Classes are sorted alphabetically, so "base" applies first, then "highlight"
         menu_styles = {
-            "menu": Style(fg_color=(200, 200, 200)),
-            "menu.item": Style(fg_color=(255, 255, 255)),
+            ".base": Style(fg_color=(200, 200, 200)),
+            ".highlight": Style(fg_color=(255, 255, 255)),
         }
         theme = Theme("test", menu_styles)
         resolver = StyleResolver(theme)
@@ -629,7 +629,7 @@ class TestMultiClassResolution:
 
         style = resolver.resolve_style(element)
 
-        # Should use menu.item style (most specific)
+        # Should merge both classes (.highlight wins for fg_color due to alphabetical order)
         assert style.fg_color == (255, 255, 255)
 
     def test_element_with_empty_style_classes_uses_inference(self):
@@ -662,7 +662,7 @@ class TestMultiClassResolution:
         assert style is not None
 
     def test_multi_class_with_pseudo_classes(self):
-        """Test that pseudo-classes apply to the most specific class.
+        """Test that pseudo-classes apply to CSS classes.
 
         Returns
         -------
@@ -670,17 +670,15 @@ class TestMultiClassResolution:
         """
 
         class MultiClassFocusableElement:
-            """Element with multiple classes and focus state."""
+            """Element with CSS classes and focus state."""
 
             focused = True
-
-            def get_style_classes(self):
-                return ["menu", "menu.item"]
+            classes = {"btn", "primary"}
 
         menu_styles = {
-            "menu": Style(fg_color=(200, 200, 200)),
-            "menu.item": Style(fg_color=(255, 255, 255)),
-            "menu.item:focus": Style(bold=True),
+            ".btn": Style(fg_color=(200, 200, 200)),
+            ".primary": Style(fg_color=(255, 255, 255)),
+            ".primary:focus": Style(bold=True),
         }
         theme = Theme("test", menu_styles)
         resolver = StyleResolver(theme)
@@ -688,12 +686,12 @@ class TestMultiClassResolution:
 
         style = resolver.resolve_style(element)
 
-        # Should use menu.item:focus for focused state
+        # Should use .primary:focus for focused state
         assert style.fg_color == (255, 255, 255)
         assert style.bold is True
 
     def test_multi_class_merge_order(self):
-        """Test that multiple classes merge in correct order (least to most specific).
+        """Test that multiple CSS classes merge in alphabetical order.
 
         Returns
         -------
@@ -701,14 +699,13 @@ class TestMultiClassResolution:
         """
 
         class StatusBarElement:
-            """Element simulating statusbar with multiple sections."""
+            """Element with multiple CSS classes."""
 
-            def get_style_classes(self):
-                return ["statusbar", "statusbar.left"]
+            classes = {"base", "highlight"}
 
         statusbar_styles = {
-            "statusbar": Style(fg_color=(255, 255, 255), bg_color=(0, 100, 200)),
-            "statusbar.left": Style(bold=True),  # More specific adds bold
+            ".base": Style(fg_color=(255, 255, 255), bg_color=(0, 100, 200)),
+            ".highlight": Style(bold=True),  # Merges on top of base
         }
         theme = Theme("test", statusbar_styles)
         resolver = StyleResolver(theme)
@@ -716,7 +713,7 @@ class TestMultiClassResolution:
 
         style = resolver.resolve_style(element)
 
-        # Should have colors from statusbar and bold from statusbar.left
+        # Should have colors from .base and bold from .highlight
         assert style.fg_color == (255, 255, 255)
         assert style.bg_color == (0, 100, 200)
         assert style.bold is True

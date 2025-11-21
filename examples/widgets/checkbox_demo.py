@@ -71,31 +71,25 @@ def main_view():
       {% checkbox id="marketing" label="Marketing emails" %}{% endcheckbox %}
     {% endvstack %}
 
-    {% if state.submitted %}
-      {% vstack spacing=1 %}
-        Submitted Values:
-      {% endvstack %}
-
-      {% vstack spacing=0 %}
-        Newsletter: {{ 'Yes' if state.newsletter else 'No' }}
-        Terms Accepted: {{ 'Yes' if state.terms else 'No' }}
-
-        Email Preferences:
-        {% if state.notifications or state.updates or state.marketing %}
-          {% if state.notifications %}- Email notifications{% endif %}
-          {% if state.updates %}- Product updates{% endif %}
-          {% if state.marketing %}- Marketing emails{% endif %}
-        {% else %}
-          None selected
-        {% endif %}
-      {% endvstack %}
-    {% endif %}
-
     {% hstack spacing=2 %}
       {% button action="submit" %}Submit{% endbutton %}
       {% button action="reset" %}Reset{% endbutton %}
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
+
+    {% if state.submitted %}
+      Submitted Values:
+      Newsletter: {{ 'Yes' if state.newsletter else 'No' }}
+      Terms Accepted: {{ 'Yes' if state.terms else 'No' }}
+      Email Preferences:
+      {% if state.notifications or state.updates or state.marketing %}
+        {% if state.notifications %}- Email notifications{% endif %}
+        {% if state.updates %}- Product updates{% endif %}
+        {% if state.marketing %}- Marketing emails{% endif %}
+      {% else %}
+        None selected
+      {% endif %}
+    {% endif %}
 
     {% vstack spacing=0 %}
       Controls: [Tab/Shift+Tab] Navigate | [Space] Toggle | [q] Quit

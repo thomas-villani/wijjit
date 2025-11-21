@@ -1,6 +1,5 @@
 """Tests for StatusBar template tags."""
 
-
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
 from wijjit.elements.display.statusbar import StatusBar

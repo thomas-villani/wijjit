@@ -58,6 +58,7 @@ class ProgressBar(Element):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         value: float = 0,
         max: float = 100,
         width: int = 40,
@@ -67,7 +68,7 @@ class ProgressBar(Element):
         fill_char: str | None = None,
         empty_char: str | None = None,
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = False  # Progress bars are not interactive
 

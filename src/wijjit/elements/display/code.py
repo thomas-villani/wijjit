@@ -71,6 +71,7 @@ class CodeBlock(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         code: str = "",
         language: str = "python",
         width: int = 60,
@@ -82,7 +83,7 @@ class CodeBlock(ScrollableElement):
         title: str | None = None,
         theme: str = "monokai",
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

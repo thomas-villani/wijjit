@@ -75,11 +75,12 @@ class Radio(Element):
         self,
         name: str,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         label: str = "",
         checked: bool = False,
         value: str = "",
     ) -> None:
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
         self.focusable = True
         self.name = name  # Group identifier
@@ -320,6 +321,7 @@ class RadioGroup(Element):
         self,
         name: str,
         id: str | None = None,
+        classes: str | list[str] | None = None,
         options: list[Any] | None = None,
         selected_value: str | None = None,
         width: int = 20,
@@ -329,7 +331,7 @@ class RadioGroup(Element):
         ) = None,
         title: str | None = None,
     ):
-        super().__init__(id)
+        super().__init__(id=id, classes=classes)
         self.element_type = ElementType.SELECTABLE
         self.focusable = True
         self.name = name  # Group identifier

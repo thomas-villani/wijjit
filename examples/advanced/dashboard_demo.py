@@ -53,14 +53,18 @@ app = Wijjit(
 def simulate_data_update():
     """Simulate updating dashboard metrics with random data."""
     # Update system metrics
-    app.state["cpu_usage"] = min(100, max(0, app.state["cpu_usage"] + random.randint(-10, 10)))
+    app.state["cpu_usage"] = min(
+        100, max(0, app.state["cpu_usage"] + random.randint(-10, 10))
+    )
     app.state["memory_usage"] = min(
         100, max(0, app.state["memory_usage"] + random.randint(-5, 5))
     )
     app.state["disk_usage"] = min(
         100, max(70, app.state["disk_usage"] + random.randint(-2, 2))
     )
-    app.state["network_in"] = max(0, app.state["network_in"] + random.randint(-200, 300))
+    app.state["network_in"] = max(
+        0, app.state["network_in"] + random.randint(-200, 300)
+    )
     app.state["network_out"] = max(
         0, app.state["network_out"] + random.randint(-100, 200)
     )
@@ -72,7 +76,9 @@ def simulate_data_update():
     app.state["requests_per_sec"] = max(
         0, app.state["requests_per_sec"] + random.randint(-10, 15)
     )
-    app.state["error_rate"] = max(0, min(5, app.state["error_rate"] + random.uniform(-0.2, 0.2)))
+    app.state["error_rate"] = max(
+        0, min(5, app.state["error_rate"] + random.uniform(-0.2, 0.2))
+    )
     app.state["avg_response_time"] = max(
         50, app.state["avg_response_time"] + random.randint(-30, 30)
     )
@@ -322,4 +328,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
