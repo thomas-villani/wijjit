@@ -13,6 +13,10 @@ Try:
 """
 
 from wijjit import Wijjit
+from wijjit.logging_config import configure_logging
+
+# Enable debug logging
+configure_logging("mouse-debug.log", level="DEBUG")
 
 # Create app with click counters
 app = Wijjit(

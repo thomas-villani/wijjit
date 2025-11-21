@@ -10,6 +10,7 @@ from wijjit.elements.display.notification import (
     NotificationSeverity,
 )
 from wijjit.elements.display.statusbar import StatusBar
+from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition
 from wijjit.elements.display.tree import Tree, TreeIndicatorStyle
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     "NotificationElement",
     "NotificationSeverity",
     "StatusBar",
+    "TabPosition",
+    "TabbedPanel",
     "Tree",
     "TreeIndicatorStyle",
 ]

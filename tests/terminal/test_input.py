@@ -504,6 +504,10 @@ class TestInputMouseParsing:
     def test_mouse_enabled_initialization(self, mock_create_input):
         """Test that mouse can be enabled during initialization.
 
+        Note: mouse_enabled is False until enable_mouse_tracking() is called
+        (which sends escape sequences to terminal). _wants_mouse tracks whether
+        mouse support was requested in the constructor.
+
         Returns
         -------
         None
@@ -513,8 +517,10 @@ class TestInputMouseParsing:
 
         handler = InputHandler(enable_mouse=True)
 
-        # Should initialize with mouse enabled
-        assert handler.mouse_enabled is True
+        # Should track that mouse support is wanted (but not yet active)
+        assert handler._wants_mouse is True
+        # mouse_enabled is False until enable_mouse_tracking() is called
+        assert handler.mouse_enabled is False
 
     @patch("wijjit.terminal.input.create_input")
     def test_mouse_disabled_by_default(self, mock_create_input):

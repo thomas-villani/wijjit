@@ -293,7 +293,11 @@ class InputHandler:
         self._raw_mode = None
 
         # Mouse support
-        self.mouse_enabled = enable_mouse
+        # Note: mouse_enabled tracks whether mouse tracking is ACTIVE on the terminal
+        # (i.e., escape sequences have been sent). _wants_mouse tracks whether
+        # mouse support is requested via config.
+        self._wants_mouse = enable_mouse
+        self.mouse_enabled = False  # Will be True after enable_mouse_tracking()
         self._mouse_tracking_mode = (
             mouse_tracking_mode
             if mouse_tracking_mode is not None

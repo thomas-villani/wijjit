@@ -11,9 +11,12 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
+from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width, visible_length, wrap_text
 from wijjit.terminal.input import Key
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -284,6 +287,36 @@ class Frame(ScrollableElement):
         if self.scroll_manager and self._needs_scroll:
             return self.scroll_manager.state.scroll_position
         return 0
+
+    def update_viewport_for_current_size(self) -> None:
+        """Update scroll manager viewport size based on current frame dimensions.
+
+        This should be called after changing frame width/height to ensure
+        the scroll manager calculates scrollability correctly.
+
+        Notes
+        -----
+        This method only updates the viewport size, not the content size.
+        It's useful when frame dimensions are changed after set_content()
+        was called (e.g., during layout or rendering).
+        """
+        if not self.style.scrollable or not self.scroll_manager:
+            return
+
+        # Calculate new viewport height based on current dimensions
+        padding_top, padding_right, padding_bottom, padding_left = self.style.padding
+        viewport_height = self.height - 2 - padding_top - padding_bottom
+
+        # Update scroll manager viewport size
+        self.scroll_manager.update_viewport_size(viewport_height)
+
+        # Update scrollability check
+        self._needs_scroll = self.scroll_manager.state.is_scrollable
+
+        logger.debug(
+            f"Frame.update_viewport_for_current_size: height={self.height}, "
+            f"viewport_height={viewport_height}, is_scrollable={self._needs_scroll}"
+        )
 
     @property
     def scroll_position(self) -> int:

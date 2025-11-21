@@ -39,6 +39,8 @@ from wijjit.tags.display import (
     ProgressBarExtension,
     SpinnerExtension,
     StatusBarExtension,
+    TabbedPanelExtension,
+    TabExtension,
     TableExtension,
     TextExtension,
     TreeExtension,
@@ -152,6 +154,8 @@ class Renderer:
                 MenuItemExtension,
                 DropdownExtension,
                 ContextMenuExtension,
+                TabExtension,
+                TabbedPanelExtension,
             ],
         )
 

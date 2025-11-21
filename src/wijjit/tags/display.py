@@ -11,9 +11,10 @@ from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.display.table import Table
 from wijjit.elements.display.tree import Tree
-from wijjit.layout.engine import ElementNode
+from wijjit.layout.engine import ElementNode, FrameNode
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
+from wijjit.terminal.ansi import visible_length
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -2265,6 +2266,406 @@ class TextExtension(Extension):
 
         # Add to layout context
         context.add_element(text_node)
+
+        # Return marker for text interleaving
+        return get_element_marker(context)
+
+
+class TabExtension(Extension):
+    """Jinja2 extension for {% tab %} tag (used within {% tabbedpanel %}).
+
+    Syntax:
+        {% tab label="Tab Label" %}
+            Content for this tab
+        {% endtab %}
+
+    Notes
+    -----
+    This tag must be used within a {% tabbedpanel %} tag.
+    The content should typically be a single {% frame %} element.
+    """
+
+    tags = {"tab"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the tab tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs: list[nodes.Keyword] = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endtab"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (tab content)
+        node = nodes.CallBlock(
+            self.call_method("_render_tab", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endtab",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_tab(
+        self,
+        caller: Callable[[], str],
+        label: str = "Tab",
+        **kwargs: Any,
+    ) -> str:
+        """Render the tab tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        label : str
+            Tab label text (default: "Tab")
+
+        Returns
+        -------
+        str
+            Rendered output (empty string, tabs collected via context)
+
+        Notes
+        -----
+        This method stores the tab information in the parent TabbedPanel's
+        context for later processing. Uses a temporary container to collect
+        the tab's frame content properly.
+        """
+        from wijjit.layout.engine import VStack
+
+        # Get layout context from environment globals
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
+
+        if context is None:
+            # No layout context, just consume body and return
+            caller()
+            return ""
+
+        # Initialize _pending_tabs list if not exists
+        if not hasattr(context, "_pending_tabs"):
+            context._pending_tabs = []  # type: ignore[attr-defined]
+
+        from wijjit.tags.layout import interleave_text_and_elements
+
+        # Create a temporary container to collect this tab's content
+        temp_container = VStack(children=[], width="auto", height="auto")
+
+        # Push the temporary container onto the stack
+        context.push(temp_container)
+
+        # Render body - elements will add themselves to temp_container.children
+        body_output = caller()
+
+        # Pop the temporary container
+        context.pop()
+
+        # Interleave text and elements properly (like VStack does)
+        temp_container.children = interleave_text_and_elements(
+            body_output, temp_container.children, raw=False
+        )
+
+        # Store tab info with ALL children (not just first one)
+        context._pending_tabs.append(  # type: ignore[attr-defined]
+            {
+                "label": label,
+                "body": body_output,
+                "children": temp_container.children,  # All children including text
+            }
+        )
+
+        # Return empty string (no marker needed, parent will collect via _pending_tabs)
+        return ""
+
+
+class TabbedPanelExtension(Extension):
+    """Jinja2 extension for {% tabbedpanel %} tag.
+
+    Syntax:
+        {% tabbedpanel id="settings" tab_position="top" active_tab="active_tab"
+                       width=80 height=25 border_style="single" %}
+            {% tab label="General" %}
+                {% frame %}General settings{% endframe %}
+            {% endtab %}
+            {% tab label="Advanced" %}
+                {% frame %}Advanced settings{% endframe %}
+            {% endtab %}
+        {% endtabbedpanel %}
+    """
+
+    tags = {"tabbedpanel"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the tabbedpanel tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs: list[nodes.Keyword] = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endtabbedpanel"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (tab elements)
+        node = nodes.CallBlock(
+            self.call_method("_render_tabbedpanel", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endtabbedpanel",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_tabbedpanel(
+        self,
+        caller: Callable[[], str],
+        id: str | None = None,
+        tab_position: str = "top",
+        active_tab: str | int | None = None,
+        width: int | str = 60,
+        height: int | str = 20,
+        border_style: str = "single",
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the tabbedpanel tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        tab_position : str
+            Position of tabs: "top", "bottom", "left", "right" (default: "top")
+        active_tab : str or int, optional
+            State key name for active tab binding, or initial tab index
+        width : int or str
+            Panel width (default: 60)
+        height : int or str
+            Panel height (default: 20)
+        border_style : str
+            Border style: "single", "double", "rounded" (default: "single")
+        bind : bool
+            Whether to auto-bind active tab to state (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition
+        from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+
+        # Handle 'class' attribute
+        classes = kwargs.get("class", None)
+
+        # Get layout context from environment globals
+        context = cast(
+            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
+        )
+        if context is None:
+            return ""
+
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters for element creation
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 20
+        else:
+            element_height = int(height)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("tabbedpanel")
+
+        # Parse tab position
+        position_map = {
+            "top": TabPosition.TOP,
+            "bottom": TabPosition.BOTTOM,
+            "left": TabPosition.LEFT,
+            "right": TabPosition.RIGHT,
+        }
+        tab_pos = position_map.get(tab_position.lower(), TabPosition.TOP)
+
+        # Initialize pending tabs list for tab collection
+        if not hasattr(context, "_pending_tabs"):
+            context._pending_tabs = []  # type: ignore[attr-defined]
+        context._pending_tabs = []  # type: ignore[attr-defined]
+
+        # Render body - this will collect all {% tab %} tags
+        _body_output = caller()
+
+        # Collect tabs from context
+        tabs = getattr(context, "_pending_tabs", [])
+
+        # Determine initial active tab index
+        active_tab_index = 0
+        if isinstance(active_tab, int):
+            active_tab_index = active_tab
+        elif isinstance(active_tab, str) and bind:
+            # active_tab is a state key - try to restore from state
+            try:
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if active_tab in state:
+                        active_tab_index = int(state[active_tab])
+            except Exception as e:
+                logger.warning(f"Failed to restore active tab state: {e}")
+
+        # Create TabbedPanel element
+        tabbed_panel = TabbedPanel(
+            id=id,
+            classes=classes,
+            tab_position=tab_pos,
+            width=element_width,
+            height=element_height,
+            border_style=border_style,
+            active_tab_index=active_tab_index,
+        )
+
+        # Calculate content area dimensions (space for frame inside tabs)
+        if tab_pos in (TabPosition.TOP, TabPosition.BOTTOM):
+            # Horizontal tabs: full width, reduced height for tab area
+            frame_width = element_width - 2  # Account for panel borders
+            frame_height = element_height - 5  # Account for panel borders and tab area
+        else:
+            # Vertical tabs: reduced width for tab area, full height
+            max_label_width = max((visible_length(t["label"]) for t in tabs), default=0)
+            tab_area_width = max_label_width + 4
+            frame_width = element_width - tab_area_width - 1
+            frame_height = element_height - 2
+
+        # Process each tab - now using children list instead of content
+        for tab_index, tab_info in enumerate(tabs):
+            label = tab_info["label"]
+            children = tab_info.get("children", [])  # All children including text
+
+            # Create a FrameNode for this tab's content
+            # Set scroll_state_key to persist scroll position across renders
+            scroll_state_key = f"_scroll_{id}_tab_{tab_index}" if id else None
+            frame = Frame(
+                width=frame_width,
+                height=frame_height,
+                style=FrameStyle(
+                    scrollable=True,
+                    show_scrollbar=True,
+                    border=BorderStyle.SINGLE,
+                ),
+            )
+            frame.scroll_state_key = scroll_state_key
+
+            # Create FrameNode to hold the frame and children
+            frame_node = FrameNode(
+                frame=frame,
+                children=list(children),  # Copy the children list
+                width=frame_width,
+                height=frame_height,
+            )
+
+            # If there are no non-text element children, extract text for frame content
+            # Text is stored as ElementNode(TextElement(...)), so we check element type
+            has_non_text_elements = any(
+                hasattr(child, "element") and not isinstance(child.element, TextElement)
+                for child in children
+            )
+            if not has_non_text_elements:
+                # Extract text from TextElement children
+                text_parts = []
+                for child in children:
+                    if hasattr(child, "element") and hasattr(child.element, "text"):
+                        text_parts.append(child.element.text)
+                if text_parts:
+                    frame.set_content("\n".join(text_parts))
+
+            # Store the FrameNode (not just Frame)
+            tabbed_panel.add_tab(label, frame_node)
+
+        # Store bind setting
+        tabbed_panel.bind = bind
+
+        # Set up state persistence
+        if bind and id:
+            if isinstance(active_tab, str):
+                # Use custom state key
+                tabbed_panel.active_tab_state_key = active_tab
+            else:
+                # Use default state key
+                tabbed_panel.active_tab_state_key = id
+
+            # Give panel access to state dict for saving
+            try:
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
+                if ctx and "state" in ctx:
+                    tabbed_panel._state_dict = ctx["state"]
+            except Exception as e:
+                logger.warning(f"Failed to setup state persistence: {e}")
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            tabbed_panel.focused = True
+
+        # Create ElementNode
+        node = ElementNode(tabbed_panel, width=width_spec, height=height_spec)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Clean up pending tabs
+        context._pending_tabs = []  # type: ignore[attr-defined]
 
         # Return marker for text interleaving
         return get_element_marker(context)

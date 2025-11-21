@@ -294,13 +294,28 @@ class Wijjit:
 
         Applies LOG_LEVEL, LOG_FILE, LOG_TO_CONSOLE, and LOG_FORMAT
         configuration options.
+
+        If logging has already been configured (e.g., via configure_logging()
+        before app creation), this method respects that configuration unless
+        LOG_FILE is explicitly set in config.
         """
-        # Configure logging from config
-        configure_logging(
-            level=self.config["LOG_LEVEL"],
-            filename=self.config["LOG_FILE"],
-            format_string=self.config["LOG_FORMAT"],
+        import logging as _logging
+
+        # Check if logging is already configured
+        wijjit_logger = _logging.getLogger("wijjit")
+        already_configured = wijjit_logger.handlers and not all(
+            isinstance(h, _logging.NullHandler) for h in wijjit_logger.handlers
         )
+
+        # Only configure if:
+        # 1. LOG_FILE is explicitly set in config, OR
+        # 2. Logging hasn't been configured yet
+        if self.config["LOG_FILE"] or not already_configured:
+            configure_logging(
+                level=self.config["LOG_LEVEL"],
+                filename=self.config["LOG_FILE"],
+                format_string=self.config["LOG_FORMAT"],
+            )
 
         # Log configuration details
         if self.config["LOG_FILE"]:

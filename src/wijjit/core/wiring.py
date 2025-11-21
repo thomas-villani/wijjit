@@ -314,6 +314,12 @@ class ElementWiringManager:
 
             elem.on_scroll = on_scroll_handler
 
+            # Restore scroll position from state if available
+            if scroll_key in state and hasattr(elem, "restore_scroll_position"):
+                saved_position = state[scroll_key]
+                if isinstance(saved_position, int) and saved_position > 0:
+                    elem.restore_scroll_position(saved_position)
+
     def _wire_tree(self, elem: Tree, state: State) -> None:
         """Wire Tree callbacks.
 

@@ -252,14 +252,23 @@ class ElementNode(LayoutNode):
         self.element.set_bounds(self.bounds)
 
     def collect_elements(self) -> list[Element]:
-        """Return the wrapped element.
+        """Return the wrapped element and any nested children.
 
         Returns
         -------
         list of Element
-            List containing the single element
+            List containing the element and any nested children it contains
+
+        Notes
+        -----
+        If the element has a `collect_child_elements()` method (e.g., TabbedPanel),
+        those nested elements are also included for focus/mouse event routing.
         """
-        return [self.element]
+        elements = [self.element]
+        # Check if element has nested children (e.g., TabbedPanel with tab content)
+        if hasattr(self.element, "collect_child_elements"):
+            elements.extend(self.element.collect_child_elements())
+        return elements
 
 
 class Container(LayoutNode):

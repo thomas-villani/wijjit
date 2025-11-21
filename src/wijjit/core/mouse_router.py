@@ -72,17 +72,26 @@ class MouseEventRouter:
             True if hover state changed (indicating need for re-render)
         """
         try:
+            logger.debug(
+                f"route_mouse_event: type={event.type}, button={event.button}, pos=({event.x}, {event.y})"
+            )
+
             # Check overlays first (highest z-index) - use async version
             if await self._route_to_overlay_async(event):
+                logger.debug("  -> handled by overlay")
                 return False
 
             # Check for click outside overlays
             if self._handle_click_outside_overlays(event):
+                logger.debug("  -> click outside overlays")
                 return False
 
             # Fall through to base UI handling
             # Find element at mouse coordinates
             target_element = self._find_element_at(event.x, event.y)
+            logger.debug(
+                f"  -> target_element: {type(target_element).__name__ if target_element else None}"
+            )
 
             # Check for right-click to open context menus
             if self._handle_context_menu(event, target_element):
@@ -363,25 +372,40 @@ class MouseEventRouter:
                     # Element handled the event, trigger re-render
                     self.app.needs_render = True
 
-        # If scroll event wasn't handled and element has a scrollable parent, try parent
-        if (
-            not handled
-            and event.type == MouseEventType.SCROLL
-            and target_element
-            and hasattr(target_element, "parent_frame")
-            and target_element.parent_frame is not None
-        ):
-            parent = target_element.parent_frame
-            # Check for async handler first on parent
-            if hasattr(parent, "handle_mouse_async"):
-                handled = await parent.handle_mouse_async(event)
-                if handled:
-                    self.app.needs_render = True
-            elif hasattr(parent, "handle_mouse"):
-                # Fallback to sync handler
-                handled = parent.handle_mouse(event)
-                if handled:
-                    self.app.needs_render = True
+        # If scroll event wasn't handled, try to find a scrollable container
+        if not handled and event.type == MouseEventType.SCROLL:
+            # First try parent_frame if available
+            if (
+                target_element
+                and hasattr(target_element, "parent_frame")
+                and target_element.parent_frame is not None
+            ):
+                parent = target_element.parent_frame
+                # Check for async handler first on parent
+                if hasattr(parent, "handle_mouse_async"):
+                    handled = await parent.handle_mouse_async(event)
+                    if handled:
+                        self.app.needs_render = True
+                elif hasattr(parent, "handle_mouse"):
+                    # Fallback to sync handler
+                    handled = parent.handle_mouse(event)
+                    if handled:
+                        self.app.needs_render = True
+
+            # If still not handled, search for any scrollable container at this position
+            if not handled:
+                scrollable_container = self._find_scrollable_container_at(
+                    event.x, event.y
+                )
+                if scrollable_container and scrollable_container != target_element:
+                    if hasattr(scrollable_container, "handle_mouse_async"):
+                        handled = await scrollable_container.handle_mouse_async(event)
+                        if handled:
+                            self.app.needs_render = True
+                    elif hasattr(scrollable_container, "handle_mouse"):
+                        handled = scrollable_container.handle_mouse(event)
+                        if handled:
+                            self.app.needs_render = True
 
     async def _route_to_element(
         self, event: TerminalMouseEvent, target_element: Element | None
@@ -427,4 +451,46 @@ class MouseEventRouter:
                 continue
             if elem.bounds and elem.bounds.contains(x, y):
                 return elem
+        return None
+
+    def _find_scrollable_container_at(self, x: int, y: int) -> Element | None:
+        """Find a scrollable container at the given coordinates.
+
+        This method searches for elements that can handle scroll events,
+        such as TabbedPanel or scrollable Frames. Unlike _find_element_at,
+        this prioritizes scrollable containers over other interactive elements.
+
+        Parameters
+        ----------
+        x : int
+            Column position (0-based)
+        y : int
+            Row position (0-based)
+
+        Returns
+        -------
+        Element or None
+            Scrollable container at coordinates, or None if not found
+        """
+        from wijjit.elements.base import TextElement
+        from wijjit.elements.display.tabbed_panel import TabbedPanel
+        from wijjit.layout.frames import Frame
+
+        # Search for scrollable containers - check all elements, not just topmost
+        for elem in reversed(self.app.positioned_elements):
+            if isinstance(elem, TextElement):
+                continue
+
+            if not elem.bounds or not elem.bounds.contains(x, y):
+                continue
+
+            # Check if it's a TabbedPanel (handles scroll via delegation to frame)
+            if isinstance(elem, TabbedPanel):
+                return elem
+
+            # Check if it's a scrollable Frame
+            if isinstance(elem, Frame):
+                if hasattr(elem, "style") and elem.style.scrollable:
+                    return elem
+
         return None
