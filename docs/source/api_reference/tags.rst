@@ -49,6 +49,20 @@ Display tags
    wijjit.tags.display.StatusBarExtension
    wijjit.tags.display.ModalExtension
 
+Chart tags
+----------
+
+.. autosummary::
+   :toctree: ../api/
+   :nosignatures:
+
+   wijjit.tags.charts.SparklineExtension
+   wijjit.tags.charts.BarChartExtension
+   wijjit.tags.charts.ColumnChartExtension
+   wijjit.tags.charts.LineChartExtension
+   wijjit.tags.charts.GaugeExtension
+   wijjit.tags.charts.HeatMapExtension
+
 Dialogs & menus
 ---------------
 
@@ -83,5 +97,9 @@ Module documentation
    :noindex:
 
 .. automodule:: wijjit.tags.menu
+   :members:
+   :noindex:
+
+.. automodule:: wijjit.tags.charts
    :members:
    :noindex:

@@ -25,6 +25,14 @@ from wijjit.logging_config import get_logger
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.theme import ThemeManager
+from wijjit.tags.charts import (
+    BarChartExtension,
+    ColumnChartExtension,
+    GaugeExtension,
+    HeatMapExtension,
+    LineChartExtension,
+    SparklineExtension,
+)
 from wijjit.tags.dialogs import (
     AlertDialogExtension,
     ConfirmDialogExtension,
@@ -158,6 +166,13 @@ class Renderer:
                 ContextMenuExtension,
                 TabExtension,
                 TabbedPanelExtension,
+                # Chart extensions
+                SparklineExtension,
+                BarChartExtension,
+                ColumnChartExtension,
+                LineChartExtension,
+                GaugeExtension,
+                HeatMapExtension,
             ],
         )
 

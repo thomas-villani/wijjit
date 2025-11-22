@@ -101,6 +101,118 @@ Notifications
        :pyobject: main_view
        :caption: ``examples/widgets/notification_demo.py`` – framing actionable hints
 
+Data Visualization
+------------------
+
+Wijjit includes a suite of data visualization components for dashboards, monitoring, and analytics. All chart elements support reactive updates - simply update the data and the chart re-renders automatically. These are provided by :mod:`wijjit.elements.display` and exposed via :mod:`wijjit.tags.charts`.
+
+Sparkline
+    Compact inline trend visualization (:mod:`wijjit.elements.display.sparkline`). Perfect for embedding trends alongside text or in dense dashboards. Renders in a single row using braille characters for high resolution.
+
+    Key attributes:
+
+    * ``data`` - List of numeric values
+    * ``width`` - Display width in characters (default: 20)
+    * ``style`` - Rendering style: ``line`` (braille), ``bar``, or ``dot``
+    * ``show_current`` - Display the last value as text
+    * ``show_minmax`` - Mark min/max points
+
+    .. code-block:: jinja
+
+       {% sparkline data=cpu_history width=30 style="line" show_current=True %}{% endsparkline %}
+
+BarChart
+    Horizontal bar chart with labels (:mod:`wijjit.elements.display.barchart`). Supports scrolling for large datasets, gradient or threshold-based coloring, and value display.
+
+    Key attributes:
+
+    * ``data`` - List of values, tuples ``(label, value)``, or dicts ``{"label": ..., "value": ...}``
+    * ``width`` / ``height`` - Display dimensions
+    * ``show_values`` - Display numeric values on bars
+    * ``color`` - Color mode: ``default``, ``gradient``, or ``threshold``
+    * ``max_value`` - Override automatic scaling
+
+    .. code-block:: jinja
+
+       {% barchart data=sales_by_region width=40 height=8 show_values=True color="gradient" %}{% endbarchart %}
+
+ColumnChart
+    Vertical column chart with Y-axis (:mod:`wijjit.elements.display.columnchart`). Uses block characters for rendering with optional grid lines and axis labels.
+
+    Key attributes:
+
+    * ``data`` - List of values or labeled data
+    * ``width`` / ``height`` - Display dimensions
+    * ``show_axis`` - Display Y-axis with tick marks
+    * ``show_labels`` - Display X-axis labels
+    * ``color`` - Color mode for columns
+
+    .. code-block:: jinja
+
+       {% columnchart data=monthly_revenue width=50 height=12 show_axis=True show_labels=True %}{% endcolumnchart %}
+
+LineChart
+    High-resolution line chart using braille characters (:mod:`wijjit.elements.display.linechart`). Each character contains a 2x4 dot grid, enabling smooth curves in terminal displays. Supports multiple series, area fills, and axis display.
+
+    Key attributes:
+
+    * ``data`` - List of values or list of series ``[{"values": [...], "label": ...}, ...]``
+    * ``width`` / ``height`` - Display dimensions
+    * ``style`` - Rendering style: ``line``, ``area``, or ``dots``
+    * ``show_axis`` - Display axes with labels
+    * ``show_legend`` - Display series legend (for multi-series)
+
+    .. code-block:: jinja
+
+       {% linechart data=temperature_readings width=60 height=15 style="line" show_axis=True %}{% endlinechart %}
+
+Gauge
+    Value indicator with linear or arc styles (:mod:`wijjit.elements.display.gauge`). Ideal for showing percentages, metrics, or bounded values with threshold coloring.
+
+    Key attributes:
+
+    * ``value`` - Current value
+    * ``min_value`` / ``max_value`` - Value range (default: 0-100)
+    * ``style`` - Display style: ``linear`` (horizontal bar) or ``arc`` (semi-circular)
+    * ``color`` - Color mode: ``default``, ``gradient``, or ``threshold``
+    * ``label`` - Optional label text above gauge
+    * ``unit`` - Unit suffix for value display (e.g., ``%``, ``MB``)
+    * ``show_value`` - Display current value
+    * ``show_minmax`` - Display min/max labels
+
+    .. code-block:: jinja
+
+       {% gauge value=cpu_usage style="arc" label="CPU" unit="%" color="threshold" %}{% endgauge %}
+
+HeatMap
+    2D grid visualization with color intensity (:mod:`wijjit.elements.display.heatmap`). Uses block characters with RGB coloring to represent values. Great for correlation matrices, activity grids, or geographic data.
+
+    Key attributes:
+
+    * ``data`` - 2D list of values ``[[row1...], [row2...], ...]``
+    * ``width`` / ``height`` - Display dimensions
+    * ``color_scale`` - Color palette: ``viridis``, ``plasma``, ``inferno``, ``cool``, ``hot``, ``greens``, ``blues``, ``reds``
+    * ``show_values`` - Display values in cells (space permitting)
+    * ``row_labels`` / ``col_labels`` - Optional axis labels
+
+    .. code-block:: jinja
+
+       {% heatmap data=correlation_matrix width=40 height=20 color_scale="viridis" %}{% endheatmap %}
+
+All chart elements support reactive updates through state binding:
+
+.. code-block:: python
+
+   @app.on_action("refresh")
+   async def refresh_data(event):
+       app.state.update({
+           "cpu_history": await fetch_cpu_metrics(),
+           "memory_usage": await get_memory_percent()
+       })
+       # Charts automatically re-render with new data
+
+See ``examples/widgets/charts_demo.py`` for a complete interactive demonstration of all chart types.
+
 Menus & overlays
 ----------------
 

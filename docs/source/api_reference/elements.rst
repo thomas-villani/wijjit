@@ -50,6 +50,21 @@ Display widgets
    wijjit.elements.display.code.CodeBlock
    wijjit.elements.display.notification.NotificationElement
 
+Data Visualization
+------------------
+
+.. autosummary::
+   :toctree: ../api/
+   :nosignatures:
+
+   wijjit.elements.display.sparkline.Sparkline
+   wijjit.elements.display.barchart.BarChart
+   wijjit.elements.display.columnchart.ColumnChart
+   wijjit.elements.display.linechart.LineChart
+   wijjit.elements.display.gauge.Gauge
+   wijjit.elements.display.heatmap.HeatMap
+   wijjit.elements.display.chart_utils.BrailleCanvas
+
 Menus & modals
 --------------
 
@@ -160,6 +175,41 @@ Module documentation
    :noindex:
 
 .. automodule:: wijjit.elements.modal
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.sparkline
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.barchart
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.columnchart
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.linechart
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.gauge
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.heatmap
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.chart_utils
    :members:
    :show-inheritance:
    :noindex:

@@ -39,6 +39,7 @@ Widgets & components
 * ``examples/widgets/progress_demo.py`` / ``spinner_demo.py`` – progress indicators and loading states.
 * ``examples/widgets/notification_demo.py`` / ``statusbar_demo.py`` – real-time feedback and persistent hints.
 * ``examples/widgets/textarea_demo.py`` – full-featured text editor with clipboard + mouse support.
+* ``examples/widgets/charts_demo.py`` – data visualization with sparklines, bar/column/line charts, gauges, and heatmaps.
 
 Advanced workflows
 ------------------
