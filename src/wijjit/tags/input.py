@@ -9,6 +9,7 @@ from jinja2.parser import Parser
 
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
+from wijjit.elements.input.code_editor import CodeEditor
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextArea, TextInput
@@ -1394,6 +1395,234 @@ class TextAreaExtension(Extension):
         # Create ElementNode
         # Use width_spec/height_spec directly for ElementNode (supports "fill")
         node = ElementNode(textarea, width=width_spec, height=height_spec)
+
+        # Add to layout context
+        context.add_element(node)
+
+        # Return marker for text interleaving
+        return get_element_marker(context)
+
+
+class CodeEditorExtension(Extension):
+    """Jinja2 extension for codeeditor tag.
+
+    Syntax:
+        {% codeeditor id="editor" language="python" theme="monokai"
+                      width=80 height=25 show_line_numbers=True %}
+        {% endcodeeditor %}
+    """
+
+    tags = {"codeeditor"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the codeeditor tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endcodeeditor"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (should be empty, but consume until endcodeeditor)
+        node = nodes.CallBlock(
+            self.call_method("_render_codeeditor", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endcodeeditor",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_codeeditor(
+        self,
+        caller: Any,
+        id: str | None = None,
+        value: str = "",
+        language: str | None = "python",
+        theme: str = "monokai",
+        filename_hint: str | None = None,
+        width: int | str = 60,
+        height: int | str = 20,
+        show_line_numbers: bool = True,
+        wrap_mode: Literal["none", "soft"] = "none",
+        show_scrollbar: bool = True,
+        border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
+        action: str | None = None,
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the codeeditor tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        value : str
+            Initial source code (default: "")
+        language : str, optional
+            Programming language (default: "python").
+            Use "auto" for auto-detection, None to disable highlighting.
+        theme : str
+            Color theme name (default: "monokai")
+        filename_hint : str, optional
+            Filename hint for auto-detection
+        width : int or str
+            Editor width (default: 60)
+        height : int or str
+            Editor height (default: 20)
+        show_line_numbers : bool
+            Whether to show line numbers (default: True)
+        wrap_mode : str
+            Line wrapping mode: "none" or "soft" (default: "none")
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
+            Border style (default: "single")
+        action : str, optional
+            Action ID to dispatch on content change
+        bind : bool
+            Whether to auto-bind value to state[id] (default: True)
+        classes : str, optional
+            CSS-like class names for styling
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Handle 'class' attribute
+        classes = kwargs.get("class", None)
+
+        # Get layout context
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Store original width/height specs for ElementNode
+        width_spec = width
+        height_spec = height
+
+        # Convert numeric parameters
+        if isinstance(width, str) and not width.isdigit():
+            element_width = 60  # Default
+        else:
+            element_width = int(width)
+
+        if isinstance(height, str) and not height.isdigit():
+            element_height = 20  # Default
+        else:
+            element_height = int(height)
+
+        show_scrollbar = bool(show_scrollbar)
+        show_line_numbers = bool(show_line_numbers)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("codeeditor")
+
+        # Get initial value from body if not provided
+        if not value:
+            body = caller().strip()
+            value = body if body else ""
+        else:
+            caller()  # Consume body anyway
+
+        # Get value from state if binding is enabled
+        if bind and id:
+            try:
+                ctx: Any = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if id in state:
+                        value = str(state[id])
+            except Exception as e:
+                logger.warning(f"Failed to restore state for codeeditor '{id}': {e}")
+
+        # Create CodeEditor element
+        editor = CodeEditor(
+            id=id,
+            classes=classes,
+            value=value,
+            language=language,
+            theme=theme,
+            filename_hint=filename_hint,
+            width=element_width,
+            height=element_height,
+            show_line_numbers=show_line_numbers,
+            wrap_mode=wrap_mode,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+        )
+
+        # Store dynamic sizing flag
+        editor._dynamic_sizing = width_spec == "fill" or height_spec == "fill"
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            editor.focused = True
+
+        # Store action ID if provided
+        if action:
+            editor.action = action
+
+        # Store bind setting
+        editor.bind = bind
+
+        # Restore cursor, selection, and scroll state if binding is enabled
+        if bind and id:
+            try:
+                ctx = self.environment.globals.get("_wijjit_current_context")
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+
+                    # Restore scroll position
+                    scroll_key = f"__{id}_scroll"
+                    if scroll_key in state:
+                        scroll_data = state[scroll_key]
+                        scroll_pos = scroll_data.get("position", 0)
+                        editor.scroll_manager.scroll_to(scroll_pos)
+
+                    # Restore cursor position
+                    cursor_key = f"__{id}_cursor"
+                    if cursor_key in state:
+                        cursor_data = state[cursor_key]
+                        editor.cursor_row = cursor_data.get("row", 0)
+                        editor.cursor_col = cursor_data.get("col", 0)
+
+                    # Restore selection state
+                    selection_key = f"__{id}_selection"
+                    if selection_key in state:
+                        selection_data = state[selection_key]
+                        editor.selection_anchor = selection_data.get("anchor")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to restore cursor/selection/scroll for codeeditor '{id}': {e}"
+                )
+
+        # Create ElementNode
+        node = ElementNode(editor, width=width_spec, height=height_spec)
 
         # Add to layout context
         context.add_element(node)

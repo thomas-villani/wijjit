@@ -1,6 +1,5 @@
 """Tests for TabbedPanel display element."""
 
-
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition

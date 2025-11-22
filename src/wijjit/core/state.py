@@ -86,6 +86,36 @@ class State(UserDict[str, Any]):
 
         super().__init__(data or {})
 
+    def __deepcopy__(self, memo: dict[int, Any]) -> "State":
+        """Create a deep copy of the state data only, excluding callbacks.
+
+        Parameters
+        ----------
+        memo : dict
+            Memoization dictionary for deepcopy
+
+        Returns
+        -------
+        State
+            A new State instance with deep-copied data but no callbacks
+
+        Notes
+        -----
+        This method is called by copy.deepcopy(). It copies only the state
+        data, not the change callbacks or watchers. This is intentional because:
+        1. Callbacks are typically bound methods that reference the original app
+        2. The copied state is used for template rendering, not modification
+        3. Callbacks may contain unpicklable objects (thread locks, etc.)
+        """
+        import copy
+
+        # Deep copy only the data dictionary
+        new_data = copy.deepcopy(dict(self.data), memo)
+        # Create new State without callbacks
+        result = State(new_data)
+        memo[id(self)] = result
+        return result
+
     def __setitem__(self, key: str, value: Any) -> None:
         """Set an item and trigger change callbacks.
 

@@ -29,6 +29,8 @@ Input widgets
    wijjit.elements.input.select.Select
    wijjit.elements.input.text.TextInput
    wijjit.elements.input.text.TextArea
+   wijjit.elements.input.code_editor.CodeEditor
+   wijjit.elements.input.code_editor.SyntaxHighlighter
 
 Display widgets
 ---------------
@@ -91,6 +93,15 @@ Module documentation
 .. automodule:: wijjit.elements.input.text
    :members:
    :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.input.code_editor
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.input.highlighting
+   :members:
    :noindex:
 
 .. automodule:: wijjit.elements.display.table

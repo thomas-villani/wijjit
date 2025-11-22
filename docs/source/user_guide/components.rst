@@ -16,13 +16,30 @@ TextInput / TextArea
        :pyobject: main_view
        :caption: ``examples/basic/simple_input_test.py`` – binding a ``textinput`` to ``state``
 
-    ``textarea`` adds scrollbars, selection APIs, and clipboard shortcuts. It’s ideal for log editing, notes, or prompt composition. Pair it with derived state to show live counts, as demonstrated below.
+    ``textarea`` adds scrollbars, selection APIs, and clipboard shortcuts. It's ideal for log editing, notes, or prompt composition. Pair it with derived state to show live counts, as demonstrated below.
 
     .. literalinclude:: ../../examples/widgets/textarea_demo.py
        :language: jinja
        :caption: Template excerpt from ``examples/widgets/textarea_demo.py``
        :start-after: "template": """
        :end-before: """,
+
+CodeEditor
+    Syntax-highlighted code editor (:mod:`wijjit.elements.input.code_editor`). Extends ``TextArea`` with syntax highlighting powered by Pygments. Supports 500+ programming languages, multiple color themes (monokai, dracula, nord, github-light), line numbers, and automatic language detection.
+
+    Key attributes:
+
+    * ``language`` - Programming language for highlighting (``python``, ``javascript``, ``rust``, etc.) or ``"auto"`` for detection
+    * ``theme`` - Color theme (``monokai``, ``dracula``, ``nord``, ``github-light``)
+    * ``show_line_numbers`` - Display line numbers in the gutter (default: ``True``)
+    * ``filename_hint`` - Helps auto-detection when ``language="auto"``
+
+    Performance is optimized for large files through per-line token caching and debounced re-tokenization during edits. Inherits all ``TextArea`` features including selection, clipboard support, and scrolling.
+
+    .. literalinclude:: ../../examples/widgets/code_editor_demo.py
+       :language: python
+       :pyobject: main_view
+       :caption: ``examples/widgets/code_editor_demo.py`` - syntax highlighting with theme switching
 
 Button
     Clickable action trigger (:mod:`wijjit.elements.input.button`). Attributes: ``variant`` (``primary``, ``secondary``, ``danger``), ``icon``, ``disabled``. Useful for both primary actions and inline icon buttons. Remember that ``action`` ids participate in handler routing—keep them short verbs (``save``, ``cancel``) and reuse them across views to share behavior.

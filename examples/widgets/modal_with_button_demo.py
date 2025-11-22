@@ -154,8 +154,8 @@ class ModalWithButton:
         from wijjit.styling.style import Style
 
         # Get default style for modal (white text on default background)
-        default_style = Style(fg="white")
-        title_style = Style(fg="white", bold=True)
+        default_style = Style(fg_color=(255, 255, 255))
+        title_style = Style(fg_color=(255, 255, 255), bold=True)
 
         # Draw top border
         border_top = (

@@ -38,6 +38,9 @@ All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``stat
 ``{% textarea %}…{% endtextarea %}``
     Multi-line editor (supports scrolling, custom borders). Attributes: ``id``, ``height``, ``width``, ``placeholder``, ``bind``.
 
+``{% codeeditor %}…{% endcodeeditor %}``
+    Syntax-highlighted code editor (:class:`wijjit.elements.input.code_editor.CodeEditor`). Extends ``textarea`` with Pygments-powered highlighting. Attributes: ``id``, ``language`` (programming language or ``"auto"``), ``theme`` (``monokai``, ``dracula``, ``nord``, ``github-light``), ``show_line_numbers``, ``filename_hint``, ``width``, ``height``, ``bind``.
+
 ``{% button %}…{% endbutton %}``
     Action buttons. Use ``action="save"`` to emit :class:`wijjit.core.events.ActionEvent`. Optional ``variant`` (``primary``, ``danger``) and ``icon`` attributes help styling.
 

@@ -23,6 +23,7 @@ Input tags
 
    wijjit.tags.input.TextInputExtension
    wijjit.tags.input.TextAreaExtension
+   wijjit.tags.input.CodeEditorExtension
    wijjit.tags.input.ButtonExtension
    wijjit.tags.input.CheckboxExtension
    wijjit.tags.input.CheckboxGroupExtension
