@@ -366,11 +366,13 @@ class Element(ABC):
         APIs, awaiting async state updates) should override this method instead
         of handle_mouse().
 
-        The default implementation returns False (not handled). Subclasses
-        should override either this method OR handle_mouse(), not both.
+        The default implementation delegates to handle_mouse() so that
+        subclasses that only override the sync version will still work.
+        Subclasses that need async behavior should override this method.
         The mouse router checks for this async version first.
         """
-        return False
+        # Delegate to sync handler by default
+        return self.handle_mouse(event)
 
     def on_focus(self) -> None:
         """Called when element gains focus."""

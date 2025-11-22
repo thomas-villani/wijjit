@@ -133,15 +133,24 @@ class MouseEventRouter:
         overlay = self.app.overlay_manager.get_at_position(event.x, event.y)
 
         if overlay:
+            logger.debug(
+                f"Overlay found at ({event.x}, {event.y}): {type(overlay.element).__name__}"
+            )
+            logger.debug(f"Overlay element bounds: {overlay.element.bounds}")
+            logger.debug(f"Event type: {event.type}, button: {event.button}")
+
             # Mouse event is on an overlay - route to overlay element
             # Check for async handler first
             if hasattr(overlay.element, "handle_mouse_async"):
                 handled = await overlay.element.handle_mouse_async(event)
+                logger.debug(f"handle_mouse_async returned: {handled}")
                 if handled:
                     self.app.needs_render = True
             elif hasattr(overlay.element, "handle_mouse"):
                 # Fallback to sync handler
+                logger.debug("Calling handle_mouse (sync)")
                 handled = overlay.element.handle_mouse(event)
+                logger.debug(f"handle_mouse returned: {handled}")
                 if handled:
                     self.app.needs_render = True
             # Overlay consumed the event even if not handled
@@ -220,11 +229,14 @@ class MouseEventRouter:
         if event.button == MouseButton.RIGHT and event.type == MouseEventType.CLICK:
             logger.debug(f"Right-click detected at ({event.x}, {event.y})")
             logger.debug(
-                f"Target element: {target_element.id if target_element and hasattr(target_element, 'id') else None}"
+                f"Target element: {target_element.id if target_element else None}"
             )
+            if target_element and target_element.bounds:
+                logger.debug(f"Target element bounds: {target_element.bounds}")
 
             # Check if any context menu targets this element
-            if target_element and hasattr(target_element, "id"):
+            # Note: All elements have an 'id' attribute, but it may be None
+            if target_element and target_element.id is not None:
                 logger.debug(
                     f"Has _last_template_overlays: {hasattr(self.app, '_last_template_overlays')}"
                 )

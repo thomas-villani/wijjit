@@ -554,15 +554,18 @@ class VStack(Container):
                 )
 
             # Width handling based on alignment
-            if (
+            # Note: Fixed-width children should NOT be stretched even when align_h is "stretch"
+            # This ensures elements with explicit widths are respected
+            if child.width_spec.is_fixed:
+                # Respect the child's explicit fixed width
+                child_width = child.width_spec.value
+            elif (
                 self.align_h == "stretch"
                 or child.width_spec.is_fill
                 or child.width_spec.is_percentage
             ):
                 child_width = content_width
                 child_x = current_x
-            elif child.width_spec.is_fixed:
-                child_width = child.width_spec.value
             else:
                 child_width = (
                     child.constraints.preferred_width
@@ -796,16 +799,18 @@ class HStack(Container):
                 )
 
             # Height handling based on alignment
-            if (
+            # Note: Fixed-height children should NOT be stretched even when align_v is "stretch"
+            # This ensures elements with explicit heights are respected
+            if child.height_spec.is_fixed:
+                # Respect the child's explicit fixed height
+                child_height = child.height_spec.value
+            elif (
                 self.align_v == "stretch"
                 or child.height_spec.is_fill
                 or child.height_spec.is_percentage
             ):
                 child_height = content_height
                 child_y = current_y
-            elif child.height_spec.is_fixed:
-                # Use fixed height - don't clamp to content_height
-                child_height = child.height_spec.value
             else:
                 child_height = (
                     child.constraints.preferred_height

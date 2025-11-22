@@ -895,9 +895,6 @@ class TabbedPanel(Container):
         tab_attrs = tab_style.to_cell_attrs()
         active_tab_attrs = active_tab_style.to_cell_attrs()
 
-        # Force reverse styling on active tab for better visibility
-        active_tab_attrs["reverse"] = True
-
         # When panel is focused, make border bold/bright
         if self.focused:
             border_attrs["bold"] = True
@@ -1164,25 +1161,18 @@ class TabbedPanel(Container):
                 Cell(char=chars["v"], **border_attrs),
             )
 
-        # Render active tab's frame content
+        # Render active tab's content using helper (handles FrameNode and state)
         if 0 <= self.active_tab_index < len(self.tabs):
-            _, active_frame = self.tabs[self.active_tab_index]
+            _, active_content = self.tabs[self.active_tab_index]
 
-            # Create sub-context for content area
-            content_ctx = ctx.sub_context(1, 1, content_width - 2, content_height - 1)
-
-            # Set frame bounds
-            from wijjit.layout.bounds import Bounds
-
-            active_frame.bounds = Bounds(
-                x=ctx.bounds.x + 1,
-                y=ctx.bounds.y + 1,
-                width=content_width - 2,
-                height=content_height - 1,
+            self._render_tab_content(
+                ctx,
+                active_content,
+                ctx.bounds.x + 1,
+                ctx.bounds.y + 1,
+                content_width - 2,
+                content_height - 1,
             )
-
-            # Render frame
-            active_frame.render_to(content_ctx)
 
         # Separator line between content and tabs
         separator_y = content_height
@@ -1385,27 +1375,18 @@ class TabbedPanel(Container):
                 Cell(char=chars["v"], **border_attrs),
             )
 
-        # Render active tab's frame content
+        # Render active tab's content using helper (handles FrameNode and state)
         if 0 <= self.active_tab_index < len(self.tabs):
-            _, active_frame = self.tabs[self.active_tab_index]
+            _, active_content = self.tabs[self.active_tab_index]
 
-            # Create sub-context for content area
-            content_ctx = ctx.sub_context(
-                tab_area_width, 1, content_width - 1, content_height - 2
+            self._render_tab_content(
+                ctx,
+                active_content,
+                ctx.bounds.x + tab_area_width,
+                ctx.bounds.y + 1,
+                content_width - 1,
+                content_height - 2,
             )
-
-            # Set frame bounds
-            from wijjit.layout.bounds import Bounds
-
-            active_frame.bounds = Bounds(
-                x=ctx.bounds.x + tab_area_width,
-                y=ctx.bounds.y + 1,
-                width=content_width - 1,
-                height=content_height - 2,
-            )
-
-            # Render frame
-            active_frame.render_to(content_ctx)
 
         # Bottom border
         ctx.buffer.set_cell(
@@ -1494,25 +1475,18 @@ class TabbedPanel(Container):
                 Cell(char=chars["v"], **border_attrs),
             )
 
-        # Render active tab's frame content
+        # Render active tab's content using helper (handles FrameNode and state)
         if 0 <= self.active_tab_index < len(self.tabs):
-            _, active_frame = self.tabs[self.active_tab_index]
+            _, active_content = self.tabs[self.active_tab_index]
 
-            # Create sub-context for content area
-            content_ctx = ctx.sub_context(1, 1, content_width - 1, content_height - 2)
-
-            # Set frame bounds
-            from wijjit.layout.bounds import Bounds
-
-            active_frame.bounds = Bounds(
-                x=ctx.bounds.x + 1,
-                y=ctx.bounds.y + 1,
-                width=content_width - 1,
-                height=content_height - 2,
+            self._render_tab_content(
+                ctx,
+                active_content,
+                ctx.bounds.x + 1,
+                ctx.bounds.y + 1,
+                content_width - 1,
+                content_height - 2,
             )
-
-            # Render frame
-            active_frame.render_to(content_ctx)
 
         # Render tab labels vertically on the right
         for i, (label, _) in enumerate(self.tabs):

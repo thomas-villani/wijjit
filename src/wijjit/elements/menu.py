@@ -269,7 +269,16 @@ class MenuElement(OverlayElement):
         bool
             True if event was handled
         """
+        from wijjit.logging_config import get_logger
+
+        logger = get_logger(__name__)
+
+        logger.debug(f"MenuElement.handle_mouse called: event.type={event.type}")
+
         if not self.bounds or not self.items:
+            logger.debug(
+                f"Early return: bounds={self.bounds}, items={len(self.items) if self.items else 0}"
+            )
             return False
 
         # Convert to relative coordinates
@@ -279,9 +288,16 @@ class MenuElement(OverlayElement):
         # Account for top border
         item_y = relative_y - 1
 
-        # Check if within menu bounds
-        if 0 <= item_y < len(self.items) and 0 <= relative_x < self.bounds.width:
+        logger.debug(
+            f"Click at ({event.x}, {event.y}) -> relative ({relative_x}, {relative_y}) -> item_y={item_y}"
+        )
+        logger.debug(f"Bounds: {self.bounds}, num_items: {len(self.items)}")
+
+        # Check if within menu bounds (use width - 2 for inner content area)
+        inner_width = self.bounds.width
+        if 0 <= item_y < len(self.items) and 0 <= relative_x < inner_width:
             item = self.items[item_y]
+            logger.debug(f"Item at index {item_y}: {item.label}, action={item.action}")
 
             # Mouse move - update highlight
             if event.type == MouseEventType.MOVE:
@@ -289,12 +305,29 @@ class MenuElement(OverlayElement):
                     self.highlighted_index = item_y
                 return True
 
-            # Click - select item
-            if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+            # Click or release - select item
+            # Handle both CLICK (synthesized) and RELEASE (raw) events
+            # Some terminals may not properly synthesize CLICK events
+            if event.type in (
+                MouseEventType.CLICK,
+                MouseEventType.DOUBLE_CLICK,
+                MouseEventType.RELEASE,
+            ):
+                logger.debug(
+                    f"Click/release event on item: divider={item.divider}, disabled={item.disabled}"
+                )
                 if not item.divider and not item.disabled:
                     self.highlighted_index = item_y
+                    logger.debug(f"Calling _select_item for action: {item.action}")
+                    logger.debug(f"on_item_select callback: {self.on_item_select}")
+                    logger.debug(f"close_callback: {self.close_callback}")
                     self._select_item(item)
                 return True
+        else:
+            logger.debug(
+                f"Outside menu bounds: item_y={item_y} (valid: 0-{len(self.items)-1}), "
+                f"relative_x={relative_x} (valid: 0-{inner_width-1})"
+            )
 
         return False
 

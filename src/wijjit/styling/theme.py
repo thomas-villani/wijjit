@@ -344,6 +344,17 @@ class DefaultTheme(Theme):
             "menu.item:disabled": Style(fg_color=(128, 128, 128), dim=True),
             "menu.divider": Style(fg_color=(100, 100, 100)),
             "menu.shortcut": Style(fg_color=(180, 180, 180), dim=True),
+            # TabbedPanel styles
+            "tabbedpanel": Style(fg_color=(200, 200, 200)),
+            "tabbedpanel:focus": Style(fg_color=(255, 255, 255)),
+            "tabbedpanel.tab": Style(fg_color=(200, 200, 200)),
+            "tabbedpanel.tab:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "tabbedpanel.tab:active": Style(
+                fg_color=(0, 255, 255),
+                reverse=True,
+            ),
+            "tabbedpanel.border": Style(fg_color=(100, 100, 100)),
+            "tabbedpanel.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # LogView styles
             "logview": Style(fg_color=(200, 200, 200)),
             "logview:focus": Style(fg_color=(255, 255, 255), bold=True),

@@ -20,7 +20,7 @@ Controls:
 
 from wijjit import Wijjit
 
-# Create app with initial state
+# Create app with initial state and debug logging
 app = Wijjit(
     initial_state={
         "files": [
@@ -32,7 +32,8 @@ app = Wijjit(
         ],
         "selected_file": "document.txt",
         "status": "Right-click on a file to see context menu",
-    }
+        "show_context_menu": False,
+    },
 )
 
 
@@ -48,19 +49,22 @@ def main_view():
     return {
         "template": """
 {% frame title="Context Menu Demo" border="double" width=70 height=20 %}
-  {% vstack spacing=1 padding=1 %}
-    {% vstack spacing=0 %}
       Status: {{ state.status }}
       Selected: {{ state.selected_file }}
-    {% endvstack %}
 
-    {% vstack spacing=0 %}
       File List (right-click for menu):
-    {% endvstack %}
 
-    {% frame border="single" height=10 %}
-      {% listview items=file_list selection_style="highlight" %}{% endlistview %}
-    {% endframe %}
+      {% listview id="file_list" items=file_list selection_style="highlight" width=40 height=8 %}{% endlistview %}
+
+      {% contextmenu target="file_list" visible="show_context_menu" %}
+          {% menuitem action="open_file" key="Enter" %}Open{% endmenuitem %}
+          {% menuitem action="rename_file" key="F2" %}Rename{% endmenuitem %}
+          {% menuitem action="copy_file" key="Ctrl+C" %}Copy{% endmenuitem %}
+          {% menuitem divider=true %}{% endmenuitem %}
+          {% menuitem action="delete_file" key="Del" %}Delete{% endmenuitem %}
+          {% menuitem divider=true %}{% endmenuitem %}
+          {% menuitem action="properties" %}Properties{% endmenuitem %}
+      {% endcontextmenu %}
 
     {% hstack spacing=2 %}
       {% button action="open_file" %}Open{% endbutton %}
@@ -74,7 +78,6 @@ def main_view():
       Use buttons above as alternative.
       [q] Quit
     {% endvstack %}
-  {% endvstack %}
 {% endframe %}
         """,
         "data": {
