@@ -376,6 +376,15 @@ class DefaultTheme(Theme):
             "code:focus": Style(fg_color=(255, 255, 255), bold=True),
             "code.border": Style(fg_color=(100, 100, 100)),
             "code.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # Link styles
+            "link": Style(fg_color=(0, 255, 255), underline=True),
+            "link:focus": Style(fg_color=(0, 0, 0), bg_color=(0, 255, 255), bold=True),
+            "link:hover": Style(fg_color=(100, 255, 255), underline=True),
+            # HTMLViewer styles
+            "htmlview": Style(fg_color=(200, 200, 200)),
+            "htmlview:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "htmlview.border": Style(fg_color=(100, 100, 100)),
+            "htmlview.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # Alert severity styles (for AlertDialog with severity parameter)
             "alert.success.border": Style(fg_color=(0, 255, 0)),  # Green
             "alert.error.border": Style(fg_color=(255, 0, 0)),  # Red
@@ -429,6 +438,7 @@ class DefaultTheme(Theme):
             ".text-underline": Style(underline=True),
             # CSS Utility Classes - Text colors
             ".text-primary": Style(fg_color=(0, 120, 212)),
+            ".text-secondary": Style(fg_color=(108, 117, 125)),
             ".text-success": Style(fg_color=(40, 167, 69)),
             ".text-warning": Style(fg_color=(255, 193, 7)),
             ".text-danger": Style(fg_color=(220, 53, 69)),
@@ -436,6 +446,7 @@ class DefaultTheme(Theme):
             ".text-muted": Style(fg_color=(128, 128, 128), dim=True),
             # CSS Utility Classes - Background colors
             ".bg-primary": Style(bg_color=(0, 120, 212)),
+            ".bg-secondary": Style(bg_color=(108, 117, 125)),
             ".bg-success": Style(bg_color=(40, 167, 69)),
             ".bg-warning": Style(bg_color=(255, 193, 7)),
             ".bg-danger": Style(bg_color=(220, 53, 69)),
@@ -651,6 +662,17 @@ class DarkTheme(Theme):
             "code:focus": Style(fg_color=(220, 220, 255), bold=True),
             "code.border": Style(fg_color=(80, 80, 100)),
             "code.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # Link styles
+            "link": Style(fg_color=(100, 200, 255), underline=True),
+            "link:focus": Style(
+                fg_color=(0, 0, 0), bg_color=(100, 200, 255), bold=True
+            ),
+            "link:hover": Style(fg_color=(150, 220, 255), underline=True),
+            # HTMLViewer styles
+            "htmlview": Style(fg_color=(200, 200, 220)),
+            "htmlview:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "htmlview.border": Style(fg_color=(80, 80, 100)),
+            "htmlview.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # CSS Utility Classes - Button variants
             ".btn-primary": Style(
                 fg_color=(255, 255, 255),
@@ -920,6 +942,17 @@ class LightTheme(Theme):
             "code:focus": Style(fg_color=(0, 0, 0), bold=True),
             "code.border": Style(fg_color=(180, 180, 180)),
             "code.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # Link styles
+            "link": Style(fg_color=(0, 100, 200), underline=True),
+            "link:focus": Style(
+                fg_color=(255, 255, 255), bg_color=(0, 100, 200), bold=True
+            ),
+            "link:hover": Style(fg_color=(0, 80, 180), underline=True),
+            # HTMLViewer styles
+            "htmlview": Style(fg_color=(0, 0, 0)),
+            "htmlview:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "htmlview.border": Style(fg_color=(180, 180, 180)),
+            "htmlview.border:focus": Style(fg_color=(0, 100, 200), bold=True),
             # CSS Utility Classes - Button variants
             ".btn-primary": Style(
                 fg_color=(255, 255, 255),
@@ -1255,6 +1288,15 @@ class HighContrastTheme(Theme):
             "code:focus": Style(fg_color=(255, 255, 255), bold=True),
             "code.border": Style(fg_color=(255, 255, 255), bold=True),
             "code.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # Link styles
+            "link": Style(fg_color=(0, 255, 255), underline=True, bold=True),
+            "link:focus": Style(fg_color=(0, 0, 0), bg_color=(255, 255, 0), bold=True),
+            "link:hover": Style(fg_color=(255, 255, 255), underline=True, bold=True),
+            # HTMLViewer styles
+            "htmlview": Style(fg_color=(255, 255, 255), bold=True),
+            "htmlview:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "htmlview.border": Style(fg_color=(255, 255, 255), bold=True),
+            "htmlview.border:focus": Style(fg_color=(255, 255, 0), bold=True),
             # Alert severity styles
             "alert.success.border": Style(
                 fg_color=(0, 255, 0), bold=True

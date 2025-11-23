@@ -7,7 +7,9 @@ from wijjit.elements.display.barchart import BarChart
 from wijjit.elements.display.columnchart import ColumnChart
 from wijjit.elements.display.gauge import Gauge
 from wijjit.elements.display.heatmap import HeatMap
+from wijjit.elements.display.htmlview import HTMLViewer
 from wijjit.elements.display.linechart import LineChart
+from wijjit.elements.display.link import Link
 from wijjit.elements.display.logview import LogView
 from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.display.notification import (
@@ -24,7 +26,9 @@ __all__ = [
     "ColumnChart",
     "Gauge",
     "HeatMap",
+    "HTMLViewer",
     "LineChart",
+    "Link",
     "LogView",
     "ModalElement",
     "NotificationElement",

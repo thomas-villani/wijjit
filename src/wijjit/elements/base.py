@@ -683,6 +683,9 @@ class TextElement(Element):
         CSS class names for styling
     wrap : bool, optional
         Whether to wrap text to fit bounds width (default: True)
+    html : bool or None, optional
+        Whether to parse HTML tags in text content. If None, uses
+        app.config['HTML_CONTENT'] setting. Default: None
 
     Attributes
     ----------
@@ -690,6 +693,8 @@ class TextElement(Element):
         Text content
     wrap : bool
         Whether text wrapping is enabled
+    html : bool or None
+        HTML parsing mode (None = use global config)
     """
 
     def __init__(
@@ -698,12 +703,14 @@ class TextElement(Element):
         id: str | None = None,
         classes: str | list[str] | set[str] | None = None,
         wrap: bool = True,
+        html: bool | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.text = text
         self.element_type = ElementType.DISPLAY
         self.focusable = False
         self.wrap = wrap
+        self.html = html
         self._wrapped_text: str | None = None
 
     def set_bounds(self, bounds) -> None:
@@ -737,13 +744,48 @@ class TextElement(Element):
         -------
         tuple[int, int]
             (width, height) based on text lines
+
+        Notes
+        -----
+        If HTML mode is enabled, HTML tags are stripped when calculating
+        visible width to get accurate sizing.
         """
         from wijjit.terminal.ansi import visible_length
 
-        lines = self.text.split("\n")
+        # Get display text (strip HTML tags if HTML mode)
+        display_text = self._get_display_text()
+        lines = display_text.split("\n")
         width = max((visible_length(line) for line in lines), default=1)
         height = len(lines)
         return (width, height)
+
+    def _get_display_text(self) -> str:
+        """Get text for display, stripping HTML tags if needed.
+
+        Returns
+        -------
+        str
+            Plain text for sizing calculations
+        """
+        if self._is_html_enabled():
+            from wijjit.rendering.html_adapter import strip_html_tags
+
+            return strip_html_tags(self.text)
+        return self.text
+
+    def _is_html_enabled(self) -> bool:
+        """Check if HTML parsing is enabled for this element.
+
+        Returns
+        -------
+        bool
+            True if HTML should be parsed, False otherwise
+        """
+        if self.html is not None:
+            return self.html
+        # Check global config (will need app reference)
+        # For now, return False if not explicitly set
+        return False
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the text element using cell-based rendering.
@@ -752,20 +794,81 @@ class TextElement(Element):
         ----------
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
+
+        Notes
+        -----
+        If HTML mode is enabled, HTML tags are parsed and converted to
+        styled cells. HTML classes like <span class="text-danger"> are
+        resolved through the theme's style definitions.
+        """
+        text = self._wrapped_text if self._wrapped_text is not None else self.text
+
+        if self._is_html_enabled():
+            self._render_html(ctx, text)
+        else:
+            self._render_plain(ctx, text)
+
+    def _render_plain(self, ctx: PaintContext, text: str) -> None:
+        """Render plain text content.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        text : str
+            Text to render
         """
         from wijjit.terminal.ansi import clip_to_width
 
-        text = self._wrapped_text if self._wrapped_text is not None else self.text
         # Resolve style for text element
         style = ctx.style_resolver.resolve_style(self, "text")
 
         # Split text by newlines and render each line separately
-        # write_text() doesn't handle newlines, so we must split manually
         lines = text.split("\n")
         for i, line in enumerate(lines):
-            # Stop if we've exceeded the element's height
             if i >= ctx.bounds.height:
                 break
-            # Clip line to available width to prevent overflow
             clipped = clip_to_width(line, ctx.bounds.width, ellipsis="")
             ctx.write_text(0, i, clipped, style)
+
+    def _render_html(self, ctx: PaintContext, text: str) -> None:
+        """Render HTML content.
+
+        Parameters
+        ----------
+        ctx : PaintContext
+            Paint context
+        text : str
+            HTML text to render
+        """
+        from wijjit.rendering.html_adapter import html_string_to_cells
+
+        # Parse HTML and convert to cells
+        cells = html_string_to_cells(text, style_resolver=ctx.style_resolver)
+
+        # Render cells to buffer, handling line breaks
+        x = 0
+        y = 0
+        for cell in cells:
+            # Handle newlines
+            if cell.char == "\n":
+                x = 0
+                y += 1
+                continue
+
+            # Stop if we've exceeded bounds
+            if y >= ctx.bounds.height:
+                break
+            if x >= ctx.bounds.width:
+                # Move to next line if wrapping, otherwise skip
+                if self.wrap:
+                    x = 0
+                    y += 1
+                    if y >= ctx.bounds.height:
+                        break
+                else:
+                    continue
+
+            # Write cell to buffer
+            ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, cell)
+            x += 1

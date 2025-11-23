@@ -308,7 +308,9 @@ class ColumnChart(Element):
                 )
 
         # Render columns
-        for i, (value, norm_val) in enumerate(zip(self.values, normalized, strict=True)):
+        for i, (value, norm_val) in enumerate(
+            zip(self.values, normalized, strict=True)
+        ):
             column_x = chart_left + i * total_column_space
 
             if column_x >= self.width:

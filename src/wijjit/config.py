@@ -386,6 +386,15 @@ class DefaultConfig:
     TEMPLATE_AUTO_RELOAD = False
 
     # ============================================================
+    # HTML CONTENT
+    # ============================================================
+
+    #: Enable HTML content parsing globally
+    #: When True, elements that support HTML will parse HTML tags in their content
+    #: Elements can still override this with their own html=True/False parameter
+    HTML_CONTENT = False
+
+    # ============================================================
     # ACCESSIBILITY
     # ============================================================
 

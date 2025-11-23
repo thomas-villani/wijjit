@@ -10,7 +10,6 @@ This module tests all chart visualization elements including:
 - HeatMap
 """
 
-
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.barchart import BarChart
 from wijjit.elements.display.chart_utils import (

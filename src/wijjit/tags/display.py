@@ -2183,6 +2183,7 @@ class TextExtension(Extension):
 
     Syntax:
         {% text id="label" class="text-bold" %}Hello World{% endtext %}
+        {% text html=true %}<b>Bold</b> text{% endtext %}
     """
 
     tags = {"text"}
@@ -2226,7 +2227,12 @@ class TextExtension(Extension):
         return node
 
     def _render_text(
-        self, caller: Callable, id: str | None = None, wrap: bool = True, **kwargs: Any
+        self,
+        caller: Callable,
+        id: str | None = None,
+        wrap: bool = True,
+        html: bool | None = None,
+        **kwargs: Any,
     ) -> str:
         """Render the text tag.
 
@@ -2238,6 +2244,8 @@ class TextExtension(Extension):
             Element identifier
         wrap : bool, optional
             Whether to wrap text (default: True)
+        html : bool, optional
+            Whether to parse HTML tags in content (default: None = use global config)
         **kwargs : dict
             Additional attributes (including 'class' which gets renamed to 'classes')
 
@@ -2259,7 +2267,9 @@ class TextExtension(Extension):
         text_content = caller().strip()
 
         # Create text element
-        text_elem = TextElement(text=text_content, id=id, classes=classes, wrap=wrap)
+        text_elem = TextElement(
+            text=text_content, id=id, classes=classes, wrap=wrap, html=html
+        )
 
         # Wrap in ElementNode
         text_node = ElementNode(text_elem, width="auto", height="auto")
@@ -2668,4 +2678,266 @@ class TabbedPanelExtension(Extension):
         context._pending_tabs = []  # type: ignore[attr-defined]
 
         # Return marker for text interleaving
+        return get_element_marker(context)
+
+
+class LinkExtension(Extension):
+    """Jinja2 extension for {% link %} tag.
+
+    Syntax:
+        {% link action="do_something" %}Click here{% endlink %}
+        {% link action="go" class="text-primary" %}Go{% endlink %}
+    """
+
+    tags = {"link"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the link tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs: list[nodes.Keyword] = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endlink"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (link text)
+        node = nodes.CallBlock(
+            self.call_method("_render_link", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endlink",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_link(
+        self,
+        caller: Callable[[], str],
+        action: str | None = None,
+        id: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Render the link tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        action : str, optional
+            Action name to trigger on click
+        id : str, optional
+            Element identifier
+        **kwargs : dict
+            Additional attributes
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        from wijjit.elements.display.link import Link
+
+        # Handle 'class' attribute
+        classes = kwargs.get("class", None)
+
+        # Get layout context
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Get link text
+        text_content = caller().strip()
+
+        # Create Link element
+        link_elem = Link(text=text_content, action=action, id=id, classes=classes)
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            link_elem.focused = True
+
+        # Wrap in ElementNode
+        link_node = ElementNode(link_elem, width="auto", height="auto")
+
+        # Add to layout context
+        context.add_element(link_node)
+
+        # Return marker
+        return get_element_marker(context)
+
+
+class HTMLViewerExtension(Extension):
+    """Jinja2 extension for {% htmlview %} tag.
+
+    Syntax:
+        {% htmlview id="html" width=60 height=20 %}
+            <b>Bold</b> and <i>italic</i> text
+        {% endhtmlview %}
+
+        {% htmlview border_style="rounded" title="HTML Content" %}
+            <text-danger>Error:</text-danger> Something went wrong
+        {% endhtmlview %}
+    """
+
+    tags = {"htmlview"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the htmlview tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs: list[nodes.Keyword] = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endhtmlview"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body (HTML content)
+        node = nodes.CallBlock(
+            self.call_method("_render_htmlview", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endhtmlview",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_htmlview(
+        self,
+        caller: Callable[[], str],
+        id: str | None = None,
+        width: int | str = 60,
+        height: int | str = 20,
+        show_scrollbar: bool = True,
+        border_style: str = "single",
+        title: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Render the htmlview tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        width : int or str, optional
+            Display width (default: 60)
+        height : int or str, optional
+            Display height (default: 20)
+        show_scrollbar : bool, optional
+            Show scrollbar (default: True)
+        border_style : str, optional
+            Border style (default: "single")
+        title : str, optional
+            Border title
+        **kwargs : dict
+            Additional attributes
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        from wijjit.elements.display.htmlview import HTMLViewer
+
+        # Handle 'class' attribute
+        classes = kwargs.get("class", None)
+
+        # Get layout context
+        context: Any = self.environment.globals.get("_wijjit_layout_context")
+        if context is None:
+            return ""
+
+        # Get HTML content
+        html_content = caller().strip()
+
+        # Determine sizing
+        width_spec: int | str = "fill" if width == "fill" else width
+        height_spec: int | str = "fill" if height == "fill" else height
+
+        # Convert width/height to int if needed
+        element_width = 60 if width == "fill" else int(width)
+        element_height = 20 if height == "fill" else int(height)
+
+        # Create HTMLViewer element
+        htmlview_elem = HTMLViewer(
+            id=id,
+            classes=classes,
+            content=html_content,
+            width=element_width,
+            height=element_height,
+            show_scrollbar=show_scrollbar,
+            border_style=border_style,
+            title=title,
+        )
+
+        # Set scroll state key for persistence and restore scroll position
+        if id:
+            scroll_key = f"__{id}_scroll"
+            htmlview_elem.scroll_state_key = scroll_key
+            try:
+                ctx = cast(
+                    dict[str, Any] | None,
+                    self.environment.globals.get("_wijjit_current_context"),
+                )
+                if ctx and "state" in ctx:
+                    state = ctx["state"]
+                    if scroll_key in state:
+                        htmlview_elem.restore_scroll_position(state[scroll_key])
+            except Exception as e:
+                logger.warning(f"Failed to restore scroll state: {e}")
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            htmlview_elem.focused = True
+
+        # Enable dynamic sizing if using fill
+        if width == "fill" or height == "fill":
+            htmlview_elem._dynamic_sizing = True
+
+        # Wrap in ElementNode
+        htmlview_node = ElementNode(htmlview_elem, width=width_spec, height=height_spec)
+
+        # Add to layout context
+        context.add_element(htmlview_node)
+
+        # Return marker
         return get_element_marker(context)

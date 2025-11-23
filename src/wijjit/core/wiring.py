@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from wijjit.core.events import HandlerScope
+from wijjit.elements.display.link import Link
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
@@ -113,6 +114,12 @@ class ElementWiringManager:
             elem.on_activate = lambda event, aid=action_id: self.app._dispatch_action(
                 aid, event=event
             )
+
+        # Wire up action callbacks for links
+        if isinstance(elem, Link) and hasattr(elem, "action") and elem.action:
+            action_id = elem.action
+            # Wire on_click to dispatch the action
+            elem.on_click = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up TextInput callbacks
         if isinstance(elem, TextInput):
