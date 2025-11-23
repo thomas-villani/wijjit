@@ -58,6 +58,24 @@ Radio / RadioGroup
 Select
     Drop-down picker with search/filter ability. Accepts dictionaries or tuples, can render icons next to labels, and integrates with dropdown overlays for large option sets.
 
+Link
+    Inline clickable text element (:mod:`wijjit.elements.display.link`). Renders as styled text that can be focused and activated via keyboard (Enter/Space) or mouse click. Perfect for inline navigation, action triggers, or any clickable text that shouldn't look like a button.
+
+    Key attributes:
+
+    * ``action`` - Action name to trigger when clicked
+    * ``class`` - CSS class for styling (e.g., ``text-danger``, ``text-success``)
+
+    .. code-block:: jinja
+
+       {% hstack spacing=3 %}
+         {% link action="home" %}Home{% endlink %}
+         {% link action="settings" %}Settings{% endlink %}
+         {% link action="logout" class="text-danger" %}Logout{% endlink %}
+       {% endhstack %}
+
+    See ``examples/widgets/html_demo.py`` for usage examples alongside HTMLViewer.
+
 Special behaviors:
 
 * ``bind=False`` lets you manage the value manually (useful for derived or formatted inputs).
@@ -69,6 +87,35 @@ Display widgets
 
 Markdown / Code
     Render formatted documentation or syntax-highlighted snippets. Markdown supports headings, lists, checkboxes, and tables. Code blocks use Pygments themes tailored for dark/light terminals. Try ``examples/widgets/markdown_demo.py`` and ``examples/widgets/code_demo.py`` for end-to-end samples.
+
+HTMLViewer
+    Scrollable HTML content display (:mod:`wijjit.elements.display.htmlview`). Renders HTML-like markup with text formatting, inline styles, and theme-based class styling. Ideal for rich content that needs custom styling beyond what Markdown offers.
+
+    Supported HTML features:
+
+    * Text formatting: ``<b>``, ``<i>``, ``<u>``, ``<s>`` (bold, italic, underline, strikethrough)
+    * Inline styles: ``<style fg="red" bg="white">colored text</style>``
+    * Hex colors: ``<style fg="#FF5500">hex color</style>``
+    * Theme classes: ``<text-danger>``, ``<text-success>``, ``<text-warning>``, ``<text-info>``
+
+    Key attributes:
+
+    * ``width`` / ``height`` - Display dimensions (supports ``"fill"`` for dynamic sizing)
+    * ``border_style`` - Border style: ``single``, ``double``, ``rounded``, or ``none``
+    * ``title`` - Optional title in border
+    * ``show_scrollbar`` - Whether to show vertical scrollbar (default: ``True``)
+
+    .. code-block:: jinja
+
+       {% htmlview id="content" width=60 height=15 border_style="rounded" title="Help" %}
+           <b>Welcome!</b>
+
+           This viewer supports <i>rich</i> HTML-like formatting.
+           Use <text-danger>theme classes</text-danger> or
+           <style fg="#00FF00">inline colors</style>.
+       {% endhtmlview %}
+
+    See ``examples/widgets/html_demo.py`` for a complete demonstration.
 
 Table
     Feature-rich table control with column sizing, alignment, zebra striping, sorting, and optional selection/highlighting. Works well for log viewers, data dashboards, and admin lists. Consider pairing with scrollable frames for large datasets or binding button actions to operate on selected rows.
