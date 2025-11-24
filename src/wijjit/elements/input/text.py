@@ -454,6 +454,7 @@ class TextArea(Element):
         wrap_mode: Literal["none", "soft", "hard"] = "none",
         max_lines: int | None = None,
         show_scrollbar: bool = True,
+        show_scrollbar_x: bool = False,
         border_style: (
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = "single",
@@ -468,6 +469,7 @@ class TextArea(Element):
         self.wrap_mode = wrap_mode
         self.max_lines = max_lines
         self.show_scrollbar = show_scrollbar
+        self.show_scrollbar_x = show_scrollbar_x
 
         # Border style (normalize string to enum)
         self.border_style = self._normalize_border_style(border_style)
@@ -485,14 +487,24 @@ class TextArea(Element):
         self._last_click_time: float = 0.0  # For detecting double-clicks
         self._last_click_pos: tuple[int, int] | None = None  # Last click position
 
-        # Scroll management
+        # Vertical scroll management
         self.scroll_manager = ScrollManager(
             content_size=1, viewport_size=height  # One line initially
+        )
+
+        # Horizontal scroll management (for wrap_mode="none")
+        self._content_width = 0  # Max line width
+        self._needs_scroll_x = False
+        content_width = self._calculate_content_width()
+        self.scroll_manager_x = ScrollManager(
+            content_size=content_width,
+            viewport_size=self._get_viewport_width(),
         )
 
         # Callbacks
         self.on_change: Callable[[str, str], None] | None = None
         self.on_action: Callable[[], None] | None = None
+        self.on_scroll_x: Callable[[int], None] | None = None
 
         # Action settings (set by template extension)
         self.action: str | None = None
@@ -571,6 +583,79 @@ class TextArea(Element):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
+    def _calculate_content_width(self) -> int:
+        """Calculate the maximum width of all content lines.
+
+        Returns
+        -------
+        int
+            Maximum visible width of all lines
+        """
+        max_width = 0
+        for line in self.lines:
+            line_width = visible_length(line)
+            if line_width > max_width:
+                max_width = line_width
+        self._content_width = max_width
+        return max_width
+
+    def _get_viewport_width(self) -> int:
+        """Get the viewport width for horizontal scrolling.
+
+        Returns
+        -------
+        int
+            Available width for content display
+
+        Notes
+        -----
+        Accounts for borders (2 chars) and vertical scrollbar (1 char) when present.
+        """
+        content_width = self.width
+        # Account for borders (left + right)
+        if self.border_style is not None:
+            content_width -= 2
+        # Account for vertical scrollbar
+        if self.show_scrollbar and self.scroll_manager.state.is_scrollable:
+            content_width -= 1
+        return max(1, content_width)
+
+    def _update_horizontal_scroll(self) -> None:
+        """Update horizontal scroll manager with current content width."""
+        if self.wrap_mode == "none":
+            content_width = self._calculate_content_width()
+            viewport_width = self._get_viewport_width()
+            self.scroll_manager_x.update_content_size(content_width)
+            self.scroll_manager_x.update_viewport_size(viewport_width)
+            self._needs_scroll_x = self.scroll_manager_x.state.is_scrollable
+
+    @property
+    def scroll_position_x(self) -> int:
+        """Get the current horizontal scroll position.
+
+        Returns
+        -------
+        int
+            Current horizontal scroll offset (0-based)
+        """
+        return self.scroll_manager_x.state.scroll_position
+
+    def restore_scroll_position_x(self, position: int) -> None:
+        """Restore horizontal scroll position from saved state.
+
+        Parameters
+        ----------
+        position : int
+            Horizontal scroll position to restore
+
+        Notes
+        -----
+        This method is called by the wiring system to restore scroll state
+        between renders when wrap_mode="none".
+        """
+        if self.wrap_mode == "none" and self.scroll_manager_x:
+            self.scroll_manager_x.scroll_to(position)
+
     def get_value(self) -> str:
         """Get the full text content.
 
@@ -611,10 +696,14 @@ class TextArea(Element):
         self.cursor_row = 0
         self.cursor_col = 0
 
-        # Update scroll manager with visual line count
+        # Update vertical scroll manager with visual line count
         visual_line_count = self._calculate_total_visual_lines()
         self.scroll_manager.update_content_size(visual_line_count)
         self.scroll_manager.scroll_to_top()
+
+        # Update horizontal scroll manager
+        self._update_horizontal_scroll()
+        self.scroll_manager_x.scroll_to_top()
 
         # Emit change event
         new_value = self.get_value()
@@ -904,6 +993,12 @@ class TextArea(Element):
         # Advance cursor by length of inserted text
         self.cursor_col += len(char)
 
+        # Update horizontal scroll manager with new content width
+        self._update_horizontal_scroll()
+
+        # Ensure cursor is visible (horizontal scrolling)
+        self._ensure_cursor_visible()
+
         # Apply hard wrapping if enabled and line exceeds width
         if self.wrap_mode == "hard":
             # Calculate content width (account for scrollbar)
@@ -1150,6 +1245,8 @@ class TextArea(Element):
 
         if self.cursor_col > 0:
             self.cursor_col -= 1
+            # Auto-scroll to keep cursor visible (horizontal)
+            self._ensure_cursor_visible()
             return True
         elif self.cursor_row > 0:
             # Wrap to end of previous line
@@ -1184,6 +1281,8 @@ class TextArea(Element):
 
         if self.cursor_col < line_len:
             self.cursor_col += 1
+            # Auto-scroll to keep cursor visible (horizontal)
+            self._ensure_cursor_visible()
             return True
         elif self.cursor_row < len(self.lines) - 1:
             # Wrap to start of next line
@@ -1218,6 +1317,8 @@ class TextArea(Element):
             self._clear_selection()
 
         self.cursor_col = 0
+        # Auto-scroll to keep cursor visible (horizontal)
+        self._ensure_cursor_visible()
         return True
 
     def _move_to_line_end(self, extend_selection: bool = False) -> bool:
@@ -1245,6 +1346,8 @@ class TextArea(Element):
             self._clear_selection()
 
         self.cursor_col = line_len
+        # Auto-scroll to keep cursor visible (horizontal)
+        self._ensure_cursor_visible()
         return True
 
     def _move_to_document_start(self, extend_selection: bool = False) -> bool:
@@ -1312,8 +1415,10 @@ class TextArea(Element):
         Notes
         -----
         This is called after cursor movements to keep the cursor visible.
+        Handles both vertical and horizontal scrolling.
         Accounts for line wrapping when wrap_mode is enabled.
         """
+        # Vertical scrolling
         visible_start, visible_end = self.scroll_manager.get_visible_range()
 
         if self.wrap_mode == "none":
@@ -1328,6 +1433,9 @@ class TextArea(Element):
                 # Position cursor near bottom of viewport with 1-line margin if possible
                 target_scroll = cursor_line - self.height + 1
                 self.scroll_manager.scroll_to(max(0, target_scroll))
+
+            # Horizontal scrolling (only in non-wrap mode)
+            self._ensure_cursor_visible_horizontal()
         else:
             # Use visual cursor row for wrapping modes
             cursor_visual_row, _ = self._actual_to_visual_position(
@@ -1342,6 +1450,40 @@ class TextArea(Element):
                 # Position cursor near bottom of viewport with 1-line margin if possible
                 target_scroll = cursor_visual_row - self.height + 1
                 self.scroll_manager.scroll_to(max(0, target_scroll))
+
+    def _ensure_cursor_visible_horizontal(self) -> None:
+        """Ensure cursor is horizontally visible by scrolling if needed.
+
+        Notes
+        -----
+        Only applies when wrap_mode="none" and horizontal scrolling is enabled.
+        Called automatically by _ensure_cursor_visible().
+        """
+        if self.wrap_mode != "none" or not self.show_scrollbar_x:
+            return
+
+        viewport_width = self._get_viewport_width()
+        scroll_x = self.scroll_manager_x.state.scroll_position
+
+        # Check if cursor is visible horizontally
+        visible_start_x = scroll_x
+        visible_end_x = scroll_x + viewport_width
+
+        old_scroll = scroll_x
+        if self.cursor_col < visible_start_x:
+            # Cursor is left of viewport, scroll left
+            self.scroll_manager_x.scroll_to(self.cursor_col)
+        elif self.cursor_col >= visible_end_x:
+            # Cursor is right of viewport, scroll right
+            target_scroll = self.cursor_col - viewport_width + 1
+            self.scroll_manager_x.scroll_to(max(0, target_scroll))
+
+        # Call horizontal scroll callback if position changed
+        if (
+            self.on_scroll_x
+            and self.scroll_manager_x.state.scroll_position != old_scroll
+        ):
+            self.on_scroll_x(self.scroll_manager_x.state.scroll_position)
 
     def _page_up(self, extend_selection: bool = False) -> bool:
         """Scroll up by one viewport height.
@@ -2217,19 +2359,53 @@ class TextArea(Element):
         -------
         bool
             True if event was handled
+
+        Notes
+        -----
+        Supports both vertical and horizontal scrolling:
+        - Normal scroll wheel: vertical scrolling
+        - Shift+scroll wheel: horizontal scrolling
+        - Scroll over horizontal scrollbar area: horizontal scrolling
         """
         # Handle mouse wheel scrolling
+        scroll_horizontal = False
+
+        # Check if we should scroll horizontally
+        if self.show_scrollbar_x and self._needs_scroll_x:
+            # Shift+scroll = horizontal scroll
+            if hasattr(event, "shift") and event.shift:
+                scroll_horizontal = True
+            # Scroll over horizontal scrollbar area
+            elif self.bounds and self.border_style is not None:
+                scrollbar_y = (
+                    self.bounds.y + self.height - 1
+                )  # Bottom row before border
+                if event.y == scrollbar_y:
+                    scroll_horizontal = True
+
         if event.button == MouseButton.SCROLL_UP:
-            # Scroll up 3 lines
-            old_position = self.scroll_manager.state.scroll_position
-            self.scroll_manager.scroll_by(-3)
-            return old_position != self.scroll_manager.state.scroll_position
+            if scroll_horizontal:
+                # Scroll left 3 columns
+                old_position = self.scroll_manager_x.state.scroll_position
+                self.scroll_manager_x.scroll_by(-3)
+                return old_position != self.scroll_manager_x.state.scroll_position
+            else:
+                # Scroll up 3 lines
+                old_position = self.scroll_manager.state.scroll_position
+                self.scroll_manager.scroll_by(-3)
+                return old_position != self.scroll_manager.state.scroll_position
 
         elif event.button == MouseButton.SCROLL_DOWN:
-            # Scroll down 3 lines
-            old_position = self.scroll_manager.state.scroll_position
-            self.scroll_manager.scroll_by(3)
-            return old_position != self.scroll_manager.state.scroll_position
+            if scroll_horizontal:
+                # Scroll right 3 columns
+                old_position = self.scroll_manager_x.state.scroll_position
+                self.scroll_manager_x.scroll_by(3)
+                return old_position != self.scroll_manager_x.state.scroll_position
+            else:
+                # Scroll down 3 lines
+                old_position = self.scroll_manager.state.scroll_position
+                self.scroll_manager.scroll_by(3)
+                return old_position != self.scroll_manager.state.scroll_position
 
         # Convert absolute screen coordinates to textarea-relative coordinates
         if self.bounds:
@@ -2403,6 +2579,10 @@ class TextArea(Element):
         - 'textarea.border:focus': Border when focused
         """
 
+        # Update horizontal scroll manager with current viewport/content sizes
+        # This ensures scroll state is synced before rendering
+        self._update_horizontal_scroll()
+
         # Resolve base styles
         if self.focused:
             content_style = ctx.style_resolver.resolve_style(self, "textarea:focus")
@@ -2542,11 +2722,18 @@ class TextArea(Element):
         from wijjit.styling.style import Style
         from wijjit.terminal.cell import Cell
 
-        # Determine content width (account for scrollbar)
+        # Determine content width (account for vertical scrollbar)
         needs_scrollbar = (
             self.show_scrollbar and self.scroll_manager.state.is_scrollable
         )
         content_width = width - 1 if needs_scrollbar else width
+
+        # Determine if we need horizontal scrollbar
+        needs_scrollbar_x = (
+            self.show_scrollbar_x and self.wrap_mode == "none" and self._needs_scroll_x
+        )
+        # Reserve bottom row for horizontal scrollbar
+        render_height = height - 1 if needs_scrollbar_x else height
 
         # Get cursor visual position for rendering
         cursor_visual_row, cursor_visual_col = self._actual_to_visual_position(
@@ -2572,12 +2759,15 @@ class TextArea(Element):
         selection_attrs = selection_style.to_cell_attrs()
 
         if self.wrap_mode == "none":
-            # Original rendering logic for no wrapping
+            # Rendering logic for no wrapping with horizontal scroll support
             visible_lines = self.lines[visible_start:visible_end]
+
+            # Get horizontal scroll offset (always use scroll position for wrap_mode=none)
+            scroll_x = self.scroll_manager_x.state.scroll_position
 
             # Render each visible line
             for i, line in enumerate(visible_lines):
-                if i >= height:
+                if i >= render_height:
                     break
 
                 # Calculate actual line index in content
@@ -2586,19 +2776,30 @@ class TextArea(Element):
                 # Determine if cursor is on this line
                 show_cursor = self.focused and actual_line_idx == self.cursor_row
 
-                # Clip or pad line to content width
-                if len(line) > content_width:
-                    display_line = line[:content_width]
+                # Apply horizontal scroll offset
+                if scroll_x < len(line):
+                    scrolled_line = line[scroll_x:]
                 else:
-                    display_line = line.ljust(content_width)
+                    scrolled_line = ""
+
+                # Clip or pad line to content width
+                if len(scrolled_line) > content_width:
+                    display_line = scrolled_line[:content_width]
+                else:
+                    display_line = scrolled_line.ljust(content_width)
 
                 # Write line cells
                 for x, char in enumerate(display_line):
+                    # Calculate actual column in content (accounting for scroll)
+                    actual_col = scroll_x + x
+
                     # Check if this position is selected
-                    is_selected = self._is_position_selected(actual_line_idx, x)
+                    is_selected = self._is_position_selected(
+                        actual_line_idx, actual_col
+                    )
 
                     # Check if this is cursor position (cursor takes priority over selection)
-                    if show_cursor and x == self.cursor_col:
+                    if show_cursor and actual_col == self.cursor_col:
                         ctx.buffer.set_cell(
                             ctx.bounds.x + x,
                             ctx.bounds.y + start_y + i,
@@ -2617,8 +2818,8 @@ class TextArea(Element):
                             Cell(char=char, **content_attrs),
                         )
 
-            # Pad remaining lines to height
-            for i in range(len(visible_lines), height):
+            # Pad remaining lines to render_height
+            for i in range(len(visible_lines), render_height):
                 for x in range(content_width):
                     ctx.buffer.set_cell(
                         ctx.bounds.x + x,
@@ -2627,13 +2828,13 @@ class TextArea(Element):
                     )
 
         else:
-            # Rendering with wrapping enabled
+            # Rendering with wrapping enabled (horizontal scrollbar not used in wrap mode)
             visual_line_idx = 0
             rendered_line_count = 0
 
             # Iterate through actual lines and render wrapped segments
             for _actual_row, line in enumerate(self.lines):
-                if rendered_line_count >= height:
+                if rendered_line_count >= render_height:
                     break
 
                 wrapped_segments = wrap_text(line, content_width)
@@ -2691,15 +2892,15 @@ class TextArea(Element):
                                 )
 
                         rendered_line_count += 1
-                        if rendered_line_count >= height:
+                        if rendered_line_count >= render_height:
                             break
 
                     # Update column offset for next segment
                     actual_col_offset += visible_length(segment)
                     visual_line_idx += 1
 
-            # Pad remaining lines to height
-            for i in range(rendered_line_count, height):
+            # Pad remaining lines to render_height
+            for i in range(rendered_line_count, render_height):
                 for x in range(content_width):
                     ctx.buffer.set_cell(
                         ctx.bounds.x + x,
@@ -2707,18 +2908,44 @@ class TextArea(Element):
                         Cell(char=" ", **content_attrs),
                     )
 
-        # Add scrollbar if needed
+        # Add vertical scrollbar if needed
         if needs_scrollbar:
             scrollbar_chars = render_vertical_scrollbar(
-                self.scroll_manager.state, height
+                self.scroll_manager.state, render_height
             )
 
-            for i in range(height):
+            for i in range(render_height):
                 scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
                 ctx.buffer.set_cell(
                     ctx.bounds.x + content_width,
                     ctx.bounds.y + start_y + i,
                     Cell(char=scrollbar_char, **content_attrs),
+                )
+
+        # Add horizontal scrollbar if needed
+        if needs_scrollbar_x:
+            from wijjit.layout.scroll import render_horizontal_scrollbar
+
+            scrollbar_y = start_y + render_height
+            scrollbar_width = content_width
+
+            scrollbar_str = render_horizontal_scrollbar(
+                self.scroll_manager_x.state, scrollbar_width, style="simple"
+            )
+
+            for i, char in enumerate(scrollbar_str[:scrollbar_width]):
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + start_x + i,
+                    ctx.bounds.y + scrollbar_y,
+                    Cell(char=char, **content_attrs),
+                )
+
+            # If both scrollbars are present, add corner cell
+            if needs_scrollbar:
+                ctx.buffer.set_cell(
+                    ctx.bounds.x + start_x + content_width,
+                    ctx.bounds.y + scrollbar_y,
+                    Cell(char=" ", **content_attrs),
                 )
 
     def _render_cursor_in_line(self, line: str, cursor_col: int) -> str:

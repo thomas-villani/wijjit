@@ -349,6 +349,22 @@ class TestRenderer:
         assert text_inputs[1].id == "textinput_1"
         assert selects[0].id == "select_0"
 
+    def test_nested_frames_render_titles(self):
+        """Nested frames should render their borders/titles via layout recursion."""
+        renderer = Renderer()
+        template = """
+{% frame title="Outer Frame" width=50 height=12 %}
+  {% frame title="InnerFrameTitle" width=30 height=5 %}
+Inner content
+  {% endframe %}
+{% endframe %}
+"""
+
+        output, _, _ = renderer.render_with_layout(template, width=80, height=24)
+
+        # The inner frame title should be present, proving its border rendered
+        assert "InnerFrameTitle" in output
+
     def test_render_with_layout_from_file(self):
         """Test rendering layout template from file using template_name parameter."""
         with tempfile.TemporaryDirectory() as tmpdir:

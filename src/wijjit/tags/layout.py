@@ -714,6 +714,7 @@ class FrameExtension(Extension):
         overflow_x: str = "clip",
         scrollable: bool = False,
         show_scrollbar: bool = True,
+        show_scrollbar_x: bool = True,
         raw: bool = False,
         id: str | None = None,
         **kwargs: Any,
@@ -745,11 +746,15 @@ class FrameExtension(Extension):
         content_align_v : str, optional
             Vertical alignment of content within frame (default: "stretch")
         overflow_x : str, optional
-            Horizontal overflow mode: "clip", "visible", or "wrap" (default: "clip")
+            Horizontal overflow mode: "clip", "visible", "wrap", "scroll", or "auto" (default: "clip")
+            - "scroll": Enable horizontal scrolling with scrollbar
+            - "auto": Enable horizontal scrolling only when content exceeds width
         scrollable : bool, optional
             Enable vertical scrolling (default: False)
         show_scrollbar : bool, optional
-            Show scrollbar when scrollable (default: True)
+            Show vertical scrollbar when scrollable (default: True)
+        show_scrollbar_x : bool, optional
+            Show horizontal scrollbar when overflow_x is "scroll" or "auto" (default: True)
         raw : bool, optional
             If True, preserve whitespace in body content. If False, dedent and strip (default: False)
         id : str, optional
@@ -849,8 +854,11 @@ class FrameExtension(Extension):
             ),
             scrollable=scrollable,
             show_scrollbar=show_scrollbar,
+            show_scrollbar_x=show_scrollbar_x,
             overflow_y=overflow_y,
-            overflow_x=cast(Literal["clip", "visible", "wrap"], overflow_x),
+            overflow_x=cast(
+                Literal["clip", "visible", "wrap", "scroll", "auto"], overflow_x
+            ),
         )
 
         # Parse width/height as integers if they're numeric strings
@@ -887,7 +895,7 @@ class FrameExtension(Extension):
             id=id,
         )
 
-        # Set up state persistence for scrollable frames
+        # Set up state persistence for scrollable frames (vertical)
         if scrollable and id:
             scroll_key = f"_scroll_{id}"
             frame.scroll_state_key = scroll_key
@@ -905,6 +913,25 @@ class FrameExtension(Extension):
                         # Position will be restored after scroll manager is created
                         # Store it temporarily for later restoration
                         frame._pending_scroll_restore = state_dict[scroll_key]  # type: ignore[attr-defined]
+            except (KeyError, AttributeError):
+                pass
+
+        # Set up state persistence for horizontal scrolling
+        if overflow_x in ("scroll", "auto") and id:
+            scroll_key_x = f"_scroll_x_{id}"
+            frame.scroll_state_key_x = scroll_key_x  # type: ignore[attr-defined]
+
+            # Give frame access to state dict for saving horizontal scroll position
+            try:
+                ctx_obj = self.environment.globals.get("_wijjit_current_context")
+                ctx = cast(dict[str, Any], ctx_obj)
+                if ctx and "state" in ctx:
+                    state_dict = ctx["state"]
+                    frame._state_dict = state_dict
+
+                    # Restore horizontal scroll position if it exists in state
+                    if scroll_key_x in state_dict:
+                        frame._pending_scroll_restore_x = state_dict[scroll_key_x]  # type: ignore[attr-defined]
             except (KeyError, AttributeError):
                 pass
 

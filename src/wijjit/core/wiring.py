@@ -225,9 +225,19 @@ class ElementWiringManager:
                 state[f"__{elem_id}_scroll"] = {
                     "position": elem.scroll_manager.state.scroll_position,
                 }
+                horizontal_pos = 0
+                if (
+                    elem.wrap_mode == "none"
+                    and elem.show_scrollbar_x
+                    and hasattr(elem, "scroll_manager_x")
+                    and elem.scroll_manager_x is not None
+                ):
+                    horizontal_pos = elem.scroll_manager_x.state.scroll_position
+                    state[f"__{elem_id}_scroll_x"] = horizontal_pos
                 logger.debug(
                     f"Saved state for {elem_id}: cursor=({elem.cursor_row},{elem.cursor_col}), "
-                    f"selection={elem.selection_anchor}, scroll={elem.scroll_manager.state.scroll_position}"
+                    f"selection={elem.selection_anchor}, scroll={elem.scroll_manager.state.scroll_position}, "
+                    f"scroll_x={horizontal_pos}"
                 )
 
             def on_change_handler(old_val, new_val, eid=elem_id):
@@ -311,7 +321,12 @@ class ElementWiringManager:
             Scrollable element to wire
         state : State
             Application state
+
+        Notes
+        -----
+        Handles both vertical and horizontal scroll state persistence.
         """
+        # Wire vertical scroll
         if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
             scroll_key = elem.scroll_state_key
 
@@ -326,6 +341,22 @@ class ElementWiringManager:
                 saved_position = state[scroll_key]
                 if isinstance(saved_position, int) and saved_position > 0:
                     elem.restore_scroll_position(saved_position)
+
+        # Wire horizontal scroll (for Frame elements with overflow_x="scroll"/"auto")
+        if hasattr(elem, "scroll_state_key_x") and elem.scroll_state_key_x:
+            scroll_key_x = elem.scroll_state_key_x
+
+            def on_scroll_x_handler(position, skey_x=scroll_key_x):
+                # Update state when horizontal scroll position changes
+                state[skey_x] = position
+
+            elem.on_scroll_x = on_scroll_x_handler
+
+            # Restore horizontal scroll position from state if available
+            if scroll_key_x in state and hasattr(elem, "restore_scroll_position_x"):
+                saved_position_x = state[scroll_key_x]
+                if isinstance(saved_position_x, int) and saved_position_x > 0:
+                    elem.restore_scroll_position_x(saved_position_x)
 
     def _wire_tree(self, elem: Tree, state: State) -> None:
         """Wire Tree callbacks.

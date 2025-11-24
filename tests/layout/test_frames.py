@@ -968,3 +968,115 @@ class TestFrameTextOverflow:
 
         # Check viewport size in scroll manager
         assert frame.scroll_manager.state.viewport_size == expected_viewport
+
+
+class TestFrameHorizontalScrolling:
+    """Tests for horizontal scrolling in Frame class."""
+
+    def test_overflow_x_scroll_creates_scroll_manager_x(self):
+        """Test that overflow_x='scroll' creates horizontal scroll manager."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+
+        # Long content that exceeds frame width
+        long_line = "A" * 50
+        frame.set_content(long_line)
+
+        assert frame.scroll_manager_x is not None
+        assert frame._needs_scroll_x is True
+
+    def test_overflow_x_auto_creates_scroll_manager_x_when_needed(self):
+        """Test that overflow_x='auto' creates scroll manager only when content exceeds."""
+        style = FrameStyle(overflow_x="auto")
+        frame = Frame(width=20, height=10, style=style)
+
+        # Short content that fits
+        frame.set_content("Short")
+        assert frame._needs_scroll_x is False
+
+        # Long content that exceeds
+        frame.set_content("A" * 50)
+        assert frame._needs_scroll_x is True
+
+    def test_horizontal_scroll_position_property(self):
+        """Test scroll_position_x property."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("A" * 50)
+
+        assert frame.scroll_position_x == 0
+        frame.scroll_manager_x.scroll_by(5)
+        assert frame.scroll_position_x == 5
+
+    def test_can_scroll_horizontal(self):
+        """Test can_scroll_horizontal method."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("A" * 50)
+
+        # Can scroll right
+        assert frame.can_scroll_horizontal(1) is True
+        # Can not scroll left (at start)
+        assert frame.can_scroll_horizontal(-1) is False
+
+        # Scroll to end
+        frame.scroll_manager_x.scroll_to_bottom()
+        # Can not scroll right (at end)
+        assert frame.can_scroll_horizontal(1) is False
+        # Can scroll left
+        assert frame.can_scroll_horizontal(-1) is True
+
+    def test_handle_scroll_horizontal(self):
+        """Test handle_scroll_horizontal method."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("A" * 50)
+
+        initial_pos = frame.scroll_position_x
+        frame.handle_scroll_horizontal(1)
+        assert frame.scroll_position_x > initial_pos
+
+    def test_handle_key_left_right_for_horizontal_scroll(self):
+        """Test left/right keys for horizontal scrolling."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("A" * 50)
+
+        initial_pos = frame.scroll_position_x
+        frame.handle_key(Key("right", KeyType.SPECIAL))
+        assert frame.scroll_position_x > initial_pos
+
+        frame.handle_key(Key("left", KeyType.SPECIAL))
+        # Should be back at initial (or close)
+
+    def test_frame_focusable_with_horizontal_scroll(self):
+        """Test that frame is focusable when horizontal scrolling is enabled."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+        frame.set_content("A" * 50)
+
+        assert frame.focusable is True
+
+    def test_show_scrollbar_x_attribute(self):
+        """Test show_scrollbar_x attribute controls horizontal scrollbar visibility."""
+        style = FrameStyle(overflow_x="scroll", show_scrollbar_x=True)
+        frame = Frame(width=20, height=10, style=style)
+
+        assert frame.style.show_scrollbar_x is True
+
+        style2 = FrameStyle(overflow_x="scroll", show_scrollbar_x=False)
+        frame2 = Frame(width=20, height=10, style=style2)
+
+        assert frame2.style.show_scrollbar_x is False
+
+    def test_horizontal_scroll_with_multiline_content(self):
+        """Test horizontal scrolling with multiple lines of varying widths."""
+        style = FrameStyle(overflow_x="scroll")
+        frame = Frame(width=20, height=10, style=style)
+
+        content = "Short\nThis is a much longer line that exceeds the frame width\nMedium line"
+        frame.set_content(content)
+
+        # Max width should be from the longest line
+        assert frame._content_width > 20
+        assert frame._needs_scroll_x is True

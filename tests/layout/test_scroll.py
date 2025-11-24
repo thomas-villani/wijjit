@@ -396,31 +396,31 @@ class TestRenderHorizontalScrollbar:
         state = ScrollState(content_size=100, viewport_size=10, scroll_position=0)
         scrollbar = render_horizontal_scrollbar(state, 20)
         assert len(scrollbar) == 20
-        # First characters should be thumb
-        assert scrollbar[0] == "█"
+        # First characters should be thumb (using ASCII '=' for thinner scrollbar)
+        assert scrollbar[0] == "="
 
     def test_render_horizontal_scrollbar_at_end(self):
         """Test rendering horizontal scrollbar at end position."""
         state = ScrollState(content_size=100, viewport_size=10, scroll_position=90)
         scrollbar = render_horizontal_scrollbar(state, 20)
         assert len(scrollbar) == 20
-        # Last character should be thumb
-        assert scrollbar[-1] == "█"
+        # Last character should be thumb (using ASCII '=' for thinner scrollbar)
+        assert scrollbar[-1] == "="
 
     def test_render_horizontal_scrollbar_when_content_fits(self):
         """Test rendering horizontal scrollbar when content fits."""
         state = ScrollState(content_size=10, viewport_size=20)
         scrollbar = render_horizontal_scrollbar(state, 20)
         assert len(scrollbar) == 20
-        # All track characters
-        assert all(c == "─" for c in scrollbar)
+        # All track characters (using ASCII '-' for thinner scrollbar)
+        assert all(c == "-" for c in scrollbar)
 
     def test_render_horizontal_scrollbar_characters(self):
         """Test that horizontal scrollbar uses correct characters."""
         state = ScrollState(content_size=100, viewport_size=10, scroll_position=50)
         scrollbar = render_horizontal_scrollbar(state, 20)
-        # Should only contain track and thumb characters
-        assert all(c in ["─", "█"] for c in scrollbar)
+        # Should only contain track ('-') and thumb ('=') characters
+        assert all(c in ["-", "="] for c in scrollbar)
 
     def test_render_horizontal_scrollbar_width_matches(self):
         """Test that rendered scrollbar matches requested width."""

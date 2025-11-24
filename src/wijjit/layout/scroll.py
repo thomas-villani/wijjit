@@ -409,12 +409,15 @@ def render_horizontal_scrollbar(
     Notes
     -----
     For "simple" style:
-    - Track character: ─ (U+2500 Box Drawings Light Horizontal)
-    - Thumb character: █ (U+2588 Full Block)
+    - Track character: - (U+2500 Box Drawings Light Horizontal)
+    - Thumb character: = (U+2501 Box Drawings Heavy Horizontal)
+
+    The heavy horizontal line provides visual contrast with the light
+    horizontal track while maintaining a consistent single-line height.
     """
-    # Simple style characters
-    track_char = "─"
-    thumb_char = "█"
+    # Simple style characters - use ASCII for compatibility
+    track_char = "-"
+    thumb_char = "="
 
     # If content fits, show solid track (no scrolling needed)
     if not scroll_state.is_scrollable:

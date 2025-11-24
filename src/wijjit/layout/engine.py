@@ -1102,11 +1102,18 @@ class FrameNode(Container):
 
         # Include Frame object if:
         # - It has text content, OR
-        # - It's scrollable (needs to receive mouse/keyboard input for scrolling), OR
+        # - It's vertically scrollable (needs to receive mouse/keyboard input for scrolling), OR
+        # - It's horizontally scrollable (overflow_x="scroll" or "auto"), OR
         # - It has an explicit id (for mouse event targeting)
         # Note: Scrollable frames must be in elements list even when _needs_scroll is False
         # to receive mouse wheel events
-        if self.frame.content or self.frame.style.scrollable or self.frame.id:
+        needs_horizontal_scroll = self.frame.style.overflow_x in ("scroll", "auto")
+        if (
+            self.frame.content
+            or self.frame.style.scrollable
+            or needs_horizontal_scroll
+            or self.frame.id
+        ):
             elements.append(self.frame)
 
         # Add children elements and set parent_frame reference if frame is scrollable

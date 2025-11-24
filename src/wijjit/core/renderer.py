@@ -618,20 +618,27 @@ class Renderer:
                 0, 0, bounds.width, bounds.height, border_style, border_chars
             )
 
-            # Draw title if present
+            # Draw title if present (left-aligned like Frame.render_to)
             if style.title:
                 title_text = f" {style.title} "
                 title_len = visible_length(title_text)
 
-                # Position title on top border
-                title_x = max(1, (bounds.width - title_len) // 2)
-                if title_x + title_len < bounds.width - 1:
-                    # Resolve title style
-                    title_style = style_resolver.resolve_style_by_class("text.title")
-                    ctx.write_text(title_x, 0, title_text, title_style, clip=True)
+                # Left align after the first horizontal character when space allows
+                title_x = 2 if bounds.width > 4 else 1
 
-        # Recursively render children
-        if isinstance(node, Container):
+                if title_x + title_len >= bounds.width - 1:
+                    # Not enough space - fall back to starting right after corner
+                    title_x = 1
+
+                # Resolve frame title style (matches runtime rendering)
+                title_style = style_resolver.resolve_style(frame, "frame.title")
+                ctx.write_text(title_x, 0, title_text, title_style, clip=True)
+
+        # Recursively render children (FrameNode uses content_container)
+        if isinstance(node, FrameNode):
+            for child in node.content_container.children:
+                self._render_frames_to_buffer(child, buffer, style_resolver)
+        elif isinstance(node, Container):
             for child in node.children:
                 self._render_frames_to_buffer(child, buffer, style_resolver)
 

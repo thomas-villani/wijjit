@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+from wijjit.core.state import State
+from wijjit.core.wiring import ElementWiringManager
 from wijjit.elements.base import ElementType
 from wijjit.elements.input.text import TextArea
 from wijjit.terminal.input import Key, Keys, KeyType
@@ -203,6 +205,47 @@ class TestTextAreaMouse:
         result = textarea.handle_mouse(event)
         assert result
         assert textarea.scroll_manager.state.scroll_position == 3
+
+
+class TestTextAreaStatePersistence:
+    """Tests for TextArea state persistence via wiring."""
+
+    class _DummyApp:
+        def _dispatch_action(self, *_args, **_kwargs):
+            """No-op dispatch placeholder for wiring."""
+            return None
+
+    def test_horizontal_scroll_state_saved(self):
+        """Horizontal scroll position is stored in state when wiring is active."""
+        long_line = "This is a long line that exceeds the viewport width significantly."
+        textarea = TextArea(
+            id="editor",
+            value=long_line,
+            width=20,
+            height=4,
+            wrap_mode="none",
+            show_scrollbar_x=True,
+        )
+
+        # Ensure horizontal scrolling is available
+        assert textarea._needs_scroll_x
+
+        state = State({})
+        wiring = ElementWiringManager(self._DummyApp())
+        wiring._wire_textarea(textarea, state)
+
+        # Scroll horizontally via Shift+wheel
+        event = MouseEvent(
+            type=MouseEventType.SCROLL,
+            button=MouseButton.SCROLL_DOWN,
+            x=0,
+            y=0,
+            shift=True,
+        )
+        textarea.handle_mouse(event)
+
+        assert "__editor_scroll_x" in state
+        assert state["__editor_scroll_x"] > 0
 
     def test_mouse_click_positions_cursor(self):
         """Test clicking positions cursor."""

@@ -7,12 +7,20 @@ This example demonstrates scrolling support in Wijjit frames:
 - Visual scrollbar showing position
 - Status line showing scroll information
 
-Try:
+Vertical Scrolling:
 - Up/Down arrows to scroll line by line
 - Page Up/Down to scroll by viewport
 - Home/End to jump to top/bottom
 - Mouse wheel to scroll (if supported)
-- Press 'q' to quit
+
+Horizontal Scrolling (when overflow_x="scroll" or "auto"):
+- Left/Right arrows to scroll column by column
+- Shift+Left/Right to page scroll horizontally
+- Shift+Mouse wheel to scroll horizontally
+
+Press 'q' to quit
+
+See also: horizontal_scroll_demo.py for a more comprehensive horizontal scrolling demo.
 """
 
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle

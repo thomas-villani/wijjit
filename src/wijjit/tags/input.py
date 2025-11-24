@@ -1238,6 +1238,7 @@ class TextAreaExtension(Extension):
         wrap_mode: Literal["none", "soft", "hard"] = "none",
         max_lines: int | None = None,
         show_scrollbar: bool = True,
+        show_scrollbar_x: bool = False,
         border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
         action: str | None = None,
         bind: bool = True,
@@ -1262,7 +1263,9 @@ class TextAreaExtension(Extension):
         max_lines : int, optional
             Maximum number of lines
         show_scrollbar : bool
-            Whether to show scrollbar (default: True)
+            Whether to show vertical scrollbar (default: True)
+        show_scrollbar_x : bool
+            Whether to show horizontal scrollbar when needed (default: False)
         border_style : str
             Border style (default: "single")
         action : str, optional
@@ -1303,6 +1306,7 @@ class TextAreaExtension(Extension):
             element_height = int(height)
 
         show_scrollbar = bool(show_scrollbar)
+        show_scrollbar_x = bool(show_scrollbar_x)
         if max_lines is not None:
             max_lines = int(max_lines)
 
@@ -1340,6 +1344,7 @@ class TextAreaExtension(Extension):
             wrap_mode=wrap_mode,
             max_lines=max_lines,
             show_scrollbar=show_scrollbar,
+            show_scrollbar_x=show_scrollbar_x,
             border_style=border_style,
         )
 
@@ -1358,6 +1363,10 @@ class TextAreaExtension(Extension):
         # Store bind setting
         textarea.bind = bind
 
+        # Set up scroll state keys for wiring system
+        if id:
+            textarea.scroll_state_key_x = f"__{id}_scroll_x"  # type: ignore[attr-defined]
+
         # Restore cursor, selection, and scroll state if binding is enabled
         if bind and id:
             try:
@@ -1365,12 +1374,20 @@ class TextAreaExtension(Extension):
                 if ctx and "state" in ctx:
                     state = ctx["state"]
 
-                    # Restore scroll position FIRST (before cursor restoration)
+                    # Restore vertical scroll position FIRST (before cursor restoration)
                     scroll_key = f"__{id}_scroll"
                     if scroll_key in state:
                         scroll_data = state[scroll_key]
                         scroll_pos = scroll_data.get("position", 0)
                         textarea.scroll_manager.scroll_to(scroll_pos)
+
+                    # Restore horizontal scroll position (for wrap_mode="none")
+                    if wrap_mode == "none":
+                        scroll_key_x = f"__{id}_scroll_x"
+                        if scroll_key_x in state:
+                            scroll_pos_x = state[scroll_key_x]
+                            if isinstance(scroll_pos_x, int) and scroll_pos_x > 0:
+                                textarea.restore_scroll_position_x(scroll_pos_x)
 
                     # Restore cursor position
                     cursor_key = f"__{id}_cursor"
