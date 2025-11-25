@@ -10,7 +10,7 @@ import weakref
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.terminal.input import Key
 from wijjit.terminal.mouse import MouseEvent
@@ -399,6 +399,143 @@ class Element(ABC):
             New bounds
         """
         self.bounds = bounds
+
+    # === Virtual DOM Lifecycle Methods ===
+
+    @abstractmethod
+    def on_mount(self) -> None:
+        """Called when element is first added to the element tree.
+
+        Override this method to perform initialization that requires the
+        element to be part of the tree, such as registering event handlers
+        or starting animations.
+
+        Notes
+        -----
+        This is called by the Reconciler when a new element is created
+        during reconciliation.
+        """
+        pass
+
+    @abstractmethod
+    def on_unmount(self) -> None:
+        """Called when element is removed from the element tree.
+
+        Override this method to perform cleanup such as cancelling timers,
+        removing event handlers, or releasing resources.
+
+        Notes
+        -----
+        This is called by the Reconciler when an element is deleted
+        during reconciliation.
+        """
+        pass
+
+    @abstractmethod
+    def on_update(self, changed_props: dict[str, tuple[Any, Any]]) -> None:
+        """Called when element props are updated during reconciliation.
+
+        Override this method to respond to prop changes, such as
+        recomputing derived state or triggering side effects.
+
+        Parameters
+        ----------
+        changed_props : dict
+            Map of prop_name -> (old_value, new_value) for changed props.
+            Does not include ephemeral props (cursor, scroll, etc.)
+
+        Notes
+        -----
+        This is called by the Reconciler after props have been applied
+        but before ephemeral state is restored.
+
+        Examples
+        --------
+        >>> def on_update(self, changed_props):
+        ...     if 'items' in changed_props:
+        ...         old_items, new_items = changed_props['items']
+        ...         self._recompute_layout()
+        """
+        pass
+
+    def get_ephemeral_state(self) -> dict[str, Any]:
+        """Get ephemeral state that should survive reconciliation.
+
+        Ephemeral state includes cursor positions, scroll offsets, selection
+        ranges, and other UI state that should persist even when the element's
+        props change. Override this in subclasses to preserve relevant state.
+
+        Returns
+        -------
+        dict
+            Map of state_name -> value. Keys should match attribute names
+            on the element for automatic restoration.
+
+        Notes
+        -----
+        This is called by the Reconciler before applying prop changes.
+        The returned state is later passed to restore_ephemeral_state().
+
+        Examples
+        --------
+        >>> def get_ephemeral_state(self):
+        ...     return {
+        ...         'cursor_pos': self.cursor_pos,
+        ...         'scroll_offset': self.scroll_offset,
+        ...     }
+        """
+        return {}
+
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        This method receives the state returned by get_ephemeral_state()
+        and should restore it to the element. The default implementation
+        uses setattr for keys that match attribute names.
+
+        Parameters
+        ----------
+        state : dict
+            Map of state_name -> value from get_ephemeral_state()
+
+        Notes
+        -----
+        This is called by the Reconciler after applying prop changes
+        and calling on_update().
+
+        Examples
+        --------
+        >>> def restore_ephemeral_state(self, state):
+        ...     super().restore_ephemeral_state(state)
+        ...     # Handle special restoration logic
+        ...     if 'scroll_offset' in state:
+        ...         self.scroll_manager.scroll_to(state['scroll_offset'])
+        """
+        for key, value in state.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    def apply_props(self, props: dict[str, Any]) -> None:
+        """Apply props from a VNode, skipping ephemeral props.
+
+        This method applies props to the element, but skips properties
+        that are marked as ephemeral (cursor, scroll, selection, etc.)
+        since those should be preserved from the existing element.
+
+        Parameters
+        ----------
+        props : dict
+            Props to apply from VNode
+
+        Notes
+        -----
+        Ephemeral props are defined in wijjit.core.vdom.EPHEMERAL_PROPS.
+        """
+        from wijjit.core.vdom import EPHEMERAL_PROPS
+
+        for key, value in props.items():
+            if key not in EPHEMERAL_PROPS and hasattr(self, key):
+                setattr(self, key, value)
 
 
 class ScrollableElement(Element, ABC):

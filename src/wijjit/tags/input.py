@@ -7,6 +7,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
+from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.code_editor import CodeEditor
@@ -159,6 +160,21 @@ class TextInputExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("TextInput", key=id)
+        vnode.set_prop("value", value)
+        vnode.set_prop("placeholder", placeholder)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        # Add any additional properties from kwargs (e.g., max_length, style, password)
+        for key, val in kwargs.items():
+            if key != "class":  # Skip 'class' as it's already handled as 'classes'
+                vnode.set_prop(key, val)
+        vnode.set_layout(width=width, height=1)
+        context.add_vnode(vnode)
+
         # Return marker for text interleaving
         return get_element_marker(context)
 
@@ -270,6 +286,15 @@ class ButtonExtension(Extension):
 
         # Add to layout context
         context.add_element(node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Button", key=id)
+        vnode.set_prop("label", label)
+        vnode.set_prop("action", action)
+        vnode.set_prop("classes", classes)
+        vnode.set_prop("focused", button.focused)
+        vnode.set_layout(width=button_width, height=1)
+        context.add_vnode(vnode)
 
         # Return marker for text interleaving
         return get_element_marker(context)
@@ -508,6 +533,21 @@ class SelectExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Select", key=id)
+        vnode.set_prop("value", value)
+        vnode.set_prop("options", cleaned_options)
+        vnode.set_prop("visible_rows", visible_rows)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("title", title)
+        vnode.set_prop("disabled_values", disabled_values)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=total_width, height=total_height)
+        context.add_vnode(vnode)
+
         # Return marker for text interleaving
         return get_element_marker(context)
 
@@ -643,6 +683,18 @@ class CheckboxExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Checkbox", key=id)
+        vnode.set_prop("label", label)
+        vnode.set_prop("checked", checked)
+        vnode.set_prop("value", value)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=checkbox_width, height=1)
+        context.add_vnode(vnode)
+
         # Consume body (should be empty)
         caller()
 
@@ -763,6 +815,19 @@ class RadioExtension(Extension):
 
         # Add to layout context
         context.add_element(node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Radio", key=id)
+        vnode.set_prop("name", name or "")
+        vnode.set_prop("label", label)
+        vnode.set_prop("checked", checked)
+        vnode.set_prop("value", value)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=radio_width, height=1)
+        context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()
@@ -915,6 +980,20 @@ class CheckboxGroupExtension(Extension):
 
         # Add to layout context
         context.add_element(node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("CheckboxGroup", key=id)
+        vnode.set_prop("options", options)
+        vnode.set_prop("selected_values", selected)
+        vnode.set_prop("orientation", orientation)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("title", title)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=total_width, height=total_height)
+        context.add_vnode(vnode)
 
         # Save marker now, before any nested elements are processed
         my_marker = get_element_marker(context)
@@ -1075,6 +1154,21 @@ class RadioGroupExtension(Extension):
 
             # Add to layout context
             context.add_element(node)
+
+            # Create VNode for reconciliation
+            vnode = VNodeBuilder("RadioGroup", key=id)
+            vnode.set_prop("name", name)
+            vnode.set_prop("options", options)
+            vnode.set_prop("selected", selected)
+            vnode.set_prop("orientation", orientation)
+            vnode.set_prop("border_style", border_style)
+            vnode.set_prop("title", title)
+            vnode.set_prop("action", action)
+            vnode.set_prop("bind", bind)
+            if classes is not None:
+                vnode.set_prop("classes", classes)
+            vnode.set_layout(width=total_width, height=total_height)
+            context.add_vnode(vnode)
 
             # Return marker immediately for non-nested radiogroups
             return get_element_marker(context)
@@ -1416,6 +1510,21 @@ class TextAreaExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("TextArea", key=id)
+        vnode.set_prop("value", value)
+        vnode.set_prop("wrap_mode", wrap_mode)
+        vnode.set_prop("max_lines", max_lines)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("show_scrollbar_x", show_scrollbar_x)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+        context.add_vnode(vnode)
+
         # Return marker for text interleaving
         return get_element_marker(context)
 
@@ -1643,6 +1752,23 @@ class CodeEditorExtension(Extension):
 
         # Add to layout context
         context.add_element(node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("CodeEditor", key=id)
+        vnode.set_prop("value", value)
+        vnode.set_prop("language", language)
+        vnode.set_prop("theme", theme)
+        vnode.set_prop("filename_hint", filename_hint)
+        vnode.set_prop("show_line_numbers", show_line_numbers)
+        vnode.set_prop("wrap_mode", wrap_mode)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+        context.add_vnode(vnode)
 
         # Return marker for text interleaving
         return get_element_marker(context)

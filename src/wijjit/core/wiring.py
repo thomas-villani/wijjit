@@ -177,9 +177,9 @@ class ElementWiringManager:
         # Wire up state binding if enabled
         if hasattr(elem, "bind") and elem.bind and elem.id:
             # Initialize element value from state if key exists
+            # Note: cursor_pos is now preserved by reconciliation (ephemeral state)
             if elem.id in state:
                 elem.value = str(state[elem.id])
-                elem.cursor_pos = len(elem.value)
 
             # Set up two-way binding
             elem_id = elem.id
@@ -207,68 +207,17 @@ class ElementWiringManager:
 
         # Wire up state binding if enabled
         if hasattr(elem, "bind") and elem.bind and elem.id:
-            # Note: Cursor and selection restoration happens in TextAreaExtension
-            # during element creation for proper visual rendering
+            # Note: Cursor, selection, and scroll state are now preserved by
+            # reconciliation (ephemeral state) - no need to save/restore manually
 
-            # Set up two-way binding
+            # Set up two-way binding for content only
             elem_id = elem.id
-
-            def save_state_to_storage():
-                """Helper to save cursor, selection, and scroll state."""
-                state[f"__{elem_id}_cursor"] = {
-                    "row": elem.cursor_row,
-                    "col": elem.cursor_col,
-                }
-                state[f"__{elem_id}_selection"] = {
-                    "anchor": elem.selection_anchor,
-                }
-                state[f"__{elem_id}_scroll"] = {
-                    "position": elem.scroll_manager.state.scroll_position,
-                }
-                horizontal_pos = 0
-                if (
-                    elem.wrap_mode == "none"
-                    and elem.show_scrollbar_x
-                    and hasattr(elem, "scroll_manager_x")
-                    and elem.scroll_manager_x is not None
-                ):
-                    horizontal_pos = elem.scroll_manager_x.state.scroll_position
-                    state[f"__{elem_id}_scroll_x"] = horizontal_pos
-                logger.debug(
-                    f"Saved state for {elem_id}: cursor=({elem.cursor_row},{elem.cursor_col}), "
-                    f"selection={elem.selection_anchor}, scroll={elem.scroll_manager.state.scroll_position}, "
-                    f"scroll_x={horizontal_pos}"
-                )
 
             def on_change_handler(old_val, new_val, eid=elem_id):
                 # Update content state
                 state[eid] = new_val
-                # Also save cursor and selection state
-                save_state_to_storage()
 
             elem.on_change = on_change_handler
-
-            # Wrap handle_key to save cursor/selection after every key press
-            original_handle_key = elem.handle_key
-
-            def wrapped_handle_key(key):
-                result = original_handle_key(key)
-                # Always save cursor/selection state after key handling
-                save_state_to_storage()
-                return result
-
-            elem.handle_key = wrapped_handle_key
-
-            # Wrap handle_mouse to save cursor/selection after mouse interactions
-            original_handle_mouse = elem.handle_mouse
-
-            def wrapped_handle_mouse(event):
-                result = original_handle_mouse(event)
-                # Always save cursor/selection state after mouse handling
-                save_state_to_storage()
-                return result
-
-            elem.handle_mouse = wrapped_handle_mouse
 
     def _wire_select(self, elem: Select, state: State) -> None:
         """Wire Select callbacks.
@@ -324,9 +273,11 @@ class ElementWiringManager:
 
         Notes
         -----
-        Handles both vertical and horizontal scroll state persistence.
+        Handles both vertical and horizontal scroll callbacks for explicit
+        state tracking. Scroll position is now preserved automatically by
+        reconciliation (ephemeral state), so restore calls are not needed.
         """
-        # Wire vertical scroll
+        # Wire vertical scroll callback for explicit state tracking
         if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
             scroll_key = elem.scroll_state_key
 
@@ -335,14 +286,10 @@ class ElementWiringManager:
                 state[skey] = position
 
             elem.on_scroll = on_scroll_handler
+            # Note: restore_scroll_position no longer needed - reconciliation
+            # preserves scroll position via ephemeral state
 
-            # Restore scroll position from state if available
-            if scroll_key in state and hasattr(elem, "restore_scroll_position"):
-                saved_position = state[scroll_key]
-                if isinstance(saved_position, int) and saved_position > 0:
-                    elem.restore_scroll_position(saved_position)
-
-        # Wire horizontal scroll (for Frame elements with overflow_x="scroll"/"auto")
+        # Wire horizontal scroll callback for explicit state tracking
         if hasattr(elem, "scroll_state_key_x") and elem.scroll_state_key_x:
             scroll_key_x = elem.scroll_state_key_x
 
@@ -351,12 +298,8 @@ class ElementWiringManager:
                 state[skey_x] = position
 
             elem.on_scroll_x = on_scroll_x_handler
-
-            # Restore horizontal scroll position from state if available
-            if scroll_key_x in state and hasattr(elem, "restore_scroll_position_x"):
-                saved_position_x = state[scroll_key_x]
-                if isinstance(saved_position_x, int) and saved_position_x > 0:
-                    elem.restore_scroll_position_x(saved_position_x)
+            # Note: restore_scroll_position_x no longer needed - reconciliation
+            # preserves scroll position via ephemeral state
 
     def _wire_tree(self, elem: Tree, state: State) -> None:
         """Wire Tree callbacks.

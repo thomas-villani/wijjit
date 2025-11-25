@@ -774,3 +774,38 @@ class Select(ScrollableElement):
         else:
             # Normal
             return f"{ANSIStyle.RESET} {indicator}{label} {ANSIStyle.RESET}"
+
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Highlight and scroll state that should survive re-renders
+        """
+        state = {
+            "highlighted_index": self.highlighted_index,
+        }
+
+        # Add scroll position
+        if self.scroll_manager:
+            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+
+        return state
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        # Restore highlight
+        if "highlighted_index" in state:
+            max_index = len(self.options) - 1 if self.options else 0
+            self.highlighted_index = min(state["highlighted_index"], max_index)
+
+        # Restore scroll position
+        if "_scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["_scroll_position"])

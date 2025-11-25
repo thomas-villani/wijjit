@@ -7,10 +7,9 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
+from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
-from wijjit.elements.display.table import Table
-from wijjit.elements.display.tree import Tree
 from wijjit.layout.engine import ElementNode, FrameNode
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
@@ -139,15 +138,15 @@ class TableExtension(Extension):
 
         # Convert numeric parameters for element creation
         # If width/height are "fill" or other string specs, use default numeric values
-        if isinstance(width, str) and not width.isdigit():
-            element_width = 60  # Default for initial render
-        else:
-            element_width = int(width)
-
-        if isinstance(height, str) and not height.isdigit():
-            element_height = 10  # Default for initial render
-        else:
-            element_height = int(height)
+        # if isinstance(width, str) and not width.isdigit():
+        #     element_width = 60  # Default for initial render
+        # else:
+        #     element_width = int(width)
+        #
+        # if isinstance(height, str) and not height.isdigit():
+        #     element_height = 10  # Default for initial render
+        # else:
+        #     element_height = int(height)
 
         sortable = bool(sortable)
         show_header = bool(show_header)
@@ -183,46 +182,20 @@ class TableExtension(Extension):
         elif not isinstance(columns, list):
             columns = list(columns)
 
-        # Create Table element
-        table = Table(
-            id=id,
-            classes=classes,
-            data=data,
-            columns=columns,
-            width=element_width,
-            height=element_height,
-            sortable=sortable,
-            show_header=show_header,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-        )
+        # Build VNode
+        vnode = VNodeBuilder("Table", key=id)
+        vnode.set_prop("data", data)
+        vnode.set_prop("columns", columns)
+        vnode.set_prop("sortable", sortable)
+        vnode.set_prop("show_header", show_header)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
 
-        # Store bind setting
-        table.bind = bind
-
-        # Restore scroll position from state if available
-        if id:
-            scroll_key = f"_scroll_{id}"
-            table.scroll_state_key = scroll_key
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if scroll_key in state:
-                        table.restore_scroll_position(state[scroll_key])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create ElementNode
-        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
-        # This allows the layout engine to properly handle dynamic sizing
-        node = ElementNode(table, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(node)
+        context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()
@@ -369,15 +342,15 @@ class TreeExtension(Extension):
 
         # Convert numeric parameters for element creation
         # If width/height are "fill" or other string specs, use default numeric values
-        if isinstance(width, str) and not width.isdigit():
-            element_width = 40  # Default for initial render
-        else:
-            element_width = int(width)
-
-        if isinstance(height, str) and not height.isdigit():
-            element_height = 15  # Default for initial render
-        else:
-            element_height = int(height)
+        # if isinstance(width, str) and not width.isdigit():
+        #     element_width = 40  # Default for initial render
+        # else:
+        #     element_width = int(width)
+        #
+        # if isinstance(height, str) and not height.isdigit():
+        #     element_height = 15  # Default for initial render
+        # else:
+        #     element_height = int(height)
 
         indent_size = int(indent_size)
         show_scrollbar = bool(show_scrollbar)
@@ -416,134 +389,26 @@ class TreeExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create Tree element
-        tree = Tree(
-            id=id,
-            classes=classes,
-            data=data,
-            width=element_width,
-            height=element_height,
-            show_scrollbar=show_scrollbar,
-            show_root=show_root,
-            indent_size=indent_size,
-            indicator_style=indicator_style_enum,
-            border_style=border,
-            title=title,
-        )
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            tree.focused = True
-
-        # Store action ID if provided
-        # The action will be dispatched by the app when on_select is called
+        # Build VNode
+        vnode = VNodeBuilder("TreeView", key=id)
+        vnode.set_prop("data", data)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("show_root", show_root)
+        vnode.set_prop("indent_size", indent_size)
+        vnode.set_prop("indicator_style", indicator_style_enum)
+        vnode.set_prop("border_style", border)
+        if title:
+            vnode.set_prop("title", title)
         if on_select:
-            tree.action = on_select
+            vnode.set_prop("on_select", on_select)
+        if expanded is not None:
+            vnode.set_prop("expanded", expanded)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
 
-        # Store bind setting
-        tree.bind = bind
-
-        # Restore scroll position, expansion state, and highlighted index from state
-        if id:
-            # Set state keys
-            scroll_key = f"_scroll_{id}"
-            expand_key = f"_expand_{id}"
-            highlight_key = f"_highlight_{id}"
-            selected_key = f"_selected_{id}"
-
-            tree.scroll_state_key = scroll_key
-            tree.expand_state_key = expand_key
-            tree.highlight_state_key = highlight_key
-            tree.selected_state_key = selected_key
-
-            # Give tree access to state dict for saving
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    tree._state_dict = ctx["state"]
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-            # Restore expansion state (do this first, before highlight)
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-
-                    # Check if expanded parameter is a string (state key name for two-way binding)
-                    if isinstance(expanded, str):
-                        # Two-way binding: use user's state key
-                        tree.expand_state_key = expanded
-                        if expanded in state:
-                            tree.expanded_nodes = set(state[expanded])
-                        else:
-                            tree.expanded_nodes = set()
-                        tree._rebuild_nodes()
-                    elif expanded is not None:
-                        # One-way binding: use provided list for initialization only
-                        # Tree will save to internal _expand_{id} key
-                        if expand_key in state:
-                            # Prefer saved state over parameter
-                            tree.expanded_nodes = set(state[expand_key])
-                        else:
-                            # Initialize from parameter
-                            tree.expanded_nodes = (
-                                set(expanded) if isinstance(expanded, list) else set()
-                            )
-                        tree._rebuild_nodes()
-                    else:
-                        # No expanded parameter: use internal state key
-                        if expand_key in state:
-                            tree.expanded_nodes = set(state[expand_key])
-                            tree._rebuild_nodes()
-            except Exception:
-                # Fall back to parameter if state restoration fails
-                if expanded:
-                    tree.expanded_nodes = (
-                        set(expanded) if isinstance(expanded, list) else set()
-                    )
-                    tree._rebuild_nodes()
-
-            # Restore scroll position
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if scroll_key in state:
-                        tree.scroll_manager.scroll_to(state[scroll_key])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-            # Restore highlighted index
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if highlight_key in state:
-                        tree.highlighted_index = state[highlight_key]
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create ElementNode
-        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
-        # This allows the layout engine to properly handle dynamic sizing
-        node = ElementNode(tree, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(node)
+        context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()
@@ -686,31 +551,25 @@ class ProgressBarExtension(Extension):
         if show_percentage is not None:
             show_percentage = bool(show_percentage)
 
-        # Create ProgressBar element
-        from wijjit.elements.display.progress import ProgressBar
+        # Build VNode
+        vnode = VNodeBuilder("ProgressBar", key=id)
+        vnode.set_prop("value", value)
+        vnode.set_prop("max", max_val)
+        vnode.set_prop("style", style)
+        if color:
+            vnode.set_prop("color", color)
+        if show_percentage is not None:
+            vnode.set_prop("show_percentage", show_percentage)
+        if fill_char:
+            vnode.set_prop("fill_char", fill_char)
+        if empty_char:
+            vnode.set_prop("empty_char", empty_char)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width, height=1)
 
-        progressbar = ProgressBar(
-            id=id,
-            classes=classes,
-            value=value,
-            max=max_val,
-            width=width,
-            style=cast(Literal["filled", "percentage", "gradient", "custom"], style),
-            color=color,
-            show_percentage=show_percentage,
-            fill_char=fill_char,
-            empty_char=empty_char,
-        )
-
-        # Store bind setting
-        progressbar.bind = bind
-
-        # Create ElementNode
-        # Progress bar is always single line
-        node = ElementNode(progressbar, width=width, height=1)
-
-        # Add to layout context
-        context.add_element(node)
+        context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()
@@ -834,59 +693,23 @@ class SpinnerExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Get or restore frame index from state
-        frame_index = 0
-        frame_key = f"_spinner_frame_{id}"
-        try:
-            ctx = cast(
-                dict[str, Any] | None,
-                self.environment.globals.get("_wijjit_current_context"),
-            )
-            if ctx and "state" in ctx:
-                state = ctx["state"]
-                if frame_key in state:
-                    frame_index = int(state[frame_key])
-        except Exception:
-            pass
-
-        # Create Spinner element
-        from wijjit.elements.display.spinner import Spinner
-
-        spinner = Spinner(
-            id=id,
-            classes=classes,
-            active=active,
-            style=cast(Literal["dots", "line", "bouncing", "clock"], style),
-            label=label,
-            color=color,
-            frame_index=frame_index,
-        )
-
-        # Store bind setting
-        spinner.bind = bind
-
-        # Store state dict reference for frame updates
-        try:
-            ctx = cast(
-                dict[str, Any] | None,
-                self.environment.globals.get("_wijjit_current_context"),
-            )
-            if ctx and "state" in ctx:
-                spinner._state_dict = ctx["state"]
-                spinner._frame_key = frame_key  # type: ignore[attr-defined]
-        except Exception:
-            pass
-
         # Calculate width based on label and spinner character
         # Spinner is typically 1-2 chars wide, plus space, plus label length
         spinner_width = 3 + len(label) if label else 2
 
-        # Create ElementNode
-        # Spinner is always single line
-        node = ElementNode(spinner, width=spinner_width, height=1)
+        # Build VNode
+        vnode = VNodeBuilder("Spinner", key=id)
+        vnode.set_prop("active", active)
+        vnode.set_prop("style", style)
+        vnode.set_prop("label", label)
+        if color:
+            vnode.set_prop("color", color)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=spinner_width, height=1)
 
-        # Add to layout context
-        context.add_element(node)
+        context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()
@@ -1009,15 +832,15 @@ class MarkdownExtension(Extension):
         # Convert numeric parameters for element creation
         # If width/height are "fill" or other string specs, use default numeric values
         # for initial element creation (will be resized on bounds assignment)
-        if isinstance(width, str) and not width.isdigit():
-            element_width = 60  # Default for initial render
-        else:
-            element_width = int(width)
-
-        if isinstance(height, str) and not height.isdigit():
-            element_height = 20  # Default for initial render
-        else:
-            element_height = int(height)
+        # if isinstance(width, str) and not width.isdigit():
+        #     element_width = 60  # Default for initial render
+        # else:
+        #     element_width = int(width)
+        #
+        # if isinstance(height, str) and not height.isdigit():
+        #     element_height = 20  # Default for initial render
+        # else:
+        #     element_height = int(height)
 
         show_scrollbar = bool(show_scrollbar)
 
@@ -1047,53 +870,19 @@ class MarkdownExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create MarkdownView element
-        from wijjit.elements.display.markdown import MarkdownView
+        # Build VNode
+        vnode = VNodeBuilder("MarkdownView", key=id)
+        vnode.set_prop("content", content)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        if title:
+            vnode.set_prop("title", title)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
 
-        markdown = MarkdownView(
-            id=id,
-            classes=classes,
-            content=content,
-            width=element_width,
-            height=element_height,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-            title=title,
-        )
-
-        # Store the dynamic sizing flag
-        markdown._dynamic_sizing = width_spec == "fill" or height_spec == "fill"
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            markdown.focused = True
-
-        # Store bind setting
-        markdown.bind = bind
-
-        # Restore scroll position from state if available
-        if id:
-            scroll_key = f"_scroll_{id}"
-            markdown.scroll_state_key = scroll_key
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if scroll_key in state:
-                        markdown.restore_scroll_position(state[scroll_key])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create ElementNode
-        # Use width_spec/height_spec directly for ElementNode (supports "fill")
-        node = ElementNode(markdown, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(node)
+        context.add_vnode(vnode)
 
         # Return marker for text interleaving
         return get_element_marker(context)
@@ -1335,6 +1124,23 @@ class CodeBlockExtension(Extension):
 
         # Add to layout context
         context.add_element(node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("CodeBlock", key=id)
+        vnode.set_prop("code", code)
+        vnode.set_prop("language", language)
+        vnode.set_prop("show_line_numbers", show_line_numbers)
+        vnode.set_prop("line_number_start", line_number_start)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        if title:
+            vnode.set_prop("title", title)
+        vnode.set_prop("theme", theme)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+        context.add_vnode(vnode)
 
         # Return marker for text interleaving
         return get_element_marker(context)
@@ -1604,6 +1410,24 @@ class LogViewExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("LogView", key=id)
+        vnode.set_prop("lines", lines)
+        vnode.set_prop("auto_scroll", auto_scroll)
+        vnode.set_prop("soft_wrap", soft_wrap)
+        vnode.set_prop("show_line_numbers", show_line_numbers)
+        vnode.set_prop("line_number_start", line_number_start)
+        vnode.set_prop("detect_log_levels", detect_log_levels)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        if title:
+            vnode.set_prop("title", title)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+        context.add_vnode(vnode)
+
         # Consume body (should be empty)
         caller()
 
@@ -1863,6 +1687,23 @@ class ListViewExtension(Extension):
         # Add to layout context
         context.add_element(node)
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("ListView", key=id)
+        vnode.set_prop("items", items)
+        vnode.set_prop("bullet", bullet)
+        vnode.set_prop("show_dividers", show_dividers)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        if title:
+            vnode.set_prop("title", title)
+        vnode.set_prop("indent_details", indent_details)
+        vnode.set_prop("dim_details", dim_details)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+        context.add_vnode(vnode)
+
         # Return marker for text interleaving
         return get_element_marker(context)
 
@@ -2011,6 +1852,21 @@ class ModalExtension(Extension):
         if not hasattr(context, "_overlays"):
             context._overlays = []  # type: ignore[attr-defined]
         context._overlays.append(overlay_info)  # type: ignore[attr-defined]
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Modal", key=id)
+        if title:
+            vnode.set_prop("title", title)
+        vnode.set_prop("border", border)
+        vnode.set_prop("centered", True)
+        if visible:
+            vnode.set_prop("visible_state_key", visible)
+        if classes:
+            vnode.set_prop("classes", classes)
+        # Store body content in VNode for comparison
+        vnode.set_prop("content", body_content)
+        vnode.set_layout(width=width, height=height)
+        context.add_vnode(vnode)
 
         return ""
 
@@ -2172,6 +2028,23 @@ class StatusBarExtension(Extension):
         # Similar to how overlays are stored
         context._statusbar = statusbar  # type: ignore[attr-defined]
 
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("StatusBar", key=id)
+        vnode.set_prop("left", left)
+        vnode.set_prop("center", center)
+        vnode.set_prop("right", right)
+        if bg_color:
+            vnode.set_prop("bg_color", bg_color)
+        if text_color:
+            vnode.set_prop("text_color", text_color)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        # StatusBar doesn't use layout dimensions (it's fixed to bottom)
+        vnode.set_layout(width="fill", height=1)
+
+        context.add_vnode(vnode)
+
         # Consume body (should be empty)
         caller()
 
@@ -2276,6 +2149,18 @@ class TextExtension(Extension):
 
         # Add to layout context
         context.add_element(text_node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Text", key=id)
+        vnode.set_prop("content", text_content)
+        vnode.set_prop("wrap", wrap)
+        if html is not None:
+            vnode.set_prop("html", html)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width="auto", height="auto")
+
+        context.add_vnode(vnode)
 
         # Return marker for text interleaving
         return get_element_marker(context)
@@ -2668,6 +2553,22 @@ class TabbedPanelExtension(Extension):
         if focused_id and id and focused_id == id:
             tabbed_panel.focused = True
 
+        # Build VNode
+        vnode = VNodeBuilder("TabbedPanel", key=id)
+        vnode.set_prop("tab_position", tab_pos)
+        vnode.set_prop("active_tab_index", active_tab_index)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        if isinstance(active_tab, str) and bind:
+            vnode.set_prop("active_tab_state_key", active_tab)
+        # Store tab information as props
+        vnode.set_prop("tabs", [{"label": t["label"]} for t in tabs])
+        vnode.set_layout(width=width_spec, height=height_spec)
+
+        context.add_vnode(vnode)
+
         # Create ElementNode
         node = ElementNode(tabbed_panel, width=width_spec, height=height_spec)
 
@@ -2780,6 +2681,15 @@ class LinkExtension(Extension):
 
         # Add to layout context
         context.add_element(link_node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Link", key=id)
+        vnode.set_prop("text", text_content)
+        vnode.set_prop("action", action)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width="auto", height="auto")
+        context.add_vnode(vnode)
 
         # Return marker
         return get_element_marker(context)
@@ -2938,6 +2848,18 @@ class HTMLViewerExtension(Extension):
 
         # Add to layout context
         context.add_element(htmlview_node)
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("HTMLViewer", key=id)
+        vnode.set_prop("content", html_content)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("border_style", border_style)
+        if title:
+            vnode.set_prop("title", title)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+        context.add_vnode(vnode)
 
         # Return marker
         return get_element_marker(context)

@@ -133,8 +133,9 @@ def create_app():
         app.state["wrap_display"] = wrap_mode_display
 
         return {
-            "template": """{% frame title="TextArea demo" %}
-{% textarea id="content" height=7 width=80 show_scrollbar=true border_style="single" %}{% endtextarea %}
+            "template": """{% frame height="fill" title="TextArea demo" %}
+{% textarea id="content" height=10 width=80 show_scrollbar=true border_style="single" %}{% endtextarea %}
+
   Lines: {{ state.lines }}  |  Chars: {{ state.chars }}  |  Wrap: {{ state.wrap_display }}
   [Shift+Arrows] Select  [Ctrl+C/X/V] Clipboard  [Ctrl+A] Select All  [Ctrl+Q] Quit
 {% endframe %}

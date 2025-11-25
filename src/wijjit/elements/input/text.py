@@ -388,6 +388,16 @@ class TextInput(Element):
             elif self.style == InputStyle.MINIMAL:
                 ctx.write_text(0, 0, visible_text, resolved_style)
 
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Cursor position that should survive re-renders
+        """
+        return {"cursor_pos": self.cursor_pos}
+
 
 class TextArea(Element):
     """Multiline text area element with scrolling support.
@@ -3245,3 +3255,49 @@ class TextArea(Element):
         else:
             # No borders - plain rendering
             return "\n".join(rendered_lines)
+
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Cursor, selection, and scroll state that should survive re-renders
+        """
+        state = {
+            "cursor_row": self.cursor_row,
+            "cursor_col": self.cursor_col,
+            "selection_anchor": self.selection_anchor,
+        }
+
+        # Add scroll positions
+        if self.scroll_manager:
+            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+        if self.scroll_manager_x:
+            state["_scroll_x_position"] = self.scroll_manager_x.state.scroll_position
+
+        return state
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        # Restore cursor
+        if "cursor_row" in state:
+            self.cursor_row = state["cursor_row"]
+        if "cursor_col" in state:
+            self.cursor_col = state["cursor_col"]
+
+        # Restore selection
+        if "selection_anchor" in state:
+            self.selection_anchor = state["selection_anchor"]
+
+        # Restore scroll positions
+        if "_scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["_scroll_position"])
+        if "_scroll_x_position" in state and self.scroll_manager_x:
+            self.scroll_manager_x.scroll_to(state["_scroll_x_position"])

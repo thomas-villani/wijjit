@@ -19,7 +19,13 @@ if TYPE_CHECKING:
     from wijjit.core.overlay import OverlayManager
 
 from wijjit.elements.base import Element
-from wijjit.layout.engine import Container, FrameNode, LayoutEngine, LayoutNode
+from wijjit.layout.engine import (
+    Container,
+    ElementNode,
+    FrameNode,
+    LayoutEngine,
+    LayoutNode,
+)
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.logging_config import get_logger
 from wijjit.rendering.paint_context import PaintContext
@@ -209,6 +215,10 @@ class Renderer:
         # Dirty region manager for tracking screen areas that need redraw
         self.dirty_manager = DirtyRegionManager()
 
+        # Element cache for ephemeral state preservation
+        # Maps element ID to element instance for state transfer between renders
+        self._element_cache: dict[str, Element] = {}
+
         # Add custom filters
         self._setup_filters()
 
@@ -388,6 +398,11 @@ class Renderer:
             # This avoids double-rendering templates without layout tags
             return rendered_output, [], layout_ctx
 
+        # === Ephemeral State Preservation ===
+        # Transfer ephemeral state (cursor, scroll, selection) from cached
+        # elements to fresh elements, preserving user interaction state
+        self._preserve_ephemeral_state(layout_ctx.root)
+
         # Check if a statusbar was created during template rendering
         # If yes, reduce available height by 1 to make room for it
         layout_height = height
@@ -418,6 +433,54 @@ class Renderer:
         # This allows app._render() to manage overlay lifecycle properly
         # (separating template-declared overlays from programmatic ones)
         return output, elements, layout_ctx
+
+    def _preserve_ephemeral_state(self, node: LayoutNode) -> None:
+        """Preserve ephemeral state from cached elements to fresh elements.
+
+        This method walks the LayoutNode tree and for each element with an ID:
+        1. If a cached element exists with the same ID, transfer ephemeral state
+        2. Cache the fresh element for the next render cycle
+
+        This preserves user interaction state (cursor, scroll, selection) across
+        re-renders while allowing the template to create fresh, correctly-sized
+        elements each time.
+
+        Parameters
+        ----------
+        node : LayoutNode
+            Root of the layout tree to process
+        """
+        if isinstance(node, ElementNode):
+            element = node.element
+            if element.id:
+                # Check if we have a cached element with the same ID
+                cached = self._element_cache.get(element.id)
+                if (
+                    cached is not None
+                    and type(cached).__name__ == type(element).__name__
+                ):
+                    # Transfer ephemeral state from cached to fresh element
+                    if hasattr(cached, "get_ephemeral_state") and hasattr(
+                        element, "restore_ephemeral_state"
+                    ):
+                        ephemeral = cached.get_ephemeral_state()
+                        if ephemeral:
+                            element.restore_ephemeral_state(ephemeral)
+                            logger.debug(
+                                f"Transferred ephemeral state for {element.id}: {ephemeral}"
+                            )
+
+                # Cache the fresh element for next render
+                self._element_cache[element.id] = element
+
+        # Recursively process children
+        if isinstance(node, FrameNode):
+            # FrameNode has special structure with content_container
+            for child in node.content_container.children:
+                self._preserve_ephemeral_state(child)
+        elif isinstance(node, Container):
+            for child in node.children:
+                self._preserve_ephemeral_state(child)
 
     def _compose_output_cells(
         self,
@@ -961,3 +1024,11 @@ class Renderer:
     def clear_cache(self) -> None:
         """Clear the template cache."""
         self._string_templates.clear()
+
+    def clear_element_cache(self) -> None:
+        """Clear the element cache.
+
+        This should be called when navigating to a different view
+        to avoid stale ephemeral state transfer.
+        """
+        self._element_cache.clear()

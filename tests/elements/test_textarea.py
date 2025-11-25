@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock
 
-from wijjit.core.state import State
-from wijjit.core.wiring import ElementWiringManager
 from wijjit.elements.base import ElementType
 from wijjit.elements.input.text import TextArea
 from wijjit.terminal.input import Key, Keys, KeyType
@@ -216,7 +214,13 @@ class TestTextAreaStatePersistence:
             return None
 
     def test_horizontal_scroll_state_saved(self):
-        """Horizontal scroll position is stored in state when wiring is active."""
+        """Horizontal scroll position is preserved via reconciliation ephemeral state.
+
+        Note: The old behavior stored scroll state to __id_scroll_x keys in the
+        state dict. The new reconciliation system preserves scroll position
+        automatically as ephemeral state, so explicit state tracking is no longer
+        needed. For explicit tracking, use scroll_state_key_x attribute.
+        """
         long_line = "This is a long line that exceeds the viewport width significantly."
         textarea = TextArea(
             id="editor",
@@ -230,10 +234,6 @@ class TestTextAreaStatePersistence:
         # Ensure horizontal scrolling is available
         assert textarea._needs_scroll_x
 
-        state = State({})
-        wiring = ElementWiringManager(self._DummyApp())
-        wiring._wire_textarea(textarea, state)
-
         # Scroll horizontally via Shift+wheel
         event = MouseEvent(
             type=MouseEventType.SCROLL,
@@ -244,8 +244,9 @@ class TestTextAreaStatePersistence:
         )
         textarea.handle_mouse(event)
 
-        assert "__editor_scroll_x" in state
-        assert state["__editor_scroll_x"] > 0
+        # Scroll position is now preserved on the element itself via reconciliation
+        # (ephemeral state), not through state dict hacks
+        assert textarea.scroll_manager_x.state.scroll_position > 0
 
     def test_mouse_click_positions_cursor(self):
         """Test clicking positions cursor."""

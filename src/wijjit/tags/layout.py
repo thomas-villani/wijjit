@@ -10,6 +10,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
+from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.base import TextElement
 from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
@@ -133,6 +134,10 @@ def get_element_marker(layout_context: LayoutContext) -> str:
 class LayoutContext:
     """Context for building layout tree during template rendering.
 
+    This context tracks both the LayoutNode tree (for layout calculation)
+    and a parallel VNode tree (for reconciliation). The VNode tree enables
+    efficient diffing and element reuse across re-renders.
+
     Attributes
     ----------
     root : LayoutNode or None
@@ -141,12 +146,23 @@ class LayoutContext:
         Stack of container nodes being processed
     element_counters : dict
         Counter for auto-generating element IDs by type
+    vnode_root : VNodeBuilder or None
+        Root of the VNode tree (for reconciliation)
+    vnode_stack : list of VNodeBuilder
+        Stack of VNodeBuilders being processed
+    element_vnodes : dict
+        Map of element ID -> VNodeBuilder for element lookup
     """
 
     def __init__(self) -> None:
         self.root: LayoutNode | None = None
         self.stack: list[LayoutNode] = []
         self.element_counters: dict[str, int] = {}
+
+        # VNode tree tracking for reconciliation
+        self.vnode_root: Any | None = None  # VNodeBuilder
+        self.vnode_stack: list[Any] = []  # list[VNodeBuilder]
+        self.element_vnodes: dict[str, Any] = {}  # id -> VNodeBuilder
 
     def push(self, node: LayoutNode) -> None:
         """Push a container node onto the stack.
@@ -215,6 +231,75 @@ class LayoutContext:
         id_value = f"{element_type}_{self.element_counters[element_type]}"
         self.element_counters[element_type] += 1
         return id_value
+
+    # === VNode Tree Building Methods ===
+
+    def push_vnode(self, vnode_builder: Any) -> None:
+        """Push a VNodeBuilder onto the VNode stack.
+
+        Parameters
+        ----------
+        vnode_builder : VNodeBuilder
+            VNode builder to push (container type)
+        """
+        if self.vnode_root is None:
+            self.vnode_root = vnode_builder
+
+        if self.vnode_stack:
+            parent = self.vnode_stack[-1]
+            parent.add_child(vnode_builder)
+
+        self.vnode_stack.append(vnode_builder)
+
+        # Track by ID if present
+        if vnode_builder.key:
+            self.element_vnodes[vnode_builder.key] = vnode_builder
+
+    def pop_vnode(self) -> Any | None:
+        """Pop a VNodeBuilder from the VNode stack.
+
+        Returns
+        -------
+        VNodeBuilder or None
+            Popped builder
+        """
+        if self.vnode_stack:
+            return self.vnode_stack.pop()
+        return None
+
+    def add_vnode(self, vnode_builder: Any) -> None:
+        """Add a leaf VNodeBuilder to the current container.
+
+        Parameters
+        ----------
+        vnode_builder : VNodeBuilder
+            VNode builder to add (leaf element)
+        """
+        if self.vnode_root is None:
+            self.vnode_root = vnode_builder
+            if vnode_builder.key:
+                self.element_vnodes[vnode_builder.key] = vnode_builder
+            return
+
+        if self.vnode_stack:
+            parent = self.vnode_stack[-1]
+            parent.add_child(vnode_builder)
+
+        # Track by ID if present
+        if vnode_builder.key:
+            self.element_vnodes[vnode_builder.key] = vnode_builder
+
+    def freeze_vnode_tree(self) -> Any | None:
+        """Freeze the VNode tree into immutable VNodes.
+
+        Returns
+        -------
+        VNode or None
+            Frozen VNode tree root
+        """
+        if self.vnode_root is None:
+            return None
+        return self.vnode_root.freeze()
 
 
 def parse_size_attr(value: Any) -> Any:
@@ -468,6 +553,19 @@ class VStackExtension(Extension):
         # Push onto stack
         layout_context.push(vstack)
 
+        # Create VNode builder for reconciliation
+        vnode = VNodeBuilder("VStack", key=id)
+        vnode.set_prop("spacing", spacing_int)
+        vnode.set_layout(
+            width=width_parsed,
+            height=height_parsed,
+            padding=padding_parsed,
+            margin=margin_parsed,
+            align_h=align_h,
+            align_v=align_v,
+        )
+        layout_context.push_vnode(vnode)
+
         # Render body - nested elements will add themselves to vstack.children
         # and insert markers in body_output to indicate their positions
         body_output = caller()
@@ -479,6 +577,9 @@ class VStackExtension(Extension):
 
         # Pop from stack
         layout_context.pop()
+
+        # Pop VNode from stack
+        layout_context.pop_vnode()
 
         # Return marker for text interleaving
         return get_element_marker(layout_context)
@@ -631,6 +732,19 @@ class HStackExtension(Extension):
         # Push onto stack
         layout_context.push(hstack)
 
+        # Create VNode builder for reconciliation
+        vnode = VNodeBuilder("HStack", key=id)
+        vnode.set_prop("spacing", spacing_int)
+        vnode.set_layout(
+            width=width_parsed,
+            height=height_parsed,
+            padding=padding_parsed,
+            margin=margin_parsed,
+            align_h=align_h,
+            align_v=align_v,
+        )
+        layout_context.push_vnode(vnode)
+
         # Render body - nested elements will add themselves to hstack.children
         # and insert markers in body_output to indicate their positions
         body_output = caller()
@@ -642,6 +756,9 @@ class HStackExtension(Extension):
 
         # Pop from stack
         layout_context.pop()
+
+        # Pop VNode from stack
+        layout_context.pop_vnode()
 
         # Return marker for text interleaving
         return get_element_marker(layout_context)
@@ -956,6 +1073,27 @@ class FrameExtension(Extension):
         # Push onto stack
         layout_context.push(frame_node)
 
+        # Create VNode builder for reconciliation
+        vnode = VNodeBuilder("Frame", key=id)
+        vnode.set_prop("border", border_style)
+        vnode.set_prop("title", title)
+        vnode.set_prop("scrollable", scrollable)
+        vnode.set_prop("show_scrollbar", show_scrollbar)
+        vnode.set_prop("show_scrollbar_x", show_scrollbar_x)
+        vnode.set_prop("overflow_x", overflow_x)
+        vnode.set_prop("overflow_y", overflow_y)
+        vnode.set_layout(
+            width=width_parsed,
+            height=height_parsed,
+            padding=padding_parsed,
+            margin=margin_parsed,
+            align_h=align_h,
+            align_v=align_v,
+            content_align_h=content_align_h,
+            content_align_v=content_align_v,
+        )
+        layout_context.push_vnode(vnode)
+
         # Render body - nested elements will add themselves to frame_node.content_container.children
         # and insert markers in body_output to indicate their positions
         body_output = caller()
@@ -973,6 +1111,7 @@ class FrameExtension(Extension):
             )
 
         # Pop from stack
+        layout_context.pop_vnode()
         layout_context.pop()
 
         # Return marker for text interleaving

@@ -1883,3 +1883,39 @@ class Frame(ScrollableElement):
             ctx.bounds.y + y,
             Cell(char=chars["v"], **border_attrs),
         )
+
+    def get_ephemeral_state(self) -> dict[str, Any]:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Scroll state that should survive re-renders
+        """
+        state: dict[str, Any] = {}
+
+        # Add vertical scroll position
+        if self.scroll_manager:
+            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+
+        # Add horizontal scroll position
+        if self.scroll_manager_x:
+            state["_scroll_x_position"] = self.scroll_manager_x.state.scroll_position
+
+        return state
+
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        # Restore vertical scroll position
+        if "_scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["_scroll_position"])
+
+        # Restore horizontal scroll position
+        if "_scroll_x_position" in state and self.scroll_manager_x:
+            self.scroll_manager_x.scroll_to(state["_scroll_x_position"])
