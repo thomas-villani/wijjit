@@ -174,6 +174,8 @@ class LogView(ScrollableElement):
 
         # Rendered content cache
         self.rendered_lines: list[str] = []
+        # Maps each rendered line index to its original line index (for style lookup)
+        self._rendered_line_origins: list[int] = []
 
         # Render initial content
         self._render_content()
@@ -239,8 +241,9 @@ class LogView(ScrollableElement):
         # Account for line numbers
         if self.show_line_numbers:
             # Calculate width needed for line numbers (with padding)
+            # _format_line_number produces "{num} " (num + 1 space)
             max_line_num = self.line_number_start + len(self.lines) - 1
-            line_num_width = len(str(max_line_num)) + 2  # +2 for space and separator
+            line_num_width = len(str(max_line_num)) + 1  # +1 for trailing space
             content_width -= line_num_width
 
         return max(1, content_width)
@@ -357,8 +360,10 @@ class LogView(ScrollableElement):
         """Render log lines to ANSI strings.
 
         Updates the rendered_lines cache with the current lines.
+        Also builds _rendered_line_origins to map rendered lines to original lines.
         """
         self.rendered_lines = []
+        self._rendered_line_origins = []
         content_width = self._get_content_width()
 
         for i, line in enumerate(self.lines):
@@ -384,6 +389,8 @@ class LogView(ScrollableElement):
                         full_line = segment
 
                     self.rendered_lines.append(full_line)
+                    # Track which original line this rendered line came from
+                    self._rendered_line_origins.append(i)
             else:
                 # Clip long lines
                 if visible_length(colored_line) > content_width:
@@ -400,10 +407,13 @@ class LogView(ScrollableElement):
                     full_line = colored_line
 
                 self.rendered_lines.append(full_line)
+                # Track which original line this rendered line came from
+                self._rendered_line_origins.append(i)
 
         # Ensure at least one line
         if not self.rendered_lines:
             self.rendered_lines = [""]
+            self._rendered_line_origins = [-1]  # No original line
 
     def set_lines(self, lines: list[str]) -> None:
         """Update log lines and re-render.
@@ -459,6 +469,97 @@ class LogView(ScrollableElement):
             Current scroll offset (0-based)
         """
         return self.scroll_manager.state.scroll_position
+
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size of the LogView element.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) based on configured dimensions
+        """
+        return (self.width, self.height)
+
+    def on_update(self, changed_props: dict) -> None:
+        """Handle prop updates during reconciliation.
+
+        Parameters
+        ----------
+        changed_props : dict
+            Map of prop_name -> (old_value, new_value)
+        """
+        # Track if we need to re-render content
+        needs_rerender = False
+
+        # Handle lines change
+        if "lines" in changed_props:
+            old_lines, new_lines = changed_props["lines"]
+            if new_lines is not None:
+                self.lines = new_lines
+                needs_rerender = True
+
+        # Handle display options that affect rendering
+        if "show_line_numbers" in changed_props:
+            _, new_val = changed_props["show_line_numbers"]
+            self.show_line_numbers = bool(new_val) if new_val is not None else False
+            needs_rerender = True
+
+        if "soft_wrap" in changed_props:
+            _, new_val = changed_props["soft_wrap"]
+            self.soft_wrap = bool(new_val) if new_val is not None else False
+            needs_rerender = True
+
+        if "detect_log_levels" in changed_props:
+            _, new_val = changed_props["detect_log_levels"]
+            self.detect_log_levels = bool(new_val) if new_val is not None else True
+            needs_rerender = True
+
+        if "auto_scroll" in changed_props:
+            _, new_val = changed_props["auto_scroll"]
+            self.auto_scroll = bool(new_val) if new_val is not None else True
+            # If auto-scroll was re-enabled, scroll to bottom
+            if self.auto_scroll:
+                self._user_scrolled_up = False
+
+        # Re-render if needed
+        if needs_rerender:
+            old_content_size = len(self.rendered_lines)
+            self._render_content()
+            self.scroll_manager.update_content_size(len(self.rendered_lines))
+
+            # Handle auto-scroll if enabled and content size increased
+            if self.auto_scroll and not self._user_scrolled_up:
+                if len(self.rendered_lines) > old_content_size:
+                    self.scroll_manager.scroll_to_bottom()
+            self._last_content_size = len(self.rendered_lines)
+
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Scroll position and user scroll state to preserve across re-renders
+        """
+        return {
+            "scroll_position": (
+                self.scroll_manager.state.scroll_position if self.scroll_manager else 0
+            ),
+            "_user_scrolled_up": self._user_scrolled_up,
+        }
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        if "scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["scroll_position"])
+        if "_user_scrolled_up" in state:
+            self._user_scrolled_up = state["_user_scrolled_up"]
 
     def can_scroll(self, direction: int) -> bool:
         """Check if the element can scroll in the given direction.
@@ -967,10 +1068,11 @@ class LogView(ScrollableElement):
             )
 
         # Calculate line number column width if needed
+        # Must match _format_line_number which produces "{num} " (num + 1 space)
         line_num_width = 0
         if self.show_line_numbers:
             max_line_num = self.line_number_start + len(self.lines) - 1
-            line_num_width = len(str(max_line_num)) + 2  # +2 for space and separator
+            line_num_width = len(str(max_line_num)) + 1  # +1 for trailing space
 
         # Render visible log lines
         current_y = start_y
@@ -996,11 +1098,18 @@ class LogView(ScrollableElement):
 
             clean_line = strip_ansi(rendered_line)
 
-            # Determine which original line this corresponds to
-            # For non-wrapped content, this is straightforward
-            # For wrapped content, we need to track which original line we're on
-            # For simplicity, we'll detect log level from the rendered line itself
-            style_class = self._get_log_level_style_class(clean_line)
+            # Determine style from the ORIGINAL line (not the rendered/wrapped line)
+            # This ensures wrapped continuation lines get the same color as their source
+            original_line_idx = (
+                self._rendered_line_origins[rendered_line_idx]
+                if rendered_line_idx < len(self._rendered_line_origins)
+                else -1
+            )
+            if original_line_idx >= 0 and original_line_idx < len(self.lines):
+                original_line = self.lines[original_line_idx]
+                style_class = self._get_log_level_style_class(original_line)
+            else:
+                style_class = "logview"
             line_style = ctx.style_resolver.resolve_style(self, style_class)
             line_attrs = line_style.to_cell_attrs()
 

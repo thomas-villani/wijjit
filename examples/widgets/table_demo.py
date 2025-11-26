@@ -83,7 +83,7 @@ def main_view():
     """Main view showcasing table element."""
     return {
         "template": """
-{% frame title="Table Demo - User Directory" border="double" width=100 height=35 %}
+{% frame title="Table Demo - User Directory" border="double" width=100 height=50 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.message }}
@@ -133,7 +133,8 @@ def handle_add_user(event):
         "age": 20 + (user_counter % 30),
     }
 
-    current_users = app.state.get("users", [])
+    # Create a NEW list so reconciler detects the change (not just mutation)
+    current_users = list(app.state.get("users", []))
     current_users.append(new_user)
     app.state["users"] = current_users
     app.state["message"] = f"Added {new_user['name']} to the table"

@@ -117,19 +117,19 @@ class Frame(ScrollableElement):
 
     Parameters
     ----------
-    width : int
-        Total frame width (including borders)
-    height : int
-        Total frame height (including borders)
+    width : int or str
+        Total frame width (including borders). Can be int or string ("fill", "auto", "50%")
+    height : int or str
+        Total frame height (including borders). Can be int or string ("fill", "auto", "50%")
     style : FrameStyle, optional
         Frame style configuration
 
     Attributes
     ----------
-    width : int
-        Total frame width
-    height : int
-        Total frame height
+    width : int or str
+        Total frame width (resolved to int during layout calculation)
+    height : int or str
+        Total frame height (resolved to int during layout calculation)
     style : FrameStyle
         Frame style
     content : list
@@ -138,14 +138,24 @@ class Frame(ScrollableElement):
 
     def __init__(
         self,
-        width: int,
-        height: int,
+        width: int | str,
+        height: int | str,
         style: FrameStyle | None = None,
         id: str | None = None,
     ) -> None:
         super().__init__(id)
-        self.width = max(3, width)  # Minimum width for borders
-        self.height = max(3, height)  # Minimum height for borders
+        # Width/height can be strings ("fill", "auto", "50%") or ints
+        # Strings will be resolved during layout calculation
+        if isinstance(width, int):
+            self.width = max(3, width)  # Minimum width for borders
+        else:
+            self.width = width  # Store string for later resolution
+
+        if isinstance(height, int):
+            self.height = max(3, height)  # Minimum height for borders
+        else:
+            self.height = height  # Store string for later resolution
+
         self.style = style or FrameStyle()
         self.content: list[str] = []
 

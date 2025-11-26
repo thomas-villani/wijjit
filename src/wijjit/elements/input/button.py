@@ -34,10 +34,14 @@ class Button(Element):
         Button label text
     id : str, optional
         Element identifier
+    classes : str or list of str, optional
+        CSS-like class names for styling
     on_click : callable, optional
         Callback when button is activated, receives ActionEvent
     style : ButtonStyle, optional
         Visual style for button rendering (default: BRACKETS)
+    action : str, optional
+        Action ID to dispatch when button is activated
 
     Attributes
     ----------
@@ -50,7 +54,7 @@ class Button(Element):
     on_activate : callable or None
         Action callback that receives ActionEvent
     action : str or None
-        Action ID set by template extension
+        Action ID set by template extension or constructor
 
     Examples
     --------
@@ -71,6 +75,7 @@ class Button(Element):
         classes: str | list[str] | None = None,
         on_click: Callable[[ActionEvent], None] | None = None,
         style: ButtonStyle = ButtonStyle.BRACKETS,
+        action: str | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.BUTTON
@@ -83,7 +88,7 @@ class Button(Element):
         self.on_activate: Callable[[ActionEvent], None] | None = None
 
         # Action ID (set by template extension)
-        self.action: str | None = None
+        self.action: str | None = action
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
@@ -213,6 +218,40 @@ class Button(Element):
                 await self.on_activate(event)
             else:
                 self.on_activate(event)
+
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size of the button based on label and style.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) - width includes label + decorations, height is always 1
+        """
+        from wijjit.terminal.ansi import visible_length
+
+        # Calculate width based on style
+        label_width = visible_length(self.label)
+
+        if self.style == ButtonStyle.BRACKETS:
+            # < Label > format: 2 spaces + 2 brackets + label
+            width = label_width + 4
+        elif self.style == ButtonStyle.SQUARE:
+            # [ Label ] format: 2 spaces + 2 brackets + label
+            width = label_width + 4
+        elif self.style == ButtonStyle.ROUNDED:
+            # ( Label ) format: 2 spaces + 2 parens + label
+            width = label_width + 4
+        elif self.style == ButtonStyle.DOUBLE:
+            # [[ Label ]] format: 4 spaces + 4 brackets + label
+            width = label_width + 6
+        elif self.style == ButtonStyle.SIMPLE:
+            # Label format: just the label
+            width = label_width
+        else:
+            # Default: add padding
+            width = label_width + 4
+
+        return (max(1, width), 1)  # Height is always 1 for buttons
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render button using cell-based rendering (NEW API).

@@ -53,6 +53,10 @@ class VNode:
         for hashability.
     children : tuple of VNode
         Child VNodes for container elements.
+    layout_spec : tuple of (str, Any) pairs
+        Layout specification (width, height, margin, padding, etc.) as immutable
+        tuple of key-value pairs. Used to rebuild LayoutNode tree from reconciled
+        elements.
 
     Attributes
     ----------
@@ -64,6 +68,8 @@ class VNode:
         Immutable props
     children : tuple
         Child VNodes
+    layout_spec : tuple
+        Immutable layout specification
 
     Notes
     -----
@@ -93,6 +99,7 @@ class VNode:
     key: str | None = None
     props: tuple[tuple[str, Any], ...] = ()
     children: tuple[VNode, ...] = ()
+    layout_spec: tuple[tuple[str, Any], ...] = ()
 
     @staticmethod
     def create(
@@ -100,6 +107,7 @@ class VNode:
         key: str | None = None,
         props: dict[str, Any] | None = None,
         children: list[VNode] | None = None,
+        layout_spec: dict[str, Any] | None = None,
     ) -> VNode:
         """Factory method for creating VNodes with dict/list convenience.
 
@@ -113,6 +121,8 @@ class VNode:
             Properties as a dictionary (will be converted to sorted tuple)
         children : list, optional
             Child VNodes as a list (will be converted to tuple)
+        layout_spec : dict, optional
+            Layout specification (will be converted to sorted tuple)
 
         Returns
         -------
@@ -132,6 +142,7 @@ class VNode:
             key=key,
             props=tuple(sorted((props or {}).items())),
             children=tuple(children or []),
+            layout_spec=tuple(sorted((layout_spec or {}).items())),
         )
 
     def get_prop(self, name: str, default: Any = None) -> Any:
@@ -177,6 +188,22 @@ class VNode:
         {'label': 'OK', 'width': 10}
         """
         return dict(self.props)
+
+    def layout_spec_dict(self) -> dict[str, Any]:
+        """Convert layout_spec tuple to dictionary.
+
+        Returns
+        -------
+        dict
+            Layout spec as a mutable dictionary
+
+        Examples
+        --------
+        >>> vnode = VNode.create("Button", layout_spec={"width": "fill", "height": 1})
+        >>> vnode.layout_spec_dict()
+        {'width': 'fill', 'height': 1}
+        """
+        return dict(self.layout_spec)
 
 
 class VNodeBuilder:
@@ -262,28 +289,32 @@ class VNodeBuilder:
     def freeze(self) -> VNode:
         """Convert to immutable VNode tree.
 
-        Recursively freezes all children.
+        Recursively freezes all children and preserves layout specification.
 
         Returns
         -------
         VNode
-            Immutable VNode tree
+            Immutable VNode tree with layout_spec preserved
 
         Examples
         --------
         >>> builder = VNodeBuilder("Button", key="ok")
         >>> builder.props["label"] = "OK"
+        >>> builder.set_layout(width="fill", height=1)
         >>> vnode = builder.freeze()
         >>> isinstance(vnode, VNode)
         True
         >>> vnode.get_prop("label")
         'OK'
+        >>> vnode.layout_spec_dict()
+        {'width': 'fill', 'height': 1}
         """
         return VNode(
             type=self.type,
             key=self.key,
             props=tuple(sorted(self.props.items())),
             children=tuple(child.freeze() for child in self.children),
+            layout_spec=tuple(sorted(self.layout_spec.items())),
         )
 
     def __repr__(self) -> str:

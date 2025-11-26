@@ -14,6 +14,7 @@ The CodeEditor supports:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
 from pygments.lexers import (
@@ -503,7 +504,11 @@ class CodeEditor(TextArea):
 
         # Debounce timer for re-tokenization
         self._retokenize_task: asyncio.Task[None] | None = None
-        self._retokenize_delay: float = 0.3  # 300ms debounce
+        self._retokenize_delay: float = 0.1  # 100ms debounce
+
+        # Callback to request a render after retokenization completes
+        # This is wired by ElementWiringManager to trigger app.needs_render
+        self._request_render: Callable[[], None] | None = None
 
         # Now set the value (will trigger tokenization)
         if value:
@@ -586,6 +591,50 @@ class CodeEditor(TextArea):
         """
         self.highlighter.set_theme(theme)
 
+    @property
+    def language(self) -> str | None:
+        """Get the current syntax highlighting language.
+
+        Returns
+        -------
+        str or None
+            Current language name, or None if highlighting is disabled
+        """
+        return self.highlighter.language
+
+    @language.setter
+    def language(self, value: str | None) -> None:
+        """Set the syntax highlighting language.
+
+        Parameters
+        ----------
+        value : str or None
+            Language name (e.g., "python"), "auto", or None to disable
+        """
+        self.set_language(value)
+
+    @property
+    def theme(self) -> str:
+        """Get the current color theme.
+
+        Returns
+        -------
+        str
+            Current theme name
+        """
+        return self.highlighter.theme
+
+    @theme.setter
+    def theme(self, value: str) -> None:
+        """Set the color theme.
+
+        Parameters
+        ----------
+        value : str
+            Theme name (e.g., "monokai", "dracula")
+        """
+        self.set_theme(value)
+
     def _update_line_number_width(self) -> None:
         """Calculate width needed for line numbers."""
         if self.show_line_numbers:
@@ -606,16 +655,114 @@ class CodeEditor(TextArea):
         new_value : str
             New content
         """
+        # Track line count before change
+        old_line_count = old_value.count("\n") + 1
+        new_line_count = new_value.count("\n") + 1
+
         super()._emit_change(old_value, new_value)
 
         # Update line number width if line count changed significantly
         self._update_line_number_width()
 
+        # Immediately update tokens for the affected line(s) for instant feedback
+        self._update_tokens_immediate(old_line_count, new_line_count)
+
         # Mark highlighting as dirty from cursor position
         self.highlighter.invalidate_from_line(self.cursor_row)
 
-        # Schedule debounced re-tokenization
+        # Schedule debounced full re-tokenization for multi-line constructs
         self._schedule_retokenize()
+
+    def _update_tokens_immediate(
+        self, old_line_count: int, new_line_count: int
+    ) -> None:
+        """Immediately update tokens for affected lines.
+
+        This provides instant syntax highlighting feedback without waiting
+        for the debounced full re-tokenization. It handles three cases:
+
+        1. Same line count: Re-tokenize just the current line
+        2. Lines added: Insert empty entries and re-tokenize affected lines
+        3. Lines removed: Remove entries and re-tokenize the merged line
+
+        Parameters
+        ----------
+        old_line_count : int
+            Number of lines before the change
+        new_line_count : int
+            Number of lines after the change
+        """
+        if not self.highlighter.lexer:
+            return
+
+        cursor_row = self.cursor_row
+        tokens = self.highlighter.line_tokens
+
+        # Ensure tokens array is the right size
+        while len(tokens) < new_line_count:
+            tokens.append([])
+        while len(tokens) > new_line_count:
+            tokens.pop()
+
+        if old_line_count == new_line_count:
+            # Case 1: Edit within a single line - just re-tokenize that line
+            self._tokenize_line(cursor_row)
+        elif new_line_count > old_line_count:
+            # Case 2: Lines were added (e.g., Enter key)
+            # Shift tokens down and re-tokenize affected lines
+            lines_added = new_line_count - old_line_count
+            # Insert empty entries at cursor position
+            for _ in range(lines_added):
+                if cursor_row < len(tokens):
+                    tokens.insert(cursor_row, [])
+            # Re-tokenize the affected lines (current and next)
+            for i in range(
+                cursor_row, min(cursor_row + lines_added + 1, len(self.lines))
+            ):
+                self._tokenize_line(i)
+        else:
+            # Case 3: Lines were removed (e.g., Backspace merging lines)
+            # The token array was already shrunk above
+            # Re-tokenize the current line (which is now merged)
+            if cursor_row < len(self.lines):
+                self._tokenize_line(cursor_row)
+
+    def _tokenize_line(self, line_idx: int) -> None:
+        """Tokenize a single line and update the token cache.
+
+        Parameters
+        ----------
+        line_idx : int
+            Index of the line to tokenize
+        """
+        if not self.highlighter.lexer:
+            return
+
+        if line_idx >= len(self.lines):
+            return
+
+        line = self.lines[line_idx]
+        tokens = self.highlighter.line_tokens
+
+        # Ensure array is large enough
+        while len(tokens) <= line_idx:
+            tokens.append([])
+
+        # Tokenize just this line
+        # Note: This won't handle multi-line constructs perfectly,
+        # but the debounced full retokenization will fix those
+        line_tokens: list[tuple[type, str]] = []
+        for token_type, value in self.highlighter.lexer.get_tokens(line):
+            # Split on newlines (shouldn't happen for single line, but be safe)
+            if "\n" in value:
+                parts = value.split("\n")
+                if parts[0]:
+                    line_tokens.append((token_type, parts[0]))
+                # Ignore parts after newline for single-line tokenization
+            else:
+                line_tokens.append((token_type, value))
+
+        tokens[line_idx] = line_tokens
 
     def _schedule_retokenize(self) -> None:
         """Schedule debounced re-tokenization."""
@@ -637,6 +784,9 @@ class CodeEditor(TextArea):
         try:
             await asyncio.sleep(self._retokenize_delay)
             self.highlighter.retokenize_incremental(self.lines)
+            # Request a render to display the updated syntax highlighting
+            if self._request_render is not None:
+                self._request_render()
         except asyncio.CancelledError:
             pass  # Task was cancelled, ignore
 
@@ -778,8 +928,16 @@ class CodeEditor(TextArea):
                 # Get tokens for this line
                 tokens = self.highlighter.get_line_tokens(line_idx)
 
-                # Render with syntax highlighting
-                if tokens and self.highlighter.is_highlighting_enabled():
+                # Check if tokens are stale (don't match current line content)
+                # This can happen during editing when retokenization is debounced
+                tokens_valid = False
+                if tokens:
+                    # Reconstruct line from tokens to verify they match
+                    token_text = "".join(text for _, text in tokens)
+                    tokens_valid = token_text == line
+
+                # Render with syntax highlighting only if tokens are fresh
+                if tokens_valid and self.highlighter.is_highlighting_enabled():
                     self._render_highlighted_line(
                         ctx,
                         x_offset,

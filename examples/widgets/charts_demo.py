@@ -66,15 +66,13 @@ def main_view():
 
     {# Row 1: Sparklines and Gauges #}
     {% hstack spacing=2 %}
-      {% frame title="Sparklines" border="single" width=35 height=8 %}
-        {% vstack spacing=0 %}
+      {% frame title="Sparklines" border="single" width=38 height=10 %}
           CPU: {% sparkline id="cpu_spark" data=state.cpu_history width=20 style="line" show_current=true %}{% endsparkline %}
           Mem: {% sparkline id="mem_spark" data=state.cpu_history width=20 style="bar" %}{% endsparkline %}
           Net: {% sparkline id="net_spark" data=state.cpu_history width=20 style="dot" %}{% endsparkline %}
-        {% endvstack %}
       {% endframe %}
 
-      {% frame title="Gauges" border="single" width=40 height=8 %}
+      {% frame title="Gauges" border="single" width=38 height=10 %}
         {% vstack spacing=0 %}
           {% gauge id="cpu_gauge" value=state.cpu_usage max_value=100 width=35 label="CPU" unit="%" color="threshold" %}{% endgauge %}
           {% gauge id="mem_gauge" value=state.memory_usage max_value=100 width=35 label="Memory" unit="%" color="gradient" color_scale="heat" %}{% endgauge %}

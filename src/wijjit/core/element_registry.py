@@ -70,8 +70,9 @@ class ElementRegistry:
         from wijjit.elements.display.sparkline import Sparkline
         from wijjit.elements.display.spinner import Spinner
         from wijjit.elements.display.statusbar import StatusBar
-        from wijjit.elements.display.tabbed_panel import TabbedPanel
 
+        # Note: TabbedPanel is intentionally NOT imported here.
+        # It manages tabs internally via template extension, similar to Frame.
         # Display elements
         from wijjit.elements.display.table import Table
         from wijjit.elements.display.tree import Tree
@@ -85,9 +86,9 @@ class ElementRegistry:
         # Menu elements
         from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
 
-        # Note: Frame, VStack, HStack are NOT registered here because they are
-        # layout containers created by template tags, not reconcilable elements.
-        # Their structure comes from the template, not from VNode->Element creation.
+        # Note: Frame, VStack and HStack are NOT registered because they require
+        # layout information (width/height) to be instantiated. They are handled
+        # specially in the layout tree building logic where layout_spec is available.
 
         # Register all element types
         self._factories = {
@@ -117,7 +118,9 @@ class ElementRegistry:
             "StatusBar": StatusBar,
             "Notification": NotificationElement,
             "Modal": ModalElement,
-            "TabbedPanel": TabbedPanel,
+            # Note: TabbedPanel is NOT registered because it manages its own
+            # tabs internally. The template extension creates and populates it
+            # directly, similar to how Frame/VStack/HStack work.
             "Link": Link,
             "HTMLViewer": HTMLViewer,
             # Chart elements

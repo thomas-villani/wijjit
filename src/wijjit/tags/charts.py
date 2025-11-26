@@ -11,13 +11,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
-from wijjit.elements.display.barchart import BarChart
-from wijjit.elements.display.columnchart import ColumnChart
-from wijjit.elements.display.gauge import Gauge
-from wijjit.elements.display.heatmap import HeatMap
-from wijjit.elements.display.linechart import LineChart
-from wijjit.elements.display.sparkline import Sparkline
-from wijjit.layout.engine import ElementNode
+from wijjit.core.vdom import VNodeBuilder
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker
 
@@ -99,22 +93,23 @@ class SparklineExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        element = Sparkline(
-            id=id,
-            classes=classes,
-            data=data or [],
-            width=int(width),
-            height=int(height),
-            style=style,
-            show_minmax=bool(show_minmax),
-            show_current=bool(show_current),
-            color=color,
-        )
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Sparkline", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("data", data or [])
+        vnode.set_prop("width", int(width))
+        vnode.set_prop("height", int(height))
+        vnode.set_prop("style", style)
+        vnode.set_prop("show_minmax", bool(show_minmax))
+        vnode.set_prop("show_current", bool(show_current))
+        if color:
+            vnode.set_prop("color", color)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_prop("bind", bind)
+        vnode.set_layout(width=width, height=height)
 
-        element.bind = bind
-
-        element_node = ElementNode(element, width=width, height=height)
-        context.add_element(element_node)
+        context.add_vnode(vnode)
 
         # Consume body
         caller()
@@ -203,27 +198,28 @@ class BarChartExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        element = BarChart(
-            id=id,
-            classes=classes,
-            data=data or [],
-            width=int(width),
-            height=int(height),
-            bar_height=int(bar_height),
-            show_labels=bool(show_labels),
-            show_values=bool(show_values),
-            label_width=int(label_width) if label_width is not None else None,
-            value_width=int(value_width),
-            color=color,
-            color_scale=color_scale,
-            show_scrollbar=bool(show_scrollbar),
-            show_border=bool(show_border),
-        )
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("BarChart", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("data", data or [])
+        vnode.set_prop("width", int(width))
+        vnode.set_prop("height", int(height))
+        vnode.set_prop("bar_height", int(bar_height))
+        vnode.set_prop("show_labels", bool(show_labels))
+        vnode.set_prop("show_values", bool(show_values))
+        if label_width is not None:
+            vnode.set_prop("label_width", int(label_width))
+        vnode.set_prop("value_width", int(value_width))
+        vnode.set_prop("color", color)
+        vnode.set_prop("color_scale", color_scale)
+        vnode.set_prop("show_scrollbar", bool(show_scrollbar))
+        vnode.set_prop("show_border", bool(show_border))
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_prop("bind", bind)
+        vnode.set_layout(width=width, height=height)
 
-        element.bind = bind
-
-        element_node = ElementNode(element, width=width, height=height)
-        context.add_element(element_node)
+        context.add_vnode(vnode)
 
         # Consume body
         caller()
@@ -311,26 +307,26 @@ class ColumnChartExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        element = ColumnChart(
-            id=id,
-            classes=classes,
-            data=data or [],
-            width=int(width),
-            height=int(height),
-            column_width=int(column_width),
-            spacing=int(spacing),
-            show_labels=bool(show_labels),
-            show_axis=bool(show_axis),
-            axis_width=int(axis_width),
-            show_grid=bool(show_grid),
-            color=color,
-            color_scale=color_scale,
-        )
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("ColumnChart", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("data", data or [])
+        vnode.set_prop("width", int(width))
+        vnode.set_prop("height", int(height))
+        vnode.set_prop("column_width", int(column_width))
+        vnode.set_prop("spacing", int(spacing))
+        vnode.set_prop("show_labels", bool(show_labels))
+        vnode.set_prop("show_axis", bool(show_axis))
+        vnode.set_prop("axis_width", int(axis_width))
+        vnode.set_prop("show_grid", bool(show_grid))
+        vnode.set_prop("color", color)
+        vnode.set_prop("color_scale", color_scale)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_prop("bind", bind)
+        vnode.set_layout(width=width, height=height)
 
-        element.bind = bind
-
-        element_node = ElementNode(element, width=width, height=height)
-        context.add_element(element_node)
+        context.add_vnode(vnode)
 
         # Consume body
         caller()
@@ -417,25 +413,25 @@ class LineChartExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        element = LineChart(
-            id=id,
-            classes=classes,
-            data=data,
-            width=int(width),
-            height=int(height),
-            style=style,
-            show_axis=bool(show_axis),
-            axis_width=int(axis_width),
-            show_labels=bool(show_labels),
-            show_points=bool(show_points),
-            show_legend=bool(show_legend),
-            color=color,
-        )
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("LineChart", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("data", data)
+        vnode.set_prop("width", int(width))
+        vnode.set_prop("height", int(height))
+        vnode.set_prop("style", style)
+        vnode.set_prop("show_axis", bool(show_axis))
+        vnode.set_prop("axis_width", int(axis_width))
+        vnode.set_prop("show_labels", bool(show_labels))
+        vnode.set_prop("show_points", bool(show_points))
+        vnode.set_prop("show_legend", bool(show_legend))
+        vnode.set_prop("color", color)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_prop("bind", bind)
+        vnode.set_layout(width=width, height=height)
 
-        element.bind = bind
-
-        element_node = ElementNode(element, width=width, height=height)
-        context.add_element(element_node)
+        context.add_vnode(vnode)
 
         # Consume body
         caller()
@@ -525,29 +521,35 @@ class GaugeExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        element = Gauge(
-            id=id,
-            classes=classes,
-            value=float(value),
-            min_value=float(min_value),
-            max_value=float(max_value),
-            width=int(width),
-            height=int(height) if height is not None else None,
-            style=style,
-            show_value=bool(show_value),
-            show_minmax=bool(show_minmax),
-            show_ticks=bool(show_ticks),
-            color=color,
-            color_scale=color_scale,
-            label=label,
-            unit=unit,
-        )
+        # Determine actual height (Gauge computes this based on style)
+        # For VNode, we'll use the requested height or let the element decide
+        actual_height = int(height) if height is not None else "auto"
 
-        element.bind = bind
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("Gauge", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("value", float(value))
+        vnode.set_prop("min_value", float(min_value))
+        vnode.set_prop("max_value", float(max_value))
+        vnode.set_prop("width", int(width))
+        if height is not None:
+            vnode.set_prop("height", int(height))
+        vnode.set_prop("style", style)
+        vnode.set_prop("show_value", bool(show_value))
+        vnode.set_prop("show_minmax", bool(show_minmax))
+        vnode.set_prop("show_ticks", bool(show_ticks))
+        vnode.set_prop("color", color)
+        vnode.set_prop("color_scale", color_scale)
+        if label:
+            vnode.set_prop("label", label)
+        if unit:
+            vnode.set_prop("unit", unit)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_prop("bind", bind)
+        vnode.set_layout(width=width, height=actual_height)
 
-        actual_height = element.height
-        element_node = ElementNode(element, width=width, height=actual_height)
-        context.add_element(element_node)
+        context.add_vnode(vnode)
 
         # Consume body
         caller()
@@ -637,28 +639,32 @@ class HeatMapExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        element = HeatMap(
-            id=id,
-            classes=classes,
-            data=data or [],
-            width=int(width),
-            height=int(height),
-            cell_width=int(cell_width),
-            cell_height=int(cell_height),
-            color_scale=color_scale,
-            show_values=bool(show_values),
-            show_legend=bool(show_legend),
-            show_labels=bool(show_labels),
-            row_labels=row_labels,
-            col_labels=col_labels,
-            min_value=float(min_value) if min_value is not None else None,
-            max_value=float(max_value) if max_value is not None else None,
-        )
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("HeatMap", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("data", data or [])
+        vnode.set_prop("width", int(width))
+        vnode.set_prop("height", int(height))
+        vnode.set_prop("cell_width", int(cell_width))
+        vnode.set_prop("cell_height", int(cell_height))
+        vnode.set_prop("color_scale", color_scale)
+        vnode.set_prop("show_values", bool(show_values))
+        vnode.set_prop("show_legend", bool(show_legend))
+        vnode.set_prop("show_labels", bool(show_labels))
+        if row_labels:
+            vnode.set_prop("row_labels", row_labels)
+        if col_labels:
+            vnode.set_prop("col_labels", col_labels)
+        if min_value is not None:
+            vnode.set_prop("min_value", float(min_value))
+        if max_value is not None:
+            vnode.set_prop("max_value", float(max_value))
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_prop("bind", bind)
+        vnode.set_layout(width=width, height=height)
 
-        element.bind = bind
-
-        element_node = ElementNode(element, width=width, height=height)
-        context.add_element(element_node)
+        context.add_vnode(vnode)
 
         # Consume body
         caller()

@@ -1,6 +1,5 @@
 """Tests for Reconciler implementation."""
 
-
 from wijjit.core.reconciler import DiffResult, DiffType, Reconciler
 from wijjit.core.vdom import VNode
 

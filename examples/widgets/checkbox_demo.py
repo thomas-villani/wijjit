@@ -43,31 +43,16 @@ def main_view():
       {{ state.status }}
     {% endvstack %}
 
-    {% vstack spacing=1 %}
+    {% vstack %}
       Individual Checkboxes:
-    {% endvstack %}
-
-    {% vstack spacing=0 %}
       {% checkbox id="newsletter" label="Subscribe to newsletter" %}{% endcheckbox %}
-    {% endvstack %}
-
-    {% vstack spacing=0 %}
       {% checkbox id="terms" label="I agree to the terms and conditions" %}{% endcheckbox %}
     {% endvstack %}
 
     {% vstack spacing=1 %}
       Email Preferences (Multiple Selection):
-    {% endvstack %}
-
-    {% vstack spacing=0 %}
       {% checkbox id="notifications" label="Email notifications" %}{% endcheckbox %}
-    {% endvstack %}
-
-    {% vstack spacing=0 %}
       {% checkbox id="updates" label="Product updates" %}{% endcheckbox %}
-    {% endvstack %}
-
-    {% vstack spacing=0 %}
       {% checkbox id="marketing" label="Marketing emails" %}{% endcheckbox %}
     {% endvstack %}
 

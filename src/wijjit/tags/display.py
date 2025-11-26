@@ -10,7 +10,7 @@ from wijjit.core.overlay import LayerType
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
-from wijjit.layout.engine import ElementNode, FrameNode
+from wijjit.layout.engine import FrameNode
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
 from wijjit.terminal.ansi import visible_length
@@ -400,7 +400,8 @@ class TreeExtension(Extension):
         if title:
             vnode.set_prop("title", title)
         if on_select:
-            vnode.set_prop("on_select", on_select)
+            # Store action name as "action" so wiring manager can find it
+            vnode.set_prop("action", on_select)
         if expanded is not None:
             vnode.set_prop("expanded", expanded)
         vnode.set_prop("bind", bind)
@@ -872,6 +873,7 @@ class MarkdownExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("MarkdownView", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("content", content)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
@@ -1101,32 +1103,9 @@ class CodeBlockExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create ElementNode
-        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
-        # Add border space if needed
-        if border_style != "none":
-            # For string specs like "fill", we can't add 2, so keep as-is
-            # The layout engine will handle this
-            if isinstance(width_spec, str):
-                node_width = width_spec
-            else:
-                node_width = width_spec + 2
-
-            if isinstance(height_spec, str):
-                node_height = height_spec
-            else:
-                node_height = height_spec + 2
-        else:
-            node_width = width_spec
-            node_height = height_spec
-
-        node = ElementNode(codeblock, width=node_width, height=node_height)
-
-        # Add to layout context
-        context.add_element(node)
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation (ElementNode creation removed - legacy code)
         vnode = VNodeBuilder("CodeBlock", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("code", code)
         vnode.set_prop("language", language)
         vnode.set_prop("show_line_numbers", show_line_numbers)
@@ -1139,7 +1118,18 @@ class CodeBlockExtension(Extension):
         vnode.set_prop("bind", bind)
         if classes:
             vnode.set_prop("classes", classes)
-        vnode.set_layout(width=width_spec, height=height_spec)
+
+        # Account for borders in layout size if present
+        layout_width = width_spec
+        layout_height = height_spec
+        if border_style != "none":
+            # Add 2 for borders (top+bottom, left+right) if width/height are numeric
+            if isinstance(width_spec, int):
+                layout_width = width_spec + 2
+            if isinstance(height_spec, int):
+                layout_height = height_spec + 2
+
+        vnode.set_layout(width=layout_width, height=layout_height)
         context.add_vnode(vnode)
 
         # Return marker for text interleaving
@@ -1293,6 +1283,11 @@ class LogViewExtension(Extension):
         detect_log_levels = bool(detect_log_levels)
         show_scrollbar = bool(show_scrollbar)
 
+        # LogView expects TOTAL dimensions (including borders), so add border space
+        if border_style != "none":
+            element_width += 2
+            element_height += 2
+
         # Auto-generate ID if not provided
         if id is None:
             id = context.generate_id("logview")
@@ -1388,31 +1383,13 @@ class LogViewExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create ElementNode
-        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
-        # Add border space if needed
-        if border_style != "none":
-            if isinstance(width_spec, str):
-                node_width = width_spec
-            else:
-                node_width = width_spec + 2
-
-            if isinstance(height_spec, str):
-                node_height = height_spec
-            else:
-                node_height = height_spec + 2
-        else:
-            node_width = width_spec
-            node_height = height_spec
-
-        node = ElementNode(logview, width=node_width, height=node_height)
-
-        # Add to layout context
-        context.add_element(node)
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation (ElementNode creation removed - legacy code)
         vnode = VNodeBuilder("LogView", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("lines", lines)
+        # Pass element dimensions as props so reconciler can create element with correct size
+        vnode.set_prop("width", element_width)
+        vnode.set_prop("height", element_height)
         vnode.set_prop("auto_scroll", auto_scroll)
         vnode.set_prop("soft_wrap", soft_wrap)
         vnode.set_prop("show_line_numbers", show_line_numbers)
@@ -1425,7 +1402,18 @@ class LogViewExtension(Extension):
         vnode.set_prop("bind", bind)
         if classes:
             vnode.set_prop("classes", classes)
-        vnode.set_layout(width=width_spec, height=height_spec)
+
+        # Account for borders in layout size if present
+        layout_width = width_spec
+        layout_height = height_spec
+        if border_style != "none":
+            # Add 2 for borders (top+bottom, left+right) if width/height are numeric
+            if isinstance(width_spec, int):
+                layout_width = width_spec + 2
+            if isinstance(height_spec, int):
+                layout_height = height_spec + 2
+
+        vnode.set_layout(width=layout_width, height=layout_height)
         context.add_vnode(vnode)
 
         # Consume body (should be empty)
@@ -1665,30 +1653,9 @@ class ListViewExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create ElementNode
-        # Use width_spec and height_spec (which can be "fill", percentages, or integers)
-        # Add border space if needed
-        if border_style != "none":
-            if isinstance(width_spec, str):
-                node_width = width_spec
-            else:
-                node_width = width_spec + 2
-
-            if isinstance(height_spec, str):
-                node_height = height_spec
-            else:
-                node_height = height_spec + 2
-        else:
-            node_width = width_spec
-            node_height = height_spec
-
-        node = ElementNode(listview, width=node_width, height=node_height)
-
-        # Add to layout context
-        context.add_element(node)
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation (ElementNode creation and border calc removed - legacy code)
         vnode = VNodeBuilder("ListView", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("items", items)
         vnode.set_prop("bullet", bullet)
         vnode.set_prop("show_dividers", show_dividers)
@@ -1701,7 +1668,18 @@ class ListViewExtension(Extension):
         vnode.set_prop("bind", bind)
         if classes:
             vnode.set_prop("classes", classes)
-        vnode.set_layout(width=width_spec, height=height_spec)
+
+        # Account for borders in layout size if present
+        layout_width = width_spec
+        layout_height = height_spec
+        if border_style != "none":
+            # Add 2 for borders (top+bottom, left+right) if width/height are numeric
+            if isinstance(width_spec, int):
+                layout_width = width_spec + 2
+            if isinstance(height_spec, int):
+                layout_height = height_spec + 2
+
+        vnode.set_layout(width=layout_width, height=layout_height)
         context.add_vnode(vnode)
 
         # Return marker for text interleaving
@@ -2139,20 +2117,12 @@ class TextExtension(Extension):
         # Get body text content
         text_content = caller().strip()
 
-        # Create text element
-        text_elem = TextElement(
-            text=text_content, id=id, classes=classes, wrap=wrap, html=html
-        )
-
-        # Wrap in ElementNode
-        text_node = ElementNode(text_elem, width="auto", height="auto")
-
-        # Add to layout context
-        context.add_element(text_node)
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation (removed duplicate old-style element creation)
         vnode = VNodeBuilder("Text", key=id)
-        vnode.set_prop("content", text_content)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
+        vnode.set_prop(
+            "text", text_content
+        )  # Changed from 'content' to 'text' to match TextElement.__init__
         vnode.set_prop("wrap", wrap)
         if html is not None:
             vnode.set_prop("html", html)
@@ -2553,6 +2523,12 @@ class TabbedPanelExtension(Extension):
         if focused_id and id and focused_id == id:
             tabbed_panel.focused = True
 
+        # Store the pre-created TabbedPanel element for the renderer to access.
+        # TabbedPanel can't be recreated from VNode props alone because it contains
+        # tabs with FrameNode content that was built during template processing.
+        if id:
+            context.pre_created_elements[id] = tabbed_panel
+
         # Build VNode
         vnode = VNodeBuilder("TabbedPanel", key=id)
         vnode.set_prop("tab_position", tab_pos)
@@ -2569,13 +2545,7 @@ class TabbedPanelExtension(Extension):
 
         context.add_vnode(vnode)
 
-        # Create ElementNode
-        node = ElementNode(tabbed_panel, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(node)
-
-        # Clean up pending tabs
+        # Clean up pending tabs (removed duplicate old-style ElementNode creation)
         context._pending_tabs = []  # type: ignore[attr-defined]
 
         # Return marker for text interleaving
@@ -2655,7 +2625,6 @@ class LinkExtension(Extension):
         str
             Rendered output
         """
-        from wijjit.elements.display.link import Link
 
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
@@ -2668,21 +2637,7 @@ class LinkExtension(Extension):
         # Get link text
         text_content = caller().strip()
 
-        # Create Link element
-        link_elem = Link(text=text_content, action=action, id=id, classes=classes)
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            link_elem.focused = True
-
-        # Wrap in ElementNode
-        link_node = ElementNode(link_elem, width="auto", height="auto")
-
-        # Add to layout context
-        context.add_element(link_node)
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation (removed duplicate old-style element creation)
         vnode = VNodeBuilder("Link", key=id)
         vnode.set_prop("text", text_content)
         vnode.set_prop("action", action)
@@ -2785,7 +2740,6 @@ class HTMLViewerExtension(Extension):
         str
             Rendered output
         """
-        from wijjit.elements.display.htmlview import HTMLViewer
 
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
@@ -2802,54 +2756,7 @@ class HTMLViewerExtension(Extension):
         width_spec: int | str = "fill" if width == "fill" else width
         height_spec: int | str = "fill" if height == "fill" else height
 
-        # Convert width/height to int if needed
-        element_width = 60 if width == "fill" else int(width)
-        element_height = 20 if height == "fill" else int(height)
-
-        # Create HTMLViewer element
-        htmlview_elem = HTMLViewer(
-            id=id,
-            classes=classes,
-            content=html_content,
-            width=element_width,
-            height=element_height,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-            title=title,
-        )
-
-        # Set scroll state key for persistence and restore scroll position
-        if id:
-            scroll_key = f"__{id}_scroll"
-            htmlview_elem.scroll_state_key = scroll_key
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if scroll_key in state:
-                        htmlview_elem.restore_scroll_position(state[scroll_key])
-            except Exception as e:
-                logger.warning(f"Failed to restore scroll state: {e}")
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            htmlview_elem.focused = True
-
-        # Enable dynamic sizing if using fill
-        if width == "fill" or height == "fill":
-            htmlview_elem._dynamic_sizing = True
-
-        # Wrap in ElementNode
-        htmlview_node = ElementNode(htmlview_elem, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(htmlview_node)
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation (removed duplicate old-style element creation)
         vnode = VNodeBuilder("HTMLViewer", key=id)
         vnode.set_prop("content", html_content)
         vnode.set_prop("show_scrollbar", show_scrollbar)

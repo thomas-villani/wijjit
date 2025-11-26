@@ -115,22 +115,18 @@ def main_view():
     """Main view showcasing LogView elements."""
     return {
         "template": """
-{% frame title="LogView Demo - Log Display with Auto-Coloring" border="double" width=120 height=28 %}
-  {% vstack spacing=1 padding=1 %}
-    {% vstack spacing=0 %}
-      {{ state.status }}
-    {% endvstack %}
-
-    {% hstack spacing=2 %}
-      {% vstack spacing=1 %}
+{% frame title="LogView Demo - Log Display with Auto-Coloring" border="double" width="fill" height="fill" %}
+  {{ state.status }}
+    {% vstack %}
+    {% hstack spacing=1 %}
         {% logview id="main_logs"
                    lines=state.main_logs
                    auto_scroll=true
                    soft_wrap=false
                    show_line_numbers=false
                    detect_log_levels=true
-                   width=55
-                   height=8
+                   width=45
+                   height=4
                    border_style="single"
                    title="Main Logs (Auto-Scroll)"
                    show_scrollbar=true %}
@@ -142,21 +138,21 @@ def main_view():
                    soft_wrap=state.soft_wrap_enabled
                    show_line_numbers=state.line_numbers_enabled
                    detect_log_levels=true
-                   width=55
-                   height=8
+                   width=45
+                   height=4
                    border_style="rounded"
                    title="Streaming Logs"
                    show_scrollbar=true %}
         {% endlogview %}
-      {% endvstack %}
+      {% endhstack %}
 
-      {% vstack spacing=1 %}
+      {% hstack spacing=1 %}
         {% logview id="ansi_logs"
                    lines=state.ansi_logs
                    auto_scroll=false
                    detect_log_levels=false
-                   width=55
-                   height=8
+                   width=45
+                   height=4
                    border_style="single"
                    title="ANSI Passthrough (No Level Detection)"
                    show_scrollbar=true %}
@@ -168,15 +164,14 @@ def main_view():
                    soft_wrap=true
                    show_line_numbers=false
                    detect_log_levels=true
-                   width=55
-                   height=8
+                   width=45
+                   height=4
                    border_style="double"
                    title="Long Lines (Soft-Wrap Enabled)"
                    show_scrollbar=true %}
         {% endlogview %}
-      {% endvstack %}
-    {% endhstack %}
-
+      {% endhstack %}
+    {% endvstack %}
     {% hstack spacing=2 %}
       {% button id="add_log_btn" action="add_log" %}Add Log{% endbutton %}
       {% button id="add_error_btn" action="add_error" %}Add ERROR{% endbutton %}
@@ -187,7 +182,7 @@ def main_view():
       {% button id="toggle_numbers_btn" action="toggle_numbers" %}Toggle Line #{% endbutton %}
       {% button id="quit_btn" action="quit" %}Quit{% endbutton %}
     {% endhstack %}
-  {% endvstack %}
+
 {% endframe %}
         """,
         "data": {},

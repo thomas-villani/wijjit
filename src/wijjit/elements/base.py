@@ -402,7 +402,6 @@ class Element(ABC):
 
     # === Virtual DOM Lifecycle Methods ===
 
-    @abstractmethod
     def on_mount(self) -> None:
         """Called when element is first added to the element tree.
 
@@ -417,7 +416,6 @@ class Element(ABC):
         """
         pass
 
-    @abstractmethod
     def on_unmount(self) -> None:
         """Called when element is removed from the element tree.
 
@@ -431,7 +429,6 @@ class Element(ABC):
         """
         pass
 
-    @abstractmethod
     def on_update(self, changed_props: dict[str, tuple[Any, Any]]) -> None:
         """Called when element props are updated during reconciliation.
 

@@ -18,6 +18,9 @@ from wijjit.layout.dirty import DirtyRegionManager
 if TYPE_CHECKING:
     from wijjit.core.overlay import OverlayManager
 
+from wijjit.core.element_registry import ElementRegistry
+from wijjit.core.reconciler import Reconciler
+from wijjit.core.vdom import VNode
 from wijjit.elements.base import Element
 from wijjit.layout.engine import (
     Container,
@@ -219,6 +222,11 @@ class Renderer:
         # Maps element ID to element instance for state transfer between renders
         self._element_cache: dict[str, Element] = {}
 
+        # Virtual DOM reconciliation system
+        # Reconciler manages element lifecycle: create, update, delete, and reuse
+        self._reconciler = Reconciler(ElementRegistry())
+        self._last_vnode_tree: VNode | None = None
+
         # Add custom filters
         self._setup_filters()
 
@@ -398,10 +406,46 @@ class Renderer:
             # This avoids double-rendering templates without layout tags
             return rendered_output, [], layout_ctx
 
-        # === Ephemeral State Preservation ===
-        # Transfer ephemeral state (cursor, scroll, selection) from cached
-        # elements to fresh elements, preserving user interaction state
-        self._preserve_ephemeral_state(layout_ctx.root)
+        # === Virtual DOM Reconciliation ===
+        # Freeze the VNode tree built during template rendering
+        frozen_vnode_tree = layout_ctx.freeze_vnode_tree()
+
+        # Reconcile with previous VNode tree to reuse elements
+        old_tree = self._last_vnode_tree
+        new_tree = frozen_vnode_tree
+
+        if new_tree is not None:
+            # Reconcile: reuse, update, create, delete elements as needed
+            if old_tree is not None:
+                root_element, reconciled_elements = self._reconciler.reconcile(
+                    old_tree, new_tree
+                )
+                logger.debug(
+                    f"Reconciled {len(reconciled_elements)} elements "
+                    f"({len(self._reconciler._element_cache)} cached)"
+                )
+            else:
+                # First render: create all elements
+                root_element, reconciled_elements = self._reconciler.reconcile(
+                    None, new_tree
+                )
+                logger.debug(
+                    f"First render: created {len(reconciled_elements)} elements"
+                )
+
+            # Use reconciler's element cache directly - it's already keyed by vnode.key
+            # This handles both elements with and without explicit IDs
+            reconciled_map = self._reconciler._element_cache
+
+            # Build LayoutNode tree from VNode tree + reconciled elements
+            # This replaces the old approach of swapping elements into template-created tree
+            layout_ctx.root = self._build_layout_tree_from_vnode(
+                new_tree, reconciled_map, layout_ctx.pre_created_elements
+            )
+            logger.debug("Built layout tree from VNode + reconciled elements")
+
+        # Store for next render
+        self._last_vnode_tree = new_tree
 
         # Check if a statusbar was created during template rendering
         # If yes, reduce available height by 1 to make room for it
@@ -481,6 +525,282 @@ class Renderer:
         elif isinstance(node, Container):
             for child in node.children:
                 self._preserve_ephemeral_state(child)
+
+    def _swap_reconciled_elements(
+        self, node: LayoutNode, reconciled_elements: list[Element]
+    ) -> None:
+        """Swap reconciled elements into LayoutNode tree.
+
+        This is a transitional method for Step 1 of Virtual DOM integration.
+        It walks the LayoutNode tree and replaces fresh Elements with reconciled
+        Elements (which have preserved ephemeral state).
+
+        In Step 2, this will be replaced by building LayoutNode tree directly
+        from reconciled elements.
+
+        Parameters
+        ----------
+        node : LayoutNode
+            Root of the layout tree to process
+        reconciled_elements : list of Element
+            List of reconciled elements with preserved state
+        """
+        # Build lookup map: element ID -> reconciled element
+        reconciled_map = {elem.id: elem for elem in reconciled_elements if elem.id}
+
+        # Recursively walk and swap
+        self._swap_elements_recursive(node, reconciled_map)
+
+    def _swap_elements_recursive(
+        self, node: LayoutNode, reconciled_map: dict[str, Element]
+    ) -> None:
+        """Recursive helper for swapping elements.
+
+        Parameters
+        ----------
+        node : LayoutNode
+            Current node to process
+        reconciled_map : dict
+            Map of element ID to reconciled element
+        """
+        if isinstance(node, ElementNode):
+            element = node.element
+            if element.id and element.id in reconciled_map:
+                # Swap fresh element with reconciled element
+                reconciled = reconciled_map[element.id]
+                node.element = reconciled
+                logger.debug(
+                    f"Swapped element {element.id} "
+                    f"(type={type(reconciled).__name__})"
+                )
+
+        # Recursively process children
+        if isinstance(node, FrameNode):
+            # FrameNode has special structure with content_container
+            for child in node.content_container.children:
+                self._swap_elements_recursive(child, reconciled_map)
+        elif isinstance(node, Container):
+            for child in node.children:
+                self._swap_elements_recursive(child, reconciled_map)
+
+    def _build_layout_tree_from_vnode(
+        self,
+        vnode: VNode,
+        reconciled_map: dict[str, Element],
+        pre_created_elements: dict[str, Any] | None = None,
+    ) -> LayoutNode:
+        """Build LayoutNode tree from VNode tree and reconciled elements.
+
+        This is the future approach (Step 2+) where we build the layout tree
+        directly from reconciled elements, replacing template-created Elements.
+
+        Parameters
+        ----------
+        vnode : VNode
+            VNode tree with layout specifications
+        reconciled_map : dict
+            Map of element key to reconciled element
+
+        Returns
+        -------
+        LayoutNode
+            Root of the layout tree
+        """
+        from wijjit.core.vdom import LayoutSpec
+        from wijjit.layout.frames import Frame
+
+        # Get layout spec from VNode
+        layout_dict = vnode.layout_spec_dict()
+
+        # Build LayoutSpec from VNode layout_spec
+        # Use the actual fields defined in LayoutSpec dataclass
+        layout_spec = LayoutSpec()
+        for key, value in layout_dict.items():
+            if hasattr(layout_spec, key):
+                setattr(layout_spec, key, value)
+
+        # Handle container types (VStack, HStack, Frame)
+        if vnode.type == "VStack":
+            from wijjit.layout.engine import VStack
+
+            container = VStack(
+                width=layout_spec.width or "fill",
+                height=layout_spec.height or "auto",
+                spacing=layout_spec.spacing or 0,
+                padding=layout_spec.padding or 0,
+                margin=layout_spec.margin or 0,
+                align_h=layout_spec.align_h or "stretch",
+                align_v=layout_spec.align_v or "stretch",
+            )
+            for child_vnode in vnode.children:
+                child_node = self._build_layout_tree_from_vnode(
+                    child_vnode, reconciled_map, pre_created_elements
+                )
+                container.add_child(child_node)
+            return container
+
+        elif vnode.type == "HStack":
+            from wijjit.layout.engine import HStack
+
+            container = HStack(
+                width=layout_spec.width or "auto",
+                height=layout_spec.height or "auto",
+                spacing=layout_spec.spacing or 0,
+                padding=layout_spec.padding or 0,
+                margin=layout_spec.margin or 0,
+                align_h=layout_spec.align_h or "stretch",
+                align_v=layout_spec.align_v or "stretch",
+            )
+            for child_vnode in vnode.children:
+                child_node = self._build_layout_tree_from_vnode(
+                    child_vnode, reconciled_map, pre_created_elements
+                )
+                container.add_child(child_node)
+            return container
+
+        elif vnode.type == "Frame":
+            # Frame needs layout dimensions to be created
+            # Get width/height from layout_spec
+            layout_dict = vnode.layout_spec_dict()
+            frame_width = layout_dict.get("width", "fill")
+            frame_height = layout_dict.get("height", "fill")
+
+            # Check if we have a reconciled Frame with same key (for state preservation)
+            if vnode.key and vnode.key in reconciled_map:
+                # Reuse reconciled Frame element (preserves scroll state)
+                frame_element = reconciled_map[vnode.key]
+                # Update dimensions if changed
+                frame_element.width = frame_width
+                frame_element.height = frame_height
+                logger.debug(f"Reused reconciled Frame {vnode.key}")
+            else:
+                # Create new Frame element with layout dimensions
+                props = vnode.props_dict()
+
+                # Import here to avoid circular dependency
+                from wijjit.layout.frames import Frame, FrameStyle
+
+                # Build FrameStyle from props
+                border = props.get("border", BorderStyle.SINGLE)
+                title = props.get("title")
+                padding = props.get("padding", (0, 1, 0, 1))
+                scrollable = props.get("scrollable", False)
+                show_scrollbar = props.get("show_scrollbar", True)
+                show_scrollbar_x = props.get("show_scrollbar_x", True)
+                overflow_x = props.get("overflow_x", "clip")
+                overflow_y = props.get("overflow_y", "clip")
+                content_align_h = props.get("content_align_h", "stretch")
+                content_align_v = props.get("content_align_v", "stretch")
+
+                style = FrameStyle(
+                    border=border,
+                    title=title,
+                    padding=padding,
+                    content_align_h=content_align_h,
+                    content_align_v=content_align_v,
+                    scrollable=scrollable,
+                    show_scrollbar=show_scrollbar,
+                    show_scrollbar_x=show_scrollbar_x,
+                    overflow_y=overflow_y,
+                    overflow_x=overflow_x,
+                )
+
+                frame_element = Frame(
+                    width=frame_width,
+                    height=frame_height,
+                    style=style,
+                    id=vnode.key,
+                )
+                logger.debug(f"Created new Frame {vnode.key}")
+
+            # Create FrameNode with content container
+            from wijjit.layout.engine import VStack
+
+            # FrameNode constructor expects individual parameters, not layout_spec
+            frame_node = FrameNode(
+                frame=frame_element,
+                width=frame_width,
+                height=frame_height,
+                margin=layout_spec.margin or 0,
+                align_h=layout_spec.align_h or "stretch",
+                align_v=layout_spec.align_v or "stretch",
+                content_align_h=layout_spec.content_align_h or "stretch",
+                content_align_v=layout_spec.content_align_v or "stretch",
+            )
+
+            # Create content container (vertical stack for children)
+            # Use height="auto" so children stack naturally without overlapping
+            content_container = VStack(
+                width="fill",
+                height="auto",
+                spacing=layout_spec.spacing or 0,
+            )
+
+            for child_vnode in vnode.children:
+                child_node = self._build_layout_tree_from_vnode(
+                    child_vnode, reconciled_map, pre_created_elements
+                )
+                content_container.add_child(child_node)
+
+            frame_node.content_container = content_container
+            return frame_node
+
+        elif vnode.type == "TabbedPanel":
+            # TabbedPanel is a complex element with tabs containing FrameNodes.
+            # It cannot be recreated from VNode props alone - we must use the
+            # pre-created element from the template extension.
+            from wijjit.layout.engine import ElementNode
+
+            element = None
+            if pre_created_elements and vnode.key:
+                element = pre_created_elements.get(vnode.key)
+                logger.debug(f"Using pre-created TabbedPanel: {vnode.key}")
+
+            if element is None:
+                # Fallback: check reconciled_map (shouldn't happen normally)
+                if vnode.key and vnode.key in reconciled_map:
+                    element = reconciled_map[vnode.key]
+                else:
+                    logger.warning(
+                        f"TabbedPanel {vnode.key} not found in pre_created_elements "
+                        f"or reconciled_map. Creating placeholder."
+                    )
+                    from wijjit.elements.base import TextElement
+
+                    element = TextElement(
+                        id=vnode.key, text=f"[Missing TabbedPanel: {vnode.key}]"
+                    )
+
+            # Get layout dimensions
+            layout_dict = vnode.layout_spec_dict()
+            width = layout_dict.get("width", "auto")
+            height = layout_dict.get("height", "auto")
+
+            return ElementNode(element, width=width, height=height)
+
+        else:
+            # Regular element (TextInput, Button, etc.)
+            from wijjit.layout.engine import ElementNode
+
+            if vnode.key and vnode.key in reconciled_map:
+                element = reconciled_map[vnode.key]
+            else:
+                # Element not in reconciled map - this is an error
+                logger.warning(
+                    f"Element {vnode.key} (type={vnode.type}) not found in "
+                    f"reconciled map. This indicates a bug in reconciliation."
+                )
+                # Create a placeholder - in production this shouldn't happen
+                from wijjit.elements.base import TextElement
+
+                element = TextElement(
+                    id=vnode.key, text=f"[Missing element: {vnode.type}]"
+                )
+
+            # Extract width and height from layout_spec for ElementNode
+            width = layout_spec.width if layout_spec.width is not None else "auto"
+            height = layout_spec.height if layout_spec.height is not None else "auto"
+            return ElementNode(element, width=width, height=height)
 
     def _compose_output_cells(
         self,
@@ -1026,9 +1346,11 @@ class Renderer:
         self._string_templates.clear()
 
     def clear_element_cache(self) -> None:
-        """Clear the element cache.
+        """Clear the element cache and reconciler state.
 
         This should be called when navigating to a different view
         to avoid stale ephemeral state transfer.
         """
         self._element_cache.clear()
+        self._reconciler.clear_cache()
+        self._last_vnode_tree = None

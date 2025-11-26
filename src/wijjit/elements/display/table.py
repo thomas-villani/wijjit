@@ -170,6 +170,50 @@ class Table(ScrollableElement):
         """
         return self.scroll_manager.state.scroll_position
 
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Scroll position to preserve across re-renders
+        """
+        return {
+            "scroll_position": (
+                self.scroll_manager.state.scroll_position if self.scroll_manager else 0
+            )
+        }
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        if "scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["scroll_position"])
+
+    def on_update(self, changed_props: dict) -> None:
+        """Handle prop updates during reconciliation.
+
+        Parameters
+        ----------
+        changed_props : dict
+            Map of prop_name -> (old_value, new_value)
+        """
+        # If data changed, update scroll manager content size
+        if "data" in changed_props:
+            old_data, new_data = changed_props["data"]
+            if new_data is not None:
+                self.data = new_data
+                # Re-apply sort if active
+                if self.sort_column:
+                    self._apply_sort()
+                # Update scroll manager with new content size
+                self.scroll_manager.update_content_size(len(self.data))
+
     def can_scroll(self, direction: int) -> bool:
         """Check if the element can scroll in the given direction.
 

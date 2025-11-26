@@ -3256,8 +3256,23 @@ class TextArea(Element):
             # No borders - plain rendering
             return "\n".join(rendered_lines)
 
+    def on_update(self, changed_props: dict) -> None:
+        """Handle prop updates during reconciliation.
+
+        Parameters
+        ----------
+        changed_props : dict
+            Map of prop_name -> (old_value, new_value)
+        """
+        # If value changed, update internal lines representation
+        if "value" in changed_props:
+            old_val, new_val = changed_props["value"]
+            # Only update if the new value is different from current content
+            if new_val != self.get_value():
+                self.set_value(new_val)
+
     def get_ephemeral_state(self) -> dict:
-        """Get ephemeral state for reconciliation.
+        """Get ephemeral_state for reconciliation.
 
         Returns
         -------

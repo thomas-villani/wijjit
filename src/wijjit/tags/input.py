@@ -8,13 +8,7 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.vdom import VNodeBuilder
-from wijjit.elements.input.button import Button
-from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
-from wijjit.elements.input.code_editor import CodeEditor
-from wijjit.elements.input.radio import Radio, RadioGroup
-from wijjit.elements.input.select import Select
-from wijjit.elements.input.text import TextArea, TextInput
-from wijjit.layout.engine import ElementNode, FrameNode, VStack
+from wijjit.layout.engine import FrameNode, VStack
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker
@@ -137,41 +131,27 @@ class TextInputExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state for textinput '{id}': {e}")
 
-        # Create TextInput element
-        text_input = TextInput(
-            id=id, classes=classes, placeholder=placeholder, value=value, width=width
-        )
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            text_input.focused = True
-
-        # Store action ID on input if provided
-        if action:
-            text_input.action = action
-
-        # Store bind setting
-        text_input.bind = bind
-
-        # Create ElementNode
-        node = ElementNode(text_input, width=width, height=1)
-
-        # Add to layout context
-        context.add_element(node)
-
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextInput", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("placeholder", placeholder)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("width", width)
         if classes is not None:
             vnode.set_prop("classes", classes)
+
+        # Check if this element should be focused
+        focused_id = self.environment.globals.get("_wijjit_focused_id")
+        if focused_id and id and focused_id == id:
+            vnode.set_prop("focused", True)
+
         # Add any additional properties from kwargs (e.g., max_length, style, password)
         for key, val in kwargs.items():
             if key != "class":  # Skip 'class' as it's already handled as 'classes'
                 vnode.set_prop(key, val)
+
         vnode.set_layout(width=width, height=1)
         context.add_vnode(vnode)
 
@@ -267,32 +247,19 @@ class ButtonExtension(Extension):
         if id is None:
             id = context.generate_id("button")
 
-        # Create Button element
-        button = Button(label=label, id=id, classes=classes)
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            button.focused = True
-
-        # Store action ID on button if provided
-        if action:
-            button.action = action
-
-        # Create ElementNode
-        # Button width is based on label length + brackets
-        button_width = len(label) + 4  # "< label >"
-        node = ElementNode(button, width=button_width, height=1)
-
-        # Add to layout context
-        context.add_element(node)
+        is_focused = focused_id and id and focused_id == id
 
         # Create VNode for reconciliation
+        # Button width is based on label length + brackets
+        button_width = len(label) + 4  # "< label >"
         vnode = VNodeBuilder("Button", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("action", action)
         vnode.set_prop("classes", classes)
-        vnode.set_prop("focused", button.focused)
+        vnode.set_prop("focused", is_focused)
         vnode.set_layout(width=button_width, height=1)
         context.add_vnode(vnode)
 
@@ -475,51 +442,10 @@ class SelectExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state for select '{id}': {e}")
 
-        # Create Select element
-        select = Select(
-            id=id,
-            classes=classes,
-            options=cleaned_options,
-            value=value,
-            width=width,
-            visible_rows=visible_rows,
-            disabled_values=disabled_values,
-            border_style=border_style,
-            title=title,
-        )
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            select.focused = True
+        is_focused = focused_id and id and focused_id == id
 
-        # Store action ID on select if provided
-        if action:
-            select.action = action
-
-        # Store bind setting
-        select.bind = bind
-
-        # Restore highlighted_index and scroll position from state if available
-        if id:
-            highlight_key = f"_highlight_{id}"
-            scroll_key = f"_scroll_{id}"
-            select.highlight_state_key = highlight_key
-            select.scroll_state_key = scroll_key
-            try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if highlight_key in state:
-                        select.highlighted_index = state[highlight_key]
-                    if scroll_key in state:
-                        select.scroll_manager.scroll_to(state[scroll_key])
-            except Exception as e:
-                logger.warning(
-                    f"Failed to restore highlight/scroll state for select '{id}': {e}"
-                )
-
-        # Create ElementNode
         # Calculate total height accounting for borders
         # - No borders: height = visible_rows (content only)
         # - With borders: height = visible_rows + 2 (top border + content + bottom border)
@@ -528,21 +454,19 @@ class SelectExtension(Extension):
         # Width also needs to account for borders (adds 2 columns)
         total_width = width + (2 if border_style is not None else 0)
 
-        node = ElementNode(select, width=total_width, height=total_height)
-
-        # Add to layout context
-        context.add_element(node)
-
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Select", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("options", cleaned_options)
+        vnode.set_prop("width", width)
         vnode.set_prop("visible_rows", visible_rows)
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("title", title)
         vnode.set_prop("disabled_values", disabled_values)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
         vnode.set_layout(width=total_width, height=total_height)
@@ -658,38 +582,22 @@ class CheckboxExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state for checkbox '{id}': {e}")
 
-        # Create Checkbox element
-        checkbox = Checkbox(
-            id=id, classes=classes, label=label, checked=checked, value=value
-        )
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            checkbox.focused = True
+        is_focused = focused_id and id and focused_id == id
 
-        # Store action ID if provided
-        if action:
-            checkbox.action = action
-
-        # Store bind setting
-        checkbox.bind = bind
-
-        # Create ElementNode
         # Checkbox width: "[X] " (4 chars) + label length
         checkbox_width = 4 + len(label)
-        node = ElementNode(checkbox, width=checkbox_width, height=1)
-
-        # Add to layout context
-        context.add_element(node)
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Checkbox", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("checked", checked)
         vnode.set_prop("value", value)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
         vnode.set_layout(width=checkbox_width, height=1)
@@ -786,51 +694,27 @@ class RadioExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state for radio '{name}': {e}")
 
-        # Create Radio element
-        radio = Radio(
-            name=name or "",
-            id=id,
-            classes=classes,
-            label=label,
-            checked=checked,
-            value=value,
-        )
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            radio.focused = True
+        is_focused = focused_id and id and focused_id == id
 
-        # Store action ID if provided
-        if action:
-            radio.action = action
-
-        # Store bind setting
-        radio.bind = bind
-
-        # Create ElementNode
         # Radio width: "(o) " (4 chars) + label length
         radio_width = 4 + len(label)
-        node = ElementNode(radio, width=radio_width, height=1)
-
-        # Add to layout context
-        context.add_element(node)
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Radio", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("name", name or "")
         vnode.set_prop("label", label)
         vnode.set_prop("checked", checked)
         vnode.set_prop("value", value)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
         vnode.set_layout(width=radio_width, height=1)
         context.add_vnode(vnode)
-
-        # Consume body (should be empty)
-        caller()
 
         # Return marker for text interleaving
         return get_element_marker(context)
@@ -932,64 +816,26 @@ class CheckboxGroupExtension(Extension):
         elif not isinstance(options, list):
             options = list(options)
 
-        # Create CheckboxGroup element
-        checkbox_group = CheckboxGroup(
-            id=id,
-            classes=classes,
-            options=options,
-            selected_values=selected,
-            width=width,
-            orientation=orientation,
-            border_style=border_style,
-            title=title,
-        )
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            checkbox_group.focused = True
+        is_focused = focused_id and id and focused_id == id
 
-        # Store action ID if provided
-        if action:
-            checkbox_group.action = action
-
-        # Store bind setting
-        checkbox_group.bind = bind
-
-        # Restore highlighted_index from state if available
-        if id:
-            highlight_key = f"_highlight_{id}"
-            checkbox_group.highlight_state_key = highlight_key
-            try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if highlight_key in state:
-                        checkbox_group.highlighted_index = state[highlight_key]
-            except Exception as e:
-                logger.warning(
-                    f"Failed to restore highlight state for checkbox_group '{id}': {e}"
-                )
-
-        # Create ElementNode
         # Calculate total height accounting for borders
         total_height = len(options) + (2 if border_style is not None else 0)
         total_width = width + (2 if border_style is not None else 0)
 
-        node = ElementNode(checkbox_group, width=total_width, height=total_height)
-
-        # Add to layout context
-        context.add_element(node)
-
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CheckboxGroup", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("options", options)
         vnode.set_prop("selected_values", selected)
+        vnode.set_prop("width", width)
         vnode.set_prop("orientation", orientation)
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("title", title)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
         vnode.set_layout(width=total_width, height=total_height)
@@ -1105,66 +951,27 @@ class RadioGroupExtension(Extension):
         )
 
         if not using_nested_radios:
-            # Create RadioGroup element with provided options
-            radio_group = RadioGroup(
-                name=name,
-                id=id,
-                classes=classes,
-                options=options,
-                selected_value=selected,
-                width=width,
-                orientation=orientation,
-                border_style=border_style,
-                title=title,
-            )
-
             # Check if this element should be focused
             focused_id = self.environment.globals.get("_wijjit_focused_id")
-            if focused_id and id and focused_id == id:
-                radio_group.focused = True
+            is_focused = focused_id and id and focused_id == id
 
-            # Store action ID if provided
-            if action:
-                radio_group.action = action
-
-            # Store bind setting
-            radio_group.bind = bind
-
-            # Restore highlighted_index from state if available
-            if id:
-                highlight_key = f"_highlight_{id}"
-                radio_group.highlight_state_key = highlight_key
-                try:
-                    ctx = self.environment.globals.get("_wijjit_current_context")
-                    if ctx and "state" in ctx:
-                        state = ctx["state"]
-                        if highlight_key in state:
-                            radio_group.highlighted_index = state[highlight_key]
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to restore highlight state for radio_group '{id}': {e}"
-                    )
-
-            # Create ElementNode
             # Calculate total height accounting for borders
             total_height = len(options) + (2 if border_style is not None else 0)
             total_width = width + (2 if border_style is not None else 0)
 
-            node = ElementNode(radio_group, width=total_width, height=total_height)
-
-            # Add to layout context
-            context.add_element(node)
-
             # Create VNode for reconciliation
             vnode = VNodeBuilder("RadioGroup", key=id)
+            vnode.set_prop("id", id)  # Set id as prop so Element gets it
             vnode.set_prop("name", name)
             vnode.set_prop("options", options)
-            vnode.set_prop("selected", selected)
+            vnode.set_prop("selected_value", selected)
+            vnode.set_prop("width", width)
             vnode.set_prop("orientation", orientation)
             vnode.set_prop("border_style", border_style)
             vnode.set_prop("title", title)
             vnode.set_prop("action", action)
             vnode.set_prop("bind", bind)
+            vnode.set_prop("focused", is_focused)
             if classes is not None:
                 vnode.set_prop("classes", classes)
             vnode.set_layout(width=total_width, height=total_height)
@@ -1191,6 +998,11 @@ class RadioGroupExtension(Extension):
 
             # Push container onto stack so nested radios are added to it
             context.push(vstack_container)
+
+            # Also push a VStack VNode for reconciliation
+            vstack_vnode = VNodeBuilder("VStack", key=id)
+            vstack_vnode.set_layout(width="auto", height="auto")
+            context.push_vnode(vstack_vnode)
 
         # For nested radios with borders/titles, create a frame container
         elif using_frame:
@@ -1226,7 +1038,7 @@ class RadioGroupExtension(Extension):
             # Create frame
             frame = Frame(
                 width=width if isinstance(width, int) else 40,
-                height=10,  # Auto-calculate based on children
+                height="auto",  # Auto-calculate based on children
                 style=frame_style,
                 id=id,
             )
@@ -1248,6 +1060,19 @@ class RadioGroupExtension(Extension):
             # Push frame onto layout context stack
             context.push(frame_node)
 
+            # Create VNode builder for reconciliation (like Frame tag does)
+            frame_vnode = VNodeBuilder("Frame", key=id)
+            frame_vnode.set_prop("border", border_enum)
+            frame_vnode.set_prop("title", title)
+            frame_vnode.set_prop("scrollable", False)
+            frame_vnode.set_layout(
+                width="auto",
+                height="auto",
+                padding=(1, 1, 1, 1),
+                margin=0,
+            )
+            context.push_vnode(frame_vnode)
+
         # Set radiogroup name in environment for nested radio tags to access
         old_radiogroup_name = self.environment.globals.get("_wijjit_radiogroup_name")
         self.environment.globals["_wijjit_radiogroup_name"] = name
@@ -1264,9 +1089,11 @@ class RadioGroupExtension(Extension):
             else:
                 self.environment.globals.pop("_wijjit_radiogroup_name", None)
 
-            # Pop container from layout context if we created one
+            # Pop containers from layout context if we created one
             if using_nested_radios:
                 context.pop()
+                # Also pop VNode (we always push one for nested radios)
+                context.pop_vnode()
 
         # Return marker for text interleaving (get after popping so parent is on top of stack)
         return get_element_marker(context)
@@ -1428,91 +1255,16 @@ class TextAreaExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state for textarea '{id}': {e}")
 
-        # Create TextArea element
-        textarea = TextArea(
-            id=id,
-            classes=classes,
-            value=value,
-            width=element_width,
-            height=element_height,
-            wrap_mode=wrap_mode,
-            max_lines=max_lines,
-            show_scrollbar=show_scrollbar,
-            show_scrollbar_x=show_scrollbar_x,
-            border_style=border_style,
-        )
-
-        # Store the dynamic sizing flag
-        textarea._dynamic_sizing = width_spec == "fill" or height_spec == "fill"
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            textarea.focused = True
-
-        # Store action ID if provided
-        if action:
-            textarea.action = action
-
-        # Store bind setting
-        textarea.bind = bind
-
-        # Set up scroll state keys for wiring system
-        if id:
-            textarea.scroll_state_key_x = f"__{id}_scroll_x"  # type: ignore[attr-defined]
-
-        # Restore cursor, selection, and scroll state if binding is enabled
-        if bind and id:
-            try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-
-                    # Restore vertical scroll position FIRST (before cursor restoration)
-                    scroll_key = f"__{id}_scroll"
-                    if scroll_key in state:
-                        scroll_data = state[scroll_key]
-                        scroll_pos = scroll_data.get("position", 0)
-                        textarea.scroll_manager.scroll_to(scroll_pos)
-
-                    # Restore horizontal scroll position (for wrap_mode="none")
-                    if wrap_mode == "none":
-                        scroll_key_x = f"__{id}_scroll_x"
-                        if scroll_key_x in state:
-                            scroll_pos_x = state[scroll_key_x]
-                            if isinstance(scroll_pos_x, int) and scroll_pos_x > 0:
-                                textarea.restore_scroll_position_x(scroll_pos_x)
-
-                    # Restore cursor position
-                    cursor_key = f"__{id}_cursor"
-                    if cursor_key in state:
-                        cursor_data = state[cursor_key]
-                        textarea.cursor_row = cursor_data.get("row", 0)
-                        textarea.cursor_col = cursor_data.get("col", 0)
-                        # Don't call _ensure_cursor_visible() here - it interferes with
-                        # mouse wheel scrolling. Cursor visibility is ensured when cursor
-                        # is moved by user input, not during restoration.
-
-                    # Restore selection state
-                    selection_key = f"__{id}_selection"
-                    if selection_key in state:
-                        selection_data = state[selection_key]
-                        textarea.selection_anchor = selection_data.get("anchor")
-            except Exception as e:
-                logger.warning(
-                    f"Failed to restore cursor/selection/scroll for textarea '{id}': {e}"
-                )
-
-        # Create ElementNode
-        # Use width_spec/height_spec directly for ElementNode (supports "fill")
-        node = ElementNode(textarea, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(node)
+        is_focused = focused_id and id and focused_id == id
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextArea", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
+        vnode.set_prop("width", element_width)
+        vnode.set_prop("height", element_height)
         vnode.set_prop("wrap_mode", wrap_mode)
         vnode.set_prop("max_lines", max_lines)
         vnode.set_prop("show_scrollbar", show_scrollbar)
@@ -1520,9 +1272,21 @@ class TextAreaExtension(Extension):
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
-        vnode.set_layout(width=width_spec, height=height_spec)
+
+        # Account for borders in layout size if present
+        layout_width = width_spec
+        layout_height = height_spec
+        if border_style not in (None, "none"):
+            # Add 2 for borders (top+bottom, left+right) if width/height are numeric
+            if isinstance(width_spec, int):
+                layout_width = width_spec + 2
+            if isinstance(height_spec, int):
+                layout_height = height_spec + 2
+
+        vnode.set_layout(width=layout_width, height=layout_height)
         context.add_vnode(vnode)
 
         # Return marker for text interleaving
@@ -1685,89 +1449,40 @@ class CodeEditorExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state for codeeditor '{id}': {e}")
 
-        # Create CodeEditor element
-        editor = CodeEditor(
-            id=id,
-            classes=classes,
-            value=value,
-            language=language,
-            theme=theme,
-            filename_hint=filename_hint,
-            width=element_width,
-            height=element_height,
-            show_line_numbers=show_line_numbers,
-            wrap_mode=wrap_mode,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-        )
-
-        # Store dynamic sizing flag
-        editor._dynamic_sizing = width_spec == "fill" or height_spec == "fill"
-
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            editor.focused = True
-
-        # Store action ID if provided
-        if action:
-            editor.action = action
-
-        # Store bind setting
-        editor.bind = bind
-
-        # Restore cursor, selection, and scroll state if binding is enabled
-        if bind and id:
-            try:
-                ctx = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-
-                    # Restore scroll position
-                    scroll_key = f"__{id}_scroll"
-                    if scroll_key in state:
-                        scroll_data = state[scroll_key]
-                        scroll_pos = scroll_data.get("position", 0)
-                        editor.scroll_manager.scroll_to(scroll_pos)
-
-                    # Restore cursor position
-                    cursor_key = f"__{id}_cursor"
-                    if cursor_key in state:
-                        cursor_data = state[cursor_key]
-                        editor.cursor_row = cursor_data.get("row", 0)
-                        editor.cursor_col = cursor_data.get("col", 0)
-
-                    # Restore selection state
-                    selection_key = f"__{id}_selection"
-                    if selection_key in state:
-                        selection_data = state[selection_key]
-                        editor.selection_anchor = selection_data.get("anchor")
-            except Exception as e:
-                logger.warning(
-                    f"Failed to restore cursor/selection/scroll for codeeditor '{id}': {e}"
-                )
-
-        # Create ElementNode
-        node = ElementNode(editor, width=width_spec, height=height_spec)
-
-        # Add to layout context
-        context.add_element(node)
+        is_focused = focused_id and id and focused_id == id
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CodeEditor", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("language", language)
         vnode.set_prop("theme", theme)
         vnode.set_prop("filename_hint", filename_hint)
+        vnode.set_prop("width", element_width)
+        vnode.set_prop("height", element_height)
         vnode.set_prop("show_line_numbers", show_line_numbers)
         vnode.set_prop("wrap_mode", wrap_mode)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
-        vnode.set_layout(width=width_spec, height=height_spec)
+
+        # Account for borders in layout size if present
+        layout_width = width_spec
+        layout_height = height_spec
+        if border_style not in (None, "none"):
+            # Add 2 for borders (top+bottom, left+right) if width/height are numeric
+            if isinstance(width_spec, int):
+                layout_width = width_spec + 2
+            if isinstance(height_spec, int):
+                layout_height = height_spec + 2
+
+        vnode.set_layout(width=layout_width, height=layout_height)
         context.add_vnode(vnode)
 
         # Return marker for text interleaving

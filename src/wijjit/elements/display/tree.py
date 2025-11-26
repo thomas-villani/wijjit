@@ -138,6 +138,7 @@ class Tree(ScrollableElement):
         indicator_style: TreeIndicatorStyle = TreeIndicatorStyle.TRIANGLES_LARGE,
         border_style: str = "none",
         title: str | None = None,
+        action: str | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -178,7 +179,7 @@ class Tree(ScrollableElement):
         # on_scroll provided by ScrollableElement
 
         # Template metadata
-        self.action: str | None = None
+        self.action = action
         self.bind: bool = True
 
         # State persistence keys

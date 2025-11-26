@@ -65,7 +65,7 @@ def main_view():
 
     {% vstack spacing=1 %}
       Percentage Only Style:
-      {% progressbar id="download_progress" value=state.download_progress max=100
+      {% progressbar id="download_progress_pct" value=state.download_progress max=100
                      width=70 style="percentage" color="yellow" %}
       {% endprogressbar %}
     {% endvstack %}

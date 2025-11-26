@@ -413,6 +413,9 @@ class ViewRouter:
             # Clear view-specific shortcuts
             self.app.wiring_manager.clear_view_shortcuts()
 
+            # Clear element cache and reconciler state to prevent state bleed between views
+            self.app.renderer.clear_element_cache()
+
         # Switch to new view
         self.current_view = view_name
         self.app.current_view_params = params
@@ -493,6 +496,9 @@ class ViewRouter:
 
             # Clear view-specific shortcuts
             self.app.wiring_manager.clear_view_shortcuts()
+
+            # Clear element cache and reconciler state to prevent state bleed between views
+            self.app.renderer.clear_element_cache()
 
         # Switch to new view
         self.current_view = view_name

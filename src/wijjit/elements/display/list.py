@@ -163,10 +163,13 @@ class ListView(ScrollableElement):
         int
             Content height in rows
         """
+        # Use bounds.height if available (from layout), otherwise fall back to self.height
+        height = self.bounds.height if self.bounds else self.height
+
         if self.border_style != "none":
             # Borders take 2 rows (top and bottom)
-            return max(1, self.height - 2)
-        return self.height
+            return max(1, height - 2)
+        return height
 
     def _get_content_width(self) -> int:
         """Calculate content area width accounting for borders and scrollbar.
@@ -176,7 +179,8 @@ class ListView(ScrollableElement):
         int
             Content width in columns
         """
-        content_width = self.width
+        # Use bounds.width if available (from layout), otherwise fall back to self.width
+        content_width = self.bounds.width if self.bounds else self.width
 
         # Account for borders
         if self.border_style != "none":
@@ -364,6 +368,31 @@ class ListView(ScrollableElement):
             Current scroll offset (0-based)
         """
         return self.scroll_manager.state.scroll_position
+
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Scroll position to preserve across re-renders
+        """
+        return {
+            "scroll_position": (
+                self.scroll_manager.state.scroll_position if self.scroll_manager else 0
+            )
+        }
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        if "scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["scroll_position"])
 
     def can_scroll(self, direction: int) -> bool:
         """Check if the element can scroll in the given direction.

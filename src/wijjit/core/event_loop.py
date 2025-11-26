@@ -266,6 +266,8 @@ class EventLoop:
             if elapsed >= self.app.refresh_interval:
                 # Time to refresh - advance spinner frames
                 self._advance_spinner_frames()
+                # Trigger re-render to show updated animation frames
+                self.app.needs_render = True
 
                 # Check for expired notifications
                 if self.app.notification_manager.check_expired():
@@ -358,6 +360,8 @@ class EventLoop:
             if elapsed >= self.app.refresh_interval:
                 # Time to refresh - advance spinner frames
                 self._advance_spinner_frames()
+                # Trigger re-render to show updated animation frames
+                self.app.needs_render = True
 
                 # Check for expired notifications (async)
                 if await self.app.notification_manager.check_expired_async():

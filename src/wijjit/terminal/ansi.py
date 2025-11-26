@@ -704,28 +704,46 @@ def wrap_text(text: str, width: int) -> list[str]:
         # Decide where to break
         if last_boundary_actual is not None and last_boundary_actual < len(stripped):
             # Found a wrap boundary within width
-            # Use clip_to_width to get the segment with ANSI codes preserved
-            assert (
-                last_boundary_vis is not None
-            )  # Set together with last_boundary_actual
-            segment = clip_to_width(remaining, last_boundary_vis, ellipsis="")
-            segments.append(segment)
-
-            # Calculate actual position in original string for the split
-            # clip_to_width returns the string up to the visible width
-            actual_cut_pos = len(segment)
-
-            # Skip past the segment and remove leading spaces
-            remaining = remaining[actual_cut_pos:].lstrip()
-
+            target_vis_width = last_boundary_vis
         else:
             # No wrap boundary found, force break at width
-            segment = clip_to_width(remaining, width, ellipsis="")
-            segments.append(segment)
+            target_vis_width = width
 
-            # Calculate actual position to cut
-            actual_cut_pos = len(segment)
-            remaining = remaining[actual_cut_pos:]
+        # Extract segment by scanning original string and counting visible chars
+        # This correctly handles ANSI codes without losing characters
+        segment_chars = []
+        visible_count = 0
+        byte_pos = 0
+
+        while byte_pos < len(remaining) and visible_count < target_vis_width:
+            if remaining[byte_pos : byte_pos + 2] == "\x1b[":
+                # Found ANSI escape sequence - include it but don't count
+                end = byte_pos + 2
+                while (
+                    end < len(remaining)
+                    and remaining[end]
+                    not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                ):
+                    end += 1
+                if end < len(remaining):
+                    end += 1
+                segment_chars.append(remaining[byte_pos:end])
+                byte_pos = end
+            else:
+                # Regular character
+                segment_chars.append(remaining[byte_pos])
+                visible_count += 1
+                byte_pos += 1
+
+        segment = "".join(segment_chars)
+        segments.append(segment)
+
+        # Cut at the actual byte position where we stopped
+        if last_boundary_actual is not None and last_boundary_actual < len(stripped):
+            # Remove leading spaces from continuation
+            remaining = remaining[byte_pos:].lstrip()
+        else:
+            remaining = remaining[byte_pos:]
 
     return segments if segments else [""]
 

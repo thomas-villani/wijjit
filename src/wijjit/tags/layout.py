@@ -101,12 +101,79 @@ def interleave_text_and_elements(
     return result
 
 
+def interleave_text_and_vnode_builders(
+    body_output: str,
+    vnode_children: list,
+    raw: bool,
+    layout_context,
+) -> list:
+    """Interleave text content with child VNodeBuilders based on markers.
+
+    Similar to interleave_text_and_elements but works with VNodeBuilders for reconciliation.
+
+    Parameters
+    ----------
+    body_output : str
+        Template body output containing text and element markers
+    vnode_children : list
+        Child VNodeBuilders that were added (in order they were added)
+    raw : bool
+        If True, preserve whitespace in text. If False, dedent/strip
+    layout_context : LayoutContext
+        Layout context for generating unique keys
+
+    Returns
+    -------
+    list
+        New children list with text and elements properly interleaved as VNodeBuilders
+    """
+    import re
+
+    from wijjit.core.vdom import VNodeBuilder
+
+    # Pattern to match element markers (with capture group for digit extraction)
+    marker_pattern = r"\x00ELEM_(\d+)\x00"
+
+    # Pattern for splitting (without capture group to avoid nested groups)
+    split_pattern = r"(\x00ELEM_\d+\x00)"
+
+    # Split body_output on markers, keeping the markers
+    parts = re.split(split_pattern, body_output)
+
+    result = []
+
+    for part in parts:
+        # Check if this is a marker
+        marker_match = re.match(marker_pattern, part)
+        if marker_match:
+            # This is an element marker
+            elem_index = int(marker_match.group(1))
+            if 0 <= elem_index < len(vnode_children):
+                result.append(vnode_children[elem_index])
+        else:
+            # This is text content
+            processed_text = process_body_content(part, raw=raw)
+            if processed_text:
+                # Generate unique key for text element
+                text_key = layout_context.generate_id("text")
+
+                # Create TextElement VNodeBuilder with key
+                text_vnode = VNodeBuilder("TextElement", key=text_key)
+                text_vnode.set_prop("id", text_key)  # Set id prop for reconciler cache
+                text_vnode.set_prop("text", processed_text)
+                text_vnode.set_prop("wrap", not raw)
+                text_vnode.set_layout(width="auto", height="auto")
+                result.append(text_vnode)
+
+    return result
+
+
 def get_element_marker(layout_context: LayoutContext) -> str:
     """Get marker for element that was just added to layout context.
 
-    This should be called after add_element() to get the marker string
+    This should be called after add_vnode() to get the marker string
     for the element that was just added. The marker indicates the element's
-    position in the parent's children list.
+    position in the parent's VNode children list.
 
     Parameters
     ----------
@@ -118,15 +185,10 @@ def get_element_marker(layout_context: LayoutContext) -> str:
     str
         Marker string to return from element extension (e.g., '\x00ELEM_0\x00')
     """
-    if layout_context.stack:
-        parent = layout_context.stack[-1]
-        # Get the actual children list (FrameNode uses content_container.children)
-        if hasattr(parent, "content_container"):
-            children_list = parent.content_container.children
-        else:
-            children_list = parent.children
-        # Get index of element that was just added
-        elem_index = len(children_list) - 1
+    if layout_context.vnode_stack:
+        parent = layout_context.vnode_stack[-1]
+        # Get index of element that was just added to the VNode tree
+        elem_index = len(parent.children) - 1
         return f"\x00ELEM_{elem_index}\x00"
     return ""
 
@@ -163,6 +225,11 @@ class LayoutContext:
         self.vnode_root: Any | None = None  # VNodeBuilder
         self.vnode_stack: list[Any] = []  # list[VNodeBuilder]
         self.element_vnodes: dict[str, Any] = {}  # id -> VNodeBuilder
+
+        # Pre-created elements that can't be recreated from VNode props alone.
+        # Used for complex elements like TabbedPanel that have internal state
+        # (tabs with FrameNode content) that must be preserved.
+        self.pre_created_elements: dict[str, Any] = {}  # id -> Element
 
     def push(self, node: LayoutNode) -> None:
         """Push a container node onto the stack.
@@ -460,7 +527,7 @@ class VStackExtension(Extension):
         self,
         caller: Callable[[], str],
         width: int | str = "fill",
-        height: int | str = "fill",
+        height: int | str = "auto",
         spacing: int = 0,
         padding: int | str | tuple[int, ...] = 0,
         padding_top: int | None = None,
@@ -555,10 +622,10 @@ class VStackExtension(Extension):
 
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("VStack", key=id)
-        vnode.set_prop("spacing", spacing_int)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
+            spacing=spacing_int,  # Include spacing in layout spec
             padding=padding_parsed,
             margin=margin_parsed,
             align_h=align_h,
@@ -570,10 +637,31 @@ class VStackExtension(Extension):
         # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # Interleave text and elements in source order using markers
+        # Interleave text and elements in source order using markers (for LayoutNode)
         vstack.children = interleave_text_and_elements(
             body_output, vstack.children, raw=raw
         )
+
+        # Handle text content for VNodes (for reconciliation)
+        vnode_children = vnode.children
+
+        if not vnode_children and body_output.strip():
+            # No VNode children and has text - create a single TextElement VNode
+            processed_text = process_body_content(body_output, raw=raw)
+            if processed_text:
+                text_key = layout_context.generate_id("text")
+                text_vnode = VNodeBuilder("TextElement", key=text_key)
+                text_vnode.set_prop("id", text_key)
+                text_vnode.set_prop("text", processed_text)
+                text_vnode.set_prop("wrap", not raw)
+                text_vnode.set_layout(width="auto", height="auto")
+                vnode.add_child(text_vnode)
+        elif vnode_children:
+            # Has VNode children - interleave text and VNodes in source order
+            interleaved_vnode_builders = interleave_text_and_vnode_builders(
+                body_output, vnode_children, raw, layout_context
+            )
+            vnode.children = interleaved_vnode_builders
 
         # Pop from stack
         layout_context.pop()
@@ -734,10 +822,10 @@ class HStackExtension(Extension):
 
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("HStack", key=id)
-        vnode.set_prop("spacing", spacing_int)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
+            spacing=spacing_int,  # Include spacing in layout spec
             padding=padding_parsed,
             margin=margin_parsed,
             align_h=align_h,
@@ -749,10 +837,31 @@ class HStackExtension(Extension):
         # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # Interleave text and elements in source order using markers
+        # Interleave text and elements in source order using markers (for LayoutNode)
         hstack.children = interleave_text_and_elements(
             body_output, hstack.children, raw=raw
         )
+
+        # Handle text content for VNodes (for reconciliation)
+        vnode_children = vnode.children
+
+        if not vnode_children and body_output.strip():
+            # No VNode children and has text - create a single TextElement VNode
+            processed_text = process_body_content(body_output, raw=raw)
+            if processed_text:
+                text_key = layout_context.generate_id("text")
+                text_vnode = VNodeBuilder("TextElement", key=text_key)
+                text_vnode.set_prop("id", text_key)
+                text_vnode.set_prop("text", processed_text)
+                text_vnode.set_prop("wrap", not raw)
+                text_vnode.set_layout(width="auto", height="auto")
+                vnode.add_child(text_vnode)
+        elif vnode_children:
+            # Has VNode children - interleave text and VNodes in source order
+            interleaved_vnode_builders = interleave_text_and_vnode_builders(
+                body_output, vnode_children, raw, layout_context
+            )
+            vnode.children = interleaved_vnode_builders
 
         # Pop from stack
         layout_context.pop()
@@ -1098,7 +1207,7 @@ class FrameExtension(Extension):
         # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # Handle text content in frame
+        # Handle text content in frame (for layout nodes)
         if not frame_node.content_container.children and body_output.strip():
             # No children and has text - set content directly on Frame for overflow_x handling
             processed_text = process_body_content(body_output, raw=raw)
@@ -1109,6 +1218,32 @@ class FrameExtension(Extension):
             frame_node.content_container.children = interleave_text_and_elements(
                 body_output, frame_node.content_container.children, raw=raw
             )
+
+        # Handle text content for VNodes (for reconciliation)
+        # Get VNode children that were added during body rendering
+        vnode_children = vnode.children
+
+        if not vnode_children and body_output.strip():
+            # No VNode children and has text - create a single TextElement VNode
+            processed_text = process_body_content(body_output, raw=raw)
+            if processed_text:
+                # Generate unique key for text element
+                text_key = layout_context.generate_id("text")
+
+                text_vnode = VNodeBuilder("TextElement", key=text_key)
+                text_vnode.set_prop("id", text_key)  # Set id prop for reconciler cache
+                text_vnode.set_prop("text", processed_text)
+                text_vnode.set_prop("wrap", not raw)
+                text_vnode.set_layout(width="auto", height="auto")
+                vnode.add_child(text_vnode)  # Add the builder directly
+        elif vnode_children:
+            # Has VNode children - interleave text and VNodes in source order
+            # Pass layout_context for key generation
+            interleaved_vnode_builders = interleave_text_and_vnode_builders(
+                body_output, vnode_children, raw, layout_context
+            )
+            # Replace VNode children with interleaved list
+            vnode.children = interleaved_vnode_builders
 
         # Pop from stack
         layout_context.pop_vnode()

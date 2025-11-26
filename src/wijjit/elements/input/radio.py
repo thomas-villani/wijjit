@@ -806,3 +806,66 @@ class RadioGroup(Element):
         if has_border and chars:
             bottom_border = chars["bl"] + chars["h"] * self.width + chars["br"]
             ctx.write_text(0, y_pos, bottom_border, border_style)
+
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Highlight state that should survive re-renders
+        """
+        return {
+            "highlighted_index": self.highlighted_index,
+        }
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State from get_ephemeral_state()
+        """
+        # Restore highlight
+        if "highlighted_index" in state:
+            max_index = len(self.options) - 1 if self.options else 0
+            self.highlighted_index = min(state["highlighted_index"], max_index)
+
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size of the radio group.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) based on options and orientation
+
+        Notes
+        -----
+        For vertical orientation: height = number of options (+ 2 for borders)
+        For horizontal orientation: height = 1 (+ 2 for borders)
+        Width includes border characters if borders are enabled.
+        """
+        # Calculate content height
+        if self.orientation == "vertical":
+            content_height = len(self.options) if self.options else 1
+        else:
+            content_height = 1
+
+        # Calculate content width
+        if self.orientation == "horizontal":
+            # Sum of all option widths plus spacing
+            total_width = 0
+            for opt in self.options:
+                # Circle (1-3 chars) + space + label
+                circle_width = 1 if supports_unicode() else 3
+                total_width += circle_width + 1 + len(opt["label"]) + 1
+            content_width = max(total_width, self.width)
+        else:
+            content_width = self.width
+
+        # Add border space if borders enabled
+        if self.border_style is not None:
+            return (content_width + 2, content_height + 2)
+        else:
+            return (content_width, content_height)

@@ -13,6 +13,7 @@ from wijjit.elements.display.link import Link
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
+from wijjit.elements.input.code_editor import CodeEditor
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
 from wijjit.elements.input.text import TextArea, TextInput
@@ -129,6 +130,10 @@ class ElementWiringManager:
         if isinstance(elem, TextArea):
             self._wire_textarea(elem, state)
 
+        # Wire up CodeEditor render callback (CodeEditor extends TextArea)
+        if isinstance(elem, CodeEditor):
+            self._wire_code_editor(elem)
+
         # Wire up Select callbacks
         if isinstance(elem, Select):
             self._wire_select(elem, state)
@@ -218,6 +223,27 @@ class ElementWiringManager:
                 state[eid] = new_val
 
             elem.on_change = on_change_handler
+
+    def _wire_code_editor(self, elem: CodeEditor) -> None:
+        """Wire CodeEditor render callback.
+
+        Parameters
+        ----------
+        elem : CodeEditor
+            CodeEditor element to wire
+
+        Notes
+        -----
+        This wires the _request_render callback so that after debounced
+        retokenization completes, the app triggers a re-render to display
+        the updated syntax highlighting.
+        """
+
+        # Wire up render request callback for syntax highlighting updates
+        def request_render():
+            self.app.needs_render = True
+
+        elem._request_render = request_render
 
     def _wire_select(self, elem: Select, state: State) -> None:
         """Wire Select callbacks.

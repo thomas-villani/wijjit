@@ -100,6 +100,9 @@ class Reconciler:
     def __init__(self, registry: ElementRegistry) -> None:
         self.registry = registry
         self._element_cache: dict[str, Element] = {}
+        self._all_elements: list[Element] = (
+            []
+        )  # Track ALL created elements, not just cached
 
     def reconcile(
         self,
@@ -122,6 +125,9 @@ class Reconciler:
             - root_element: Root Element of the tree (None if new_tree is None)
             - flat_element_list: Flattened list of all Elements for event handling
         """
+        # Reset element collection for this reconciliation pass
+        self._all_elements = []
+
         # Phase 1: Diff the trees
         diff = self._diff(old_tree, new_tree)
 
@@ -129,7 +135,9 @@ class Reconciler:
         root = self._patch(diff)
 
         # Phase 3: Collect all elements into flat list
-        elements = self._collect_elements(root)
+        # Return ALL elements that were created/updated, not just cached ones
+        # This ensures elements without explicit IDs are still tracked
+        elements = self._all_elements
 
         return root, elements
 
@@ -300,6 +308,8 @@ class Reconciler:
                     diff.element = element
                     # Still need to recursively patch children
                     self._patch_children(element, diff.children_diffs)
+                    # Track unchanged element in current reconciliation pass
+                    self._all_elements.append(element)
                     return element
             return None
 
@@ -348,7 +358,17 @@ class Reconciler:
 
         # Cache by key if available
         if vnode.key:
+            # Warn about duplicate keys (indicates a bug in the template)
+            if vnode.key in self._element_cache:
+                logger.warning(
+                    f"Duplicate element key '{vnode.key}' detected! "
+                    f"This will cause the previous element with this key to be replaced. "
+                    f"Element type: {vnode.type}"
+                )
             self._element_cache[vnode.key] = element
+
+        # Track ALL created elements (not just cached ones)
+        self._all_elements.append(element)
 
         # Call mount lifecycle
         if hasattr(element, "on_mount"):
@@ -451,6 +471,9 @@ class Reconciler:
 
         # Patch children
         self._patch_children(element, diff.children_diffs)
+
+        # Track this updated element in the current reconciliation pass
+        self._all_elements.append(element)
 
         diff.element = element
         return element
