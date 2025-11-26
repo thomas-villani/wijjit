@@ -274,9 +274,6 @@ class DefaultConfig:
     #: https://no-color.org/
     NO_COLOR = os.environ.get("NO_COLOR") is not None
 
-    #: Force color output even if terminal doesn't appear to support it
-    FORCE_COLOR = False
-
     #: Default theme to use: 'default', 'dark', 'light', or custom theme name
     DEFAULT_THEME = "default"
 
@@ -311,9 +308,6 @@ class DefaultConfig:
     # ============================================================
     # RENDERING
     # ============================================================
-
-    #: Use diff-based rendering (only update changed cells)
-    USE_DIFF_RENDERING = True
 
     #: Minimum time between renders in milliseconds (throttling)
     RENDER_THROTTLE_MS = 0
@@ -352,6 +346,13 @@ class DefaultConfig:
 
     #: Log format string (Python logging format)
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    #: Suppress Wijjit's internal logging configuration
+    #: When True, Wijjit will NOT configure its own loggers, giving the host
+    #: application full control over logging. Set this if you have pre-configured
+    #: logging handlers for the 'wijjit' namespace and don't want Wijjit to
+    #: override them.
+    SUPPRESS_INTERNAL_LOGGING_CONFIG = False
 
     # ============================================================
     # DEVELOPMENT & DEBUGGING
@@ -403,16 +404,3 @@ class DefaultConfig:
 
     #: Use high contrast colors
     HIGH_CONTRAST = False
-
-    # ============================================================
-    # TESTING & CI
-    # ============================================================
-
-    #: Testing mode (may affect behavior for test stability)
-    TESTING = False
-
-    #: CI/CD mode (implies NO_COLOR, disables animations, etc.)
-    CI = os.environ.get("CI") is not None
-
-    #: Headless mode for automated testing (no terminal required)
-    HEADLESS = False

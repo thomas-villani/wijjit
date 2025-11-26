@@ -648,7 +648,12 @@ class TestRun:
 
 
 class TestKeyHandlers:
-    """Tests for on_key decorator."""
+    """Tests for on_key decorator.
+
+    Note: on_key is now implemented as sugar over the event system.
+    It registers handlers with handler_registry and tracks them in
+    _key_handler_registrations for potential unregistration.
+    """
 
     def test_on_key_decorator(self):
         """Test registering a key handler with decorator."""
@@ -659,9 +664,15 @@ class TestKeyHandlers:
         def handle_d(event):
             called.append(event)
 
-        # Verify handler was registered
-        assert "d" in app._key_handlers
-        assert app._key_handlers["d"] == handle_d
+        # Verify handler was registered in the tracking dict
+        assert "d" in app._key_handler_registrations
+
+        # Verify it was also registered with the handler_registry
+        key_handlers = [
+            h for h in app.handler_registry.handlers if h.event_type == EventType.KEY
+        ]
+        # Should have at least 2 KEY handlers: Tab handler + our "d" handler
+        assert len(key_handlers) >= 2
 
     def test_on_key_normalizes_case(self):
         """Test that key names are normalized to lowercase."""
@@ -672,8 +683,8 @@ class TestKeyHandlers:
             pass
 
         # Should be stored as lowercase
-        assert "d" in app._key_handlers
-        assert "D" not in app._key_handlers
+        assert "d" in app._key_handler_registrations
+        assert "D" not in app._key_handler_registrations
 
     def test_multiple_key_handlers(self):
         """Test registering multiple key handlers."""
@@ -691,7 +702,7 @@ class TestKeyHandlers:
         def handle_enter(event):
             pass
 
-        assert "d" in app._key_handlers
-        assert "q" in app._key_handlers
-        assert "enter" in app._key_handlers
-        assert len(app._key_handlers) == 3
+        assert "d" in app._key_handler_registrations
+        assert "q" in app._key_handler_registrations
+        assert "enter" in app._key_handler_registrations
+        assert len(app._key_handler_registrations) == 3

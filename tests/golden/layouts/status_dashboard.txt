@@ -1,4 +1,4 @@
-┌────── Environment ───────┐ ┌────────── Metrics ──────────┐
+┌─ Environment ────────────┐ ┌─ Metrics ───────────────────┐
 │ ENV: Production          │ │ Requests: 1024/s            │
 │ Version: 1.2.3           │ │ Errors: 0.4%                │
 │ Region: us-east-1        │ │ Latency: 120ms p95          │

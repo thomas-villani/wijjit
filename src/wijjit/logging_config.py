@@ -5,9 +5,38 @@ This module provides centralized logging configuration for Wijjit applications.
 Since Wijjit apps are terminal-based, logging to stderr can interfere with the UI.
 This module configures logging to files instead.
 
+Logging Behavior
+----------------
+Wijjit only configures its own 'wijjit.*' loggers and respects pre-existing
+handlers unless LOG_FILE is explicitly set. The behavior is:
+
+1. If SUPPRESS_INTERNAL_LOGGING_CONFIG=True in config, Wijjit does NOT
+   configure logging at all, giving the host application full control.
+
+2. If the 'wijjit' logger already has handlers (not NullHandler), Wijjit
+   respects that configuration unless LOG_FILE is explicitly set.
+
+3. If LOG_FILE is set, Wijjit will configure file logging regardless of
+   existing handlers.
+
+For Advanced Users
+------------------
+If you want full control over logging for the 'wijjit' namespace:
+
+    import logging
+    from wijjit import Wijjit
+
+    # Configure wijjit logger your way
+    wijjit_logger = logging.getLogger('wijjit')
+    wijjit_logger.addHandler(your_handler)
+    wijjit_logger.setLevel(logging.DEBUG)
+
+    # Tell Wijjit not to touch logging config
+    app = Wijjit(SUPPRESS_INTERNAL_LOGGING_CONFIG=True)
+
 Usage
 -----
-Consumers should explicitly call configure_logging() or configure_from_environment()
+Consumers can explicitly call configure_logging() or configure_from_environment()
 to set up logging. Logging is not configured automatically on import.
 
 Examples

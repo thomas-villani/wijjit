@@ -5,11 +5,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.terminal.ansi import (
-    ANSIColor,
-    ANSIStyle,
-    clip_to_width,
     supports_unicode,
-    visible_length,
 )
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -510,114 +506,6 @@ class RadioGroup(Element):
 
         return False
 
-    def render(self) -> str:
-        """Render the radio group (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered radio group with optional borders
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        chars = BORDER_CHARS[self.border_style] if self.border_style else None
-
-        lines = []
-
-        # Render radio buttons
-        for i, opt in enumerate(self.options):
-            is_selected = i == self.selected_index
-            is_highlighted = i == self.highlighted_index
-
-            # Determine radio characters
-            if supports_unicode():
-                circle = "\u25c9" if is_selected else "\u25cb"
-            else:
-                circle = "(*)" if is_selected else "( )"
-
-            # Build radio line
-            radio_text = f"{circle} {opt['label']}"
-
-            # Apply highlighting
-            if is_highlighted and self.focused:
-                radio_text = (
-                    f"{ANSIStyle.RESET}{ANSIStyle.REVERSE}{radio_text}{ANSIStyle.RESET}"
-                )
-            else:
-                radio_text = f"{ANSIStyle.RESET}{radio_text}{ANSIStyle.RESET}"
-
-            # Pad to width
-            radio_len = visible_length(radio_text)
-            if radio_len < self.width:
-                radio_text += " " * (self.width - radio_len)
-            elif radio_len > self.width:
-                radio_text = clip_to_width(radio_text, self.width, ellipsis="...")
-
-            if self.orientation == "vertical":
-                lines.append(radio_text)
-            else:  # horizontal - join with space
-                if not lines:
-                    lines.append(radio_text)
-                else:
-                    lines[0] += " " + radio_text
-
-        # Apply borders if enabled
-        if self.border_style is not None and chars is not None:
-            # Choose border color based on focus
-            if self.focused:
-                border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}"
-                reset = ANSIStyle.RESET
-            else:
-                border_color = ""
-                reset = ""
-
-            # Calculate content width
-            if self.orientation == "horizontal":
-                content_width = visible_length(lines[0]) if lines else self.width
-            else:
-                content_width = self.width
-
-            # Top border with optional title
-            if self.title:
-                title_text = f" {self.title} "
-                title_len = visible_length(title_text)
-                remaining = content_width - title_len
-
-                if remaining >= 0:
-                    left_len = 1
-                    right_len = remaining - left_len
-                    top_border = (
-                        f"{border_color}{chars['tl']}{chars['h'] * left_len}"
-                        f"{reset}{title_text}{border_color}"
-                        f"{chars['h'] * right_len}{chars['tr']}{reset}"
-                    )
-                else:
-                    title_text = clip_to_width(
-                        title_text, content_width, ellipsis="..."
-                    )
-                    top_border = f"{border_color}{chars['tl']}{reset}{title_text}{border_color}{chars['tr']}{reset}"
-            else:
-                top_border = f"{border_color}{chars['tl']}{chars['h'] * content_width}{chars['tr']}{reset}"
-
-            # Wrap content lines with borders
-            bordered_lines = []
-            for line in lines:
-                bordered_lines.append(
-                    f"{border_color}{chars['v']}{reset}{line}{border_color}{chars['v']}{reset}"
-                )
-
-            # Bottom border
-            bottom_border = f"{border_color}{chars['bl']}{chars['h'] * content_width}{chars['br']}{reset}"
-
-            return f"{top_border}\n" + "\n".join(bordered_lines) + f"\n{bottom_border}"
-        else:
-            # No borders
-            return "\n".join(lines)
-
     def render_to(self, ctx: "PaintContext") -> None:
         """Render radio group using cell-based rendering.
 
@@ -625,11 +513,6 @@ class RadioGroup(Element):
         ----------
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
-
-        Notes
-        -----
-        This is the new cell-based rendering method. The legacy render()
-        method is kept for backward compatibility.
 
         Theme Styles
         ------------

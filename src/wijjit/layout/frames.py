@@ -35,8 +35,8 @@ class BorderStyle(Enum):
     ROUNDED = "rounded"
 
 
-# Border character sets for each style
-BORDER_CHARS = {
+# Unicode border character sets for each style
+BORDER_CHARS_UNICODE = {
     BorderStyle.SINGLE: {
         "tl": "┌",  # top-left
         "tr": "┐",  # top-right
@@ -62,6 +62,73 @@ BORDER_CHARS = {
         "v": "│",
     },
 }
+
+# ASCII border character sets (fallback when Unicode not supported)
+BORDER_CHARS_ASCII = {
+    BorderStyle.SINGLE: {
+        "tl": "+",
+        "tr": "+",
+        "bl": "+",
+        "br": "+",
+        "h": "-",
+        "v": "|",
+    },
+    BorderStyle.DOUBLE: {
+        "tl": "+",
+        "tr": "+",
+        "bl": "+",
+        "br": "+",
+        "h": "=",
+        "v": "#",
+    },
+    BorderStyle.ROUNDED: {
+        # Rounded has no ASCII equivalent, use same as single
+        "tl": "+",
+        "tr": "+",
+        "bl": "+",
+        "br": "+",
+        "h": "-",
+        "v": "|",
+    },
+}
+
+# Legacy alias for backward compatibility (deprecated)
+BORDER_CHARS = BORDER_CHARS_UNICODE
+
+
+def get_border_chars(style: BorderStyle) -> dict[str, str]:
+    """Get border characters for a style, respecting Unicode support config.
+
+    This function checks the UNICODE_SUPPORT configuration via supports_unicode()
+    and returns either Unicode or ASCII border characters accordingly.
+
+    Parameters
+    ----------
+    style : BorderStyle
+        The border style to get characters for
+
+    Returns
+    -------
+    dict[str, str]
+        Dictionary with keys: tl, tr, bl, br, h, v
+
+    Notes
+    -----
+    When UNICODE_SUPPORT is set to 'disable' or Unicode is not detected,
+    ASCII fallback characters are used instead of Unicode box-drawing chars.
+
+    Examples
+    --------
+    >>> chars = get_border_chars(BorderStyle.SINGLE)
+    >>> # Returns Unicode chars if supported, ASCII otherwise
+    >>> chars["tl"]  # '+' or '┌' depending on support
+    """
+    from wijjit.terminal.ansi import supports_unicode
+
+    if supports_unicode():
+        return BORDER_CHARS_UNICODE[style]
+    else:
+        return BORDER_CHARS_ASCII[style]
 
 
 @dataclass
@@ -560,7 +627,7 @@ class Frame(ScrollableElement):
             Rendered frame
         """
         lines = []
-        chars = BORDER_CHARS[self.style.border]
+        chars = get_border_chars(self.style.border)
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -642,7 +709,7 @@ class Frame(ScrollableElement):
             return self._render_static()
 
         lines = []
-        chars = BORDER_CHARS[self.style.border]
+        chars = get_border_chars(self.style.border)
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -726,7 +793,7 @@ class Frame(ScrollableElement):
             return ""
 
         lines = []
-        chars = BORDER_CHARS[self.style.border]
+        chars = get_border_chars(self.style.border)
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -1273,8 +1340,8 @@ class Frame(ScrollableElement):
             content_style = ctx.style_resolver.resolve_style(self, "frame")
             border_style = ctx.style_resolver.resolve_style(self, "frame.border")
 
-        # Get border characters
-        chars = BORDER_CHARS[self.style.border]
+        # Get border characters (respects UNICODE_SUPPORT config)
+        chars = get_border_chars(self.style.border)
         border_attrs = border_style.to_cell_attrs()
         content_attrs = content_style.to_cell_attrs()
 

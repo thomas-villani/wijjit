@@ -171,11 +171,11 @@ class TestOnboardingFlow:
         assert name_input is not None and email_input is not None
         assert profile_next is not None
 
-        simulate_typing(name_input, "Avery Admin")
+        simulate_typing(name_input, "Avery Admin", app)
         assert app.state["full_name"] == "Avery Admin"
 
         simulate_tab_navigation(app)  # move focus forward
-        simulate_typing(email_input, "avery@example.com")
+        simulate_typing(email_input, "avery@example.com", app)
         assert app.state["email"] == "avery@example.com"
 
         simulate_tab_navigation(app)  # move to button
@@ -192,7 +192,7 @@ class TestOnboardingFlow:
         assert team_input is not None and updates_toggle is not None
         assert preferences_next is not None
 
-        simulate_typing(team_input, "12")
+        simulate_typing(team_input, "12", app)
         assert app.state["team_size"] == "12"
 
         simulate_key_press(updates_toggle, Keys.SPACE)

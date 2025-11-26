@@ -8,8 +8,6 @@ from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.terminal.ansi import (
-    ANSIColor,
-    ANSIStyle,
     clip_to_width,
     is_wrap_boundary,
     strip_ansi,
@@ -2627,7 +2625,6 @@ class TextArea(Element):
         border_style : Style
             Style for border characters
         """
-        from wijjit.layout.frames import BORDER_CHARS
         from wijjit.terminal.cell import Cell
 
         # Get border characters
@@ -3083,178 +3080,6 @@ class TextArea(Element):
             result += suffix
 
         return result
-
-    def render(self) -> str:
-        """Render the text area (LEGACY ANSI rendering).
-
-        Returns
-        -------
-        str
-            Rendered multiline text area
-
-        Notes
-        -----
-        This is the legacy ANSI string-based rendering method.
-        New code should use render_to() for cell-based rendering.
-        Kept for backward compatibility.
-
-        Renders visible portion of content based on scroll position.
-        Optionally shows scrollbar if content exceeds viewport.
-        Shows cursor at current position when focused.
-        Applies line wrapping according to wrap_mode setting.
-        Renders with box-drawing borders if border_style is set.
-        """
-        # Get border characters if borders are enabled
-        chars = BORDER_CHARS[self.border_style] if self.border_style else None
-
-        # Determine content width (reserve space for scrollbar if shown)
-        content_width = self.width
-        if self.show_scrollbar and self.scroll_manager.state.is_scrollable:
-            content_width -= 1  # Reserve 1 column for scrollbar
-
-        # Get cursor visual position for rendering
-        cursor_visual_row, cursor_visual_col = self._actual_to_visual_position(
-            self.cursor_row, self.cursor_col
-        )
-
-        # Get visible range (in visual lines for wrapping modes)
-        visible_start, visible_end = self.scroll_manager.get_visible_range()
-
-        if self.wrap_mode == "none":
-            # Original rendering logic for no wrapping
-            visible_lines = self.lines[visible_start:visible_end]
-
-            # Pad with empty lines if needed to fill viewport
-            while len(visible_lines) < self.height:
-                visible_lines.append("")
-
-            # Truncate or pad each line to content width, and render cursor if visible
-            rendered_lines = []
-            for i, line in enumerate(visible_lines[: self.height]):
-                # Calculate actual line index in content
-                actual_line_idx = visible_start + i
-
-                if len(line) > content_width:
-                    # Truncate long lines
-                    display_line = line[:content_width]
-                else:
-                    # Pad short lines
-                    display_line = line.ljust(content_width)
-
-                # Apply selection highlighting
-                display_line = self._apply_selection_to_line_ansi(
-                    display_line, actual_line_idx
-                )
-
-                # Add cursor if this is the cursor line and textarea is focused
-                if self.focused and actual_line_idx == self.cursor_row:
-                    display_line = self._render_cursor_in_line(
-                        display_line, self.cursor_col
-                    )
-
-                rendered_lines.append(display_line)
-
-        else:
-            # Rendering with wrapping enabled
-            rendered_lines = []
-            visual_line_idx = 0  # Tracks which visual line we're rendering
-
-            # Iterate through actual lines and render wrapped segments
-            for actual_row, line in enumerate(self.lines):
-                wrapped_segments = wrap_text(line, content_width)
-
-                # Track column offset in the actual line for each segment
-                col_offset = 0
-
-                for _seg_idx, segment in enumerate(wrapped_segments):
-                    # Check if this visual line is in the visible range
-                    if visible_start <= visual_line_idx < visible_end:
-                        # Determine visible length for padding
-                        seg_len = visible_length(segment)
-
-                        if seg_len > content_width:
-                            # Clip to width (shouldn't happen, but safety check)
-                            display_line = clip_to_width(
-                                segment, content_width, ellipsis=""
-                            )
-                        else:
-                            # Pad to content width
-                            display_line = segment + " " * (content_width - seg_len)
-
-                        # Apply selection highlighting (pass column offset for wrapped segments)
-                        display_line = self._apply_selection_to_line_ansi(
-                            display_line, actual_row, start_col=col_offset
-                        )
-
-                        # Add cursor if this is the cursor's visual line and textarea is focused
-                        if self.focused and visual_line_idx == cursor_visual_row:
-                            display_line = self._render_cursor_in_line(
-                                display_line, cursor_visual_col
-                            )
-
-                        rendered_lines.append(display_line)
-
-                    # Update column offset for next segment
-                    col_offset += visible_length(segment)
-
-                    visual_line_idx += 1
-
-                    # Stop if we've filled the viewport
-                    if len(rendered_lines) >= self.height:
-                        break
-
-                # Stop if we've filled the viewport
-                if len(rendered_lines) >= self.height:
-                    break
-
-            # Pad with empty lines if needed to fill viewport
-            while len(rendered_lines) < self.height:
-                empty_line = " " * content_width
-                rendered_lines.append(empty_line)
-
-        # Add scrollbar if needed
-        if self.show_scrollbar and self.scroll_manager.state.is_scrollable:
-            scrollbar_chars = render_vertical_scrollbar(
-                self.scroll_manager.state, self.height
-            )
-
-            # Append scrollbar to each line
-            for i in range(len(rendered_lines)):
-                rendered_lines[i] += scrollbar_chars[i]
-
-        # Apply borders if enabled
-        if self.border_style is not None and chars is not None:
-            # Calculate total width (content + scrollbar if shown)
-            total_width = content_width
-            if self.show_scrollbar and self.scroll_manager.state.is_scrollable:
-                total_width += 1  # Add back scrollbar width
-
-            # Choose border color based on focus
-            if self.focused:
-                border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}"
-                reset = ANSIStyle.RESET
-            else:
-                border_color = ""
-                reset = ""
-
-            # Top border
-            top_border = f"{border_color}{chars['tl']}{chars['h'] * total_width}{chars['tr']}{reset}"
-
-            # Wrap each content line with left and right borders
-            bordered_lines = []
-            for line in rendered_lines:
-                bordered_lines.append(
-                    f"{border_color}{chars['v']}{reset}{line}{border_color}{chars['v']}{reset}"
-                )
-
-            # Bottom border
-            bottom_border = f"{border_color}{chars['bl']}{chars['h'] * total_width}{chars['br']}{reset}"
-
-            # Combine all parts
-            return f"{top_border}\n" + "\n".join(bordered_lines) + f"\n{bottom_border}"
-        else:
-            # No borders - plain rendering
-            return "\n".join(rendered_lines)
 
     def on_update(self, changed_props: dict) -> None:
         """Handle prop updates during reconciliation.

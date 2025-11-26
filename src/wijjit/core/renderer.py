@@ -86,7 +86,7 @@ from wijjit.tags.menu import (
     DropdownExtension,
     MenuItemExtension,
 )
-from wijjit.terminal.ansi import clip_to_width, visible_length
+from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 # Get logger for this module
@@ -400,8 +400,9 @@ class Renderer:
         # Clean up globals
         self.env.globals.pop("_wijjit_layout_context", None)
 
-        # Check if we have a layout tree
-        if layout_ctx.root is None:
+        # Check if we have a VNode tree (layout tags were used)
+        # Use vnode_root since it's the canonical source for VNode-based rendering
+        if layout_ctx.vnode_root is None:
             # No layout tags used, return the already-rendered output
             # This avoids double-rendering templates without layout tags
             return rendered_output, [], layout_ctx
@@ -439,8 +440,10 @@ class Renderer:
 
             # Build LayoutNode tree from VNode tree + reconciled elements
             # This replaces the old approach of swapping elements into template-created tree
+            # Extract state dict from context for scroll/tab state persistence
+            state_dict = context.get("state") if context else None
             layout_ctx.root = self._build_layout_tree_from_vnode(
-                new_tree, reconciled_map, layout_ctx.pre_created_elements
+                new_tree, reconciled_map, state_dict
             )
             logger.debug("Built layout tree from VNode + reconciled elements")
 
@@ -587,12 +590,9 @@ class Renderer:
         self,
         vnode: VNode,
         reconciled_map: dict[str, Element],
-        pre_created_elements: dict[str, Any] | None = None,
+        state_dict: dict[str, Any] | None = None,
     ) -> LayoutNode:
         """Build LayoutNode tree from VNode tree and reconciled elements.
-
-        This is the future approach (Step 2+) where we build the layout tree
-        directly from reconciled elements, replacing template-created Elements.
 
         Parameters
         ----------
@@ -600,6 +600,8 @@ class Renderer:
             VNode tree with layout specifications
         reconciled_map : dict
             Map of element key to reconciled element
+        state_dict : dict, optional
+            Application state dict for scroll/tab state persistence
 
         Returns
         -------
@@ -634,7 +636,7 @@ class Renderer:
             )
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
-                    child_vnode, reconciled_map, pre_created_elements
+                    child_vnode, reconciled_map, state_dict
                 )
                 container.add_child(child_node)
             return container
@@ -653,7 +655,7 @@ class Renderer:
             )
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
-                    child_vnode, reconciled_map, pre_created_elements
+                    child_vnode, reconciled_map, state_dict
                 )
                 container.add_child(child_node)
             return container
@@ -678,7 +680,7 @@ class Renderer:
                 props = vnode.props_dict()
 
                 # Import here to avoid circular dependency
-                from wijjit.layout.frames import Frame, FrameStyle
+                from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 
                 # Build FrameStyle from props
                 border = props.get("border", BorderStyle.SINGLE)
@@ -714,7 +716,7 @@ class Renderer:
                 logger.debug(f"Created new Frame {vnode.key}")
 
             # Create FrameNode with content container
-            from wijjit.layout.engine import VStack
+            from wijjit.layout.engine import FrameNode, VStack
 
             # FrameNode constructor expects individual parameters, not layout_spec
             frame_node = FrameNode(
@@ -738,7 +740,7 @@ class Renderer:
 
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
-                    child_vnode, reconciled_map, pre_created_elements
+                    child_vnode, reconciled_map, state_dict
                 )
                 content_container.add_child(child_node)
 
@@ -746,37 +748,166 @@ class Renderer:
             return frame_node
 
         elif vnode.type == "TabbedPanel":
-            # TabbedPanel is a complex element with tabs containing FrameNodes.
-            # It cannot be recreated from VNode props alone - we must use the
-            # pre-created element from the template extension.
-            from wijjit.layout.engine import ElementNode
+            # Build TabbedPanel from VNode tree with TabContent children
+            from wijjit.elements.base import TextElement
+            from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition
+            from wijjit.layout.engine import ElementNode, FrameNode, VStack
+            from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 
-            element = None
-            if pre_created_elements and vnode.key:
-                element = pre_created_elements.get(vnode.key)
-                logger.debug(f"Using pre-created TabbedPanel: {vnode.key}")
-
-            if element is None:
-                # Fallback: check reconciled_map (shouldn't happen normally)
-                if vnode.key and vnode.key in reconciled_map:
-                    element = reconciled_map[vnode.key]
-                else:
-                    logger.warning(
-                        f"TabbedPanel {vnode.key} not found in pre_created_elements "
-                        f"or reconciled_map. Creating placeholder."
-                    )
-                    from wijjit.elements.base import TextElement
-
-                    element = TextElement(
-                        id=vnode.key, text=f"[Missing TabbedPanel: {vnode.key}]"
-                    )
-
-            # Get layout dimensions
+            # Get props from VNode
+            props = vnode.props_dict()
             layout_dict = vnode.layout_spec_dict()
-            width = layout_dict.get("width", "auto")
-            height = layout_dict.get("height", "auto")
 
-            return ElementNode(element, width=width, height=height)
+            # Parse dimensions
+            width_spec = layout_dict.get("width", 60)
+            height_spec = layout_dict.get("height", 20)
+
+            # Convert to numeric for element creation
+            if isinstance(width_spec, str) and not str(width_spec).isdigit():
+                element_width = 60
+            else:
+                element_width = int(width_spec)
+
+            if isinstance(height_spec, str) and not str(height_spec).isdigit():
+                element_height = 20
+            else:
+                element_height = int(height_spec)
+
+            # Get other props
+            tab_pos = props.get("tab_position", TabPosition.TOP)
+            border_style = props.get("border_style", "single")
+            active_tab_index = props.get("active_tab_index", 0)
+            bind = props.get("bind", True)
+            classes = props.get("classes")
+            active_tab_state_key = props.get("active_tab_state_key")
+            focused = props.get("focused", False)
+
+            # Convert border_style string to enum
+            border_map = {
+                "single": BorderStyle.SINGLE,
+                "double": BorderStyle.DOUBLE,
+                "rounded": BorderStyle.ROUNDED,
+            }
+            border_style_enum = border_map.get(border_style, BorderStyle.SINGLE)
+
+            # Check if we have a reconciled TabbedPanel with same key (for state preservation)
+            if vnode.key and vnode.key in reconciled_map:
+                # Reuse reconciled TabbedPanel element (preserves active_tab_index state)
+                tabbed_panel = reconciled_map[vnode.key]
+                # Update dimensions if changed
+                tabbed_panel.width = element_width
+                tabbed_panel.height = element_height
+                tabbed_panel.tab_position = tab_pos
+                tabbed_panel.border_style = border_style_enum
+                # Clear existing tabs - we'll rebuild them from VNode children
+                tabbed_panel.tabs.clear()
+                logger.debug(f"Reused reconciled TabbedPanel {vnode.key}")
+            else:
+                # Create new TabbedPanel element
+                tabbed_panel = TabbedPanel(
+                    id=vnode.key,
+                    classes=classes,
+                    tab_position=tab_pos,
+                    width=element_width,
+                    height=element_height,
+                    border_style=border_style,
+                    active_tab_index=active_tab_index,
+                )
+                tabbed_panel.bind = bind
+                tabbed_panel.focused = focused
+
+                if active_tab_state_key:
+                    tabbed_panel.active_tab_state_key = active_tab_state_key
+
+                # Add to reconciled_map so it can be found for event handling
+                if vnode.key:
+                    reconciled_map[vnode.key] = tabbed_panel
+                    logger.debug(
+                        f"Created TabbedPanel {vnode.key} and added to reconciled_map"
+                    )
+
+            # Wire up state_dict for tab state and scroll persistence
+            if state_dict is not None:
+                tabbed_panel._state_dict = state_dict
+
+            # Calculate content area dimensions
+            if tab_pos in (TabPosition.TOP, TabPosition.BOTTOM):
+                frame_width = element_width - 2
+                frame_height = element_height - 5
+            else:
+                # For left/right tabs, estimate tab area width from labels
+                tab_children = [c for c in vnode.children if c.type == "TabContent"]
+                max_label_width = max(
+                    (len(c.props_dict().get("label", "Tab")) for c in tab_children),
+                    default=3,
+                )
+                tab_area_width = max_label_width + 4
+                frame_width = element_width - tab_area_width - 1
+                frame_height = element_height - 2
+
+            # Process each TabContent child to create tabs
+            for tab_index, tab_vnode in enumerate(vnode.children):
+                if tab_vnode.type != "TabContent":
+                    continue
+
+                tab_props = tab_vnode.props_dict()
+                label = tab_props.get("label", "Tab")
+
+                # Create Frame for tab content
+                scroll_state_key = (
+                    f"_scroll_{vnode.key}_tab_{tab_index}" if vnode.key else None
+                )
+                frame = Frame(
+                    width=frame_width,
+                    height=frame_height,
+                    style=FrameStyle(
+                        scrollable=True,
+                        show_scrollbar=True,
+                        border=BorderStyle.SINGLE,
+                    ),
+                )
+                frame.scroll_state_key = scroll_state_key
+
+                # Wire up state_dict for scroll state persistence
+                if state_dict is not None:
+                    frame._state_dict = state_dict
+
+                # Build content from TabContent's VNode children
+                content_children = []
+                for child_vnode in tab_vnode.children:
+                    child_node = self._build_layout_tree_from_vnode(
+                        child_vnode, reconciled_map, state_dict
+                    )
+                    content_children.append(child_node)
+
+                # Create FrameNode with content
+                frame_node = FrameNode(
+                    frame=frame,
+                    children=content_children,
+                    width=frame_width,
+                    height=frame_height,
+                )
+
+                # If only text children, extract text for frame content
+                has_non_text = any(
+                    hasattr(c, "element") and not isinstance(c.element, TextElement)
+                    for c in content_children
+                )
+                if not has_non_text and content_children:
+                    text_parts = []
+                    for child in content_children:
+                        if hasattr(child, "element") and hasattr(child.element, "text"):
+                            text_parts.append(child.element.text)
+                    if text_parts:
+                        frame.set_content("\n".join(text_parts))
+
+                tabbed_panel.add_tab(label, frame_node)
+
+            logger.debug(
+                f"Built TabbedPanel from VNode: {vnode.key} with {len(tabbed_panel.tabs)} tabs"
+            )
+
+            return ElementNode(tabbed_panel, width=width_spec, height=height_spec)
 
         else:
             # Regular element (TextInput, Button, etc.)
@@ -837,10 +968,7 @@ class Renderer:
         -----
         This method creates a ScreenBuffer, renders all elements to cells,
         and converts the buffer to ANSI output. Elements are rendered in
-        z-order (first to last).
-
-        Elements can implement render_to(ctx) for cell-based rendering,
-        or fall back to render() for legacy ANSI string rendering.
+        z-order (first to last) using their render_to(ctx) method.
         """
         # Create screen buffer
         buffer = ScreenBuffer(width, height)
@@ -1274,72 +1402,6 @@ class Renderer:
 
         # No buffer available - return base output unchanged
         return base_output
-
-    def composite_statusbar(
-        self,
-        base_output: str,
-        statusbar_element: Element,
-        width: int,
-        height: int,
-    ) -> str:
-        """Composite a status bar at the bottom of the output.
-
-        This method renders a status bar element at the bottom line of the
-        screen output, replacing the last line.
-
-        Parameters
-        ----------
-        base_output : str
-            Base UI output (newline-separated lines)
-        statusbar_element : Element
-            StatusBar element to render
-        width : int
-            Screen width
-        height : int
-            Screen height
-
-        Returns
-        -------
-        str
-            Output with statusbar composited at the bottom
-
-        Notes
-        -----
-        The statusbar replaces the last line of the output. If the base
-        output has fewer lines than the screen height, it will be padded.
-        """
-
-        # Convert base output to lines
-        lines = base_output.split("\n")
-
-        # Ensure we have height-1 lines (reserve last line for statusbar)
-        while len(lines) < height - 1:
-            lines.append(" " * width)
-
-        # Trim to height-1 lines
-        lines = lines[: height - 1]
-
-        # Set bounds for statusbar element
-        statusbar_bounds = Bounds(x=0, y=height - 1, width=width, height=1)
-        statusbar_element.set_bounds(statusbar_bounds)
-
-        # Render statusbar
-        # Note: Using type ignore because Element base class doesn't define render()
-        # but some legacy elements may still implement it
-        statusbar_line = statusbar_element.render()  # type: ignore[attr-defined]
-
-        # Ensure statusbar line is exactly width characters (clip or pad)
-
-        statusbar_len = visible_length(statusbar_line)
-        if statusbar_len > width:
-            statusbar_line = clip_to_width(statusbar_line, width, ellipsis="")
-        elif statusbar_len < width:
-            statusbar_line += " " * (width - statusbar_len)
-
-        # Append statusbar line
-        lines.append(statusbar_line)
-
-        return "\n".join(lines)
 
     def clear_cache(self) -> None:
         """Clear the template cache."""

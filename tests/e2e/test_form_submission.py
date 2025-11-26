@@ -112,7 +112,7 @@ class TestLoginFormJourney:
         assert login_button is not None, "Login button should exist"
 
         # Step 3: User enters username
-        simulate_typing(username_input, "admin")
+        simulate_typing(username_input, "admin", app)
         assert username_input.value == "admin"
         assert app.state["username"] == "admin"  # Two-way binding
 
@@ -121,7 +121,7 @@ class TestLoginFormJourney:
         assert_element_focused(app, "password")
 
         # Step 5: User enters password
-        simulate_typing(password_input, "secret")
+        simulate_typing(password_input, "secret", app)
         assert password_input.value == "secret"
         assert app.state["password"] == "secret"  # Two-way binding
 
@@ -205,8 +205,8 @@ class TestLoginFormJourney:
         login_button = get_element_by_id(elements, "login_btn")
 
         # Step 3: User enters invalid credentials
-        simulate_typing(username_input, "wronguser")
-        simulate_typing(password_input, "wrongpass")
+        simulate_typing(username_input, "wronguser", app)
+        simulate_typing(password_input, "wrongpass", app)
 
         # Step 4: User clicks login button
         simulate_button_click(login_button)
@@ -314,9 +314,9 @@ class TestRegistrationFormJourney:
         register_button = get_element_by_id(elements, "register_btn")
 
         # Step 3: User fills out all fields
-        simulate_typing(username_input, "newuser")
-        simulate_typing(email_input, "user@example.com")
-        simulate_typing(password_input, "secure123")
+        simulate_typing(username_input, "newuser", app)
+        simulate_typing(email_input, "user@example.com", app)
+        simulate_typing(password_input, "secure123", app)
 
         # Verify state binding worked
         assert app.state["username"] == "newuser"
@@ -497,7 +497,7 @@ class TestFormValidationJourney:
         submit_button = get_element_by_id(elements, "submit_btn")
 
         # Step 1-3: User types invalid email
-        simulate_typing(email_input, "notanemail")
+        simulate_typing(email_input, "notanemail", app)
 
         # Verify validation error set
         assert app.state["email"] == "notanemail"
@@ -513,7 +513,7 @@ class TestFormValidationJourney:
         email_input.value = ""  # Clear the field
         app.state["email"] = ""  # Clear state
 
-        simulate_typing(email_input, "valid@example.com")
+        simulate_typing(email_input, "valid@example.com", app)
 
         # Verify validation passes
         assert app.state["email"] == "valid@example.com"
@@ -605,8 +605,8 @@ class TestFormNavigationJourney:
         email_input = get_element_by_id(elements, "email")
         next_button = get_element_by_id(elements, "next_btn")
 
-        simulate_typing(name_input, "Alice")
-        simulate_typing(email_input, "alice@example.com")
+        simulate_typing(name_input, "Alice", app)
+        simulate_typing(email_input, "alice@example.com", app)
 
         assert app.state["name"] == "Alice"
         assert app.state["email"] == "alice@example.com"
@@ -621,8 +621,8 @@ class TestFormNavigationJourney:
         notify_input = get_element_by_id(elements, "notify")
         review_button = get_element_by_id(elements, "review_btn")
 
-        simulate_typing(theme_input, "dark")
-        simulate_typing(notify_input, "yes")
+        simulate_typing(theme_input, "dark", app)
+        simulate_typing(notify_input, "yes", app)
 
         assert app.state["theme"] == "dark"
         assert app.state["notify"] == "yes"
@@ -710,8 +710,8 @@ class TestFormWithDynamicContent:
         assert tax_id_input is not None
 
         # Step 3: Fill business-specific fields
-        simulate_typing(business_name_input, "Acme Corp")
-        simulate_typing(tax_id_input, "12-3456789")
+        simulate_typing(business_name_input, "Acme Corp", app)
+        simulate_typing(tax_id_input, "12-3456789", app)
 
         # Step 4: Verify data structure
         assert app.state["account_type"] == "business"

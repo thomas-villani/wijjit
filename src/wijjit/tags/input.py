@@ -8,8 +8,7 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.vdom import VNodeBuilder
-from wijjit.layout.engine import FrameNode, VStack
-from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker
 
@@ -982,31 +981,13 @@ class RadioGroupExtension(Extension):
 
         # Handle nested radios (with or without frame)
         if using_nested_radios and not using_frame:
-            # For nested radios without a frame, create a VStack container
-
-            vstack_container = VStack(
-                children=[],
-                width="auto",
-                height="auto",
-                spacing=0,
-                padding=0,
-                margin=0,
-                align_h="stretch",
-                align_v="stretch",
-                id=None,
-            )
-
-            # Push container onto stack so nested radios are added to it
-            context.push(vstack_container)
-
-            # Also push a VStack VNode for reconciliation
+            # For nested radios without a frame, create a VStack VNode
             vstack_vnode = VNodeBuilder("VStack", key=id)
             vstack_vnode.set_layout(width="auto", height="auto")
             context.push_vnode(vstack_vnode)
 
-        # For nested radios with borders/titles, create a frame container
+        # For nested radios with borders/titles, create a frame VNode
         elif using_frame:
-
             # Map border_style string to BorderStyle enum
             border_style_map = {
                 "single": BorderStyle.SINGLE,
@@ -1022,45 +1003,7 @@ class RadioGroupExtension(Extension):
                     border_style if border_style is not None else BorderStyle.SINGLE
                 )
 
-            # Create frame style
-            frame_style = FrameStyle(
-                border=border_enum,
-                title=title,
-                padding=(1, 1, 1, 1),  # Standard padding
-                content_align_h="left",
-                content_align_v="top",
-                scrollable=False,
-                show_scrollbar=False,
-                overflow_y="clip",
-                overflow_x="clip",
-            )
-
-            # Create frame
-            frame = Frame(
-                width=width if isinstance(width, int) else 40,
-                height="auto",  # Auto-calculate based on children
-                style=frame_style,
-                id=id,
-            )
-
-            # Create frame node
-            frame_node = FrameNode(
-                frame=frame,
-                children=[],
-                width="auto",
-                height="auto",
-                margin=0,
-                align_h="stretch",
-                align_v="stretch",
-                content_align_h="stretch",
-                content_align_v="stretch",
-                id=id,
-            )
-
-            # Push frame onto layout context stack
-            context.push(frame_node)
-
-            # Create VNode builder for reconciliation (like Frame tag does)
+            # Create VNode builder for reconciliation
             frame_vnode = VNodeBuilder("Frame", key=id)
             frame_vnode.set_prop("border", border_enum)
             frame_vnode.set_prop("title", title)
@@ -1089,10 +1032,8 @@ class RadioGroupExtension(Extension):
             else:
                 self.environment.globals.pop("_wijjit_radiogroup_name", None)
 
-            # Pop containers from layout context if we created one
+            # Pop VNode from stack if we created one
             if using_nested_radios:
-                context.pop()
-                # Also pop VNode (we always push one for nested radios)
                 context.pop_vnode()
 
         # Return marker for text interleaving (get after popping so parent is on top of stack)
@@ -1209,7 +1150,7 @@ class TextAreaExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
 
@@ -1409,7 +1350,7 @@ class CodeEditorExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
 

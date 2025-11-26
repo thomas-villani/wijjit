@@ -969,6 +969,7 @@ dependencies = [
     { name = "pyperclip" },
     { name = "rich" },
     { name = "tinycss2" },
+    { name = "wcwidth" },
 ]
 
 [package.optional-dependencies]
@@ -1006,4 +1007,5 @@ requires-dist = [
     { name = "sphinx-tabs", marker = "extra == 'dev'", specifier = ">=3.4.7" },
     { name = "syrupy", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "tinycss2", specifier = ">=1.5.0" },
+    { name = "wcwidth", specifier = ">=0.2.14" },
 ]

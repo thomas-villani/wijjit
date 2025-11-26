@@ -9,6 +9,7 @@ interactions in Wijjit applications. It includes:
 """
 
 import asyncio
+import warnings
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -462,8 +463,9 @@ class HandlerRegistry:
     def dispatch(self, event: Event) -> None:
         """Dispatch an event to matching handlers (synchronous).
 
-        This method is deprecated and only handles synchronous callbacks.
-        For async support, use dispatch_async() instead.
+        .. deprecated::
+            This method is deprecated and only handles synchronous callbacks.
+            Use :meth:`dispatch_async` instead for full async support.
 
         Handlers are executed in priority order (highest priority first).
         If a handler cancels the event, subsequent handlers are not executed.
@@ -478,6 +480,12 @@ class HandlerRegistry:
         This method will skip async handlers. Use dispatch_async() to
         properly handle both sync and async handlers.
         """
+        warnings.warn(
+            "dispatch() is deprecated and skips async handlers. "
+            "Use dispatch_async() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Find matching handlers
         matching = self._find_matching_handlers(event)
 

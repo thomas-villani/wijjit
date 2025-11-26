@@ -321,7 +321,6 @@ class TestDefaultConfig:
             "HIDE_CURSOR",
             # Colors & Theming
             "NO_COLOR",
-            "FORCE_COLOR",
             "DEFAULT_THEME",
             "THEME_FILE",
             "STYLE_FILE",
@@ -332,7 +331,6 @@ class TestDefaultConfig:
             "MAX_FPS",
             "RUN_SYNC_IN_EXECUTOR",
             "EXECUTOR_MAX_WORKERS",
-            "USE_DIFF_RENDERING",
             "RENDER_THROTTLE_MS",
             # Notifications
             "NOTIFICATION_DURATION",
@@ -358,10 +356,6 @@ class TestDefaultConfig:
             # Accessibility
             "REDUCE_MOTION",
             "HIGH_CONTRAST",
-            # Testing
-            "TESTING",
-            "CI",
-            "HEADLESS",
         ]
 
         for key in required_keys:
@@ -391,7 +385,6 @@ class TestDefaultConfig:
         assert DefaultConfig.DEFAULT_ANIMATION_FPS == 5
         assert DefaultConfig.MAX_FPS is None
         assert DefaultConfig.RUN_SYNC_IN_EXECUTOR is False
-        assert DefaultConfig.USE_DIFF_RENDERING is True
 
         assert DefaultConfig.NOTIFICATION_DURATION == 3.0
         assert DefaultConfig.NOTIFICATION_POSITION == "top_right"

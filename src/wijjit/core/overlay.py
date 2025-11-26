@@ -512,11 +512,12 @@ class OverlayManager:
         """
         return any(overlay.dimmed_background for overlay in self.overlays)
 
-    def recalculate_centered_overlays(self, term_width: int, term_height: int) -> None:
-        """Recalculate positions for centered overlays after terminal resize.
+    def recalculate_overlay_positions(self, term_width: int, term_height: int) -> None:
+        """Recalculate positions for all overlays after terminal resize.
 
-        This method repositions all overlays that are marked as centered
-        to ensure they remain centered after the terminal size changes.
+        This method:
+        1. Repositions centered overlays to remain centered
+        2. Clamps all overlays within terminal bounds to prevent off-screen positioning
 
         Parameters
         ----------
@@ -529,18 +530,50 @@ class OverlayManager:
         for overlay in self.overlays:
             element = overlay.element
 
-            # Only recalculate for centered elements
-            if hasattr(element, "centered") and element.centered and element.bounds:
-                # Get element dimensions
-                elem_width = getattr(element, "width", element.bounds.width)
-                elem_height = getattr(element, "height", element.bounds.height)
+            if not element.bounds:
+                continue
 
-                # Recalculate centered position
+            # Get element dimensions
+            elem_width = getattr(element, "width", element.bounds.width)
+            elem_height = getattr(element, "height", element.bounds.height)
+
+            # Recalculate for centered elements
+            if hasattr(element, "centered") and element.centered:
+                # Center on screen
                 x = max(0, (term_width - elem_width) // 2)
                 y = max(0, (term_height - elem_height) // 2)
 
                 # Update bounds
                 element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)
+            else:
+                # For non-centered overlays, clamp to terminal bounds
+                x = element.bounds.x
+                y = element.bounds.y
+
+                # Clamp to ensure overlay stays within terminal bounds
+                # First, ensure the overlay isn't wider/taller than the terminal
+                elem_width = min(elem_width, term_width)
+                elem_height = min(elem_height, term_height)
+
+                # Then clamp position so overlay is fully visible
+                x = max(0, min(x, term_width - elem_width))
+                y = max(0, min(y, term_height - elem_height))
+
+                # Only update if position changed
+                if (
+                    x != element.bounds.x
+                    or y != element.bounds.y
+                    or elem_width != element.bounds.width
+                    or elem_height != element.bounds.height
+                ):
+                    element.bounds = Bounds(
+                        x=x, y=y, width=elem_width, height=elem_height
+                    )
+
+    # Backwards compatibility alias
+    def recalculate_centered_overlays(self, term_width: int, term_height: int) -> None:
+        """Alias for recalculate_overlay_positions for backwards compatibility."""
+        self.recalculate_overlay_positions(term_width, term_height)
 
     def _calculate_menu_position(self, menu_element: "Element") -> Bounds:
         """Calculate position for a menu element (dropdown or context menu).

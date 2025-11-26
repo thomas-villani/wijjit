@@ -1093,48 +1093,51 @@ class LogView(ScrollableElement):
 
             rendered_line = self.rendered_lines[rendered_line_idx]
 
-            # Strip ANSI from rendered line (which has old ANSI coloring)
-            from wijjit.terminal.ansi import strip_ansi
+            # Check if original line has ANSI codes for passthrough
+            from wijjit.terminal.ansi import parse_ansi_text, strip_ansi
 
-            clean_line = strip_ansi(rendered_line)
-
-            # Determine style from the ORIGINAL line (not the rendered/wrapped line)
-            # This ensures wrapped continuation lines get the same color as their source
             original_line_idx = (
                 self._rendered_line_origins[rendered_line_idx]
                 if rendered_line_idx < len(self._rendered_line_origins)
                 else -1
             )
+            original_line = ""
             if original_line_idx >= 0 and original_line_idx < len(self.lines):
                 original_line = self.lines[original_line_idx]
-                style_class = self._get_log_level_style_class(original_line)
+
+            # Check if line has ANSI codes
+            has_ansi = "\x1b[" in original_line
+
+            if has_ansi:
+                # ANSI passthrough mode - parse and preserve colors
+                parsed_chars = parse_ansi_text(rendered_line)
+                clean_line = "".join(char for char, _ in parsed_chars)
             else:
-                style_class = "logview"
-            line_style = ctx.style_resolver.resolve_style(self, style_class)
-            line_attrs = line_style.to_cell_attrs()
+                # No ANSI in source - strip any internally-added codes
+                clean_line = strip_ansi(rendered_line)
+                parsed_chars = None
+
+            # Determine fallback style from log level (used when no ANSI passthrough)
+            if not has_ansi:
+                style_class = self._get_log_level_style_class(original_line)
+                line_style = ctx.style_resolver.resolve_style(self, style_class)
+                line_attrs = line_style.to_cell_attrs()
+            else:
+                line_attrs = base_attrs  # Fallback for padding
 
             # Render the line content
             x_offset = 0
 
-            # If line numbers are shown and this line has a line number
-            # (check if it starts with digits)
+            # If line numbers are shown
             if self.show_line_numbers:
-                # Extract line number from the rendered line if present
-                # The rendered_lines already have line numbers added by _render_content
-                # We need to separate the line number part from content
-                # This is a bit tricky - let's render it directly
+                # Extract line number part from clean line
                 line_num_part = (
                     clean_line[:line_num_width]
                     if len(clean_line) >= line_num_width
                     else clean_line.ljust(line_num_width)
                 )
-                content_part = (
-                    clean_line[line_num_width:]
-                    if len(clean_line) > line_num_width
-                    else ""
-                )
 
-                # Write line number
+                # Write line number (always uses line number style)
                 for i, char in enumerate(line_num_part[:line_num_width]):
                     ctx.buffer.set_cell(
                         ctx.bounds.x + i,
@@ -1143,20 +1146,32 @@ class LogView(ScrollableElement):
                     )
                 x_offset = line_num_width
 
-                # Write content
+                # Write content with ANSI passthrough if available
                 content_width_remaining = content_width - line_num_width
-                for i, char in enumerate(content_part[:content_width_remaining]):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x_offset + i,
-                        ctx.bounds.y + current_y,
-                        Cell(char=char, **line_attrs),
-                    )
+                if has_ansi and parsed_chars:
+                    # Skip line number chars in parsed list
+                    content_chars = parsed_chars[line_num_width:]
+                    for i, (char, attrs) in enumerate(
+                        content_chars[:content_width_remaining]
+                    ):
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + x_offset + i,
+                            ctx.bounds.y + current_y,
+                            Cell(char=char, **attrs),
+                        )
+                    rendered_count = len(content_chars[:content_width_remaining])
+                else:
+                    content_part = clean_line[line_num_width:]
+                    for i, char in enumerate(content_part[:content_width_remaining]):
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + x_offset + i,
+                            ctx.bounds.y + current_y,
+                            Cell(char=char, **line_attrs),
+                        )
+                    rendered_count = len(content_part[:content_width_remaining])
 
-                # Pad remaining (use base style to properly reset dim/other attributes)
-                for x in range(
-                    x_offset + len(content_part[:content_width_remaining]),
-                    content_width,
-                ):
+                # Pad remaining
+                for x in range(x_offset + rendered_count, content_width):
                     ctx.buffer.set_cell(
                         ctx.bounds.x + x,
                         ctx.bounds.y + current_y,
@@ -1164,15 +1179,26 @@ class LogView(ScrollableElement):
                     )
             else:
                 # No line numbers - render full line
-                for i, char in enumerate(clean_line[:content_width]):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + i,
-                        ctx.bounds.y + current_y,
-                        Cell(char=char, **line_attrs),
-                    )
+                if has_ansi and parsed_chars:
+                    # ANSI passthrough
+                    for i, (char, attrs) in enumerate(parsed_chars[:content_width]):
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + i,
+                            ctx.bounds.y + current_y,
+                            Cell(char=char, **attrs),
+                        )
+                    rendered_count = len(parsed_chars[:content_width])
+                else:
+                    for i, char in enumerate(clean_line[:content_width]):
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + i,
+                            ctx.bounds.y + current_y,
+                            Cell(char=char, **line_attrs),
+                        )
+                    rendered_count = len(clean_line[:content_width])
 
-                # Pad remaining width (use base style to properly reset dim/other attributes)
-                for x in range(len(clean_line[:content_width]), content_width):
+                # Pad remaining width
+                for x in range(rendered_count, content_width):
                     ctx.buffer.set_cell(
                         ctx.bounds.x + x,
                         ctx.bounds.y + current_y,

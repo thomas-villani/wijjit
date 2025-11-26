@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
@@ -75,6 +76,10 @@ class EventLoop:
 
         # Render throttling
         self._last_render_time: float = 0.0
+
+        # Error recovery
+        self._consecutive_errors = 0
+        self._max_consecutive_errors = 3  # Terminate after 3 consecutive errors
 
     def run(self) -> None:
         """Run the main event loop.
@@ -181,15 +186,34 @@ class EventLoop:
             while self.running:
                 try:
                     await self._process_frame_async()
+                    # Reset error counter on successful frame
+                    self._consecutive_errors = 0
                 except KeyboardInterrupt:
                     logger.info("Received KeyboardInterrupt, exiting application")
                     self.running = False
                     break
                 except Exception as e:
-                    self.app._handle_error("Error in event loop", e)
-                    # Critical error - exit the loop
-                    self.running = False
-                    break
+                    self._consecutive_errors += 1
+                    self.app._handle_error(
+                        f"Error in event loop (attempt {self._consecutive_errors}/"
+                        f"{self._max_consecutive_errors})",
+                        e,
+                    )
+                    # Only terminate after consecutive errors exceed threshold
+                    if self._consecutive_errors >= self._max_consecutive_errors:
+                        logger.error(
+                            f"Too many consecutive errors "
+                            f"({self._consecutive_errors}), terminating"
+                        )
+                        self.running = False
+                        break
+                    else:
+                        logger.warning(
+                            f"Attempting recovery after error "
+                            f"({self._consecutive_errors}/{self._max_consecutive_errors})"
+                        )
+                        # Small delay before retry to avoid tight error loops
+                        await asyncio.sleep(0.1)
 
         finally:
             logger.info("Exiting application, cleaning up")
@@ -249,7 +273,8 @@ class EventLoop:
     def _process_frame(self) -> None:
         """Process a single frame of the event loop (synchronous - deprecated).
 
-        This method is deprecated. Use _process_frame_async() instead.
+        .. deprecated::
+            This method is deprecated. Use :meth:`_process_frame_async` instead.
 
         This method handles:
         - Auto-refresh for animations
@@ -258,6 +283,11 @@ class EventLoop:
         - Input reading and event dispatch
         - Re-rendering when needed
         """
+        warnings.warn(
+            "_process_frame() is deprecated. Use _process_frame_async() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Check if auto-refresh is needed (for animations like spinners or notification expiry)
         if self.app.refresh_interval is not None:
             current_time = time.time()
@@ -392,6 +422,8 @@ class EventLoop:
         if self.app.needs_render and self._should_render_now():
             self.app._render()
             self.app._last_refresh_time = time.time()
+            # Yield control to allow other async tasks to run
+            await asyncio.sleep(0)
 
         # Disable auto-refresh if no notifications remain
         # Do this AFTER rendering to ensure the final state is displayed
@@ -418,6 +450,8 @@ class EventLoop:
             if self.app.needs_render and self._should_render_now():
                 self.app._render()
                 self.app._last_refresh_time = time.time()
+                # Yield control to allow other async tasks to run
+                await asyncio.sleep(0)
             return
 
         # Check if it's a keyboard event
@@ -432,6 +466,8 @@ class EventLoop:
         if self.app.needs_render and self._should_render_now():
             self.app._render()
             self.app._last_refresh_time = time.time()
+            # Yield control to allow other async tasks to run
+            await asyncio.sleep(0)
 
         # Calculate FPS if enabled
         if self.app.config["SHOW_FPS"]:
@@ -459,13 +495,22 @@ class EventLoop:
                 await asyncio.sleep(sleep_time)
 
     def _handle_key_event(self, input_event: Key) -> None:
-        """Handle a keyboard event.
+        """Handle a keyboard event (synchronous - deprecated).
+
+        .. deprecated::
+            This method is deprecated. Use :meth:`_handle_key_event_async` instead.
 
         Parameters
         ----------
         input_event : Key
             The keyboard input event
         """
+        warnings.warn(
+            "_handle_key_event() is deprecated. "
+            "Use _handle_key_event_async() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Handle quit key (configurable, default Ctrl+Q)
         quit_key = self.app.config["QUIT_KEY"]
         if input_event.name == quit_key:
@@ -502,25 +547,14 @@ class EventLoop:
                     return  # Don't process event further
 
         # Create and dispatch key event
+        # Note: on_key handlers are now registered with the event system,
+        # so they will be dispatched via dispatch along with all other handlers.
         event = KeyEvent(
             key=input_event.name,
             modifiers=input_event.modifiers,
             key_obj=input_event,  # Store original Key object
         )
         self.app.handler_registry.dispatch(event)
-
-        # Check for registered key handlers
-        if not event.cancelled:
-            key_name = input_event.name.lower() if input_event.name else ""
-            if key_name in self.app._key_handlers:
-                try:
-                    self.app._key_handlers[key_name](event)
-                    self.app.needs_render = True
-                except Exception as e:
-                    logger.error(
-                        f"Error in key handler for '{key_name}': {e}",
-                        exc_info=True,
-                    )
 
         # Route key to focused element if not handled by other handlers
         # If focus is trapped in an overlay, only route to overlay elements
@@ -539,13 +573,20 @@ class EventLoop:
     def _handle_mouse_event(self, terminal_event: TerminalMouseEvent) -> None:
         """Handle a mouse event (synchronous - deprecated).
 
-        This method is deprecated. Use _handle_mouse_event_async instead.
+        .. deprecated::
+            This method is deprecated. Use :meth:`_handle_mouse_event_async` instead.
 
         Parameters
         ----------
         terminal_event : TerminalMouseEvent
             The mouse event from terminal layer
         """
+        warnings.warn(
+            "_handle_mouse_event() is deprecated. "
+            "Use _handle_mouse_event_async() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Note: This synchronous method cannot call the async route_mouse_event
         # Use _handle_mouse_event_async instead for full async support
         logger.warning(
@@ -604,37 +645,15 @@ class EventLoop:
                     return  # Don't process event further
 
         # Create and dispatch key event (async)
+        # Note: on_key handlers are now registered with the event system,
+        # so they will be dispatched via dispatch_async along with all other handlers.
+        # This unifies key handling and ensures consistent priority/cancellation.
         event = KeyEvent(
             key=input_event.name,
             modifiers=input_event.modifiers,
             key_obj=input_event,  # Store original Key object
         )
         await self.app.handler_registry.dispatch_async(event, executor=self.executor)
-
-        # Check for registered key handlers
-        if not event.cancelled:
-            key_name = input_event.name.lower() if input_event.name else ""
-            if key_name in self.app._key_handlers:
-                try:
-                    handler = self.app._key_handlers[key_name]
-                    if asyncio.iscoroutinefunction(handler):
-                        await handler(event)
-                    else:
-                        # Handle sync handler
-                        if self.executor is not None:
-                            # Run in executor to avoid blocking event loop
-                            loop = asyncio.get_event_loop()
-                            await loop.run_in_executor(self.executor, handler, event)
-                        else:
-                            # Run sync handler directly on main thread
-                            # WARNING: May block event loop if handler does I/O
-                            handler(event)
-                    self.app.needs_render = True
-                except Exception as e:
-                    logger.error(
-                        f"Error in key handler for '{key_name}': {e}",
-                        exc_info=True,
-                    )
 
         # Route key to focused element if not handled by other handlers
         # If focus is trapped in an overlay, only route to overlay elements

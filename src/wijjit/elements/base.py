@@ -401,8 +401,9 @@ class Element(ABC):
         self.bounds = bounds
 
     # === Virtual DOM Lifecycle Methods ===
+    # TODO: should these be abstract methods?
 
-    def on_mount(self) -> None:
+    def on_mount(self) -> None:  # noqa: B027
         """Called when element is first added to the element tree.
 
         Override this method to perform initialization that requires the
@@ -416,7 +417,7 @@ class Element(ABC):
         """
         pass
 
-    def on_unmount(self) -> None:
+    def on_unmount(self) -> None:  # noqa: B027
         """Called when element is removed from the element tree.
 
         Override this method to perform cleanup such as cancelling timers,
@@ -429,7 +430,7 @@ class Element(ABC):
         """
         pass
 
-    def on_update(self, changed_props: dict[str, tuple[Any, Any]]) -> None:
+    def on_update(self, changed_props: dict[str, tuple[Any, Any]]) -> None:  # noqa: B027
         """Called when element props are updated during reconciliation.
 
         Override this method to respond to prop changes, such as

@@ -64,17 +64,22 @@ class TestFocusManager:
         assert elem1 in manager.elements
         assert elem2 not in manager.elements
 
-    def test_focus_first_on_set(self):
-        """Test that first element is focused when elements are set."""
+    def test_no_focus_on_initial_set(self):
+        """Test that no element is focused when elements are first set.
+
+        This allows the first user navigation action (Tab/Shift+Tab) to focus
+        the first (or last) element, avoiding the visual issue where focus
+        appears to "skip" the first element.
+        """
         manager = FocusManager()
         elem1 = FocusableElement("e1")
         elem2 = FocusableElement("e2")
 
         manager.set_elements([elem1, elem2])
 
-        assert elem1.focused
+        assert not elem1.focused
         assert not elem2.focused
-        assert manager.current_index == 0
+        assert manager.current_index is None
 
     def test_get_focused_element(self):
         """Test getting the currently focused element."""
@@ -84,6 +89,11 @@ class TestFocusManager:
 
         manager.set_elements([elem1, elem2])
 
+        # Initially no element is focused
+        assert manager.get_focused_element() is None
+
+        # Focus first element explicitly
+        manager.focus_first()
         focused = manager.get_focused_element()
         assert focused == elem1
 
@@ -101,7 +111,11 @@ class TestFocusManager:
 
         manager.set_elements([elem1, elem2, elem3])
 
+        # Initially no element is focused - first focus_next focuses first element
+        assert manager.current_index is None
+        manager.focus_next()
         assert elem1.focused
+        assert manager.current_index == 0
 
         manager.focus_next()
         assert not elem1.focused
@@ -120,6 +134,7 @@ class TestFocusManager:
         elem2 = FocusableElement("e2")
 
         manager.set_elements([elem1, elem2])
+        manager.focus_first()  # Explicitly focus first element
 
         manager.focus_next()  # Focus elem2
         assert elem2.focused
@@ -156,6 +171,7 @@ class TestFocusManager:
         elem2 = FocusableElement("e2")
 
         manager.set_elements([elem1, elem2])
+        manager.focus_first()  # Explicitly focus first element
 
         assert elem1.focused
 
@@ -171,7 +187,7 @@ class TestFocusManager:
         elem2 = FocusableElement("e2")
 
         manager.set_elements([elem1, elem2])
-        manager.focus_next()  # Focus elem2
+        manager.focus_last()  # Focus elem2 first
 
         manager.focus_first()
         assert elem1.focused
@@ -223,6 +239,7 @@ class TestFocusManager:
         elem2 = FocusableElement("e2")
 
         manager.set_elements([elem1, elem2])
+        manager.focus_first()  # Explicitly focus
         assert elem1.focused
 
         manager.clear()
@@ -249,6 +266,7 @@ class TestFocusManager:
         elem2 = FocusableElement("e2")
 
         manager.set_elements([elem1, elem2])
+        manager.focus_first()  # Explicitly focus first
 
         assert elem1.focused
         assert not elem2.focused

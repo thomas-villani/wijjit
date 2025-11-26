@@ -6,6 +6,8 @@ colors, cursor control, and text styling.
 
 import re
 
+from wcwidth import wcswidth, wcwidth
+
 from wijjit.logging_config import get_logger
 
 # Get logger for this module
@@ -294,8 +296,214 @@ def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE_PATTERN.sub("", text)
 
 
+# Standard ANSI color code to RGB mapping
+ANSI_COLOR_TO_RGB: dict[int, tuple[int, int, int]] = {
+    # Standard colors (30-37 fg, 40-47 bg)
+    0: (0, 0, 0),  # Black
+    1: (187, 0, 0),  # Red
+    2: (0, 187, 0),  # Green
+    3: (187, 187, 0),  # Yellow
+    4: (0, 0, 187),  # Blue
+    5: (187, 0, 187),  # Magenta
+    6: (0, 187, 187),  # Cyan
+    7: (187, 187, 187),  # White
+    # Bright colors (90-97 fg, 100-107 bg)
+    8: (85, 85, 85),  # Bright Black (Gray)
+    9: (255, 85, 85),  # Bright Red
+    10: (85, 255, 85),  # Bright Green
+    11: (255, 255, 85),  # Bright Yellow
+    12: (85, 85, 255),  # Bright Blue
+    13: (255, 85, 255),  # Bright Magenta
+    14: (85, 255, 255),  # Bright Cyan
+    15: (255, 255, 255),  # Bright White
+}
+
+
+def parse_ansi_text(text: str) -> list[tuple[str, dict]]:
+    """Parse ANSI-formatted text into characters with cell attributes.
+
+    This function converts ANSI escape codes into cell-compatible attributes
+    (fg_color, bg_color, bold, italic, underline, reverse, dim) that can be
+    used directly with the cell-based rendering system.
+
+    Parameters
+    ----------
+    text : str
+        Text containing ANSI escape codes
+
+    Returns
+    -------
+    list of (str, dict)
+        List of (character, attributes) tuples where attributes is a dict
+        with keys: fg_color, bg_color, bold, italic, underline, reverse, dim.
+        Colors are RGB tuples or None for default.
+
+    Examples
+    --------
+    >>> result = parse_ansi_text("\\x1b[31mRed\\x1b[0m")
+    >>> result[0]  # 'R' with red color
+    ('R', {'fg_color': (187, 0, 0), 'bg_color': None, 'bold': False, ...})
+    """
+    if not text:
+        return []
+
+    # Current style state
+    fg_color: tuple[int, int, int] | None = None
+    bg_color: tuple[int, int, int] | None = None
+    bold = False
+    italic = False
+    underline = False
+    reverse = False
+    dim = False
+
+    result: list[tuple[str, dict]] = []
+
+    # Pattern to split text into ANSI codes and regular characters
+    ansi_pattern = re.compile(r"(\x1b\[[0-9;]*m)")
+    parts = ansi_pattern.split(text)
+
+    for part in parts:
+        if not part:
+            continue
+
+        if part.startswith("\x1b["):
+            # Parse ANSI escape code
+            match = re.match(r"\x1b\[([0-9;]*)m", part)
+            if match:
+                params_str = match.group(1)
+                if not params_str:
+                    # \x1b[m is equivalent to reset
+                    fg_color = None
+                    bg_color = None
+                    bold = italic = underline = reverse = dim = False
+                    continue
+
+                params = [int(p) if p else 0 for p in params_str.split(";")]
+                i = 0
+                while i < len(params):
+                    code = params[i]
+
+                    if code == 0:
+                        # Reset all attributes
+                        fg_color = None
+                        bg_color = None
+                        bold = italic = underline = reverse = dim = False
+                    elif code == 1:
+                        bold = True
+                    elif code == 2:
+                        dim = True
+                    elif code == 3:
+                        italic = True
+                    elif code == 4:
+                        underline = True
+                    elif code == 7:
+                        reverse = True
+                    elif code == 22:
+                        bold = False
+                        dim = False
+                    elif code == 23:
+                        italic = False
+                    elif code == 24:
+                        underline = False
+                    elif code == 27:
+                        reverse = False
+                    elif 30 <= code <= 37:
+                        # Standard foreground colors
+                        fg_color = ANSI_COLOR_TO_RGB.get(code - 30)
+                    elif code == 38:
+                        # Extended foreground color
+                        if i + 1 < len(params) and params[i + 1] == 5:
+                            # 256 color mode: 38;5;n
+                            if i + 2 < len(params):
+                                color_idx = params[i + 2]
+                                fg_color = _ansi_256_to_rgb(color_idx)
+                                i += 2
+                        elif i + 1 < len(params) and params[i + 1] == 2:
+                            # True color mode: 38;2;r;g;b
+                            if i + 4 < len(params):
+                                fg_color = (params[i + 2], params[i + 3], params[i + 4])
+                                i += 4
+                    elif code == 39:
+                        # Default foreground
+                        fg_color = None
+                    elif 40 <= code <= 47:
+                        # Standard background colors
+                        bg_color = ANSI_COLOR_TO_RGB.get(code - 40)
+                    elif code == 48:
+                        # Extended background color
+                        if i + 1 < len(params) and params[i + 1] == 5:
+                            # 256 color mode: 48;5;n
+                            if i + 2 < len(params):
+                                color_idx = params[i + 2]
+                                bg_color = _ansi_256_to_rgb(color_idx)
+                                i += 2
+                        elif i + 1 < len(params) and params[i + 1] == 2:
+                            # True color mode: 48;2;r;g;b
+                            if i + 4 < len(params):
+                                bg_color = (params[i + 2], params[i + 3], params[i + 4])
+                                i += 4
+                    elif code == 49:
+                        # Default background
+                        bg_color = None
+                    elif 90 <= code <= 97:
+                        # Bright foreground colors
+                        fg_color = ANSI_COLOR_TO_RGB.get(code - 90 + 8)
+                    elif 100 <= code <= 107:
+                        # Bright background colors
+                        bg_color = ANSI_COLOR_TO_RGB.get(code - 100 + 8)
+
+                    i += 1
+        else:
+            # Regular text - add each character with current style
+            for char in part:
+                attrs = {
+                    "fg_color": fg_color,
+                    "bg_color": bg_color,
+                    "bold": bold,
+                    "italic": italic,
+                    "underline": underline,
+                    "reverse": reverse,
+                    "dim": dim,
+                }
+                result.append((char, attrs))
+
+    return result
+
+
+def _ansi_256_to_rgb(color_idx: int) -> tuple[int, int, int]:
+    """Convert ANSI 256-color index to RGB.
+
+    Parameters
+    ----------
+    color_idx : int
+        Color index (0-255)
+
+    Returns
+    -------
+    tuple of (int, int, int)
+        RGB color values
+    """
+    if color_idx < 16:
+        # Standard colors
+        return ANSI_COLOR_TO_RGB.get(color_idx, (187, 187, 187))
+    elif color_idx < 232:
+        # 216 color cube: 16 + 36*r + 6*g + b
+        color_idx -= 16
+        r = color_idx // 36
+        g = (color_idx % 36) // 6
+        b = color_idx % 6
+        return (r * 51, g * 51, b * 51)
+    else:
+        # Grayscale: 232-255 (24 shades)
+        gray = (color_idx - 232) * 10 + 8
+        return (gray, gray, gray)
+
+
 def visible_length(text: str) -> int:
-    """Get the visible length of text (excluding ANSI codes).
+    """Get the visible display width of text (excluding ANSI codes).
+
+    This function uses wcwidth to correctly handle wide characters (CJK, emoji)
+    which occupy 2 terminal columns but are only 1 Python character.
 
     Parameters
     ----------
@@ -305,9 +513,12 @@ def visible_length(text: str) -> int:
     Returns
     -------
     int
-        Visible length of the text
+        Visible display width of the text in terminal columns
     """
-    return len(strip_ansi(text))
+    clean = strip_ansi(text)
+    width = wcswidth(clean)
+    # wcswidth returns -1 if string contains non-printable characters
+    return width if width >= 0 else len(clean)
 
 
 def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
@@ -341,7 +552,7 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
     visible_count = 0
     result = []
     i = 0
-    ellipsis_len = len(ellipsis)
+    ellipsis_len = visible_length(ellipsis)
     target_width = width - ellipsis_len if ellipsis_len <= width else width
 
     while i < len(text) and visible_count < target_width:
@@ -359,9 +570,17 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
             result.append(text[i:end])
             i = end
         else:
-            # Regular character
-            result.append(text[i])
-            visible_count += 1
+            # Regular character - use wcwidth for proper display width
+            char = text[i]
+            char_width = wcwidth(char)
+            # wcwidth returns -1 for non-printable, treat as width 1
+            if char_width < 0:
+                char_width = 1
+            # Don't add character if it would overflow target width
+            if visible_count + char_width > target_width:
+                break
+            result.append(char)
+            visible_count += char_width
             i += 1
 
     output = "".join(result)
@@ -396,6 +615,49 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
     return output
 
 
+# Module-level color mode setting (None = check env var, True = no color, False = use color)
+_no_color: bool | None = None
+
+
+def set_no_color(enabled: bool) -> None:
+    """Set whether colors should be disabled.
+
+    Parameters
+    ----------
+    enabled : bool
+        True to disable colors, False to enable colors
+
+    Notes
+    -----
+    This should be called by the application during initialization to apply
+    the NO_COLOR configuration. When set, this takes precedence over the
+    NO_COLOR environment variable.
+    """
+    global _no_color
+    _no_color = enabled
+
+
+def is_no_color() -> bool:
+    """Check if colors are disabled.
+
+    Returns
+    -------
+    bool
+        True if colors are disabled, False otherwise
+
+    Notes
+    -----
+    Checks in order:
+    1. Module-level setting (set via set_no_color())
+    2. NO_COLOR environment variable
+    """
+    import os
+
+    if _no_color is not None:
+        return _no_color
+    return os.environ.get("NO_COLOR") is not None
+
+
 def colorize(
     text: str,
     color: str | None = None,
@@ -428,14 +690,11 @@ def colorize(
 
     Notes
     -----
-    Respects the NO_COLOR environment variable standard.
+    Respects the NO_COLOR configuration and environment variable standard.
     See https://no-color.org/ for details.
     """
-    import os
-
-    # Respect NO_COLOR environment variable
-    # https://no-color.org/
-    if os.environ.get("NO_COLOR") is not None:
+    # Check NO_COLOR config/env setting
+    if is_no_color():
         return text
 
     codes = []

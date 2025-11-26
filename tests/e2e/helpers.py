@@ -130,8 +130,12 @@ def get_element_by_id(elements: list[Element], element_id: str) -> Element | Non
     return None
 
 
-def simulate_typing(element: TextInput, text: str) -> None:
+def simulate_typing(element: TextInput, text: str, app: Wijjit | None = None) -> None:
     """Simulate typing text into a TextInput element.
+
+    This function simulates realistic user behavior: first focusing the element
+    (if an app is provided), then typing each character. This matches how users
+    interact with the UI - they must focus an element before typing into it.
 
     Parameters
     ----------
@@ -139,9 +143,16 @@ def simulate_typing(element: TextInput, text: str) -> None:
         The text input element to type into
     text : str
         The text to type (each character will trigger a key event)
+    app : Wijjit, optional
+        If provided, focuses the element via focus manager before typing.
+        This is recommended for accurate simulation of user behavior.
     """
     if not isinstance(element, TextInput):
         raise TypeError(f"Expected TextInput, got {type(element)}")
+
+    # Focus the element if app is provided (simulates clicking on the field)
+    if app is not None:
+        app.focus_manager.focus_element(element)
 
     for char in text:
         key = Key(char, KeyType.CHARACTER, char)

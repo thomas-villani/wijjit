@@ -13,6 +13,7 @@ dependencies = [
     "pyperclip>=1.11.0",
     "rich>=14.2.0",
     "tinycss2>=1.5.0",
+    "wcwidth>=0.2.14",
 ]
 
 [project.optional-dependencies]

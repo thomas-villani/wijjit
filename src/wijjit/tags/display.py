@@ -8,12 +8,9 @@ from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
 from wijjit.core.vdom import VNodeBuilder
-from wijjit.elements.base import TextElement
 from wijjit.elements.display.modal import ModalElement
-from wijjit.layout.engine import FrameNode
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
-from wijjit.terminal.ansi import visible_length
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -132,21 +129,9 @@ class TableExtension(Extension):
             # No layout context available, skip
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
-
-        # Convert numeric parameters for element creation
-        # If width/height are "fill" or other string specs, use default numeric values
-        # if isinstance(width, str) and not width.isdigit():
-        #     element_width = 60  # Default for initial render
-        # else:
-        #     element_width = int(width)
-        #
-        # if isinstance(height, str) and not height.isdigit():
-        #     element_height = 10  # Default for initial render
-        # else:
-        #     element_height = int(height)
 
         sortable = bool(sortable)
         show_header = bool(show_header)
@@ -336,21 +321,9 @@ class TreeExtension(Extension):
             # No layout context available, skip
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
-
-        # Convert numeric parameters for element creation
-        # If width/height are "fill" or other string specs, use default numeric values
-        # if isinstance(width, str) and not width.isdigit():
-        #     element_width = 40  # Default for initial render
-        # else:
-        #     element_width = int(width)
-        #
-        # if isinstance(height, str) and not height.isdigit():
-        #     element_height = 15  # Default for initial render
-        # else:
-        #     element_height = int(height)
 
         indent_size = int(indent_size)
         show_scrollbar = bool(show_scrollbar)
@@ -826,22 +799,9 @@ class MarkdownExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
-
-        # Convert numeric parameters for element creation
-        # If width/height are "fill" or other string specs, use default numeric values
-        # for initial element creation (will be resized on bounds assignment)
-        # if isinstance(width, str) and not width.isdigit():
-        #     element_width = 60  # Default for initial render
-        # else:
-        #     element_width = int(width)
-        #
-        # if isinstance(height, str) and not height.isdigit():
-        #     element_height = 20  # Default for initial render
-        # else:
-        #     element_height = int(height)
 
         show_scrollbar = bool(show_scrollbar)
 
@@ -1013,7 +973,7 @@ class CodeBlockExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
 
@@ -1103,7 +1063,7 @@ class CodeBlockExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create VNode for reconciliation (ElementNode creation removed - legacy code)
+        # Create VNode for reconciliation
         vnode = VNodeBuilder("CodeBlock", key=id)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("code", code)
@@ -1260,7 +1220,7 @@ class LogViewExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
 
@@ -1383,7 +1343,7 @@ class LogViewExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create VNode for reconciliation (ElementNode creation removed - legacy code)
+        # Create VNode for reconciliation
         vnode = VNodeBuilder("LogView", key=id)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("lines", lines)
@@ -1551,7 +1511,7 @@ class ListViewExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
 
@@ -1653,7 +1613,7 @@ class ListViewExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create VNode for reconciliation (ElementNode creation and border calc removed - legacy code)
+        # Create VNode for reconciliation
         vnode = VNodeBuilder("ListView", key=id)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("items", items)
@@ -2208,15 +2168,19 @@ class TabExtension(Extension):
         Returns
         -------
         str
-            Rendered output (empty string, tabs collected via context)
+            Rendered output (empty string, tabs collected via VNode tree)
 
         Notes
         -----
-        This method stores the tab information in the parent TabbedPanel's
-        context for later processing. Uses a temporary container to collect
-        the tab's frame content properly.
+        This method creates a TabContent VNode that becomes a child of the
+        parent TabbedPanel VNode. The tab content elements are collected
+        via the VNode stack and become children of the TabContent VNode.
         """
-        from wijjit.layout.engine import VStack
+        from wijjit.core.vdom import VNodeBuilder
+        from wijjit.tags.layout import (
+            interleave_text_and_vnode_builders,
+            process_body_content,
+        )
 
         # Get layout context from environment globals
         context = cast(
@@ -2228,39 +2192,53 @@ class TabExtension(Extension):
             caller()
             return ""
 
-        # Initialize _pending_tabs list if not exists
-        if not hasattr(context, "_pending_tabs"):
-            context._pending_tabs = []  # type: ignore[attr-defined]
+        # Create a TabContent VNode to hold this tab's content
+        # Use a unique key based on the tab index
+        tab_index = len(
+            [
+                c
+                for c in (
+                    context.vnode_stack[-1].children if context.vnode_stack else []
+                )
+                if getattr(c, "type", None) == "TabContent"
+            ]
+        )
+        tab_key = f"_tab_{tab_index}"
 
-        from wijjit.tags.layout import interleave_text_and_elements
+        tab_vnode = VNodeBuilder("TabContent", key=tab_key)
+        tab_vnode.set_prop("label", label)
 
-        # Create a temporary container to collect this tab's content
-        temp_container = VStack(children=[], width="auto", height="auto")
+        # Push the tab VNode onto the stack to collect children
+        context.push_vnode(tab_vnode)
 
-        # Push the temporary container onto the stack
-        context.push(temp_container)
-
-        # Render body - elements will add themselves to temp_container.children
+        # Render body - child elements will add themselves via add_vnode
         body_output = caller()
 
-        # Pop the temporary container
-        context.pop()
+        # Pop the tab VNode from the stack
+        context.pop_vnode()
 
-        # Interleave text and elements properly (like VStack does)
-        temp_container.children = interleave_text_and_elements(
-            body_output, temp_container.children, raw=False
-        )
+        # Handle text interleaving for VNode children
+        vnode_children = tab_vnode.children
 
-        # Store tab info with ALL children (not just first one)
-        context._pending_tabs.append(  # type: ignore[attr-defined]
-            {
-                "label": label,
-                "body": body_output,
-                "children": temp_container.children,  # All children including text
-            }
-        )
+        if not vnode_children and body_output.strip():
+            # No VNode children but has text - create a single TextElement VNode
+            processed_text = process_body_content(body_output, raw=False)
+            if processed_text:
+                text_key = context.generate_id("text")
+                text_vnode = VNodeBuilder("TextElement", key=text_key)
+                text_vnode.set_prop("id", text_key)
+                text_vnode.set_prop("text", processed_text)
+                text_vnode.set_prop("wrap", True)
+                text_vnode.set_layout(width="auto", height="auto")
+                tab_vnode.add_child(text_vnode)
+        elif vnode_children:
+            # Has VNode children - interleave text and VNodes in source order
+            interleaved = interleave_text_and_vnode_builders(
+                body_output, vnode_children, False, context
+            )
+            tab_vnode.children = interleaved
 
-        # Return empty string (no marker needed, parent will collect via _pending_tabs)
+        # Return empty string (tab is added as child VNode, no marker needed)
         return ""
 
 
@@ -2356,9 +2334,16 @@ class TabbedPanelExtension(Extension):
         -------
         str
             Rendered output
+
+        Notes
+        -----
+        This method creates a TabbedPanel VNode and pushes it to the VNode stack.
+        Child {% tab %} tags create TabContent VNodes that become children.
+        The renderer builds the TabbedPanel element from the VNode tree.
         """
-        from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition
-        from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+        from wijjit.core.vdom import VNodeBuilder
+        from wijjit.elements.display.tabbed_panel import TabPosition
+        from wijjit.tags.layout import get_element_marker
 
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
@@ -2370,20 +2355,9 @@ class TabbedPanelExtension(Extension):
         if context is None:
             return ""
 
-        # Store original width/height specs for ElementNode
+        # Store original width/height specs for layout
         width_spec = width
         height_spec = height
-
-        # Convert numeric parameters for element creation
-        if isinstance(width, str) and not width.isdigit():
-            element_width = 60
-        else:
-            element_width = int(width)
-
-        if isinstance(height, str) and not height.isdigit():
-            element_height = 20
-        else:
-            element_height = int(height)
 
         # Auto-generate ID if not provided
         if id is None:
@@ -2398,16 +2372,26 @@ class TabbedPanelExtension(Extension):
         }
         tab_pos = position_map.get(tab_position.lower(), TabPosition.TOP)
 
-        # Initialize pending tabs list for tab collection
-        if not hasattr(context, "_pending_tabs"):
-            context._pending_tabs = []  # type: ignore[attr-defined]
-        context._pending_tabs = []  # type: ignore[attr-defined]
+        # Create TabbedPanel VNode and push to stack
+        vnode = VNodeBuilder("TabbedPanel", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("tab_position", tab_pos)
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
 
-        # Render body - this will collect all {% tab %} tags
+        # Push VNode to stack - TabExtension children will add TabContent VNodes
+        context.push_vnode(vnode)
+
+        # Render body - this will collect all {% tab %} tags as TabContent VNode children
         _body_output = caller()
 
-        # Collect tabs from context
-        tabs = getattr(context, "_pending_tabs", [])
+        # Pop VNode from stack
+        context.pop_vnode()
+
+        # Collect TabContent children from the VNode
+        # tab_vnodes = [c for c in vnode.children if c.type == "TabContent"]
 
         # Determine initial active tab index
         active_tab_index = 0
@@ -2427,126 +2411,22 @@ class TabbedPanelExtension(Extension):
             except Exception as e:
                 logger.warning(f"Failed to restore active tab state: {e}")
 
-        # Create TabbedPanel element
-        tabbed_panel = TabbedPanel(
-            id=id,
-            classes=classes,
-            tab_position=tab_pos,
-            width=element_width,
-            height=element_height,
-            border_style=border_style,
-            active_tab_index=active_tab_index,
-        )
-
-        # Calculate content area dimensions (space for frame inside tabs)
-        if tab_pos in (TabPosition.TOP, TabPosition.BOTTOM):
-            # Horizontal tabs: full width, reduced height for tab area
-            frame_width = element_width - 2  # Account for panel borders
-            frame_height = element_height - 5  # Account for panel borders and tab area
-        else:
-            # Vertical tabs: reduced width for tab area, full height
-            max_label_width = max((visible_length(t["label"]) for t in tabs), default=0)
-            tab_area_width = max_label_width + 4
-            frame_width = element_width - tab_area_width - 1
-            frame_height = element_height - 2
-
-        # Process each tab - now using children list instead of content
-        for tab_index, tab_info in enumerate(tabs):
-            label = tab_info["label"]
-            children = tab_info.get("children", [])  # All children including text
-
-            # Create a FrameNode for this tab's content
-            # Set scroll_state_key to persist scroll position across renders
-            scroll_state_key = f"_scroll_{id}_tab_{tab_index}" if id else None
-            frame = Frame(
-                width=frame_width,
-                height=frame_height,
-                style=FrameStyle(
-                    scrollable=True,
-                    show_scrollbar=True,
-                    border=BorderStyle.SINGLE,
-                ),
-            )
-            frame.scroll_state_key = scroll_state_key
-
-            # Create FrameNode to hold the frame and children
-            frame_node = FrameNode(
-                frame=frame,
-                children=list(children),  # Copy the children list
-                width=frame_width,
-                height=frame_height,
-            )
-
-            # If there are no non-text element children, extract text for frame content
-            # Text is stored as ElementNode(TextElement(...)), so we check element type
-            has_non_text_elements = any(
-                hasattr(child, "element") and not isinstance(child.element, TextElement)
-                for child in children
-            )
-            if not has_non_text_elements:
-                # Extract text from TextElement children
-                text_parts = []
-                for child in children:
-                    if hasattr(child, "element") and hasattr(child.element, "text"):
-                        text_parts.append(child.element.text)
-                if text_parts:
-                    frame.set_content("\n".join(text_parts))
-
-            # Store the FrameNode (not just Frame)
-            tabbed_panel.add_tab(label, frame_node)
-
-        # Store bind setting
-        tabbed_panel.bind = bind
-
-        # Set up state persistence
-        if bind and id:
-            if isinstance(active_tab, str):
-                # Use custom state key
-                tabbed_panel.active_tab_state_key = active_tab
-            else:
-                # Use default state key
-                tabbed_panel.active_tab_state_key = id
-
-            # Give panel access to state dict for saving
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    tabbed_panel._state_dict = ctx["state"]
-            except Exception as e:
-                logger.warning(f"Failed to setup state persistence: {e}")
+        # Add remaining props to VNode
+        vnode.set_prop("active_tab_index", active_tab_index)
+        if isinstance(active_tab, str) and bind:
+            vnode.set_prop("active_tab_state_key", active_tab)
 
         # Check if this element should be focused
         focused_id = self.environment.globals.get("_wijjit_focused_id")
         if focused_id and id and focused_id == id:
-            tabbed_panel.focused = True
+            vnode.set_prop("focused", True)
 
-        # Store the pre-created TabbedPanel element for the renderer to access.
-        # TabbedPanel can't be recreated from VNode props alone because it contains
-        # tabs with FrameNode content that was built during template processing.
-        if id:
-            context.pre_created_elements[id] = tabbed_panel
-
-        # Build VNode
-        vnode = VNodeBuilder("TabbedPanel", key=id)
-        vnode.set_prop("tab_position", tab_pos)
-        vnode.set_prop("active_tab_index", active_tab_index)
-        vnode.set_prop("border_style", border_style)
-        vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
-        if isinstance(active_tab, str) and bind:
-            vnode.set_prop("active_tab_state_key", active_tab)
-        # Store tab information as props
-        vnode.set_prop("tabs", [{"label": t["label"]} for t in tabs])
+        # Set layout dimensions
         vnode.set_layout(width=width_spec, height=height_spec)
 
-        context.add_vnode(vnode)
-
-        # Clean up pending tabs (removed duplicate old-style ElementNode creation)
-        context._pending_tabs = []  # type: ignore[attr-defined]
+        # Note: VNode is already in the tree from push_vnode/pop_vnode
+        # The renderer will build the TabbedPanel element from the VNode tree,
+        # using TabContent children to create tabs with their content.
 
         # Return marker for text interleaving
         return get_element_marker(context)

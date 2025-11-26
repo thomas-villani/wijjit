@@ -287,65 +287,6 @@ class TestTextAreaValueBinding:
         assert new_val == "H"
 
 
-class TestTextAreaRendering:
-    """Tests for TextArea rendering."""
-
-    def test_render_basic(self):
-        """Test basic rendering."""
-        textarea = TextArea(value="Hello\nWorld", width=10, height=5)
-        result = textarea.render()
-        assert result is not None
-        assert isinstance(result, str)
-
-    def test_render_shows_scrollbar_when_needed(self):
-        """Test scrollbar appears when content exceeds viewport."""
-        content = "\n".join([f"Line {i}" for i in range(20)])
-        textarea = TextArea(value=content, width=10, height=5, show_scrollbar=True)
-        result = textarea.render()
-        # Should contain scrollbar character
-        assert "│" in result or "█" in result
-
-    def test_render_cursor_when_focused(self):
-        """Test cursor is visible when textarea is focused."""
-        textarea = TextArea(value="Hello\nWorld", width=20, height=5)
-        textarea.on_focus()
-        result = textarea.render()
-        # Should contain reverse video escape codes for cursor
-        assert "\x1b[7m" in result  # Reverse video on
-        assert "\x1b[27m" in result  # Reverse video off
-
-    def test_no_cursor_when_unfocused(self):
-        """Test cursor is not visible when textarea is unfocused."""
-        textarea = TextArea(value="Hello\nWorld", width=20, height=5)
-        # Don't focus it
-        result = textarea.render()
-        # Should not contain reverse video escape codes
-        assert "\x1b[7m" not in result
-
-    def test_cursor_at_different_positions(self):
-        """Test cursor renders at different positions."""
-        textarea = TextArea(value="Hello", width=20, height=5)
-        textarea.on_focus()
-
-        # Cursor at start (0)
-        textarea.cursor_col = 0
-        result = textarea.render()
-        # First character should be in reverse video
-        assert "\x1b[7mH\x1b[27m" in result
-
-        # Cursor at middle (2)
-        textarea.cursor_col = 2
-        result = textarea.render()
-        # Third character should be in reverse video
-        assert "\x1b[7ml\x1b[27m" in result
-
-        # Cursor at end (5)
-        textarea.cursor_col = 5
-        result = textarea.render()
-        # Should show space in reverse video at end
-        assert "\x1b[7m \x1b[27m" in result
-
-
 class TestTextAreaHardWrap:
     """Tests for TextArea hard wrap mode.
 

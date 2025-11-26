@@ -26,6 +26,7 @@ from wijjit.core.events import (
     ActionEvent,
     Event,
     EventType,
+    Handler,
     HandlerRegistry,
     HandlerScope,
     KeyEvent,
@@ -178,6 +179,9 @@ class Wijjit:
         # Configure unicode support mode
         self._configure_unicode_support()
 
+        # Configure color mode (NO_COLOR)
+        self._configure_color_mode()
+
         logger.info(
             f"Config: DEBUG={self.config['DEBUG']}, "
             f"ENABLE_MOUSE={self.config['ENABLE_MOUSE']}, "
@@ -256,8 +260,9 @@ class Wijjit:
         # Action handlers
         self._action_handlers: dict[str, Callable] = {}
 
-        # Key handlers
-        self._key_handlers: dict[str, Callable] = {}
+        # Key handlers - track registered handler objects for potential unregistration
+        # Note: on_key is now sugar over the event system (see on_key method)
+        self._key_handler_registrations: dict[str, Handler] = {}
 
         # Auto-refresh for animations (from config)
         self.refresh_interval: float | None = self.config["REFRESH_INTERVAL"]
@@ -295,11 +300,24 @@ class Wijjit:
         Applies LOG_LEVEL, LOG_FILE, LOG_TO_CONSOLE, and LOG_FORMAT
         configuration options.
 
-        If logging has already been configured (e.g., via configure_logging()
-        before app creation), this method respects that configuration unless
-        LOG_FILE is explicitly set in config.
+        Logging Behavior
+        ----------------
+        - Wijjit only configures its own 'wijjit.*' loggers
+        - If SUPPRESS_INTERNAL_LOGGING_CONFIG is True, Wijjit will not
+          configure logging at all, giving the host app full control
+        - If logging has already been configured (handlers exist on 'wijjit'
+          logger), Wijjit respects that unless LOG_FILE is explicitly set
+        - Pre-existing handlers are preserved when SUPPRESS_INTERNAL_LOGGING_CONFIG
+          is True
+
+        For full control over logging, set SUPPRESS_INTERNAL_LOGGING_CONFIG=True
+        and configure the 'wijjit' logger yourself before creating the app.
         """
         import logging as _logging
+
+        # If user wants full control over logging, skip configuration
+        if self.config.get("SUPPRESS_INTERNAL_LOGGING_CONFIG", False):
+            return
 
         # Check if logging is already configured
         wijjit_logger = _logging.getLogger("wijjit")
@@ -336,6 +354,18 @@ class Wijjit:
         ansi.set_unicode_mode(mode)
         logger.debug(f"Unicode support mode set to: {mode}")
 
+    def _configure_color_mode(self) -> None:
+        """Configure color mode based on NO_COLOR config setting.
+
+        Applies NO_COLOR configuration to the ANSI module.
+        """
+        from wijjit.terminal import ansi
+
+        no_color = self.config["NO_COLOR"]
+        ansi.set_no_color(no_color)
+        if no_color:
+            logger.debug("Colors disabled via NO_COLOR config")
+
     def _get_mouse_tracking_mode(self) -> MouseTrackingMode:
         """Convert config string to MouseTrackingMode enum.
 
@@ -344,22 +374,30 @@ class Wijjit:
         MouseTrackingMode
             Mouse tracking mode enum value
 
-        Raises
-        ------
-        ValueError
-            If mouse tracking mode is invalid
+        Notes
+        -----
+        Valid config values are:
+        - 'button_event': Press, release, and drag events (default)
+        - 'all_events' or 'any_event': All mouse motion including hover
+        - 'normal': Press and release only
+        - 'x10': Only button press, limited coordinates
+        - 'disabled': No mouse tracking
         """
         mode = self.config["MOUSE_TRACKING_MODE"]
 
         if mode == "button_event":
             return MouseTrackingMode.BUTTON_EVENT
-        elif mode == "all_events":
-            return MouseTrackingMode.ALL_EVENTS
-        elif mode == "drag":
-            return MouseTrackingMode.DRAG
+        elif mode in ("all_events", "any_event"):
+            return MouseTrackingMode.ANY_EVENT
+        elif mode == "normal":
+            return MouseTrackingMode.NORMAL
+        elif mode == "x10":
+            return MouseTrackingMode.X10
+        elif mode == "disabled":
+            return MouseTrackingMode.DISABLED
         else:
             logger.warning(
-                f"Invalid MOUSE_TRACKING_MODE '{mode}', using 'button_event'"
+                f"Unknown MOUSE_TRACKING_MODE '{mode}', using 'button_event'"
             )
             return MouseTrackingMode.BUTTON_EVENT
 
@@ -613,10 +651,18 @@ class Wijjit:
             priority=priority,
         )
 
-    def on_key(self, key: str, allow_ctrl_q: bool = False, **kwargs) -> Callable:
+    def on_key(
+        self,
+        key: str,
+        allow_ctrl_q: bool = False,
+        priority: int = 0,
+        **kwargs,
+    ) -> Callable:
         """Decorator to register a key press handler.
 
         Use this to handle specific key presses globally in your application.
+        This is sugar over the event system - internally it registers a KEY
+        event handler that filters by the specified key.
 
         Parameters
         ----------
@@ -625,6 +671,8 @@ class Wijjit:
         allow_ctrl_q : bool, optional
             Allow binding to Ctrl+Q (default: False). Use with caution as
             Ctrl+Q is normally reserved for exiting the application.
+        priority : int, optional
+            Handler priority (higher = earlier execution, default: 0)
 
         Returns
         -------
@@ -636,6 +684,13 @@ class Wijjit:
         ValueError
             If attempting to bind Ctrl+Q without allow_ctrl_q=True
 
+        Notes
+        -----
+        This method is implemented as sugar over the event system. Internally,
+        it calls `self.on(EventType.KEY, ...)` with a wrapper that filters by
+        key name. This centralizes event handling, simplifies the mental model,
+        and ensures consistent priority/cancellation behavior.
+
         Examples
         --------
         >>> @app.on_key("d")
@@ -645,10 +700,16 @@ class Wijjit:
         >>> @app.on_key("ctrl+q", allow_ctrl_q=True)
         ... def custom_exit(event):
         ...     print("Custom Ctrl+Q handler")
+
+        >>> @app.on_key("s", priority=10)
+        ... def save_handler(event):
+        ...     # This handler runs before lower-priority handlers
+        ...     print("Saving...")
         """
+        import asyncio
+
         # Validate that Ctrl+Q is not being bound (reserved for app exit)
         key_lower = key.lower()
-        allow_ctrl_q = kwargs.get("allow_ctrl_q", False)
         if not allow_ctrl_q and key_lower in ("ctrl+q", "c-q"):
             raise ValueError(
                 "Cannot bind Ctrl+Q: it is reserved for exiting the application. "
@@ -656,7 +717,30 @@ class Wijjit:
             )
 
         def decorator(func: Callable[..., Any]) -> Callable:
-            self._key_handlers[key_lower] = func
+            # Create a wrapper that filters by key name
+            if asyncio.iscoroutinefunction(func):
+                # Async wrapper
+                async def key_filter_wrapper(event: KeyEvent) -> None:
+                    if event.key and event.key.lower() == key_lower:
+                        await func(event)
+
+            else:
+                # Sync wrapper
+                def key_filter_wrapper(event: KeyEvent) -> None:
+                    if event.key and event.key.lower() == key_lower:
+                        func(event)
+
+            # Register via the event system
+            handler = self.handler_registry.register(
+                callback=key_filter_wrapper,
+                scope=HandlerScope.GLOBAL,
+                event_type=EventType.KEY,
+                priority=priority,
+            )
+
+            # Track registration for potential unregistration
+            self._key_handler_registrations[key_lower] = handler
+
             return func
 
         return decorator
@@ -1572,10 +1656,10 @@ class Wijjit:
         # Create FPS overlay using ANSI positioning
         # Save cursor, move to top-right, print FPS, restore cursor
         fps_overlay = (
-            f"{ANSICursor.save()}"
+            f"{ANSICursor.save_position()}"
             f"{ANSICursor.position(1, column)}"
-            f"{colorize(fps_text, color=ANSIColor.fg(0, 255, 0), bold=True)}"  # Green FPS
-            f"{ANSICursor.restore()}"
+            f"{colorize(fps_text, color=ANSIColor.BRIGHT_GREEN, bold=True)}"  # Green FPS
+            f"{ANSICursor.restore_position()}"
         )
 
         return output + fps_overlay
@@ -1604,7 +1688,7 @@ class Wijjit:
         """
         from wijjit.elements.base import Container, ElementType
 
-        bounds_overlay = ANSICursor.save()
+        bounds_overlay = ANSICursor.save_position()
 
         # Draw bounds for all positioned elements
         for elem in self.positioned_elements:
@@ -1620,19 +1704,19 @@ class Wijjit:
             # Determine color based on element type
             if hasattr(elem, "focusable") and elem.focusable:
                 # Input elements - cyan
-                color = ANSIColor.fg(0, 255, 255)
+                color = ANSIColor.BRIGHT_CYAN
             elif isinstance(elem, Container):
                 # Container elements - magenta
-                color = ANSIColor.fg(255, 0, 255)
+                color = ANSIColor.BRIGHT_MAGENTA
             elif (
                 hasattr(elem, "element_type")
                 and elem.element_type == ElementType.DISPLAY
             ):
                 # Display elements - yellow
-                color = ANSIColor.fg(255, 255, 0)
+                color = ANSIColor.BRIGHT_YELLOW
             else:
                 # Other elements - green
-                color = ANSIColor.fg(0, 255, 0)
+                color = ANSIColor.BRIGHT_GREEN
 
             # Draw top border
             bounds_overlay += ANSICursor.position(bounds.y + 1, bounds.x + 1)
@@ -1660,7 +1744,7 @@ class Wijjit:
                     "+" + "-" * (bounds.width - 2) + "+", color=color
                 )
 
-        bounds_overlay += ANSICursor.restore()
+        bounds_overlay += ANSICursor.restore_position()
 
         return output + bounds_overlay
 

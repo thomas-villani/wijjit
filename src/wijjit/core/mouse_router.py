@@ -199,9 +199,20 @@ class MouseEventRouter:
         -------
         bool
             True if an overlay was closed, False otherwise
+
+        Notes
+        -----
+        Handles CLICK, DOUBLE_CLICK, and RELEASE events. The RELEASE handling
+        ensures that drag sequences starting inside an overlay but ending
+        outside will properly close overlays with close_on_click_outside=True.
         """
-        # Click outside all overlays - check if should close any
-        if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+        # Click/release outside all overlays - check if should close any
+        # Include RELEASE to handle drag sequences that end outside the overlay
+        if event.type in (
+            MouseEventType.CLICK,
+            MouseEventType.DOUBLE_CLICK,
+            MouseEventType.RELEASE,
+        ):
             closed = self.app.overlay_manager.handle_click_outside(event.x, event.y)
             if closed:
                 return True

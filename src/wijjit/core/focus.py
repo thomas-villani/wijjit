@@ -69,10 +69,11 @@ class FocusManager:
         # If we had a focused index, try to focus the same index
         if old_index is not None and old_index < len(self.elements):
             self._set_focus(old_index)
-        elif self.elements:
-            # Otherwise focus first element
-            self.focus_first()
         else:
+            # Start with no focused element - focus will be set on first
+            # user navigation action (Tab/Shift+Tab). This avoids the visual
+            # issue where focus appears to "skip" the first element because
+            # it was focused before bounds were calculated/rendered.
             self.current_index = None
 
     def get_focused_element(self) -> Element | None:

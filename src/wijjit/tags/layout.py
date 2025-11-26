@@ -11,9 +11,7 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.vdom import VNodeBuilder
-from wijjit.elements.base import TextElement
-from wijjit.layout.engine import ElementNode, FrameNode, HStack, LayoutNode, VStack
-from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -45,62 +43,6 @@ def process_body_content(body_output: str, raw: bool = False) -> str:
         return textwrap.dedent(body_output).strip()
 
 
-def interleave_text_and_elements(
-    body_output: str, children: list[LayoutNode], raw: bool = False
-) -> list[LayoutNode]:
-    """Interleave text content with child elements based on markers.
-
-    Child elements insert markers like '\x00ELEM_0\x00' into body_output
-    to indicate their position in the template source. This function
-    parses those markers and rebuilds the children list with text
-    elements interleaved at the correct positions.
-
-    Parameters
-    ----------
-    body_output : str
-        Template body output containing text and element markers
-    children : list[LayoutNode]
-        Child elements that were added (in order they were added)
-    raw : bool, optional
-        If True, preserve whitespace in text. If False, dedent/strip (default: False)
-
-    Returns
-    -------
-    list[LayoutNode]
-        New children list with text and elements properly interleaved
-    """
-    import re
-
-    # Pattern to match element markers (with capture group for digit extraction)
-    marker_pattern = r"\x00ELEM_(\d+)\x00"
-
-    # Pattern for splitting (without capture group to avoid nested groups)
-    split_pattern = r"(\x00ELEM_\d+\x00)"
-
-    # Split body_output on markers, keeping the markers
-    parts = re.split(split_pattern, body_output)
-
-    result: list[LayoutNode] = []
-
-    for part in parts:
-        # Check if this is a marker
-        marker_match = re.match(marker_pattern, part)
-        if marker_match:
-            # This is an element marker
-            elem_index = int(marker_match.group(1))
-            if 0 <= elem_index < len(children):
-                result.append(children[elem_index])
-        else:
-            # This is text content
-            processed_text = process_body_content(part, raw=raw)
-            if processed_text:
-                text_elem = TextElement(processed_text, wrap=not raw)
-                text_node = ElementNode(text_elem, width="auto", height="auto")
-                result.append(text_node)
-
-    return result
-
-
 def interleave_text_and_vnode_builders(
     body_output: str,
     vnode_children: list,
@@ -109,7 +51,10 @@ def interleave_text_and_vnode_builders(
 ) -> list:
     """Interleave text content with child VNodeBuilders based on markers.
 
-    Similar to interleave_text_and_elements but works with VNodeBuilders for reconciliation.
+    Child elements insert markers like '\x00ELEM_0\x00' into body_output
+    to indicate their position in the template source. This function
+    parses those markers and rebuilds the children list with text
+    VNodes interleaved at the correct positions.
 
     Parameters
     ----------
@@ -196,16 +141,11 @@ def get_element_marker(layout_context: LayoutContext) -> str:
 class LayoutContext:
     """Context for building layout tree during template rendering.
 
-    This context tracks both the LayoutNode tree (for layout calculation)
-    and a parallel VNode tree (for reconciliation). The VNode tree enables
-    efficient diffing and element reuse across re-renders.
+    The VNode stack is used for VNode-based reconciliation. The renderer
+    builds the final layout tree from the VNode tree via `_build_layout_tree_from_vnode()`.
 
     Attributes
     ----------
-    root : LayoutNode or None
-        Root of the layout tree
-    stack : list of LayoutNode
-        Stack of container nodes being processed
     element_counters : dict
         Counter for auto-generating element IDs by type
     vnode_root : VNodeBuilder or None
@@ -217,67 +157,12 @@ class LayoutContext:
     """
 
     def __init__(self) -> None:
-        self.root: LayoutNode | None = None
-        self.stack: list[LayoutNode] = []
         self.element_counters: dict[str, int] = {}
 
         # VNode tree tracking for reconciliation
         self.vnode_root: Any | None = None  # VNodeBuilder
         self.vnode_stack: list[Any] = []  # list[VNodeBuilder]
         self.element_vnodes: dict[str, Any] = {}  # id -> VNodeBuilder
-
-        # Pre-created elements that can't be recreated from VNode props alone.
-        # Used for complex elements like TabbedPanel that have internal state
-        # (tabs with FrameNode content) that must be preserved.
-        self.pre_created_elements: dict[str, Any] = {}  # id -> Element
-
-    def push(self, node: LayoutNode) -> None:
-        """Push a container node onto the stack.
-
-        Parameters
-        ----------
-        node : LayoutNode
-            Container node to push
-        """
-        if self.root is None:
-            self.root = node
-
-        if self.stack:
-            # Add to current container
-            parent = self.stack[-1]
-            if hasattr(parent, "add_child"):
-                parent.add_child(node)
-
-        self.stack.append(node)
-
-    def pop(self) -> LayoutNode | None:
-        """Pop a container node from the stack.
-
-        Returns
-        -------
-        LayoutNode or None
-            Popped node
-        """
-        if self.stack:
-            return self.stack.pop()
-        return None
-
-    def add_element(self, node: LayoutNode) -> None:
-        """Add an element node to the current container.
-
-        Parameters
-        ----------
-        node : LayoutNode
-            Element node to add
-        """
-        if self.root is None:
-            self.root = node
-            return
-
-        if self.stack:
-            parent = self.stack[-1]
-            if hasattr(parent, "add_child"):
-                parent.add_child(node)
 
     def generate_id(self, element_type: str) -> str:
         """Generate a unique ID for an element.
@@ -604,28 +489,12 @@ class VStackExtension(Extension):
             )
         )
 
-        # Create VStack node
-        vstack = VStack(
-            children=[],
-            width=width_parsed,
-            height=height_parsed,
-            spacing=spacing_int,
-            padding=padding_parsed,
-            margin=margin_parsed,
-            align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
-            align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
-            id=id,
-        )
-
-        # Push onto stack
-        layout_context.push(vstack)
-
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("VStack", key=id)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
-            spacing=spacing_int,  # Include spacing in layout spec
+            spacing=spacing_int,
             padding=padding_parsed,
             margin=margin_parsed,
             align_h=align_h,
@@ -633,16 +502,11 @@ class VStackExtension(Extension):
         )
         layout_context.push_vnode(vnode)
 
-        # Render body - nested elements will add themselves to vstack.children
+        # Render body - nested elements will add themselves via push_vnode/add_vnode
         # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # Interleave text and elements in source order using markers (for LayoutNode)
-        vstack.children = interleave_text_and_elements(
-            body_output, vstack.children, raw=raw
-        )
-
-        # Handle text content for VNodes (for reconciliation)
+        # Handle text content for VNodes
         vnode_children = vnode.children
 
         if not vnode_children and body_output.strip():
@@ -662,9 +526,6 @@ class VStackExtension(Extension):
                 body_output, vnode_children, raw, layout_context
             )
             vnode.children = interleaved_vnode_builders
-
-        # Pop from stack
-        layout_context.pop()
 
         # Pop VNode from stack
         layout_context.pop_vnode()
@@ -804,28 +665,12 @@ class HStackExtension(Extension):
             )
         )
 
-        # Create HStack node
-        hstack = HStack(
-            children=[],
-            width=width_parsed,
-            height=height_parsed,
-            spacing=spacing_int,
-            padding=padding_parsed,
-            margin=margin_parsed,
-            align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
-            align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
-            id=id,
-        )
-
-        # Push onto stack
-        layout_context.push(hstack)
-
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("HStack", key=id)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
-            spacing=spacing_int,  # Include spacing in layout spec
+            spacing=spacing_int,
             padding=padding_parsed,
             margin=margin_parsed,
             align_h=align_h,
@@ -833,16 +678,11 @@ class HStackExtension(Extension):
         )
         layout_context.push_vnode(vnode)
 
-        # Render body - nested elements will add themselves to hstack.children
+        # Render body - nested elements will add themselves via push_vnode/add_vnode
         # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # Interleave text and elements in source order using markers (for LayoutNode)
-        hstack.children = interleave_text_and_elements(
-            body_output, hstack.children, raw=raw
-        )
-
-        # Handle text content for VNodes (for reconciliation)
+        # Handle text content for VNodes
         vnode_children = vnode.children
 
         if not vnode_children and body_output.strip():
@@ -862,9 +702,6 @@ class HStackExtension(Extension):
                 body_output, vnode_children, raw, layout_context
             )
             vnode.children = interleaved_vnode_builders
-
-        # Pop from stack
-        layout_context.pop()
 
         # Pop VNode from stack
         layout_context.pop_vnode()
@@ -1067,122 +904,8 @@ class FrameExtension(Extension):
         else:
             overflow_y = "clip"
 
-        # Create actual Frame object with all styling
-        frame_style = FrameStyle(
-            border=border_style,
-            title=title,
-            padding=padding_parsed,
-            content_align_h=cast(
-                Literal["left", "center", "right", "stretch"], content_align_h
-            ),
-            content_align_v=cast(
-                Literal["top", "middle", "bottom", "stretch"], content_align_v
-            ),
-            scrollable=scrollable,
-            show_scrollbar=show_scrollbar,
-            show_scrollbar_x=show_scrollbar_x,
-            overflow_y=overflow_y,
-            overflow_x=cast(
-                Literal["clip", "visible", "wrap", "scroll", "auto"], overflow_x
-            ),
-        )
-
-        # Parse width/height as integers if they're numeric strings
-        frame_width: int
-        if isinstance(width_parsed, str) and width_parsed.isdigit():
-            frame_width = int(width_parsed)
-        elif width_parsed == "auto" or width_parsed == "fill":
-            frame_width = 40
-        elif isinstance(width_parsed, str) and width_parsed.endswith("%"):
-            # Percentage widths get placeholder value - layout engine will calculate actual value
-            frame_width = 40
-        elif isinstance(width_parsed, int):
-            frame_width = width_parsed
-        else:
-            frame_width = 40
-
-        frame_height: int
-        if isinstance(height_parsed, str) and height_parsed.isdigit():
-            frame_height = int(height_parsed)
-        elif height_parsed == "auto" or height_parsed == "fill":
-            frame_height = 10
-        elif isinstance(height_parsed, str) and height_parsed.endswith("%"):
-            # Percentage heights get placeholder value - layout engine will calculate actual value
-            frame_height = 10
-        elif isinstance(height_parsed, int):
-            frame_height = height_parsed
-        else:
-            frame_height = 10
-
-        frame = Frame(
-            width=frame_width,
-            height=frame_height,
-            style=frame_style,
-            id=id,
-        )
-
-        # Set up state persistence for scrollable frames (vertical)
-        if scrollable and id:
-            scroll_key = f"_scroll_{id}"
-            frame.scroll_state_key = scroll_key
-
-            # Give frame access to state dict for saving scroll position
-            try:
-                ctx_obj = self.environment.globals.get("_wijjit_current_context")
-                ctx = cast(dict[str, Any], ctx_obj)
-                if ctx and "state" in ctx:
-                    state_dict = ctx["state"]
-                    frame._state_dict = state_dict
-
-                    # Restore scroll position if it exists in state
-                    if scroll_key in state_dict:
-                        # Position will be restored after scroll manager is created
-                        # Store it temporarily for later restoration
-                        frame._pending_scroll_restore = state_dict[scroll_key]  # type: ignore[attr-defined]
-            except (KeyError, AttributeError):
-                pass
-
-        # Set up state persistence for horizontal scrolling
-        if overflow_x in ("scroll", "auto") and id:
-            scroll_key_x = f"_scroll_x_{id}"
-            frame.scroll_state_key_x = scroll_key_x  # type: ignore[attr-defined]
-
-            # Give frame access to state dict for saving horizontal scroll position
-            try:
-                ctx_obj = self.environment.globals.get("_wijjit_current_context")
-                ctx = cast(dict[str, Any], ctx_obj)
-                if ctx and "state" in ctx:
-                    state_dict = ctx["state"]
-                    frame._state_dict = state_dict
-
-                    # Restore horizontal scroll position if it exists in state
-                    if scroll_key_x in state_dict:
-                        frame._pending_scroll_restore_x = state_dict[scroll_key_x]  # type: ignore[attr-defined]
-            except (KeyError, AttributeError):
-                pass
-
-        # Create FrameNode to hold frame and children
-        frame_node = FrameNode(
-            frame=frame,
-            children=[],
-            width=width_parsed,
-            height=height_parsed,
-            margin=margin_parsed,
-            align_h=cast(Literal["left", "center", "right", "stretch"], align_h),
-            align_v=cast(Literal["top", "middle", "bottom", "stretch"], align_v),
-            content_align_h=cast(
-                Literal["left", "center", "right", "stretch"], content_align_h
-            ),
-            content_align_v=cast(
-                Literal["top", "middle", "bottom", "stretch"], content_align_v
-            ),
-            id=id,
-        )
-
-        # Push onto stack
-        layout_context.push(frame_node)
-
         # Create VNode builder for reconciliation
+        # The renderer will create the actual Frame element from these props
         vnode = VNodeBuilder("Frame", key=id)
         vnode.set_prop("border", border_style)
         vnode.set_prop("title", title)
@@ -1203,51 +926,33 @@ class FrameExtension(Extension):
         )
         layout_context.push_vnode(vnode)
 
-        # Render body - nested elements will add themselves to frame_node.content_container.children
+        # Render body - nested elements will add themselves via push_vnode/add_vnode
         # and insert markers in body_output to indicate their positions
         body_output = caller()
 
-        # Handle text content in frame (for layout nodes)
-        if not frame_node.content_container.children and body_output.strip():
-            # No children and has text - set content directly on Frame for overflow_x handling
-            processed_text = process_body_content(body_output, raw=raw)
-            if processed_text:
-                frame.set_content(processed_text)
-        else:
-            # Has children or markers - interleave text and elements in source order
-            frame_node.content_container.children = interleave_text_and_elements(
-                body_output, frame_node.content_container.children, raw=raw
-            )
-
-        # Handle text content for VNodes (for reconciliation)
-        # Get VNode children that were added during body rendering
+        # Handle text content for VNodes
         vnode_children = vnode.children
 
         if not vnode_children and body_output.strip():
             # No VNode children and has text - create a single TextElement VNode
             processed_text = process_body_content(body_output, raw=raw)
             if processed_text:
-                # Generate unique key for text element
                 text_key = layout_context.generate_id("text")
-
                 text_vnode = VNodeBuilder("TextElement", key=text_key)
-                text_vnode.set_prop("id", text_key)  # Set id prop for reconciler cache
+                text_vnode.set_prop("id", text_key)
                 text_vnode.set_prop("text", processed_text)
                 text_vnode.set_prop("wrap", not raw)
                 text_vnode.set_layout(width="auto", height="auto")
-                vnode.add_child(text_vnode)  # Add the builder directly
+                vnode.add_child(text_vnode)
         elif vnode_children:
             # Has VNode children - interleave text and VNodes in source order
-            # Pass layout_context for key generation
             interleaved_vnode_builders = interleave_text_and_vnode_builders(
                 body_output, vnode_children, raw, layout_context
             )
-            # Replace VNode children with interleaved list
             vnode.children = interleaved_vnode_builders
 
-        # Pop from stack
+        # Pop VNode from stack
         layout_context.pop_vnode()
-        layout_context.pop()
 
         # Return marker for text interleaving
         return get_element_marker(layout_context)
