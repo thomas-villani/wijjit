@@ -21,6 +21,7 @@ class StyleResolver:
     - Pseudo-class styles (:focus, :hover, :disabled, etc.)
     - Inline style overrides
     - Style cascade and merging
+    - Style caching for performance optimization
 
     Parameters
     ----------
@@ -31,6 +32,14 @@ class StyleResolver:
     ----------
     theme : Theme
         Current theme
+    _style_cache : dict
+        Cache of resolved styles keyed by (base_class, css_classes_key, state_key)
+
+    Notes
+    -----
+    Style resolution is cached based on element type, CSS classes, and state.
+    The cache is automatically cleared when the theme is changed.
+    Inline overrides bypass the cache since they are unique per call.
 
     Examples
     --------
@@ -60,6 +69,8 @@ class StyleResolver:
 
     def __init__(self, theme: Theme) -> None:
         self.theme = theme
+        # Cache for resolved styles: (base_class, css_classes_key, state_key) -> Style
+        self._style_cache: dict[tuple, Style] = {}
 
     def resolve_style(
         self,
@@ -133,6 +144,31 @@ class StyleResolver:
             # Infer from element type
             base_element_type = self._infer_class_from_element(element)
 
+        # Build cache key from element type, CSS classes, and state
+        # Skip caching if inline_overrides provided (too dynamic)
+        cache_key = None
+        if not inline_overrides:
+            # Build CSS classes key
+            css_classes_key: frozenset[str] | None = None
+            if hasattr(element, "classes") and element.classes:
+                css_classes_key = frozenset(element.classes)
+
+            # Build state key from element pseudo-class state
+            state_key = (
+                getattr(element, "focused", False),
+                getattr(element, "hovered", False),
+                getattr(element, "disabled", False),
+                getattr(element, "checked", False),
+                getattr(element, "selected", False),
+            )
+
+            cache_key = (base_element_type, css_classes_key, state_key)
+
+            # Check cache first
+            if cache_key in self._style_cache:
+                return self._style_cache[cache_key]
+
+        # Cache miss or inline overrides - compute style
         # Start with base element type style
         style = Style()
         base_style = self.theme.get_style(base_element_type)
@@ -155,7 +191,11 @@ class StyleResolver:
             for class_name in sorted(element.classes):
                 style = self._apply_pseudo_classes(style, element, f".{class_name}")
 
-        # Apply inline overrides (highest specificity)
+        # Cache the computed style (without inline overrides)
+        if cache_key is not None:
+            self._style_cache[cache_key] = style
+
+        # Apply inline overrides (highest specificity, not cached)
         if inline_overrides:
             override_style = Style(**inline_overrides)
             style = style.merge(override_style)
@@ -349,6 +389,7 @@ class StyleResolver:
         -----
         This allows runtime theme switching. After calling this method,
         subsequent style resolutions will use the new theme.
+        The style cache is automatically cleared when the theme changes.
 
         Examples
         --------
@@ -359,6 +400,8 @@ class StyleResolver:
         'dark'
         """
         self.theme = theme
+        # Clear style cache since theme changed
+        self._style_cache.clear()
 
     def get_theme(self) -> Theme:
         """Get the current theme.
@@ -377,3 +420,16 @@ class StyleResolver:
         'default'
         """
         return self.theme
+
+    def clear_cache(self) -> None:
+        """Clear the style resolution cache.
+
+        Notes
+        -----
+        This method clears all cached style resolutions. Useful for testing
+        or when element states have changed significantly and you want to
+        ensure fresh style computation.
+
+        The cache is also automatically cleared when set_theme() is called.
+        """
+        self._style_cache.clear()

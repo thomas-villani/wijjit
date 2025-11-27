@@ -4,15 +4,20 @@ This module provides template tags for creating dropdown menus and context menus
 """
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
+from wijjit.core.render_context import try_get_render_context
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuItem
 from wijjit.logging_config import get_logger
+from wijjit.tags.layout import LayoutContext
+
+if TYPE_CHECKING:
+    pass
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -101,12 +106,19 @@ class MenuItemExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get the current menu being built
-        menu_stack = cast(
-            list[list[MenuItem]] | None,
-            self.environment.globals.get("_wijjit_menu_stack"),
-        )
-        if not menu_stack:
+        # Get the current menu being built from RenderContext or environment globals
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            current_menu = render_ctx.current_menu
+        else:
+            # Fallback to environment globals for backward compatibility
+            menu_stack = cast(
+                list[list[MenuItem]] | None,
+                self.environment.globals.get("_wijjit_menu_stack"),
+            )
+            current_menu = menu_stack[-1] if menu_stack else None
+
+        if current_menu is None:
             logger.warning("menuitem tag used outside of dropdown/contextmenu")
             # Consume body anyway
             caller()
@@ -115,7 +127,8 @@ class MenuItemExtension(Extension):
         # Get label from body (or empty for dividers)
         label = caller().strip() if not divider else ""
 
-        # Create MenuItem
+        # Create MenuItem - menus need direct Element instantiation
+        # to maintain the menu item structure for the menu element
         item = MenuItem(
             label=label,
             action=action,
@@ -126,7 +139,6 @@ class MenuItemExtension(Extension):
         )
 
         # Add to current menu
-        current_menu = menu_stack[-1]
         current_menu.append(item)
 
         return ""
@@ -224,47 +236,62 @@ class DropdownExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            caller()  # Consume body
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                caller()  # Consume body
+                return ""
+            ctx: Any = self.environment.globals.get("_wijjit_current_context")
+            state = ctx.get("state", {}) if ctx else {}
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("dropdown")
+            id = layout_context.generate_id("dropdown")
 
         # Check visibility state
         is_visible = False
         if visible:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    is_visible = bool(state.get(visible, False))
+                is_visible = bool(state.get(visible, False))
             except Exception as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # Create menu items stack for nested menuitem tags
         # IMPORTANT: Always set up menu_stack before calling caller(),
         # even if not visible, to avoid "menuitem outside dropdown" errors
-        menu_stack = cast(
-            list[list[MenuItem]] | None,
-            self.environment.globals.get("_wijjit_menu_stack"),
-        )
-        if menu_stack is None:
-            menu_stack = []
-            self.environment.globals["_wijjit_menu_stack"] = menu_stack
-
-        # Push new items list for this menu
-        items_list: list[MenuItem] = []
-        menu_stack.append(items_list)
+        if render_ctx is not None:
+            items_list = render_ctx.push_menu()
+        else:
+            # Fallback to environment globals
+            menu_stack = cast(
+                list[list[MenuItem]] | None,
+                self.environment.globals.get("_wijjit_menu_stack"),
+            )
+            if menu_stack is None:
+                menu_stack = []
+                self.environment.globals["_wijjit_menu_stack"] = menu_stack
+            items_list = []
+            menu_stack.append(items_list)
 
         # Render body (this will populate items_list via menuitem tags)
         caller()
 
         # Pop items list
-        menu_stack.pop()
+        if render_ctx is not None:
+            render_ctx.pop_menu()
+        else:
+            menu_stack = self.environment.globals.get("_wijjit_menu_stack")
+            if menu_stack:
+                menu_stack.pop()
 
         # Convert numeric parameters
         width = int(width)
@@ -294,10 +321,13 @@ class DropdownExtension(Extension):
             "is_visible": is_visible,  # Track initial visibility
         }
 
-        # Add to context's overlay list
-        if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+        # Add overlay via RenderContext or fallback to layout_context
+        if render_ctx is not None:
+            render_ctx.add_overlay(overlay_info)
+        else:
+            if not hasattr(layout_context, "_overlays"):
+                layout_context._overlays = []  # type: ignore[attr-defined]
+            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""
 
@@ -391,47 +421,62 @@ class ContextMenuExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            caller()  # Consume body
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                caller()  # Consume body
+                return ""
+            ctx: Any = self.environment.globals.get("_wijjit_current_context")
+            state = ctx.get("state", {}) if ctx else {}
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("contextmenu")
+            id = layout_context.generate_id("contextmenu")
 
         # Check visibility state
         is_visible = False
         if visible:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    is_visible = bool(state.get(visible, False))
+                is_visible = bool(state.get(visible, False))
             except Exception as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # Create menu items stack for nested menuitem tags
         # IMPORTANT: Always set up menu_stack before calling caller(),
         # even if not visible, to avoid "menuitem outside dropdown" errors
-        menu_stack = cast(
-            list[list[MenuItem]] | None,
-            self.environment.globals.get("_wijjit_menu_stack"),
-        )
-        if menu_stack is None:
-            menu_stack = []
-            self.environment.globals["_wijjit_menu_stack"] = menu_stack
-
-        # Push new items list for this menu
-        items_list: list[MenuItem] = []
-        menu_stack.append(items_list)
+        if render_ctx is not None:
+            items_list = render_ctx.push_menu()
+        else:
+            # Fallback to environment globals
+            menu_stack = cast(
+                list[list[MenuItem]] | None,
+                self.environment.globals.get("_wijjit_menu_stack"),
+            )
+            if menu_stack is None:
+                menu_stack = []
+                self.environment.globals["_wijjit_menu_stack"] = menu_stack
+            items_list = []
+            menu_stack.append(items_list)
 
         # Render body (this will populate items_list via menuitem tags)
         caller()
 
         # Pop items list
-        menu_stack.pop()
+        if render_ctx is not None:
+            render_ctx.pop_menu()
+        else:
+            menu_stack = self.environment.globals.get("_wijjit_menu_stack")
+            if menu_stack:
+                menu_stack.pop()
 
         # Convert numeric parameters
         width = int(width)
@@ -460,9 +505,12 @@ class ContextMenuExtension(Extension):
             "is_visible": is_visible,  # Track initial visibility
         }
 
-        # Add to context's overlay list
-        if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+        # Add overlay via RenderContext or fallback to layout_context
+        if render_ctx is not None:
+            render_ctx.add_overlay(overlay_info)
+        else:
+            if not hasattr(layout_context, "_overlays"):
+                layout_context._overlays = []  # type: ignore[attr-defined]
+            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""

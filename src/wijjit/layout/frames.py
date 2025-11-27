@@ -225,6 +225,8 @@ class Frame(ScrollableElement):
 
         self.style = style or FrameStyle()
         self.content: list[str] = []
+        # Pre-stripped content cache for render optimization (avoids regex per line per frame)
+        self._stripped_content: list[str] = []
 
         # Vertical scroll management
         self.scroll_manager: ScrollManager | None = None
@@ -308,6 +310,11 @@ class Frame(ScrollableElement):
         else:
             # No wrapping - use lines as-is
             self.content = lines
+
+        # Pre-strip ANSI codes for render optimization (avoids regex per line per frame)
+        from wijjit.terminal.ansi import strip_ansi
+
+        self._stripped_content = [strip_ansi(line) for line in self.content]
 
         self._content_height = len(self.content)
 
@@ -1432,7 +1439,8 @@ class Frame(ScrollableElement):
             for i in range(inner_height):
                 content_idx = start_line + i
                 line = ""
-                if content_idx < end_line and content_idx < len(self.content):
+                valid_idx = content_idx < end_line and content_idx < len(self.content)
+                if valid_idx:
                     line = self.content[content_idx]
 
                 scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
@@ -1448,6 +1456,7 @@ class Frame(ScrollableElement):
                     padding_right,
                     scrollbar_char if self.style.show_scrollbar else None,
                     scroll_offset_x=scroll_offset_x,
+                    content_index=content_idx if valid_idx else None,
                 )
                 current_y += 1
         elif self._needs_scroll_x:
@@ -1457,8 +1466,10 @@ class Frame(ScrollableElement):
             for i in range(inner_height):
                 if i < num_content_lines:
                     line = self.content[i]
+                    idx = i
                 else:
                     line = ""
+                    idx = None
                 self._render_to_content_line(
                     ctx,
                     current_y,
@@ -1471,6 +1482,7 @@ class Frame(ScrollableElement):
                     padding_right,
                     None,
                     scroll_offset_x=scroll_offset_x,
+                    content_index=idx,
                 )
                 current_y += 1
         else:
@@ -1524,6 +1536,7 @@ class Frame(ScrollableElement):
                     padding_right,
                     None,
                     scroll_offset_x=0,
+                    content_index=i,
                 )
                 current_y += 1
 
@@ -1776,6 +1789,7 @@ class Frame(ScrollableElement):
         padding_right: int,
         scrollbar_char: str | None = None,
         scroll_offset_x: int = 0,
+        content_index: int | None = None,
     ) -> None:
         """Render content line using cells.
 
@@ -1803,6 +1817,9 @@ class Frame(ScrollableElement):
             Vertical scrollbar character to append
         scroll_offset_x : int, optional
             Horizontal scroll offset (default: 0)
+        content_index : int, optional
+            Index into self._stripped_content for cached ANSI-stripped content.
+            If provided and valid, avoids regex stripping on every render.
         """
         from wijjit.terminal.ansi import strip_ansi
         from wijjit.terminal.cell import Cell
@@ -1818,8 +1835,15 @@ class Frame(ScrollableElement):
                 ctx.bounds.x + 1 + i, ctx.bounds.y + y, Cell(char=" ", **content_attrs)
             )
 
-        # Strip ANSI codes
-        clean_content = strip_ansi(content)
+        # Use cached stripped content if available, otherwise strip on-the-fly
+        if (
+            content_index is not None
+            and self._stripped_content
+            and 0 <= content_index < len(self._stripped_content)
+        ):
+            clean_content = self._stripped_content[content_index]
+        else:
+            clean_content = strip_ansi(content)
 
         # Apply horizontal scroll offset for scroll/auto modes
         if scroll_offset_x > 0 and self.style.overflow_x in ("scroll", "auto"):

@@ -23,6 +23,20 @@ from wijjit.terminal.mouse import MouseEvent, MouseEventParser, MouseTrackingMod
 logger = get_logger(__name__)
 
 
+class _ReaderError:
+    """Sentinel object to signal fatal error from reader thread.
+
+    This distinguishes between timeout (queue.Empty) and fatal error
+    (reader thread crashed). Used internally by InputHandler.
+    """
+
+    def __init__(self, exception: BaseException | None = None):
+        self.exception = exception
+
+    def __repr__(self) -> str:
+        return f"_ReaderError({self.exception!r})"
+
+
 class KeyType(Enum):
     """Type of key press."""
 
@@ -332,12 +346,18 @@ class InputHandler:
                             keys = self._input.read_keys()
                             if keys:
                                 self._input_queue.put(keys)
-                        except (Exception, KeyboardInterrupt) as e:
-                            # Catch both Exception and KeyboardInterrupt (BaseException)
-                            # KeyboardInterrupt doesn't inherit from Exception in Python 3+
+                        except KeyboardInterrupt as e:
+                            # KeyboardInterrupt is expected/normal termination
+                            logger.debug(
+                                "Reader thread interrupted by KeyboardInterrupt"
+                            )
+                            self._input_queue.put(_ReaderError(e))
+                            break
+                        except Exception as e:
+                            # Unexpected exceptions are actual errors
                             logger.error(f"Error in reader thread: {e}")
-                            # On error, put None to signal error condition
-                            self._input_queue.put(None)
+                            # On error, put sentinel to signal error condition
+                            self._input_queue.put(_ReaderError(e))
                             break
 
                 self._reader_thread = threading.Thread(
@@ -345,6 +365,66 @@ class InputHandler:
                 )
                 self._reader_thread.start()
                 logger.debug("Started persistent input reader thread")
+
+    def _get_keys_from_queue(self, timeout: float | None = None) -> list | None:
+        """Get keys from the input queue in a thread-safe manner.
+
+        This method should be used instead of directly calling _input.read_keys()
+        to ensure all input reading goes through the reader thread.
+
+        Parameters
+        ----------
+        timeout : float or None
+            Maximum time to wait in seconds. None blocks indefinitely.
+
+        Returns
+        -------
+        list or None
+            List of key presses, or None on timeout/error.
+        """
+        self._ensure_reader_thread()
+        try:
+            keys = self._input_queue.get(timeout=timeout)
+            if isinstance(keys, _ReaderError):
+                logger.debug(f"Reader thread error: {keys.exception}")
+                return None
+            return keys
+        except queue.Empty:
+            return None
+
+    async def _get_keys_from_queue_async(
+        self, timeout: float | None = None
+    ) -> list | None:
+        """Get keys from the input queue asynchronously in a thread-safe manner.
+
+        This method should be used instead of directly calling _input.read_keys()
+        to ensure all input reading goes through the reader thread.
+
+        Parameters
+        ----------
+        timeout : float or None
+            Maximum time to wait in seconds. None blocks indefinitely.
+
+        Returns
+        -------
+        list or None
+            List of key presses, or None on timeout/error.
+        """
+        self._ensure_reader_thread()
+        loop = asyncio.get_event_loop()
+        try:
+            keys = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, self._input_queue.get, True, timeout or None
+                ),
+                timeout=timeout,
+            )
+            if isinstance(keys, _ReaderError):
+                logger.debug(f"Reader thread error: {keys.exception}")
+                return None
+            return keys
+        except (TimeoutError, queue.Empty):
+            return None
 
     def read_input(
         self, timeout: float | None = None
@@ -392,8 +472,9 @@ class InputHandler:
                 # Read from queue with timeout
                 try:
                     keys = self._input_queue.get(timeout=timeout)
-                    if keys is None:
-                        # Error condition signaled by reader thread
+                    if isinstance(keys, _ReaderError):
+                        # Fatal error signaled by reader thread
+                        logger.debug(f"Reader thread error: {keys.exception}")
                         return None
                 except queue.Empty:
                     # Timeout expired
@@ -412,7 +493,32 @@ class InputHandler:
                     )
                     if all_chars:
                         # This looks like a paste operation - combine all characters
-                        pasted_text = "".join(k.key for k in keys)
+                        # Use time-based aggregation to handle large pastes split across batches
+                        paste_chars = [k.key for k in keys]
+                        logger.debug(f"Detected paste start: {len(paste_chars)} chars")
+
+                        # Continue aggregating with short timeout (20ms window)
+                        while True:
+                            more_keys = self._get_keys_from_queue(timeout=0.02)
+                            if not more_keys:
+                                break  # Timeout - no more paste data
+                            # Check if all keys in this batch are also printable
+                            batch_all_chars = all(
+                                len(k.key) == 1 and k.key.isprintable()
+                                for k in more_keys
+                            )
+                            if batch_all_chars:
+                                paste_chars.extend(k.key for k in more_keys)
+                                logger.debug(
+                                    f"Paste continuation: +{len(more_keys)} chars"
+                                )
+                            else:
+                                # Non-printable arrived, queue for later and stop
+                                for k in more_keys:
+                                    self._key_queue.append(k)
+                                break
+
+                        pasted_text = "".join(paste_chars)
                         logger.debug(f"Detected paste: {pasted_text!r}")
                         # Return a synthetic paste key that includes all the text
                         return Key(pasted_text, KeyType.CHARACTER, pasted_text)
@@ -430,10 +536,34 @@ class InputHandler:
 
                 key_press = keys[0]
 
-                # Escape key: Just return it (Alt detection handled via multi-key check above)
-                # Note: Some terminals send Alt+letter as separate keys with delay.
-                # The multi-key check above handles the common case where they arrive together.
-                # For better Alt support across all terminals, use async version which has timeout-based detection.
+                # If this is Escape, use timeout to check for Alt+key sequence
+                if key_press.key == "escape":
+                    logger.debug("Saw Escape, checking for Alt+key with timeout...")
+                    # Use small timeout (50ms) to distinguish Escape from Alt+key
+                    # Alt+key typically arrives within a few milliseconds
+                    # Use queue-based read for thread safety
+                    next_keys = self._get_keys_from_queue(timeout=0.05)
+                    if next_keys:
+                        next_key = next_keys[0]
+                        logger.debug(f"Next key after Escape: {next_key.key!r}")
+                        # If next key is a letter, return Alt+letter
+                        if len(next_key.key) == 1 and next_key.key.isalpha():
+                            alt_char = next_key.key.lower()
+                            logger.debug(
+                                f"Detected Alt+{alt_char} via timeout lookahead"
+                            )
+                            return Key(f"alt+{alt_char}", KeyType.CONTROL)
+                        else:
+                            # Not Alt+key, queue the next key for later and return Escape
+                            logger.debug(
+                                f"Not Alt+key, queueing {next_key.key!r} for next read"
+                            )
+                            self._key_queue.append(next_key)
+                            # Fall through to return Escape normally
+                    else:
+                        # Timeout expired - it's a standalone Escape key
+                        logger.debug("Timeout expired, returning standalone Escape")
+                        # Fall through to return Escape normally
 
             # Check if this might be a mouse sequence
             # Mouse sequences start with ESC [ < (SGR format)
@@ -451,7 +581,8 @@ class InputHandler:
                     # Read until we get M or m (press or release)
                     buffer = bytearray(data_bytes)
                     while buffer and buffer[-1] not in (ord("M"), ord("m")):
-                        more_keys = self._input.read_keys()
+                        # Use queue-based read for thread safety (100ms timeout)
+                        more_keys = self._get_keys_from_queue(timeout=0.1)
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):
@@ -470,7 +601,8 @@ class InputHandler:
                     # Need 6 bytes total for normal format
                     buffer = bytearray(data_bytes)
                     while len(buffer) < 6:
-                        more_keys = self._input.read_keys()
+                        # Use queue-based read for thread safety (100ms timeout)
+                        more_keys = self._get_keys_from_queue(timeout=0.1)
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):
@@ -569,8 +701,9 @@ class InputHandler:
                         ),
                         timeout=timeout,
                     )
-                    if keys is None:
-                        # Error condition signaled by reader thread
+                    if isinstance(keys, _ReaderError):
+                        # Fatal error signaled by reader thread
+                        logger.debug(f"Reader thread error: {keys.exception}")
                         return None
                 except (TimeoutError, queue.Empty):
                     logger.debug(f"read_input_async timeout after {timeout}s")
@@ -588,7 +721,34 @@ class InputHandler:
                     )
                     if all_chars:
                         # This looks like a paste operation - combine all characters
-                        pasted_text = "".join(k.key for k in keys)
+                        # Use time-based aggregation to handle large pastes split across batches
+                        paste_chars = [k.key for k in keys]
+                        logger.debug(f"Detected paste start: {len(paste_chars)} chars")
+
+                        # Continue aggregating with short timeout (20ms window)
+                        while True:
+                            more_keys = await self._get_keys_from_queue_async(
+                                timeout=0.02
+                            )
+                            if not more_keys:
+                                break  # Timeout - no more paste data
+                            # Check if all keys in this batch are also printable
+                            batch_all_chars = all(
+                                len(k.key) == 1 and k.key.isprintable()
+                                for k in more_keys
+                            )
+                            if batch_all_chars:
+                                paste_chars.extend(k.key for k in more_keys)
+                                logger.debug(
+                                    f"Paste continuation: +{len(more_keys)} chars"
+                                )
+                            else:
+                                # Non-printable arrived, queue for later and stop
+                                for k in more_keys:
+                                    self._key_queue.append(k)
+                                break
+
+                        pasted_text = "".join(paste_chars)
                         logger.debug(f"Detected paste: {pasted_text!r}")
                         # Return a synthetic paste key that includes all the text
                         return Key(pasted_text, KeyType.CHARACTER, pasted_text)
@@ -611,29 +771,26 @@ class InputHandler:
                     logger.debug("Saw Escape, checking for Alt+key with timeout...")
                     # Use small timeout (50ms) to distinguish Escape from Alt+key
                     # Alt+key typically arrives within a few milliseconds
-                    try:
-                        next_keys = await asyncio.wait_for(
-                            loop.run_in_executor(None, self._input.read_keys),
-                            timeout=0.05,  # 50ms timeout
-                        )
-                        if next_keys:
-                            next_key = next_keys[0]
-                            logger.debug(f"Next key after Escape: {next_key.key!r}")
-                            # If next key is a letter, return Alt+letter
-                            if len(next_key.key) == 1 and next_key.key.isalpha():
-                                alt_char = next_key.key.lower()
-                                logger.debug(
-                                    f"Detected Alt+{alt_char} via timeout lookahead"
-                                )
-                                return Key(f"alt+{alt_char}", KeyType.CONTROL)
-                            else:
-                                # Not Alt+key, queue the next key for later and return Escape
-                                logger.debug(
-                                    f"Not Alt+key, queueing {next_key.key!r} for next read"
-                                )
-                                self._key_queue.append(next_key)
-                                # Fall through to return Escape normally
-                    except TimeoutError:
+                    # Use queue-based read for thread safety
+                    next_keys = await self._get_keys_from_queue_async(timeout=0.05)
+                    if next_keys:
+                        next_key = next_keys[0]
+                        logger.debug(f"Next key after Escape: {next_key.key!r}")
+                        # If next key is a letter, return Alt+letter
+                        if len(next_key.key) == 1 and next_key.key.isalpha():
+                            alt_char = next_key.key.lower()
+                            logger.debug(
+                                f"Detected Alt+{alt_char} via timeout lookahead"
+                            )
+                            return Key(f"alt+{alt_char}", KeyType.CONTROL)
+                        else:
+                            # Not Alt+key, queue the next key for later and return Escape
+                            logger.debug(
+                                f"Not Alt+key, queueing {next_key.key!r} for next read"
+                            )
+                            self._key_queue.append(next_key)
+                            # Fall through to return Escape normally
+                    else:
                         # Timeout expired - it's a standalone Escape key
                         logger.debug("Timeout expired, returning standalone Escape")
                         # Fall through to return Escape normally
@@ -654,9 +811,8 @@ class InputHandler:
                     # Read until we get M or m (press or release)
                     buffer = bytearray(data_bytes)
                     while buffer and buffer[-1] not in (ord("M"), ord("m")):
-                        more_keys = await loop.run_in_executor(
-                            None, self._input.read_keys
-                        )
+                        # Use queue-based read for thread safety (100ms timeout)
+                        more_keys = await self._get_keys_from_queue_async(timeout=0.1)
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):
@@ -675,9 +831,8 @@ class InputHandler:
                     # Need 6 bytes total for normal format
                     buffer = bytearray(data_bytes)
                     while len(buffer) < 6:
-                        more_keys = await loop.run_in_executor(
-                            None, self._input.read_keys
-                        )
+                        # Use queue-based read for thread safety (100ms timeout)
+                        more_keys = await self._get_keys_from_queue_async(timeout=0.1)
                         if more_keys and more_keys[0].data:
                             more_data = more_keys[0].data
                             if isinstance(more_data, str):

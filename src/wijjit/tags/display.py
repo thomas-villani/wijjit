@@ -1,16 +1,20 @@
 # ${DIR_PATH}/${FILE_NAME}
 from collections.abc import Callable
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
+from wijjit.core.render_context import try_get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.display.modal import ModalElement
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
+
+if TYPE_CHECKING:
+    pass
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -966,12 +970,26 @@ class CodeBlockExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+            focused_id = render_ctx.focused_id
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                return ""
+            ctx = cast(
+                dict[str, Any] | None,
+                self.environment.globals.get("_wijjit_current_context"),
+            )
+            state = ctx.get("state", {}) if ctx else {}
+            focused_id = self.environment.globals.get("_wijjit_focused_id")
 
         # Store original width/height specs for layout
         width_spec = width
@@ -996,7 +1014,7 @@ class CodeBlockExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("code")
+            id = layout_context.generate_id("code")
 
         # Get code from body if not provided as attribute
         if code is None:
@@ -1010,74 +1028,33 @@ class CodeBlockExtension(Extension):
         # If binding is enabled and id is provided, try to get code from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        code = str(state[id])
+                if id in state:
+                    code = str(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create CodeBlock element
-        from wijjit.elements.display.code import CodeBlock
-
-        codeblock = CodeBlock(
-            id=id,
-            classes=classes,
-            code=code,
-            language=language,
-            width=element_width,
-            height=element_height,
-            show_line_numbers=show_line_numbers,
-            line_number_start=line_number_start,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-            title=title,
-            theme=theme,
-        )
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            codeblock.focused = True
-
-        # Store bind setting
-        codeblock.bind = bind
-
-        # Restore scroll position from state if available
-        if id:
-            scroll_key = f"_scroll_{id}"
-            codeblock.scroll_state_key = scroll_key
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if scroll_key in state:
-                        codeblock.restore_scroll_position(state[scroll_key])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation - NO direct Element instantiation
+        # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("CodeBlock", key=id)
-        vnode.set_prop("id", id)  # Set id as prop so Element gets it
+        vnode.set_prop("id", id)
         vnode.set_prop("code", code)
         vnode.set_prop("language", language)
+        vnode.set_prop("width", element_width)
+        vnode.set_prop("height", element_height)
         vnode.set_prop("show_line_numbers", show_line_numbers)
         vnode.set_prop("line_number_start", line_number_start)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
-        if title:
-            vnode.set_prop("title", title)
         vnode.set_prop("theme", theme)
         vnode.set_prop("bind", bind)
+        if title:
+            vnode.set_prop("title", title)
         if classes:
             vnode.set_prop("classes", classes)
+
+        # Check if this element should be focused
+        if focused_id and id and focused_id == id:
+            vnode.set_prop("focused", True)
 
         # Account for borders in layout size if present
         layout_width = width_spec
@@ -1090,10 +1067,10 @@ class CodeBlockExtension(Extension):
                 layout_height = height_spec + 2
 
         vnode.set_layout(width=layout_width, height=layout_height)
-        context.add_vnode(vnode)
+        layout_context.add_vnode(vnode)
 
         # Return marker for text interleaving
-        return get_element_marker(context)
+        return get_element_marker(layout_context)
 
 
 class LogViewExtension(Extension):
@@ -1213,12 +1190,26 @@ class LogViewExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+            focused_id = render_ctx.focused_id
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                return ""
+            ctx = cast(
+                dict[str, Any] | None,
+                self.environment.globals.get("_wijjit_current_context"),
+            )
+            state = ctx.get("state", {}) if ctx else {}
+            focused_id = self.environment.globals.get("_wijjit_focused_id")
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1250,22 +1241,16 @@ class LogViewExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("logview")
+            id = layout_context.generate_id("logview")
 
         # If binding is enabled and id is provided, try to get lines from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        state_lines = state[id]
-                        # Ensure it's a list
-                        if isinstance(state_lines, list):
-                            lines = state_lines
+                if id in state:
+                    state_lines = state[id]
+                    # Ensure it's a list
+                    if isinstance(state_lines, list):
+                        lines = state_lines
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -1278,76 +1263,11 @@ class LogViewExtension(Extension):
             # Convert all items to strings
             lines = [str(line) for line in lines]
 
-        # Create LogView element
-        from wijjit.elements.display.logview import LogView
-
-        logview = LogView(
-            id=id,
-            classes=classes,
-            lines=lines,
-            width=element_width,
-            height=element_height,
-            auto_scroll=auto_scroll,
-            soft_wrap=soft_wrap,
-            show_line_numbers=show_line_numbers,
-            line_number_start=line_number_start,
-            detect_log_levels=detect_log_levels,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-            title=title,
-        )
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            logview.focused = True
-
-        # Store bind setting
-        logview.bind = bind
-
-        # Restore scroll position and auto-scroll state from state if available
-        if id:
-            scroll_key = f"_scroll_{id}"
-            autoscroll_key = f"_autoscroll_{id}"
-            logview.scroll_state_key = scroll_key
-            logview.autoscroll_state_key = autoscroll_key
-
-            # Give logview access to state dict for saving
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    logview._state_dict = ctx["state"]
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-
-                    # Restore scroll position
-                    if scroll_key in state:
-                        logview.restore_scroll_position(state[scroll_key])
-
-                    # Restore auto-scroll state
-                    if autoscroll_key in state:
-                        logview.auto_scroll = bool(state[autoscroll_key])
-                        if logview.auto_scroll:
-                            logview._user_scrolled_up = False
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation - NO direct Element instantiation
+        # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("LogView", key=id)
-        vnode.set_prop("id", id)  # Set id as prop so Element gets it
+        vnode.set_prop("id", id)
         vnode.set_prop("lines", lines)
-        # Pass element dimensions as props so reconciler can create element with correct size
         vnode.set_prop("width", element_width)
         vnode.set_prop("height", element_height)
         vnode.set_prop("auto_scroll", auto_scroll)
@@ -1357,11 +1277,15 @@ class LogViewExtension(Extension):
         vnode.set_prop("detect_log_levels", detect_log_levels)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
+        vnode.set_prop("bind", bind)
         if title:
             vnode.set_prop("title", title)
-        vnode.set_prop("bind", bind)
         if classes:
             vnode.set_prop("classes", classes)
+
+        # Check if this element should be focused
+        if focused_id and id and focused_id == id:
+            vnode.set_prop("focused", True)
 
         # Account for borders in layout size if present
         layout_width = width_spec
@@ -1374,13 +1298,13 @@ class LogViewExtension(Extension):
                 layout_height = height_spec + 2
 
         vnode.set_layout(width=layout_width, height=layout_height)
-        context.add_vnode(vnode)
+        layout_context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()
 
         # Return marker for text interleaving
-        return get_element_marker(context)
+        return get_element_marker(layout_context)
 
 
 class ListViewExtension(Extension):
@@ -1504,12 +1428,26 @@ class ListViewExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+            focused_id = render_ctx.focused_id
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                return ""
+            ctx = cast(
+                dict[str, Any] | None,
+                self.environment.globals.get("_wijjit_current_context"),
+            )
+            state = ctx.get("state", {}) if ctx else {}
+            focused_id = self.environment.globals.get("_wijjit_focused_id")
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1534,7 +1472,7 @@ class ListViewExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("listview")
+            id = layout_context.generate_id("listview")
 
         # Get items from body if not provided as attribute
         if items is None:
@@ -1557,77 +1495,36 @@ class ListViewExtension(Extension):
         # If binding is enabled and id is provided, try to get items from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        state_items = state[id]
-                        # Ensure it's a list
-                        if isinstance(state_items, list):
-                            items = state_items
+                if id in state:
+                    state_items = state[id]
+                    # Ensure it's a list
+                    if isinstance(state_items, list):
+                        items = state_items
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create ListView element
-        from wijjit.elements.display.list import ListView
-
-        listview = ListView(
-            id=id,
-            classes=classes,
-            items=items,
-            width=element_width,
-            height=element_height,
-            bullet=bullet,
-            show_dividers=show_dividers,
-            show_scrollbar=show_scrollbar,
-            border_style=border_style,
-            title=title,
-            indent_details=indent_details,
-            dim_details=dim_details,
-        )
-
-        # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
-        if focused_id and id and focused_id == id:
-            listview.focused = True
-
-        # Store bind setting
-        listview.bind = bind
-
-        # Restore scroll position from state if available
-        if id:
-            scroll_key = f"_scroll_{id}"
-            listview.scroll_state_key = scroll_key
-            try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if scroll_key in state:
-                        listview.restore_scroll_position(state[scroll_key])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create VNode for reconciliation
+        # Create VNode for reconciliation - NO direct Element instantiation
+        # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("ListView", key=id)
-        vnode.set_prop("id", id)  # Set id as prop so Element gets it
+        vnode.set_prop("id", id)
         vnode.set_prop("items", items)
+        vnode.set_prop("width", element_width)
+        vnode.set_prop("height", element_height)
         vnode.set_prop("bullet", bullet)
         vnode.set_prop("show_dividers", show_dividers)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
-        if title:
-            vnode.set_prop("title", title)
         vnode.set_prop("indent_details", indent_details)
         vnode.set_prop("dim_details", dim_details)
         vnode.set_prop("bind", bind)
+        if title:
+            vnode.set_prop("title", title)
         if classes:
             vnode.set_prop("classes", classes)
+
+        # Check if this element should be focused
+        if focused_id and id and focused_id == id:
+            vnode.set_prop("focused", True)
 
         # Account for borders in layout size if present
         layout_width = width_spec
@@ -1640,10 +1537,10 @@ class ListViewExtension(Extension):
                 layout_height = height_spec + 2
 
         vnode.set_layout(width=layout_width, height=layout_height)
-        context.add_vnode(vnode)
+        layout_context.add_vnode(vnode)
 
         # Return marker for text interleaving
-        return get_element_marker(context)
+        return get_element_marker(layout_context)
 
 
 class ModalExtension(Extension):
@@ -1905,18 +1802,29 @@ class StatusBarExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            # Still consume body
-            caller()
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                caller()
+                return ""
+            ctx = cast(
+                dict[str, Any] | None,
+                self.environment.globals.get("_wijjit_current_context"),
+            )
+            state = ctx.get("state", {}) if ctx else {}
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("statusbar")
+            id = layout_context.generate_id("statusbar")
 
         # Convert to strings
         left = str(left) if left else ""
@@ -1926,27 +1834,22 @@ class StatusBarExtension(Extension):
         # If binding is enabled and id is provided, try to get content from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    # Check for individual section keys
-                    left_key = f"{id}_left"
-                    center_key = f"{id}_center"
-                    right_key = f"{id}_right"
+                # Check for individual section keys
+                left_key = f"{id}_left"
+                center_key = f"{id}_center"
+                right_key = f"{id}_right"
 
-                    if left_key in state:
-                        left = str(state[left_key])
-                    if center_key in state:
-                        center = str(state[center_key])
-                    if right_key in state:
-                        right = str(state[right_key])
+                if left_key in state:
+                    left = str(state[left_key])
+                if center_key in state:
+                    center = str(state[center_key])
+                if right_key in state:
+                    right = str(state[right_key])
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
-        # Create StatusBar element
+        # Create StatusBar element - StatusBar is special because it's positioned
+        # outside the normal layout flow at the bottom of the screen
         from wijjit.elements.display.statusbar import StatusBar
 
         statusbar = StatusBar(
@@ -1963,25 +1866,29 @@ class StatusBarExtension(Extension):
         statusbar.bind = bind
 
         # Store statusbar in context for app to extract
-        # Similar to how overlays are stored
-        context._statusbar = statusbar  # type: ignore[attr-defined]
+        # Use RenderContext if available, otherwise fallback to layout_context
+        if render_ctx is not None:
+            render_ctx.statusbar = statusbar
+        else:
+            layout_context._statusbar = statusbar  # type: ignore[attr-defined]
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("StatusBar", key=id)
+        vnode.set_prop("id", id)
         vnode.set_prop("left", left)
         vnode.set_prop("center", center)
         vnode.set_prop("right", right)
+        vnode.set_prop("bind", bind)
         if bg_color:
             vnode.set_prop("bg_color", bg_color)
         if text_color:
             vnode.set_prop("text_color", text_color)
-        vnode.set_prop("bind", bind)
         if classes:
             vnode.set_prop("classes", classes)
         # StatusBar doesn't use layout dimensions (it's fixed to bottom)
         vnode.set_layout(width="fill", height=1)
 
-        context.add_vnode(vnode)
+        layout_context.add_vnode(vnode)
 
         # Consume body (should be empty)
         caller()

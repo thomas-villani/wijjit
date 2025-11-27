@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import Reconciler
+from wijjit.core.render_context import render_context_scope
 from wijjit.core.vdom import VNode
 from wijjit.elements.base import Element
 from wijjit.layout.engine import (
@@ -375,30 +376,52 @@ class Renderer:
         # Create layout context
         layout_ctx = LayoutContext()
 
-        # Store layout context in Jinja environment globals (so all tags can access it)
-        self.env.globals["_wijjit_layout_context"] = layout_ctx
+        # Get focused_id from context if available
+        focused_id = context.get("_wijjit_focused_id")
 
-        # Also add to template context for CallBlock tags
-        context["_wijjit_layout_context"] = layout_ctx
+        # Use RenderContext for thread-safe context passing
+        # Also set env.globals for backward compatibility during migration
+        with render_context_scope(layout_ctx, context, focused_id) as render_ctx:
+            # Backward compatibility: also set env.globals for extensions
+            # that haven't been migrated yet to use get_render_context()
+            self.env.globals["_wijjit_layout_context"] = layout_ctx
+            self.env.globals["_wijjit_current_context"] = context
+            if focused_id:
+                self.env.globals["_wijjit_focused_id"] = focused_id
 
-        # Compile or load template
-        if template_name:
-            # Load template from file (via FileSystemLoader)
-            template = self.env.get_template(template_name)
-        elif template_string in self._string_templates:
-            # Use cached string template
-            template = self._string_templates[template_string]
-        else:
-            # Compile and cache new string template
-            template = self.env.from_string(template_string)
-            self._string_templates[template_string] = template
+            # Also add to template context for CallBlock tags
+            context["_wijjit_layout_context"] = layout_ctx
 
-        # Render template (this builds the layout tree)
-        # Capture output in case there are no layout tags (to avoid double-rendering)
-        rendered_output = template.render(**context)
+            # Compile or load template
+            if template_name:
+                # Load template from file (via FileSystemLoader)
+                template = self.env.get_template(template_name)
+            elif template_string in self._string_templates:
+                # Use cached string template
+                template = self._string_templates[template_string]
+            else:
+                # Compile and cache new string template
+                template = self.env.from_string(template_string)
+                self._string_templates[template_string] = template
 
-        # Clean up globals
+            # Render template (this builds the layout tree)
+            # Capture output in case there are no layout tags (to avoid double-rendering)
+            rendered_output = template.render(**context)
+
+            # Transfer overlay info from RenderContext to LayoutContext
+            # for backward compatibility with existing overlay handling
+            if render_ctx.overlays:
+                layout_ctx._overlays = render_ctx.overlays
+            if render_ctx.statusbar is not None:
+                layout_ctx._statusbar = render_ctx.statusbar
+
+        # Clean up globals (after exiting context manager scope)
         self.env.globals.pop("_wijjit_layout_context", None)
+        self.env.globals.pop("_wijjit_current_context", None)
+        self.env.globals.pop("_wijjit_focused_id", None)
+        self.env.globals.pop("_wijjit_radiogroup_name", None)
+        self.env.globals.pop("_wijjit_menu_stack", None)
+        self.env.globals.pop("_wijjit_frame_counter", None)
 
         # Check if we have a VNode tree (layout tags were used)
         # Use vnode_root since it's the canonical source for VNode-based rendering

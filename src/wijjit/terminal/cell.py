@@ -52,11 +52,19 @@ class Cell:
         Reverse video attribute
     dim : bool
         Dim attribute
+    _style_mask : int
+        Pre-computed bitmask of style attributes for fast equality comparison.
+        Computed in __post_init__. Bit layout: bold=1, italic=2, underline=4,
+        reverse=8, dim=16.
 
     Notes
     -----
     RGB color values should be in the range 0-255. The terminal emulator
     will handle conversion to its native color format.
+
+    The _style_mask field is an optimization for equality comparison. Instead
+    of comparing 5 boolean fields individually, we compare a single integer.
+    This reduces comparison overhead in hot rendering paths.
 
     Examples
     --------
@@ -83,6 +91,22 @@ class Cell:
     underline: bool = False
     reverse: bool = False
     dim: bool = False
+    # Pre-computed style mask for fast equality comparison (computed in __post_init__)
+    _style_mask: int = 0
+
+    def __post_init__(self) -> None:
+        """Compute style mask after initialization."""
+        # Pack boolean style attributes into a single integer bitmask
+        # This enables O(1) comparison of all style flags
+        object.__setattr__(
+            self,
+            "_style_mask",
+            (self.bold)
+            | (self.italic << 1)
+            | (self.underline << 2)
+            | (self.reverse << 3)
+            | (self.dim << 4),
+        )
 
     def __eq__(self, other: object) -> bool:
         """Check equality between two cells.
@@ -99,21 +123,26 @@ class Cell:
 
         Notes
         -----
-        This efficient comparison is critical for diff rendering performance,
-        as it's called for every cell during buffer comparison.
+        This optimized comparison uses pre-computed style masks to reduce
+        the number of comparisons from 8 to 4 (char, style_mask, fg, bg).
+        This is critical for diff rendering performance as it's called
+        for every cell during buffer comparison.
+
+        Comparison order is optimized for early exit:
+        1. char - most likely to differ between cells
+        2. _style_mask - single int comparison for 5 boolean fields
+        3. fg_color - often differs for styled content
+        4. bg_color - least likely to differ
         """
         if not isinstance(other, Cell):
             return False
 
+        # Optimized comparison order with pre-computed style mask
         return (
             self.char == other.char
+            and self._style_mask == other._style_mask
             and self.fg_color == other.fg_color
             and self.bg_color == other.bg_color
-            and self.bold == other.bold
-            and self.italic == other.italic
-            and self.underline == other.underline
-            and self.reverse == other.reverse
-            and self.dim == other.dim
         )
 
     def to_ansi(self) -> str:

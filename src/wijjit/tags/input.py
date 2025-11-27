@@ -1,16 +1,20 @@
 # src/wijjit/tags/input.py
 
 import json
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
+from wijjit.core.render_context import try_get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import LayoutContext, get_element_marker
+
+if TYPE_CHECKING:
+    pass
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -103,30 +107,33 @@ class TextInputExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            # No layout context available, skip
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+            focused_id = render_ctx.focused_id
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = self.environment.globals.get("_wijjit_layout_context")
+            if layout_context is None:
+                return ""
+            ctx: Any = self.environment.globals.get("_wijjit_current_context")
+            state = ctx.get("state", {}) if ctx else {}
+            focused_id = self.environment.globals.get("_wijjit_focused_id")
 
         # Convert width to int
         width = int(width)
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("textinput")
+            id = layout_context.generate_id("textinput")
 
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:
-            # Try to get state from the template context
-            # The state is passed via context in app.py _render()
             try:
-                # Access the Jinja2 context to get state
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        value = str(state[id])
+                if id in state:
+                    value = str(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state for textinput '{id}': {e}")
 
@@ -142,7 +149,6 @@ class TextInputExtension(Extension):
             vnode.set_prop("classes", classes)
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         if focused_id and id and focused_id == id:
             vnode.set_prop("focused", True)
 
@@ -152,10 +158,10 @@ class TextInputExtension(Extension):
                 vnode.set_prop(key, val)
 
         vnode.set_layout(width=width, height=1)
-        context.add_vnode(vnode)
+        layout_context.add_vnode(vnode)
 
         # Return marker for text interleaving
-        return get_element_marker(context)
+        return get_element_marker(layout_context)
 
 
 class ButtonExtension(Extension):
@@ -233,21 +239,27 @@ class ButtonExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get or create layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            context = LayoutContext()
-            self.environment.globals["_wijjit_layout_context"] = context
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            focused_id = render_ctx.focused_id
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = self.environment.globals.get("_wijjit_layout_context")
+            if layout_context is None:
+                layout_context = LayoutContext()
+                self.environment.globals["_wijjit_layout_context"] = layout_context
+            focused_id = self.environment.globals.get("_wijjit_focused_id")
 
         # Get button label from body
         label = caller().strip()
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("button")
+            id = layout_context.generate_id("button")
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Create VNode for reconciliation
@@ -260,10 +272,10 @@ class ButtonExtension(Extension):
         vnode.set_prop("classes", classes)
         vnode.set_prop("focused", is_focused)
         vnode.set_layout(width=button_width, height=1)
-        context.add_vnode(vnode)
+        layout_context.add_vnode(vnode)
 
         # Return marker for text interleaving
-        return get_element_marker(context)
+        return get_element_marker(layout_context)
 
 
 class SelectExtension(Extension):

@@ -4,15 +4,20 @@ This module provides template tags for confirm, alert, and text input dialogs.
 """
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
+from wijjit.core.render_context import try_get_render_context
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 from wijjit.logging_config import get_logger
+from wijjit.tags.layout import LayoutContext
+
+if TYPE_CHECKING:
+    pass
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -137,19 +142,27 @@ class ConfirmDialogExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                return ""
+            ctx: Any = self.environment.globals.get("_wijjit_current_context")
+            state = ctx.get("state", {}) if ctx else {}
 
         # Check visibility state
         is_visible = False
         if visible:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    is_visible = bool(state.get(visible, False))
+                is_visible = bool(state.get(visible, False))
             except Exception as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
@@ -172,9 +185,10 @@ class ConfirmDialogExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("confirmdialog")
+            id = layout_context.generate_id("confirmdialog")
 
-        # Create confirm dialog
+        # Create confirm dialog - dialogs are special overlay elements
+        # that need direct instantiation to set up internal button references
         dialog = ConfirmDialog(
             message=message,
             classes=classes,
@@ -203,10 +217,13 @@ class ConfirmDialogExtension(Extension):
             "visible_state_key": visible,
         }
 
-        # Add to context's overlay list
-        if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+        # Add overlay via RenderContext or fallback to layout_context
+        if render_ctx is not None:
+            render_ctx.add_overlay(overlay_info)
+        else:
+            if not hasattr(layout_context, "_overlays"):
+                layout_context._overlays = []  # type: ignore[attr-defined]
+            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""
 
@@ -321,19 +338,27 @@ class AlertDialogExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                return ""
+            ctx: Any = self.environment.globals.get("_wijjit_current_context")
+            state = ctx.get("state", {}) if ctx else {}
 
         # Check visibility state
         is_visible = False
         if visible:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    is_visible = bool(state.get(visible, False))
+                is_visible = bool(state.get(visible, False))
             except Exception as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
@@ -356,9 +381,9 @@ class AlertDialogExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("alertdialog")
+            id = layout_context.generate_id("alertdialog")
 
-        # Create alert dialog
+        # Create alert dialog - dialogs are special overlay elements
         dialog = AlertDialog(
             message=message,
             classes=classes,
@@ -384,10 +409,13 @@ class AlertDialogExtension(Extension):
             "visible_state_key": visible,
         }
 
-        # Add to context's overlay list
-        if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+        # Add overlay via RenderContext or fallback to layout_context
+        if render_ctx is not None:
+            render_ctx.add_overlay(overlay_info)
+        else:
+            if not hasattr(layout_context, "_overlays"):
+                layout_context._overlays = []  # type: ignore[attr-defined]
+            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""
 
@@ -514,19 +542,27 @@ class TextInputDialogExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext (preferred) or environment globals (fallback)
+        render_ctx = try_get_render_context()
+        if render_ctx is not None:
+            layout_context = render_ctx.layout_context
+            state = render_ctx.state
+        else:
+            # Fallback to environment globals for backward compatibility
+            layout_context = cast(
+                LayoutContext | None,
+                self.environment.globals.get("_wijjit_layout_context"),
+            )
+            if layout_context is None:
+                return ""
+            ctx: Any = self.environment.globals.get("_wijjit_current_context")
+            state = ctx.get("state", {}) if ctx else {}
 
         # Check visibility state
         is_visible = False
         if visible:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    is_visible = bool(state.get(visible, False))
+                is_visible = bool(state.get(visible, False))
             except Exception as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
@@ -546,9 +582,9 @@ class TextInputDialogExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("inputdialog")
+            id = layout_context.generate_id("inputdialog")
 
-        # Create text input dialog
+        # Create text input dialog - dialogs are special overlay elements
         dialog = TextInputDialog(
             prompt=prompt,
             initial_value=str(initial_value),
@@ -580,9 +616,12 @@ class TextInputDialogExtension(Extension):
             "visible_state_key": visible,
         }
 
-        # Add to context's overlay list
-        if not hasattr(context, "_overlays"):
-            context._overlays = []
-        context._overlays.append(overlay_info)
+        # Add overlay via RenderContext or fallback to layout_context
+        if render_ctx is not None:
+            render_ctx.add_overlay(overlay_info)
+        else:
+            if not hasattr(layout_context, "_overlays"):
+                layout_context._overlays = []  # type: ignore[attr-defined]
+            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
 
         return ""
