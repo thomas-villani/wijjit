@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Tree element for displaying hierarchical data.
+
+This module provides the Tree element for displaying hierarchical data structures
+with expandable/collapsible nodes. Supports multiple indicator styles, keyboard
+navigation, mouse interaction, and customizable rendering.
+"""
+
 from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any

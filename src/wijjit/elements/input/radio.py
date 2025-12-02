@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Radio button elements for mutually exclusive selections.
+
+This module provides Radio and RadioGroup elements for creating single-selection
+radio button groups in terminal user interfaces. Only one radio button in a
+group can be selected at a time. Supports keyboard and mouse interaction.
+"""
+
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 

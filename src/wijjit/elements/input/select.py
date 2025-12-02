@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Select dropdown element for option selection.
+
+This module provides the Select element for creating scrollable dropdown
+selection lists in terminal user interfaces. Supports keyboard navigation,
+mouse interaction, search filtering, and customizable styling.
+"""
+
 from collections.abc import Callable
 from typing import Any, Literal
 

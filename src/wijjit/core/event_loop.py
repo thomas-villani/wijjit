@@ -11,6 +11,7 @@ import asyncio
 import shutil
 import time
 import warnings
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
@@ -69,10 +70,10 @@ class EventLoop:
         self.running = False
         self.executor = executor
 
-        # FPS tracking
-        self.frame_times: list[float] = []
-        self.current_fps: float = 0.0
+        # FPS tracking - use deque with maxlen for O(1) rotation
         self._fps_window_size = 10  # Calculate average over last 10 frames
+        self.frame_times: deque[float] = deque(maxlen=self._fps_window_size)
+        self.current_fps: float = 0.0
 
         # Render throttling
         self._last_render_time: float = 0.0
@@ -475,8 +476,7 @@ class EventLoop:
             frame_time = frame_end - frame_start
 
             self.frame_times.append(frame_time)
-            if len(self.frame_times) > self._fps_window_size:
-                self.frame_times.pop(0)
+            # deque with maxlen automatically discards oldest entries
 
             # Calculate average FPS
             avg_frame_time = sum(self.frame_times) / len(self.frame_times)

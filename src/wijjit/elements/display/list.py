@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""ListView element for displaying scrollable lists.
+
+This module provides the ListView element for displaying lists with various
+bullet styles, numbers, or detailed items with descriptions. Supports scrolling,
+borders, dividers, and keyboard/mouse interaction.
+"""
+
 from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import ElementType, ScrollableElement

@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Button element for user interaction.
+
+This module provides the Button element class for creating clickable buttons
+in terminal user interfaces. Supports multiple visual styles, keyboard and
+mouse activation, and customizable callbacks.
+"""
+
 from collections.abc import Callable
 from enum import Enum, auto
 

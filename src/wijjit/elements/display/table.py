@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Table element for displaying tabular data.
+
+This module provides the Table element for displaying data in rows and columns
+using Rich's Table renderer. Supports sorting, scrolling, row selection, and
+various box styles. Ideal for displaying structured data in terminal interfaces.
+"""
+
 from collections.abc import Callable
 from io import StringIO
 from typing import TYPE_CHECKING, Literal

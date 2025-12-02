@@ -1,4 +1,9 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Code display element with syntax highlighting.
+
+This module provides the CodeBlock element for displaying source code with
+syntax highlighting powered by Rich. Supports scrolling, line numbers,
+multiple themes, and various border styles.
+"""
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar

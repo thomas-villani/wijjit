@@ -109,7 +109,7 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callbacks for buttons
-        if isinstance(elem, Button) and hasattr(elem, "action") and elem.action:
+        if isinstance(elem, Button) and elem.action:
             action_id = elem.action
             # Pass the ActionEvent through, but use the action from the element
             elem.on_activate = lambda event, aid=action_id: self.app._dispatch_action(
@@ -117,7 +117,7 @@ class ElementWiringManager:
             )
 
         # Wire up action callbacks for links
-        if isinstance(elem, Link) and hasattr(elem, "action") and elem.action:
+        if isinstance(elem, Link) and elem.action:
             action_id = elem.action
             # Wire on_click to dispatch the action
             elem.on_click = lambda aid=action_id: self.app._dispatch_action(aid)
@@ -175,12 +175,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if hasattr(elem, "bind") and elem.bind and elem.id:
+        if elem.bind and elem.id:
             # Initialize element value from state if key exists
             # Note: cursor_pos is now preserved by reconciliation (ephemeral state)
             if elem.id in state:
@@ -206,12 +206,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if hasattr(elem, "bind") and elem.bind and elem.id:
+        if elem.bind and elem.id:
             # Note: Cursor, selection, and scroll state are now preserved by
             # reconciliation (ephemeral state) - no need to save/restore manually
 
@@ -256,12 +256,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if hasattr(elem, "bind") and elem.bind and elem.id:
+        if elem.bind and elem.id:
             # Initialize element value from state if key exists
             if elem.id in state:
                 elem.value = state[elem.id]
@@ -278,7 +278,7 @@ class ElementWiringManager:
             elem.on_change = on_change_handler
 
         # Wire up highlighted_index persistence if element has the state key
-        if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
+        if elem.highlight_state_key:
             highlight_key = elem.highlight_state_key
 
             def on_highlight_handler(new_index, hkey=highlight_key):
@@ -304,7 +304,7 @@ class ElementWiringManager:
         reconciliation (ephemeral state), so restore calls are not needed.
         """
         # Wire vertical scroll callback for explicit state tracking
-        if hasattr(elem, "scroll_state_key") and elem.scroll_state_key:
+        if elem.scroll_state_key:
             scroll_key = elem.scroll_state_key
 
             def on_scroll_handler(position, skey=scroll_key):
@@ -316,7 +316,7 @@ class ElementWiringManager:
             # preserves scroll position via ephemeral state
 
         # Wire horizontal scroll callback for explicit state tracking
-        if hasattr(elem, "scroll_state_key_x") and elem.scroll_state_key_x:
+        if elem.scroll_state_key_x:
             scroll_key_x = elem.scroll_state_key_x
 
             def on_scroll_x_handler(position, skey_x=scroll_key_x):
@@ -338,7 +338,7 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
 
             def on_select_handler(node, aid=action_id):
@@ -358,12 +358,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if hasattr(elem, "bind") and elem.bind and elem.id:
+        if elem.bind and elem.id:
             # Initialize element checked state from state if key exists
             if elem.id in state:
                 elem.checked = bool(state[elem.id])
@@ -388,12 +388,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled (bind to group name, not id)
-        if hasattr(elem, "bind") and elem.bind and elem.name:
+        if elem.bind and elem.name:
             # Initialize element checked state from state[name]
             if elem.name in state:
                 elem.checked = state[elem.name] == elem.value
@@ -420,12 +420,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if hasattr(elem, "bind") and elem.bind and elem.id:
+        if elem.bind and elem.id:
             # Initialize element selected values from state if key exists
             if elem.id in state:
                 elem.selected_values = set(state[elem.id])
@@ -440,7 +440,7 @@ class ElementWiringManager:
             elem.on_change = on_change_handler
 
         # Wire up highlighted_index persistence if element has the state key
-        if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
+        if elem.highlight_state_key:
             highlight_key = elem.highlight_state_key
 
             def on_highlight_handler(new_index, hkey=highlight_key):
@@ -460,12 +460,12 @@ class ElementWiringManager:
             Application state
         """
         # Wire up action callback if action is specified
-        if hasattr(elem, "action") and elem.action:
+        if elem.action:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled (bind to group name)
-        if hasattr(elem, "bind") and elem.bind and elem.name:
+        if elem.bind and elem.name:
             # Initialize element selected value from state[name]
             if elem.name in state:
                 elem.selected_value = state[elem.name]
@@ -481,7 +481,7 @@ class ElementWiringManager:
             elem.on_change = on_change_handler
 
         # Wire up highlighted_index persistence if element has the state key
-        if hasattr(elem, "highlight_state_key") and elem.highlight_state_key:
+        if elem.highlight_state_key:
             highlight_key = elem.highlight_state_key
 
             def on_highlight_handler(new_index, hkey=highlight_key):
@@ -590,17 +590,20 @@ class ElementWiringManager:
                 trigger_text = elem.trigger_text
                 # Look for a button with matching label
                 for el in elements:
-                    if isinstance(el, Button) and hasattr(el, "label"):
-                        if el.label == trigger_text and el.bounds:
-                            elem.trigger_bounds = el.bounds
-                            # Recalculate menu position
-                            elem.bounds = (
-                                self.app.overlay_manager._calculate_menu_position(elem)
-                            )
-                            break
+                    if (
+                        isinstance(el, Button)
+                        and el.label == trigger_text
+                        and el.bounds
+                    ):
+                        elem.trigger_bounds = el.bounds
+                        # Recalculate menu position
+                        elem.bounds = self.app.overlay_manager._calculate_menu_position(
+                            elem
+                        )
+                        break
 
                 # Register keyboard shortcut if specified (e.g., Alt+F)
-                if elem.trigger_key and hasattr(elem, "id") and elem.id:
+                if elem.trigger_key and elem.id:
                     if visible_state_key:
                         trigger_key = elem.trigger_key.lower()
 

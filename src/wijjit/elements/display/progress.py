@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Progress bar element for displaying operation progress.
+
+This module provides the ProgressBar element for displaying visual progress
+indicators in terminal user interfaces. Supports multiple display styles
+including filled bars, percentages, and gradients.
+"""
+
 from typing import Literal
 
 from wijjit.elements.base import Element, ElementType

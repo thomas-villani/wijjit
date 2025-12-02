@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Checkbox elements for boolean and multi-select inputs.
+
+This module provides Checkbox and CheckboxGroup elements for creating
+single checkboxes and grouped checkbox selections in terminal user interfaces.
+Supports keyboard and mouse interaction, custom styling, and change callbacks.
+"""
+
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 

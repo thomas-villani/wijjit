@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Spinner element for displaying loading animations.
+
+This module provides the Spinner element for displaying animated loading
+indicators in terminal user interfaces. Supports multiple animation styles
+including dots, lines, bouncing, and various other patterns.
+"""
+
 from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType

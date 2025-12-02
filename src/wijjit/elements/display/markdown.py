@@ -1,4 +1,9 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Markdown display element with Rich integration.
+
+This module provides the MarkdownView element for rendering markdown content
+in terminal user interfaces using Rich's Markdown renderer. Supports scrolling,
+borders, and keyboard/mouse interaction.
+"""
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar

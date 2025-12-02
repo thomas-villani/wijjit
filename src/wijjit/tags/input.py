@@ -1,4 +1,9 @@
-# src/wijjit/tags/input.py
+"""Jinja2 template extensions for input elements.
+
+This module provides Jinja2 template tag extensions for input elements
+including text inputs, text areas, buttons, selects, checkboxes, and
+radio buttons.
+"""
 
 import json
 from typing import TYPE_CHECKING, Any, Literal

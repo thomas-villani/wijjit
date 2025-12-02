@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Jinja2 template extensions for layout elements.
+
+This module provides Jinja2 template tag extensions for layout containers
+including frames, vertical stacks (vstack), and horizontal stacks (hstack).
+Also provides utility functions for processing template body content.
+"""
+
 from __future__ import annotations
 
 import textwrap

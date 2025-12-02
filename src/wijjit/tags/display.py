@@ -1,4 +1,10 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Jinja2 template extensions for display elements.
+
+This module provides Jinja2 template tag extensions for display elements
+including tables, trees, progress bars, spinners, markdown, code blocks,
+log views, list views, overlays, modals, and status bars.
+"""
+
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, cast
 

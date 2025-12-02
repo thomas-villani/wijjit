@@ -1,4 +1,11 @@
-# ${DIR_PATH}/${FILE_NAME}
+"""Text input elements for single and multi-line text entry.
+
+This module provides TextInput and TextArea elements for text entry in terminal
+user interfaces. TextInput handles single-line input with cursor editing, while
+TextArea supports multi-line editing with scrolling and text selection.
+"""
+
+import threading
 from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
@@ -22,7 +29,9 @@ if TYPE_CHECKING:
 
 
 # Internal clipboard for fallback when system clipboard is unavailable
+# Protected by _CLIPBOARD_LOCK for thread-safety
 _FALLBACK_CLIPBOARD: str = ""
+_CLIPBOARD_LOCK = threading.Lock()
 
 
 class InputStyle(Enum):
@@ -1968,8 +1977,9 @@ class TextArea(Element):
         """
         global _FALLBACK_CLIPBOARD
 
-        # Always store in fallback for within-app use
-        _FALLBACK_CLIPBOARD = text
+        # Always store in fallback for within-app use (thread-safe)
+        with _CLIPBOARD_LOCK:
+            _FALLBACK_CLIPBOARD = text
 
         # Try to also copy to system clipboard
         try:
@@ -2004,8 +2014,9 @@ class TextArea(Element):
         except Exception:
             pass
 
-        # Fall back to internal clipboard
-        return _FALLBACK_CLIPBOARD
+        # Fall back to internal clipboard (thread-safe)
+        with _CLIPBOARD_LOCK:
+            return _FALLBACK_CLIPBOARD
 
     def _copy_selection(self) -> bool:
         """Copy selected text to clipboard.
