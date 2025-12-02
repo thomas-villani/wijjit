@@ -7,11 +7,11 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
-from wijjit.core.render_context import try_get_render_context
+from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.display.modal import ModalElement
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import LayoutContext, get_element_marker, process_body_content
+from wijjit.tags.layout import get_element_marker, process_body_content
 
 if TYPE_CHECKING:
     pass
@@ -125,13 +125,10 @@ class TableExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            # No layout context available, skip
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Store original width/height specs for layout
         width_spec = width
@@ -148,14 +145,8 @@ class TableExtension(Extension):
         # If binding is enabled and id is provided, try to get data from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -317,13 +308,10 @@ class TreeExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            # No layout context available, skip
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Store original width/height specs for layout
         width_spec = width
@@ -355,14 +343,8 @@ class TreeExtension(Extension):
         # If binding is enabled and id is provided, try to get data from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -495,12 +477,10 @@ class ProgressBarExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Convert numeric parameters
         value = float(value)
@@ -514,14 +494,8 @@ class ProgressBarExtension(Extension):
         # If binding is enabled and id is provided, try to get value from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        value = float(state[id])
+                if id in state:
+                    value = float(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -643,12 +617,10 @@ class SpinnerExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Convert active to bool
         active = bool(active)
@@ -660,14 +632,8 @@ class SpinnerExtension(Extension):
         # If binding is enabled and id is provided, try to get active state from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        active = bool(state[id])
+                if id in state:
+                    active = bool(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -796,12 +762,10 @@ class MarkdownExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Store original width/height specs for layout
         width_spec = width
@@ -824,14 +788,8 @@ class MarkdownExtension(Extension):
         # If binding is enabled and id is provided, try to get content from state
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        content = str(state[id])
+                if id in state:
+                    content = str(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -970,26 +928,11 @@ class CodeBlockExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-            focused_id = render_ctx.focused_id
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = cast(
-                LayoutContext | None,
-                self.environment.globals.get("_wijjit_layout_context"),
-            )
-            if layout_context is None:
-                return ""
-            ctx = cast(
-                dict[str, Any] | None,
-                self.environment.globals.get("_wijjit_current_context"),
-            )
-            state = ctx.get("state", {}) if ctx else {}
-            focused_id = self.environment.globals.get("_wijjit_focused_id")
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1190,26 +1133,11 @@ class LogViewExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-            focused_id = render_ctx.focused_id
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = cast(
-                LayoutContext | None,
-                self.environment.globals.get("_wijjit_layout_context"),
-            )
-            if layout_context is None:
-                return ""
-            ctx = cast(
-                dict[str, Any] | None,
-                self.environment.globals.get("_wijjit_current_context"),
-            )
-            state = ctx.get("state", {}) if ctx else {}
-            focused_id = self.environment.globals.get("_wijjit_focused_id")
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1428,26 +1356,11 @@ class ListViewExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-            focused_id = render_ctx.focused_id
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = cast(
-                LayoutContext | None,
-                self.environment.globals.get("_wijjit_layout_context"),
-            )
-            if layout_context is None:
-                return ""
-            ctx = cast(
-                dict[str, Any] | None,
-                self.environment.globals.get("_wijjit_current_context"),
-            )
-            state = ctx.get("state", {}) if ctx else {}
-            focused_id = self.environment.globals.get("_wijjit_focused_id")
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1636,12 +1549,9 @@ class ModalExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
 
         # Note: Visibility is checked in _sync_template_overlays based on visible_state_key
         # We always create the element here to enable pre-registration of shortcuts/metadata
@@ -1673,7 +1583,7 @@ class ModalExtension(Extension):
             modal_element.set_content(body_content)
 
         # Store overlay info for app to register
-        overlay_info = {
+        overlay_info: dict[str, Any] = {
             "element": modal_element,
             "layer_type": LayerType.MODAL,
             "close_on_escape": True,
@@ -1683,10 +1593,8 @@ class ModalExtension(Extension):
             "visible_state_key": visible,
         }
 
-        # Add to context's overlay list
-        if not hasattr(context, "_overlays"):
-            context._overlays = []  # type: ignore[attr-defined]
-        context._overlays.append(overlay_info)  # type: ignore[attr-defined]
+        # Add overlay via RenderContext
+        render_ctx.add_overlay(overlay_info)
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Modal", key=id)
@@ -1802,25 +1710,10 @@ class StatusBarExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = cast(
-                LayoutContext | None,
-                self.environment.globals.get("_wijjit_layout_context"),
-            )
-            if layout_context is None:
-                caller()
-                return ""
-            ctx = cast(
-                dict[str, Any] | None,
-                self.environment.globals.get("_wijjit_current_context"),
-            )
-            state = ctx.get("state", {}) if ctx else {}
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Auto-generate ID if not provided
         if id is None:
@@ -1865,12 +1758,8 @@ class StatusBarExtension(Extension):
         # Store bind setting
         statusbar.bind = bind
 
-        # Store statusbar in context for app to extract
-        # Use RenderContext if available, otherwise fallback to layout_context
-        if render_ctx is not None:
-            render_ctx.statusbar = statusbar
-        else:
-            layout_context._statusbar = statusbar  # type: ignore[attr-defined]
+        # Store statusbar in RenderContext for app to extract
+        render_ctx.statusbar = statusbar
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("StatusBar", key=id)
@@ -1975,11 +1864,9 @@ class TextExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            # No layout context available, skip
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
 
         # Get body text content
         text_content = caller().strip()
@@ -2089,15 +1976,9 @@ class TabExtension(Extension):
             process_body_content,
         )
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-
-        if context is None:
-            # No layout context, just consume body and return
-            caller()
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
 
         # Create a TabContent VNode to hold this tab's content
         # Use a unique key based on the tab index
@@ -2255,12 +2136,11 @@ class TabbedPanelExtension(Extension):
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Store original width/height specs for layout
         width_spec = width
@@ -2307,14 +2187,8 @@ class TabbedPanelExtension(Extension):
         elif isinstance(active_tab, str) and bind:
             # active_tab is a state key - try to restore from state
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if active_tab in state:
-                        active_tab_index = int(state[active_tab])
+                if active_tab in state:
+                    active_tab_index = int(state[active_tab])
             except Exception as e:
                 logger.warning(f"Failed to restore active tab state: {e}")
 
@@ -2324,7 +2198,6 @@ class TabbedPanelExtension(Extension):
             vnode.set_prop("active_tab_state_key", active_tab)
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         if focused_id and id and focused_id == id:
             vnode.set_prop("focused", True)
 
@@ -2416,10 +2289,9 @@ class LinkExtension(Extension):
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 
-        # Get layout context
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
 
         # Get link text
         text_content = caller().strip()
@@ -2531,10 +2403,9 @@ class HTMLViewerExtension(Extension):
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 
-        # Get layout context
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
 
         # Get HTML content
         html_content = caller().strip()

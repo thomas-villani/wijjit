@@ -10,7 +10,7 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
-from wijjit.core.render_context import try_get_render_context
+from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
@@ -468,21 +468,9 @@ class VStackExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        # classes = kwargs.get("class", None)
-
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-        else:
-            # Fallback to environment globals for backward compatibility
-            context_obj = self.environment.globals.get("_wijjit_layout_context")
-            if context_obj is None:
-                layout_context = LayoutContext()
-                self.environment.globals["_wijjit_layout_context"] = layout_context
-            else:
-                layout_context = cast(LayoutContext, context_obj)
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
 
         width_parsed, height_parsed, spacing_int, padding_parsed, margin_parsed = (
             _parse_for_render(
@@ -649,21 +637,9 @@ class HStackExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        # classes = kwargs.get("class", None)
-
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-        else:
-            # Fallback to environment globals for backward compatibility
-            context_obj = self.environment.globals.get("_wijjit_layout_context")
-            if context_obj is None:
-                layout_context = LayoutContext()
-                self.environment.globals["_wijjit_layout_context"] = layout_context
-            else:
-                layout_context = cast(LayoutContext, context_obj)
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
 
         width_parsed, height_parsed, spacing_int, padding_parsed, margin_parsed = (
             _parse_for_render(
@@ -842,32 +818,13 @@ class FrameExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        # classes = kwargs.get("class", None)
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            # Auto-generate ID for scrollable frames if not provided
-            if scrollable and not id:
-                id = render_ctx.generate_frame_id()
-        else:
-            # Fallback to environment globals for backward compatibility
-            context_obj = self.environment.globals.get("_wijjit_layout_context")
-            if context_obj is None:
-                layout_context = LayoutContext()
-                self.environment.globals["_wijjit_layout_context"] = layout_context
-            else:
-                layout_context = cast(LayoutContext, context_obj)
-
-            # Auto-generate ID for scrollable frames if not provided (fallback)
-            if scrollable and not id:
-                if "_wijjit_frame_counter" not in self.environment.globals:
-                    self.environment.globals["_wijjit_frame_counter"] = 0
-                counter = cast(int, self.environment.globals["_wijjit_frame_counter"])
-                self.environment.globals["_wijjit_frame_counter"] = counter + 1
-                id = f"frame_{counter + 1}"
+        # Auto-generate ID for scrollable frames if not provided
+        if scrollable and not id:
+            id = render_ctx.generate_frame_id()
 
         # Parse attributes
         width_parsed = parse_size_attr(width)

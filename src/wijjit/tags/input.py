@@ -7,11 +7,11 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
-from wijjit.core.render_context import try_get_render_context
+from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import LayoutContext, get_element_marker
+from wijjit.tags.layout import get_element_marker
 
 if TYPE_CHECKING:
     pass
@@ -107,20 +107,11 @@ class TextInputExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-            focused_id = render_ctx.focused_id
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = self.environment.globals.get("_wijjit_layout_context")
-            if layout_context is None:
-                return ""
-            ctx: Any = self.environment.globals.get("_wijjit_current_context")
-            state = ctx.get("state", {}) if ctx else {}
-            focused_id = self.environment.globals.get("_wijjit_focused_id")
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Convert width to int
         width = int(width)
@@ -239,18 +230,10 @@ class ButtonExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            focused_id = render_ctx.focused_id
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = self.environment.globals.get("_wijjit_layout_context")
-            if layout_context is None:
-                layout_context = LayoutContext()
-                self.environment.globals["_wijjit_layout_context"] = layout_context
-            focused_id = self.environment.globals.get("_wijjit_focused_id")
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        focused_id = render_ctx.focused_id
 
         # Get button label from body
         label = caller().strip()
@@ -397,11 +380,11 @@ class SelectExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            # No layout context available, skip
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Convert numeric parameters
         width = int(width)
@@ -445,16 +428,12 @@ class SelectExtension(Extension):
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        value = str(state[id]) if state[id] is not None else None
+                if id in state:
+                    value = str(state[id]) if state[id] is not None else None
             except Exception as e:
                 logger.warning(f"Failed to restore state for select '{id}': {e}")
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Calculate total height accounting for borders
@@ -573,10 +552,11 @@ class CheckboxExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Auto-generate ID if not provided
         if id is None:
@@ -585,16 +565,12 @@ class CheckboxExtension(Extension):
         # If binding is enabled, try to get initial checked state from state
         if bind and id:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        checked = bool(state[id])
+                if id in state:
+                    checked = bool(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state for checkbox '{id}': {e}")
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Checkbox width: "[X] " (4 chars) + label length
@@ -673,10 +649,11 @@ class RadioExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Auto-generate ID if not provided
         if id is None:
@@ -691,22 +668,18 @@ class RadioExtension(Extension):
 
         # If name not provided, try to get it from radiogroup context
         if name is None:
-            name = self.environment.globals.get("_wijjit_radiogroup_name")
+            name = render_ctx.current_radiogroup
 
         # If binding is enabled, try to get checked state from state[name]
         if bind and name:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if name in state:
-                        # Check if this radio's value matches the group's selected value
-                        checked = state[name] == value
+                if name in state:
+                    # Check if this radio's value matches the group's selected value
+                    checked = state[name] == value
             except Exception as e:
                 logger.warning(f"Failed to restore state for radio '{name}': {e}")
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Radio width: "(o) " (4 chars) + label length
@@ -790,10 +763,11 @@ class CheckboxGroupExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Convert numeric parameters
         width = int(width)
@@ -805,11 +779,8 @@ class CheckboxGroupExtension(Extension):
         # If binding is enabled, try to get selected values from state
         if bind and id:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        selected = state[id]
+                if id in state:
+                    selected = state[id]
             except Exception as e:
                 logger.warning(
                     f"Failed to restore state for checkbox_group '{id}': {e}"
@@ -828,7 +799,6 @@ class CheckboxGroupExtension(Extension):
             options = list(options)
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Calculate total height accounting for borders
@@ -922,10 +892,11 @@ class RadioGroupExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Convert numeric parameters
         width = int(width)
@@ -941,11 +912,8 @@ class RadioGroupExtension(Extension):
         # If binding is enabled, try to get selected value from state[name]
         if bind and name:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if name in state:
-                        selected = state[name]
+                if name in state:
+                    selected = state[name]
             except Exception as e:
                 logger.warning(f"Failed to restore state for radio_group '{name}': {e}")
 
@@ -963,7 +931,6 @@ class RadioGroupExtension(Extension):
 
         if not using_nested_radios:
             # Check if this element should be focused
-            focused_id = self.environment.globals.get("_wijjit_focused_id")
             is_focused = focused_id and id and focused_id == id
 
             # Calculate total height accounting for borders
@@ -1028,21 +995,15 @@ class RadioGroupExtension(Extension):
             )
             context.push_vnode(frame_vnode)
 
-        # Set radiogroup name in environment for nested radio tags to access
-        old_radiogroup_name = self.environment.globals.get("_wijjit_radiogroup_name")
-        self.environment.globals["_wijjit_radiogroup_name"] = name
+        # Set radiogroup name in RenderContext for nested radio tags to access
+        render_ctx.push_radiogroup(name)
 
         try:
             # Render body (may contain nested {% radio %} tags)
             caller()
         finally:
             # Restore previous radiogroup context
-            if old_radiogroup_name is not None:
-                self.environment.globals["_wijjit_radiogroup_name"] = (
-                    old_radiogroup_name
-                )
-            else:
-                self.environment.globals.pop("_wijjit_radiogroup_name", None)
+            render_ctx.pop_radiogroup()
 
             # Pop VNode from stack if we created one
             if using_nested_radios:
@@ -1157,10 +1118,11 @@ class TextAreaExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from environment globals
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1200,16 +1162,12 @@ class TextAreaExtension(Extension):
         # (state value takes precedence over body/value parameter)
         if bind and id:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        value = str(state[id])
+                if id in state:
+                    value = str(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state for textarea '{id}': {e}")
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Create VNode for reconciliation
@@ -1357,10 +1315,11 @@ class CodeEditorExtension(Extension):
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 
-        # Get layout context
-        context: Any = self.environment.globals.get("_wijjit_layout_context")
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
 
         # Store original width/height specs for layout
         width_spec = width
@@ -1394,16 +1353,12 @@ class CodeEditorExtension(Extension):
         # Get value from state if binding is enabled
         if bind and id:
             try:
-                ctx: Any = self.environment.globals.get("_wijjit_current_context")
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        value = str(state[id])
+                if id in state:
+                    value = str(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state for codeeditor '{id}': {e}")
 
         # Check if this element should be focused
-        focused_id = self.environment.globals.get("_wijjit_focused_id")
         is_focused = focused_id and id and focused_id == id
 
         # Create VNode for reconciliation

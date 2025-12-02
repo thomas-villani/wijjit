@@ -380,18 +380,7 @@ class Renderer:
         focused_id = context.get("_wijjit_focused_id")
 
         # Use RenderContext for thread-safe context passing
-        # Also set env.globals for backward compatibility during migration
         with render_context_scope(layout_ctx, context, focused_id) as render_ctx:
-            # Backward compatibility: also set env.globals for extensions
-            # that haven't been migrated yet to use get_render_context()
-            self.env.globals["_wijjit_layout_context"] = layout_ctx
-            self.env.globals["_wijjit_current_context"] = context
-            if focused_id:
-                self.env.globals["_wijjit_focused_id"] = focused_id
-
-            # Also add to template context for CallBlock tags
-            context["_wijjit_layout_context"] = layout_ctx
-
             # Compile or load template
             if template_name:
                 # Load template from file (via FileSystemLoader)
@@ -414,14 +403,6 @@ class Renderer:
                 layout_ctx._overlays = render_ctx.overlays
             if render_ctx.statusbar is not None:
                 layout_ctx._statusbar = render_ctx.statusbar
-
-        # Clean up globals (after exiting context manager scope)
-        self.env.globals.pop("_wijjit_layout_context", None)
-        self.env.globals.pop("_wijjit_current_context", None)
-        self.env.globals.pop("_wijjit_focused_id", None)
-        self.env.globals.pop("_wijjit_radiogroup_name", None)
-        self.env.globals.pop("_wijjit_menu_stack", None)
-        self.env.globals.pop("_wijjit_frame_counter", None)
 
         # Check if we have a VNode tree (layout tags were used)
         # Use vnode_root since it's the canonical source for VNode-based rendering

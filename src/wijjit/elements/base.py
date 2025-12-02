@@ -430,9 +430,9 @@ class Element(ABC):
         """
         pass
 
-    def on_update(
+    def on_update(  # noqa: B027
         self, changed_props: dict[str, tuple[Any, Any]]
-    ) -> None:  # noqa: B027
+    ) -> None:
         """Called when element props are updated during reconciliation.
 
         Override this method to respond to prop changes, such as

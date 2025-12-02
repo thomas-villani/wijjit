@@ -11,9 +11,10 @@ from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
+from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import LayoutContext, get_element_marker
+from wijjit.tags.layout import get_element_marker
 
 logger = get_logger(__name__)
 
@@ -70,11 +71,10 @@ class SparklineExtension(Extension):
         """Render the sparkline tag."""
         classes = kwargs.get("class", None)
 
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         if id is None:
             id = context.generate_id("sparkline")
@@ -82,14 +82,8 @@ class SparklineExtension(Extension):
         # Get data from state if binding enabled
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -175,11 +169,10 @@ class BarChartExtension(Extension):
         """Render the barchart tag."""
         classes = kwargs.get("class", None)
 
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         if id is None:
             id = context.generate_id("barchart")
@@ -187,14 +180,8 @@ class BarChartExtension(Extension):
         # Get data from state if binding enabled
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -284,11 +271,10 @@ class ColumnChartExtension(Extension):
         """Render the columnchart tag."""
         classes = kwargs.get("class", None)
 
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         if id is None:
             id = context.generate_id("columnchart")
@@ -296,14 +282,8 @@ class ColumnChartExtension(Extension):
         # Get data from state if binding enabled
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -390,11 +370,10 @@ class LineChartExtension(Extension):
         """Render the linechart tag."""
         classes = kwargs.get("class", None)
 
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         if id is None:
             id = context.generate_id("linechart")
@@ -402,14 +381,8 @@ class LineChartExtension(Extension):
         # Get data from state if binding enabled
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -498,11 +471,10 @@ class GaugeExtension(Extension):
         """Render the gauge tag."""
         classes = kwargs.get("class", None)
 
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         if id is None:
             id = context.generate_id("gauge")
@@ -510,14 +482,8 @@ class GaugeExtension(Extension):
         # Get value from state if binding enabled
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        value = float(state[id])
+                if id in state:
+                    value = float(state[id])
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -616,11 +582,10 @@ class HeatMapExtension(Extension):
         """Render the heatmap tag."""
         classes = kwargs.get("class", None)
 
-        context = cast(
-            LayoutContext | None, self.environment.globals.get("_wijjit_layout_context")
-        )
-        if context is None:
-            return ""
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
 
         if id is None:
             id = context.generate_id("heatmap")
@@ -628,14 +593,8 @@ class HeatMapExtension(Extension):
         # Get data from state if binding enabled
         if bind and id:
             try:
-                ctx = cast(
-                    dict[str, Any] | None,
-                    self.environment.globals.get("_wijjit_current_context"),
-                )
-                if ctx and "state" in ctx:
-                    state = ctx["state"]
-                    if id in state:
-                        data = state[id]
+                if id in state:
+                    data = state[id]
             except Exception as e:
                 logger.warning(f"Failed to restore state: {e}")
 

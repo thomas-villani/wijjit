@@ -4,17 +4,16 @@ This module provides template tags for creating dropdown menus and context menus
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from jinja2 import nodes
 from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.overlay import LayerType
-from wijjit.core.render_context import try_get_render_context
+from wijjit.core.render_context import get_render_context
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuItem
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import LayoutContext
 
 if TYPE_CHECKING:
     pass
@@ -106,17 +105,9 @@ class MenuItemExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get the current menu being built from RenderContext or environment globals
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            current_menu = render_ctx.current_menu
-        else:
-            # Fallback to environment globals for backward compatibility
-            menu_stack = cast(
-                list[list[MenuItem]] | None,
-                self.environment.globals.get("_wijjit_menu_stack"),
-            )
-            current_menu = menu_stack[-1] if menu_stack else None
+        # Get the current menu being built from RenderContext
+        render_ctx = get_render_context()
+        current_menu = render_ctx.current_menu
 
         if current_menu is None:
             logger.warning("menuitem tag used outside of dropdown/contextmenu")
@@ -236,22 +227,10 @@ class DropdownExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = cast(
-                LayoutContext | None,
-                self.environment.globals.get("_wijjit_layout_context"),
-            )
-            if layout_context is None:
-                caller()  # Consume body
-                return ""
-            ctx: Any = self.environment.globals.get("_wijjit_current_context")
-            state = ctx.get("state", {}) if ctx else {}
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Auto-generate ID if not provided
         if id is None:
@@ -268,30 +247,13 @@ class DropdownExtension(Extension):
         # Create menu items stack for nested menuitem tags
         # IMPORTANT: Always set up menu_stack before calling caller(),
         # even if not visible, to avoid "menuitem outside dropdown" errors
-        if render_ctx is not None:
-            items_list = render_ctx.push_menu()
-        else:
-            # Fallback to environment globals
-            menu_stack = cast(
-                list[list[MenuItem]] | None,
-                self.environment.globals.get("_wijjit_menu_stack"),
-            )
-            if menu_stack is None:
-                menu_stack = []
-                self.environment.globals["_wijjit_menu_stack"] = menu_stack
-            items_list = []
-            menu_stack.append(items_list)
+        items_list = render_ctx.push_menu()
 
         # Render body (this will populate items_list via menuitem tags)
         caller()
 
         # Pop items list
-        if render_ctx is not None:
-            render_ctx.pop_menu()
-        else:
-            menu_stack = self.environment.globals.get("_wijjit_menu_stack")
-            if menu_stack:
-                menu_stack.pop()
+        render_ctx.pop_menu()
 
         # Convert numeric parameters
         width = int(width)
@@ -321,13 +283,8 @@ class DropdownExtension(Extension):
             "is_visible": is_visible,  # Track initial visibility
         }
 
-        # Add overlay via RenderContext or fallback to layout_context
-        if render_ctx is not None:
-            render_ctx.add_overlay(overlay_info)
-        else:
-            if not hasattr(layout_context, "_overlays"):
-                layout_context._overlays = []  # type: ignore[attr-defined]
-            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
+        # Add overlay via RenderContext
+        render_ctx.add_overlay(overlay_info)
 
         return ""
 
@@ -421,22 +378,10 @@ class ContextMenuExtension(Extension):
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
-        # Get layout context from RenderContext (preferred) or environment globals (fallback)
-        render_ctx = try_get_render_context()
-        if render_ctx is not None:
-            layout_context = render_ctx.layout_context
-            state = render_ctx.state
-        else:
-            # Fallback to environment globals for backward compatibility
-            layout_context = cast(
-                LayoutContext | None,
-                self.environment.globals.get("_wijjit_layout_context"),
-            )
-            if layout_context is None:
-                caller()  # Consume body
-                return ""
-            ctx: Any = self.environment.globals.get("_wijjit_current_context")
-            state = ctx.get("state", {}) if ctx else {}
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+        state = render_ctx.state
 
         # Auto-generate ID if not provided
         if id is None:
@@ -453,30 +398,13 @@ class ContextMenuExtension(Extension):
         # Create menu items stack for nested menuitem tags
         # IMPORTANT: Always set up menu_stack before calling caller(),
         # even if not visible, to avoid "menuitem outside dropdown" errors
-        if render_ctx is not None:
-            items_list = render_ctx.push_menu()
-        else:
-            # Fallback to environment globals
-            menu_stack = cast(
-                list[list[MenuItem]] | None,
-                self.environment.globals.get("_wijjit_menu_stack"),
-            )
-            if menu_stack is None:
-                menu_stack = []
-                self.environment.globals["_wijjit_menu_stack"] = menu_stack
-            items_list = []
-            menu_stack.append(items_list)
+        items_list = render_ctx.push_menu()
 
         # Render body (this will populate items_list via menuitem tags)
         caller()
 
         # Pop items list
-        if render_ctx is not None:
-            render_ctx.pop_menu()
-        else:
-            menu_stack = self.environment.globals.get("_wijjit_menu_stack")
-            if menu_stack:
-                menu_stack.pop()
+        render_ctx.pop_menu()
 
         # Convert numeric parameters
         width = int(width)
@@ -505,12 +433,7 @@ class ContextMenuExtension(Extension):
             "is_visible": is_visible,  # Track initial visibility
         }
 
-        # Add overlay via RenderContext or fallback to layout_context
-        if render_ctx is not None:
-            render_ctx.add_overlay(overlay_info)
-        else:
-            if not hasattr(layout_context, "_overlays"):
-                layout_context._overlays = []  # type: ignore[attr-defined]
-            layout_context._overlays.append(overlay_info)  # type: ignore[attr-defined]
+        # Add overlay via RenderContext
+        render_ctx.add_overlay(overlay_info)
 
         return ""
