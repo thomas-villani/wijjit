@@ -347,6 +347,32 @@ class MenuElement(OverlayElement):
         if self.close_callback:
             self.close_callback()
 
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Highlighted index that should survive re-renders.
+        """
+        return {
+            "highlighted_index": self.highlighted_index,
+        }
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State dict from get_ephemeral_state()
+        """
+        if "highlighted_index" in state:
+            idx = state["highlighted_index"]
+            # Validate index is still valid
+            if 0 <= idx < len(self.items):
+                self.highlighted_index = idx
+
     def render_to(self, ctx) -> None:
         """Render the menu using cell-based rendering (NEW API).
 

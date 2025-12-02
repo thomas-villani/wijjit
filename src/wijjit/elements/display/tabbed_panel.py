@@ -840,6 +840,30 @@ class TabbedPanel(Container):
         """
         return self.handle_mouse(event)
 
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Active tab index that should survive re-renders.
+        """
+        return {
+            "active_tab_index": self.active_tab_index,
+        }
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State dict from get_ephemeral_state()
+        """
+        if "active_tab_index" in state:
+            # Use switch_to_tab to properly handle bounds and callbacks
+            self.switch_to_tab(state["active_tab_index"])
+
     def render_to(self, ctx: PaintContext) -> None:
         """Render tabbed panel using cell-based rendering.
 

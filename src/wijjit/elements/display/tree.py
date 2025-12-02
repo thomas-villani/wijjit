@@ -916,6 +916,43 @@ class Tree(ScrollableElement):
 
         return False
 
+    def get_ephemeral_state(self) -> dict:
+        """Get ephemeral state for reconciliation.
+
+        Returns
+        -------
+        dict
+            Highlight, selection, expansion, and scroll state that should
+            survive re-renders.
+        """
+        state = {
+            "highlighted_index": self.highlighted_index,
+            "selected_node_id": self.selected_node_id,
+            "expanded_nodes": set(self.expanded_nodes),  # Copy the set
+        }
+        if self.scroll_manager:
+            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+        return state
+
+    def restore_ephemeral_state(self, state: dict) -> None:
+        """Restore ephemeral state after reconciliation.
+
+        Parameters
+        ----------
+        state : dict
+            State dict from get_ephemeral_state()
+        """
+        if "highlighted_index" in state:
+            self.highlighted_index = state["highlighted_index"]
+        if "selected_node_id" in state:
+            self.selected_node_id = state["selected_node_id"]
+        if "expanded_nodes" in state:
+            self.expanded_nodes = set(state["expanded_nodes"])
+            # Rebuild node list with restored expansion state
+            self._rebuild_nodes()
+        if "_scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["_scroll_position"])
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render tree using cell-based rendering (NEW API).
 

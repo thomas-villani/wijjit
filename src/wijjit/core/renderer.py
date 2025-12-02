@@ -25,7 +25,6 @@ from wijjit.core.vdom import VNode
 from wijjit.elements.base import Element
 from wijjit.layout.engine import (
     Container,
-    ElementNode,
     FrameNode,
     LayoutEngine,
     LayoutNode,
@@ -218,10 +217,6 @@ class Renderer:
 
         # Dirty region manager for tracking screen areas that need redraw
         self.dirty_manager = DirtyRegionManager()
-
-        # Element cache for ephemeral state preservation
-        # Maps element ID to element instance for state transfer between renders
-        self._element_cache: dict[str, Element] = {}
 
         # Virtual DOM reconciliation system
         # Reconciler manages element lifecycle: create, update, delete, and reuse
@@ -484,111 +479,6 @@ class Renderer:
         # This allows app._render() to manage overlay lifecycle properly
         # (separating template-declared overlays from programmatic ones)
         return output, elements, layout_ctx
-
-    def _preserve_ephemeral_state(self, node: LayoutNode) -> None:
-        """Preserve ephemeral state from cached elements to fresh elements.
-
-        This method walks the LayoutNode tree and for each element with an ID:
-        1. If a cached element exists with the same ID, transfer ephemeral state
-        2. Cache the fresh element for the next render cycle
-
-        This preserves user interaction state (cursor, scroll, selection) across
-        re-renders while allowing the template to create fresh, correctly-sized
-        elements each time.
-
-        Parameters
-        ----------
-        node : LayoutNode
-            Root of the layout tree to process
-        """
-        if isinstance(node, ElementNode):
-            element = node.element
-            if element.id:
-                # Check if we have a cached element with the same ID
-                cached = self._element_cache.get(element.id)
-                if (
-                    cached is not None
-                    and type(cached).__name__ == type(element).__name__
-                ):
-                    # Transfer ephemeral state from cached to fresh element
-                    if hasattr(cached, "get_ephemeral_state") and hasattr(
-                        element, "restore_ephemeral_state"
-                    ):
-                        ephemeral = cached.get_ephemeral_state()
-                        if ephemeral:
-                            element.restore_ephemeral_state(ephemeral)
-                            logger.debug(
-                                f"Transferred ephemeral state for {element.id}: {ephemeral}"
-                            )
-
-                # Cache the fresh element for next render
-                self._element_cache[element.id] = element
-
-        # Recursively process children
-        if isinstance(node, FrameNode):
-            # FrameNode has special structure with content_container
-            for child in node.content_container.children:
-                self._preserve_ephemeral_state(child)
-        elif isinstance(node, Container):
-            for child in node.children:
-                self._preserve_ephemeral_state(child)
-
-    def _swap_reconciled_elements(
-        self, node: LayoutNode, reconciled_elements: list[Element]
-    ) -> None:
-        """Swap reconciled elements into LayoutNode tree.
-
-        This is a transitional method for Step 1 of Virtual DOM integration.
-        It walks the LayoutNode tree and replaces fresh Elements with reconciled
-        Elements (which have preserved ephemeral state).
-
-        In Step 2, this will be replaced by building LayoutNode tree directly
-        from reconciled elements.
-
-        Parameters
-        ----------
-        node : LayoutNode
-            Root of the layout tree to process
-        reconciled_elements : list of Element
-            List of reconciled elements with preserved state
-        """
-        # Build lookup map: element ID -> reconciled element
-        reconciled_map = {elem.id: elem for elem in reconciled_elements if elem.id}
-
-        # Recursively walk and swap
-        self._swap_elements_recursive(node, reconciled_map)
-
-    def _swap_elements_recursive(
-        self, node: LayoutNode, reconciled_map: dict[str, Element]
-    ) -> None:
-        """Recursive helper for swapping elements.
-
-        Parameters
-        ----------
-        node : LayoutNode
-            Current node to process
-        reconciled_map : dict
-            Map of element ID to reconciled element
-        """
-        if isinstance(node, ElementNode):
-            element = node.element
-            if element.id and element.id in reconciled_map:
-                # Swap fresh element with reconciled element
-                reconciled = reconciled_map[element.id]
-                node.element = reconciled
-                logger.debug(
-                    f"Swapped element {element.id} "
-                    f"(type={type(reconciled).__name__})"
-                )
-
-        # Recursively process children
-        if isinstance(node, FrameNode):
-            # FrameNode has special structure with content_container
-            for child in node.content_container.children:
-                self._swap_elements_recursive(child, reconciled_map)
-        elif isinstance(node, Container):
-            for child in node.children:
-                self._swap_elements_recursive(child, reconciled_map)
 
     def _build_layout_tree_from_vnode(
         self,
@@ -1412,11 +1302,10 @@ class Renderer:
         self._string_templates.clear()
 
     def clear_element_cache(self) -> None:
-        """Clear the element cache and reconciler state.
+        """Clear the reconciler element cache and VNode tree.
 
         This should be called when navigating to a different view
         to avoid stale ephemeral state transfer.
         """
-        self._element_cache.clear()
         self._reconciler.clear_cache()
         self._last_vnode_tree = None
