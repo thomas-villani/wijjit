@@ -1874,6 +1874,10 @@ class TextExtension(Extension):
         render_ctx = get_render_context()
         context = render_ctx.layout_context
 
+        # Auto-generate ID if not provided (required for reconciliation)
+        if id is None:
+            id = context.generate_id("text")
+
         # Get body text content
         text_content = caller().strip()
 

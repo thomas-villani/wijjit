@@ -355,7 +355,7 @@ class InputHandler:
                             break
                         except Exception as e:
                             # Unexpected exceptions are actual errors
-                            logger.error(f"Error in reader thread: {e}")
+                            logger.error(f"Error in reader thread: {e}", exc_info=True)
                             # On error, put sentinel to signal error condition
                             self._input_queue.put(_ReaderError(e))
                             break

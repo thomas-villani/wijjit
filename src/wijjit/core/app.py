@@ -446,7 +446,7 @@ class Wijjit:
         except FileNotFoundError:
             logger.error(f"Theme file not found: {theme_path}")
         except Exception as e:
-            logger.error(f"Error loading theme from {theme_path}: {e}")
+            logger.error(f"Error loading theme from {theme_path}: {e}", exc_info=True)
 
     def _load_style_file(self) -> None:
         """Load additional styles from STYLE_FILE config if specified.
@@ -481,7 +481,7 @@ class Wijjit:
         except FileNotFoundError:
             logger.error(f"Style file not found: {style_path}")
         except Exception as e:
-            logger.error(f"Error loading styles from {style_path}: {e}")
+            logger.error(f"Error loading styles from {style_path}: {e}", exc_info=True)
 
     def _apply_high_contrast_theme(self) -> None:
         """Apply high contrast theme if HIGH_CONTRAST config is enabled.
@@ -501,7 +501,7 @@ class Wijjit:
                 self.renderer.theme_manager.set_theme("high_contrast")
                 logger.info("Applied high contrast theme for accessibility")
             except KeyError as e:
-                logger.error(f"High contrast theme not found: {e}")
+                logger.error(f"High contrast theme not found: {e}", exc_info=True)
 
     @property
     def views(self) -> dict[str, ViewConfig]:
@@ -1772,7 +1772,10 @@ class Wijjit:
             print(colorize(error_text, color=ANSIColor.RED), file=sys.stderr)
         except Exception as e:
             # If error handling itself fails, log basic error
-            logger.error(f"Error handling failed: {message}: {str(exception)}: {e}")
+            logger.error(
+                f"Error handling failed: {message}: {str(exception)}: {e}",
+                exc_info=True,
+            )
             print(f"\nError: {message}: {str(exception)}\n", file=sys.stderr)
 
         # Keep running unless it's a critical error

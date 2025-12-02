@@ -9,11 +9,14 @@ output to Wijjit's Cell system with theme-based styling support.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from prompt_toolkit.formatted_text import HTML
 
 from wijjit.terminal.cell import Cell
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from wijjit.styling.resolver import StyleResolver
@@ -130,8 +133,9 @@ def html_string_to_cells(
         # Parse HTML using prompt_toolkit
         html_obj = HTML(html_str)
         formatted_text = html_obj.__pt_formatted_text__()
-    except Exception:
+    except Exception as e:
         # If HTML parsing fails, treat as plain text
+        logger.debug(f"HTML parsing failed, treating as plain text: {e}")
         return [Cell(char=c) for c in html_str]
 
     cells = []
@@ -350,10 +354,11 @@ def strip_html_tags(html_str: str) -> str:
         html_obj = HTML(html_str)
         formatted_text = html_obj.__pt_formatted_text__()
         return "".join(text for _, text in formatted_text)
-    except Exception:
-        # If parsing fails, return original (simple fallback)
+    except Exception as e:
+        # If parsing fails, use regex fallback
         import re
 
+        logger.debug(f"HTML stripping failed, using regex fallback: {e}")
         return re.sub(r"<[^>]+>", "", html_str)
 
 
