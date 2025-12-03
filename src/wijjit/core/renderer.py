@@ -441,10 +441,42 @@ class Renderer:
             # This replaces the old approach of swapping elements into template-created tree
             # Extract state dict from context for scroll/tab state persistence
             state_dict = context.get("state") if context else None
+            root_frame_tracker = [False]  # Track if root frame found for auto-scroll
             layout_ctx.root = self._build_layout_tree_from_vnode(
-                new_tree, reconciled_map, state_dict
+                new_tree,
+                reconciled_map,
+                state_dict,
+                root_frame_found=root_frame_tracker,
             )
             logger.debug("Built layout tree from VNode + reconciled elements")
+
+            # If no root frame was found, wrap the content in an implicit scrollable frame
+            if not root_frame_tracker[0]:
+                from wijjit.layout.engine import FrameNode, VStack
+                from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+
+                implicit_frame = Frame(
+                    width="fill",
+                    height="fill",
+                    style=FrameStyle(
+                        border=BorderStyle.NONE,
+                        padding=(0, 0, 0, 0),
+                        scrollable=True,
+                        show_scrollbar=True,
+                    ),
+                    id="_implicit_root_frame",
+                )
+                implicit_frame_node = FrameNode(
+                    frame=implicit_frame,
+                    width="fill",
+                    height="fill",
+                )
+                # Wrap existing root in a content container
+                content_container = VStack(width="fill", height="auto")
+                content_container.add_child(layout_ctx.root)
+                implicit_frame_node.content_container = content_container
+                layout_ctx.root = implicit_frame_node
+                logger.debug("Wrapped content in implicit scrollable root frame")
 
         # Store for next render
         self._last_vnode_tree = new_tree
@@ -485,6 +517,7 @@ class Renderer:
         vnode: VNode,
         reconciled_map: dict[str, Element],
         state_dict: dict[str, Any] | None = None,
+        root_frame_found: list[bool] | None = None,
     ) -> LayoutNode:
         """Build LayoutNode tree from VNode tree and reconciled elements.
 
@@ -496,6 +529,10 @@ class Renderer:
             Map of element key to reconciled element
         state_dict : dict, optional
             Application state dict for scroll/tab state persistence
+        root_frame_found : list[bool], optional
+            Mutable flag to track if root frame has been found and marked
+            for auto-scrolling. Uses a list so the flag can be modified
+            across recursive calls.
 
         Returns
         -------
@@ -530,7 +567,10 @@ class Renderer:
             )
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
-                    child_vnode, reconciled_map, state_dict
+                    child_vnode,
+                    reconciled_map,
+                    state_dict,
+                    root_frame_found=root_frame_found,
                 )
                 container.add_child(child_node)
             return container
@@ -549,7 +589,10 @@ class Renderer:
             )
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
-                    child_vnode, reconciled_map, state_dict
+                    child_vnode,
+                    reconciled_map,
+                    state_dict,
+                    root_frame_found=root_frame_found,
                 )
                 container.add_child(child_node)
             return container
@@ -561,6 +604,13 @@ class Renderer:
             frame_width = layout_dict.get("width", "fill")
             frame_height = layout_dict.get("height", "fill")
 
+            # Detect if this is the root frame (first frame encountered)
+            # Root frames get auto-scroll enabled for views taller than terminal
+            is_root_frame = False
+            if root_frame_found is not None and not root_frame_found[0]:
+                is_root_frame = True
+                root_frame_found[0] = True
+
             # Check if we have a reconciled Frame with same key (for state preservation)
             if vnode.key and vnode.key in reconciled_map:
                 # Reuse reconciled Frame element (preserves scroll state)
@@ -568,6 +618,11 @@ class Renderer:
                 # Update dimensions if changed
                 frame_element.width = frame_width
                 frame_element.height = frame_height
+                # Enable scrollable on root frame if not already set
+                if is_root_frame and not frame_element.style.scrollable:
+                    from dataclasses import replace
+
+                    frame_element.style = replace(frame_element.style, scrollable=True)
                 logger.debug(f"Reused reconciled Frame {vnode.key}")
             else:
                 # Create new Frame element with layout dimensions
@@ -581,6 +636,9 @@ class Renderer:
                 title = props.get("title")
                 padding = props.get("padding", (0, 1, 0, 1))
                 scrollable = props.get("scrollable", False)
+                # Root frame gets auto-scroll enabled
+                if is_root_frame:
+                    scrollable = True
                 show_scrollbar = props.get("show_scrollbar", True)
                 show_scrollbar_x = props.get("show_scrollbar_x", True)
                 overflow_x = props.get("overflow_x", "clip")
@@ -634,7 +692,10 @@ class Renderer:
 
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
-                    child_vnode, reconciled_map, state_dict
+                    child_vnode,
+                    reconciled_map,
+                    state_dict,
+                    root_frame_found=root_frame_found,
                 )
                 content_container.add_child(child_node)
 
@@ -770,7 +831,10 @@ class Renderer:
                 content_children = []
                 for child_vnode in tab_vnode.children:
                     child_node = self._build_layout_tree_from_vnode(
-                        child_vnode, reconciled_map, state_dict
+                        child_vnode,
+                        reconciled_map,
+                        state_dict,
+                        root_frame_found=root_frame_found,
                     )
                     content_children.append(child_node)
 

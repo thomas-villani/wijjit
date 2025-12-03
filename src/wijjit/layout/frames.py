@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 class BorderStyle(Enum):
     """Border style for frames."""
 
+    NONE = "none"
     SINGLE = "single"
     DOUBLE = "double"
     ROUNDED = "rounded"
@@ -37,6 +38,14 @@ class BorderStyle(Enum):
 
 # Unicode border character sets for each style
 BORDER_CHARS_UNICODE = {
+    BorderStyle.NONE: {
+        "tl": " ",  # top-left (invisible)
+        "tr": " ",  # top-right (invisible)
+        "bl": " ",  # bottom-left (invisible)
+        "br": " ",  # bottom-right (invisible)
+        "h": " ",  # horizontal (invisible)
+        "v": " ",  # vertical (invisible)
+    },
     BorderStyle.SINGLE: {
         "tl": "┌",  # top-left
         "tr": "┐",  # top-right
@@ -65,6 +74,14 @@ BORDER_CHARS_UNICODE = {
 
 # ASCII border character sets (fallback when Unicode not supported)
 BORDER_CHARS_ASCII = {
+    BorderStyle.NONE: {
+        "tl": " ",
+        "tr": " ",
+        "bl": " ",
+        "br": " ",
+        "h": " ",
+        "v": " ",
+    },
     BorderStyle.SINGLE: {
         "tl": "+",
         "tr": "+",
@@ -240,6 +257,9 @@ class Frame(ScrollableElement):
 
         # Horizontal scroll callback
         self.on_scroll_x: Callable[[int], None] | None = None
+
+        # Horizontal scroll state key for wiring
+        self.scroll_state_key_x: str | None = None
 
         # Note: bounds, id, scroll_state_key inherited from ScrollableElement
 
@@ -1392,43 +1412,33 @@ class Frame(ScrollableElement):
 
         # Render content based on mode
         if self._has_children and not self.content:
-            # Scrollable frame with children - render empty content area with scrollbar
+            # Frame with children - only render scrollbar if needed, don't fill content
+            # Child elements/frames are rendered separately and should not be overwritten
             if self.style.scrollable and self._needs_scroll and self.scroll_manager:
+                # Render just the scrollbar column without overwriting content area
                 scrollbar_chars = render_vertical_scrollbar(
                     self.scroll_manager.state, inner_height, style="simple"
                 )
-                for i in range(inner_height):
-                    scrollbar_char = (
-                        scrollbar_chars[i] if i < len(scrollbar_chars) else " "
-                    )
-                    self._render_to_content_line(
-                        ctx,
-                        current_y,
-                        "",
-                        chars,
-                        border_attrs,
-                        content_attrs,
-                        padding_left,
-                        inner_width,
-                        padding_right,
-                        scrollbar_char if self.style.show_scrollbar else None,
-                        scroll_offset_x=0,
-                    )
-                    current_y += 1
+                # Only render scrollbar if it needs to be shown
+                if self.style.show_scrollbar:
+                    from wijjit.terminal.cell import Cell
+
+                    scrollbar_x = self.width - 2  # Right side, inside border
+                    for i in range(inner_height):
+                        scrollbar_char = (
+                            scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+                        )
+                        cell = Cell(char=scrollbar_char, **border_attrs)
+                        ctx.buffer.set_cell(
+                            ctx.bounds.x + scrollbar_x,
+                            ctx.bounds.y + current_y,
+                            cell,
+                        )
+                        current_y += 1
             else:
-                # Non-scrollable or no scrolling needed - render empty
-                for _ in range(inner_height):
-                    self._render_to_empty_line(
-                        ctx,
-                        current_y,
-                        chars,
-                        border_attrs,
-                        padding_left,
-                        inner_width,
-                        padding_right,
-                        scrollbar_width_v,
-                    )
-                    current_y += 1
+                # No scrolling needed, children render themselves
+                # Just advance current_y to skip the content area
+                current_y += inner_height
         elif self.style.scrollable and self._needs_scroll and self.scroll_manager:
             # Scrollable frame with text content (vertical + optional horizontal)
             start_line, end_line = self.scroll_manager.get_visible_range()

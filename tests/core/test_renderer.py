@@ -463,3 +463,126 @@ Inner content
             buffer_text2 = renderer.get_buffer_as_text()
             assert "Inline" in buffer_text2
             assert "Inline Content" in buffer_text2
+
+
+class TestRootFrameAutoScroll:
+    """Tests for root frame auto-scroll functionality."""
+
+    def test_root_frame_auto_scrollable(self):
+        """Root frame should automatically have scrollable=True."""
+        renderer = Renderer()
+        template = """
+{% frame title="Root Frame" width=50 height=12 %}
+    Content here
+{% endframe %}
+"""
+        output, elements, layout_ctx = renderer.render_with_layout(
+            template, width=80, height=24
+        )
+
+        # Find the root frame
+        from wijjit.layout.engine import FrameNode
+
+        assert isinstance(layout_ctx.root, FrameNode)
+        assert layout_ctx.root.frame.style.scrollable is True
+
+    def test_nested_frame_not_auto_scrollable(self):
+        """Nested frames should NOT automatically have scrollable=True."""
+        renderer = Renderer()
+        template = """
+{% frame title="Outer Frame" width=50 height=12 %}
+    {% frame title="Inner Frame" width=30 height=5 %}
+        Inner content
+    {% endframe %}
+{% endframe %}
+"""
+        output, elements, layout_ctx = renderer.render_with_layout(
+            template, width=80, height=24
+        )
+
+        # Root frame should be scrollable
+        from wijjit.layout.engine import FrameNode
+
+        assert isinstance(layout_ctx.root, FrameNode)
+        assert layout_ctx.root.frame.style.scrollable is True
+
+        # Inner frame should NOT be scrollable (unless explicitly set)
+        inner_frame = layout_ctx.root.content_container.children[0]
+        assert isinstance(inner_frame, FrameNode)
+        assert inner_frame.frame.style.scrollable is False
+
+    def test_implicit_frame_wrapper_for_no_frame_template(self):
+        """Templates without a root frame should get an implicit scrollable frame."""
+        renderer = Renderer()
+        template = """
+{% vstack width=40 height=10 %}
+    Line 1
+    Line 2
+{% endvstack %}
+"""
+        output, elements, layout_ctx = renderer.render_with_layout(
+            template, width=80, height=24
+        )
+
+        # Root should be an implicit FrameNode wrapping the VStack
+        from wijjit.layout.engine import FrameNode
+
+        assert isinstance(layout_ctx.root, FrameNode)
+        assert layout_ctx.root.frame.style.scrollable is True
+        # Implicit frame should have no visible border
+        from wijjit.layout.frames import BorderStyle
+
+        assert layout_ctx.root.frame.style.border == BorderStyle.NONE
+
+    def test_frame_in_vstack_is_root_frame(self):
+        """First frame inside a VStack should be marked as root frame."""
+        renderer = Renderer()
+        template = """
+{% vstack width=60 height=20 %}
+    {% frame title="First Frame" width=50 height=8 %}
+        First content
+    {% endframe %}
+    {% frame title="Second Frame" width=50 height=8 %}
+        Second content
+    {% endframe %}
+{% endvstack %}
+"""
+        output, elements, layout_ctx = renderer.render_with_layout(
+            template, width=80, height=24
+        )
+
+        # Root is the VStack (no implicit wrapper since we found a Frame inside)
+        from wijjit.layout.engine import FrameNode, VStack
+
+        # The root is a VStack since first Frame was found and marked
+        assert isinstance(layout_ctx.root, VStack)
+
+        # First frame in VStack should be scrollable (it's the "root frame")
+        first_frame = layout_ctx.root.children[0]
+        assert isinstance(first_frame, FrameNode)
+        assert first_frame.frame.style.scrollable is True
+
+        # Second frame should NOT be scrollable
+        second_frame = layout_ctx.root.children[1]
+        assert isinstance(second_frame, FrameNode)
+        assert second_frame.frame.style.scrollable is False
+
+    def test_scrollbar_only_when_overflow(self):
+        """Scrollbar should only appear when content exceeds viewport."""
+        renderer = Renderer()
+        # Template with small content that fits
+        template = """
+{% frame title="Small Content" width=50 height=12 %}
+    Short text
+{% endframe %}
+"""
+        output, elements, layout_ctx = renderer.render_with_layout(
+            template, width=80, height=24
+        )
+
+        from wijjit.layout.engine import FrameNode
+
+        assert isinstance(layout_ctx.root, FrameNode)
+        # Frame is scrollable but doesn't need scroll (content fits)
+        assert layout_ctx.root.frame.style.scrollable is True
+        assert layout_ctx.root.frame._needs_scroll is False
