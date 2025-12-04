@@ -133,9 +133,15 @@ def refresh_data(event):
         [random.randint(0, 100) for _ in range(12)] for _ in range(5)
     ]
 
-    # Update sales data slightly
-    for item in app.state["sales_data"]:
-        item["value"] = int(item["value"] * random.uniform(0.9, 1.1))
+    # Update sales data - create new list to trigger change detection
+    app.state["sales_data"] = [
+        {"label": item["label"], "value": int(item["value"] * random.uniform(0.9, 1.1))}
+        for item in app.state["sales_data"]
+    ]
+
+    # Update monthly data with new random values
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"]
+    app.state["monthly_data"] = [(month, random.randint(100, 250)) for month in months]
 
 
 @app.on_key("q")

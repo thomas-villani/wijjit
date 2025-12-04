@@ -111,7 +111,7 @@ class HeatMap(Element):
 
         # Data
         self._raw_data = data or []
-        self.data = self._normalize_grid(self._raw_data)
+        self._grid = self._normalize_grid(self._raw_data)
 
         # Display properties
         self.width = width
@@ -146,6 +146,28 @@ class HeatMap(Element):
         """
         return [[float(cell) for cell in row] for row in data]
 
+    @property
+    def data(self) -> list[list[float | int]]:
+        """Get the raw data values.
+
+        Returns
+        -------
+        list of list
+            Raw data values
+        """
+        return self._raw_data
+
+    @data.setter
+    def data(self, value: list[list[float | int]]) -> None:
+        """Set data values (triggers re-normalization).
+
+        Parameters
+        ----------
+        value : list of list
+            New grid data
+        """
+        self.set_data(value)
+
     def set_data(self, data: list[list[float | int]]) -> None:
         """Update heat map data.
 
@@ -155,7 +177,7 @@ class HeatMap(Element):
             New grid data
         """
         self._raw_data = data
-        self.data = self._normalize_grid(data)
+        self._grid = self._normalize_grid(data)
 
     def get_intrinsic_size(self) -> tuple[int, int]:
         """Get the intrinsic size of the heat map.
@@ -176,7 +198,7 @@ class HeatMap(Element):
             (min_value, max_value)
         """
         all_values = []
-        for row in self.data:
+        for row in self._grid:
             all_values.extend(row)
 
         if not all_values:
@@ -210,7 +232,7 @@ class HeatMap(Element):
         """
         from wijjit.terminal.cell import Cell
 
-        if not self.data:
+        if not self._grid:
             empty_style = ctx.style_resolver.resolve_style(self, "heatmap")
             ctx.write_text(0, 0, "No data", empty_style)
             return
@@ -239,8 +261,8 @@ class HeatMap(Element):
         min_val, max_val = self._get_value_range()
 
         # Calculate visible cells
-        # num_rows = len(self.data)
-        # num_cols = max((len(row) for row in self.data), default=0)
+        # num_rows = len(self._grid)
+        # num_cols = max((len(row) for row in self._grid), default=0)
 
         # Adjust cell size if needed to fit grid
         visible_cols = grid_width // self.cell_width
@@ -254,7 +276,7 @@ class HeatMap(Element):
                 ctx.write_text(x, 0, display_label, label_style)
 
         # Render row labels and cells
-        for row_idx, row in enumerate(self.data[:visible_rows]):
+        for row_idx, row in enumerate(self._grid[:visible_rows]):
             y = grid_top + row_idx * self.cell_height
 
             if y >= self.height - legend_height:

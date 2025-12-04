@@ -157,6 +157,28 @@ class BarChart(ScrollableElement):
         self.action: str | None = None
         self.bind: bool = True
 
+    @property
+    def data(self) -> list[Any]:
+        """Get the raw data values.
+
+        Returns
+        -------
+        list
+            Raw data values
+        """
+        return self._raw_data
+
+    @data.setter
+    def data(self, value: list[Any]) -> None:
+        """Set data values (triggers re-extraction).
+
+        Parameters
+        ----------
+        value : list
+            New data values
+        """
+        self.set_data(value)
+
     def set_data(self, data: list[Any]) -> None:
         """Update chart data.
 

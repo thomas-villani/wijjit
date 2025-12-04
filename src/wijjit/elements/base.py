@@ -549,10 +549,15 @@ class ScrollableElement(Element, ABC):
     Attributes
     ----------
     scroll_state_key : str or None
-        State key for persisting scroll position (typically "_scroll_{id}")
+        State key for persisting vertical scroll position (typically "_scroll_{id}")
     on_scroll : Callable[[int], None] or None
-        Callback function called when scroll position changes.
+        Callback function called when vertical scroll position changes.
         Signature: on_scroll(position: int) -> None
+    scroll_state_key_x : str or None
+        State key for persisting horizontal scroll position (typically "_scroll_x_{id}")
+    on_scroll_x : Callable[[int], None] or None
+        Callback function called when horizontal scroll position changes.
+        Signature: on_scroll_x(position: int) -> None
 
     Notes
     -----
@@ -605,8 +610,12 @@ class ScrollableElement(Element, ABC):
             CSS class names for styling
         """
         super().__init__(id=id, classes=classes)
+        # Vertical scroll attributes
         self.scroll_state_key: str | None = None
         self.on_scroll: Callable[[int], None] | None = None
+        # Horizontal scroll attributes
+        self.scroll_state_key_x: str | None = None
+        self.on_scroll_x: Callable[[int], None] | None = None
 
     @property
     @abstractmethod

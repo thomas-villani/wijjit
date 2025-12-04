@@ -127,6 +127,28 @@ class LineChart(Element):
         self.action: str | None = None
         self.bind: bool = True
 
+    @property
+    def data(self) -> list[Any] | dict[str, list[Any]] | None:
+        """Get the raw data values.
+
+        Returns
+        -------
+        list or dict or None
+            Raw data values
+        """
+        return self._raw_data
+
+    @data.setter
+    def data(self, value: list[Any] | dict[str, list[Any]] | None) -> None:
+        """Set data values (triggers re-parsing).
+
+        Parameters
+        ----------
+        value : list or dict or None
+            New data values
+        """
+        self.set_data(value)
+
     def _parse_data(self, data: list[Any] | dict[str, list[Any]] | None) -> None:
         """Parse input data into series format.
 
