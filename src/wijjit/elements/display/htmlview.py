@@ -140,7 +140,7 @@ class HTMLViewer(ScrollableElement):
         return self._dynamic_sizing
 
     def set_bounds(self, bounds) -> None:
-        """Set bounds and dynamically resize if needed.
+        """Set bounds and update dimensions/scroll.
 
         Parameters
         ----------
@@ -149,18 +149,16 @@ class HTMLViewer(ScrollableElement):
         """
         super().set_bounds(bounds)
 
-        if self.supports_dynamic_sizing and bounds:
+        if bounds:
+            # Use bounds dimensions directly - width/height properties represent
+            # the outer dimensions (including borders) for consistency
             new_width = bounds.width
             new_height = bounds.height
-
-            # Account for borders
-            if self.border_style != "none":
-                new_width = max(3, new_width - 2)
-                new_height = max(3, new_height - 2)
 
             if new_width != self.width or new_height != self.height:
                 self.width = new_width
                 self.height = new_height
+                # Re-render content with new dimensions
                 self._render_content()
                 self.scroll_manager.update_content_size(len(self.rendered_lines))
                 self.scroll_manager.update_viewport_size(self._get_content_height())

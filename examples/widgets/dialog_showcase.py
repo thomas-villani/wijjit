@@ -1,20 +1,24 @@
 """Dialog Showcase - All Dialog Types in One Example.
 
 This example demonstrates all available dialog types in Wijjit:
-- Alert dialogs (information, warning, error)
+- Alert dialogs (information, warning, error, success)
 - Confirm dialogs (yes/no, ok/cancel)
-- Input dialogs (text input with validation)
-- Custom modal dialogs
+- Input dialogs (text input)
 
 Run with: python examples/widgets/dialog_showcase.py
 
 Controls:
 - Click buttons to show different dialog types
 - Tab/Shift+Tab: Navigate between buttons
-- q: Quit
+- ESC: Close dialog
+- Ctrl+Q: Quit app
 """
 
+import shutil
+
 from wijjit import Wijjit
+from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
+from wijjit.layout.bounds import Bounds
 
 # Create app with dialog state
 app = Wijjit(
@@ -43,6 +47,33 @@ def log_action(action, result):
     app.state["action_log"] = log[-10:]
 
 
+def show_centered_dialog(dialog):
+    """Show a dialog centered on the screen.
+
+    Parameters
+    ----------
+    dialog : Element
+        The dialog element to show
+
+    Returns
+    -------
+    Overlay
+        The overlay containing the dialog
+    """
+    term_size = shutil.get_terminal_size()
+    x = (term_size.columns - dialog.width) // 2
+    y = (term_size.lines - dialog.height) // 2
+    dialog.bounds = Bounds(x=x, y=y, width=dialog.width, height=dialog.height)
+
+    overlay = app.show_modal(dialog)
+
+    def close_dialog():
+        app.overlay_manager.pop(overlay)
+
+    dialog.close_callback = close_dialog
+    return overlay
+
+
 @app.view("main", default=True)
 def main_view():
     """Main dialog showcase view.
@@ -58,7 +89,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Dialog Showcase" border="double" width=90 height=36 %}
+{% frame title="Dialog Showcase" border="double" width=90 height=28 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Last Dialog: {{ state.last_dialog }}
@@ -69,10 +100,6 @@ def main_view():
       {% vstack spacing=1 width=42 %}
         {% frame title="Alert Dialogs" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              Show information, warnings, or errors
-            {% endvstack %}
-
             {% button action="alert_info" %}Info Alert{% endbutton %}
             {% button action="alert_warning" %}Warning Alert{% endbutton %}
             {% button action="alert_error" %}Error Alert{% endbutton %}
@@ -82,50 +109,24 @@ def main_view():
 
         {% frame title="Confirm Dialogs" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              Ask yes/no or ok/cancel questions
-            {% endvstack %}
-
             {% button action="confirm_yesno" %}Yes/No Dialog{% endbutton %}
             {% button action="confirm_okcancel" %}OK/Cancel Dialog{% endbutton %}
             {% button action="confirm_delete" %}Delete Confirm{% endbutton %}
           {% endvstack %}
         {% endframe %}
-
-        {% frame title="Input Dialogs" border="single" width="fill" %}
-          {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              Get text input from user
-            {% endvstack %}
-
-            {% button action="input_text" %}Text Input{% endbutton %}
-            {% button action="input_email" %}Email Input{% endbutton %}
-            {% button action="input_number" %}Number Input{% endbutton %}
-          {% endvstack %}
-        {% endframe %}
       {% endvstack %}
 
       {% vstack spacing=1 width=42 %}
-        {% frame title="Action Log" border="single" width="fill" height=24 %}
-          {% vstack padding=1 %}
-{{ action_log_text }}
+        {% frame title="Input Dialogs" border="single" width="fill" %}
+          {% vstack spacing=1 padding=1 %}
+            {% button action="input_text" %}Text Input{% endbutton %}
+            {% button action="input_name" %}Name Input{% endbutton %}
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Dialog Features" border="single" width="fill" %}
-          {% vstack spacing=0 padding=1 %}
-            Dialog Types:
-            • AlertDialog - Show info/warning/error
-            • ConfirmDialog - Yes/No or OK/Cancel
-            • InputDialog - Get text input
-            • Custom modals - Build your own
-
-            All dialogs support:
-            • Custom titles and messages
-            • Icon/color theming
-            • Keyboard shortcuts (ESC, Enter)
-            • Callback functions
-            • Validation (input dialogs)
+        {% frame title="Action Log" border="single" width="fill" height=12 %}
+          {% vstack padding=1 %}
+{{ action_log_text }}
           {% endvstack %}
         {% endframe %}
       {% endvstack %}
@@ -135,12 +136,6 @@ def main_view():
       {% button action="clear_log" %}Clear Log{% endbutton %}
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
-
-    {% vstack spacing=0 %}
-      Note: Dialogs in Wijjit are template-based overlays that dim the background.
-      Click buttons above to see each dialog type in action!
-      [q] Quit
-    {% endvstack %}
   {% endvstack %}
 {% endframe %}
         """,
@@ -161,12 +156,21 @@ def handle_alert_info(event):
         The action event
     """
     app.state["last_dialog"] = "Info Alert"
-    app.state["dialog_result"] = "Showing info alert..."
+    app.state["dialog_result"] = "Showing..."
 
-    # Note: Actual dialog implementation would use app.show_alert()
-    # This is a placeholder showing the pattern
-    log_action("Info Alert", "Displayed info message")
-    app.state["dialog_result"] = "Info alert closed"
+    def on_ok():
+        log_action("Info Alert", "User clicked OK")
+        app.state["dialog_result"] = "Info acknowledged"
+
+    dialog = AlertDialog(
+        title="Information",
+        message="This is an informational message. It provides helpful context about the current state or action.",
+        on_ok=on_ok,
+        ok_label="Got it",
+        severity="info",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 @app.on_action("alert_warning")
@@ -179,8 +183,21 @@ def handle_alert_warning(event):
         The action event
     """
     app.state["last_dialog"] = "Warning Alert"
-    log_action("Warning Alert", "Displayed warning message")
-    app.state["dialog_result"] = "Warning alert closed"
+    app.state["dialog_result"] = "Showing..."
+
+    def on_ok():
+        log_action("Warning Alert", "User acknowledged warning")
+        app.state["dialog_result"] = "Warning acknowledged"
+
+    dialog = AlertDialog(
+        title="Warning",
+        message="This is a warning message. Please proceed with caution as this action may have consequences.",
+        on_ok=on_ok,
+        ok_label="Understood",
+        severity="warning",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 @app.on_action("alert_error")
@@ -193,8 +210,21 @@ def handle_alert_error(event):
         The action event
     """
     app.state["last_dialog"] = "Error Alert"
-    log_action("Error Alert", "Displayed error message")
-    app.state["dialog_result"] = "Error alert closed"
+    app.state["dialog_result"] = "Showing..."
+
+    def on_ok():
+        log_action("Error Alert", "User dismissed error")
+        app.state["dialog_result"] = "Error dismissed"
+
+    dialog = AlertDialog(
+        title="Error",
+        message="An error occurred while processing your request. Please try again or contact support if the problem persists.",
+        on_ok=on_ok,
+        ok_label="Dismiss",
+        severity="error",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 @app.on_action("alert_success")
@@ -207,8 +237,21 @@ def handle_alert_success(event):
         The action event
     """
     app.state["last_dialog"] = "Success Alert"
-    log_action("Success Alert", "Displayed success message")
-    app.state["dialog_result"] = "Success alert closed"
+    app.state["dialog_result"] = "Showing..."
+
+    def on_ok():
+        log_action("Success Alert", "User acknowledged success")
+        app.state["dialog_result"] = "Operation successful"
+
+    dialog = AlertDialog(
+        title="Success",
+        message="Operation completed successfully! Your changes have been saved.",
+        on_ok=on_ok,
+        ok_label="Great!",
+        severity="success",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 # Confirm Dialog Actions
@@ -222,13 +265,26 @@ def handle_confirm_yesno(event):
         The action event
     """
     app.state["last_dialog"] = "Yes/No Confirm"
+    app.state["dialog_result"] = "Showing..."
 
-    # In real implementation, would show dialog and handle callback
-    # Pattern: app.show_confirm("Are you sure?", on_confirm=lambda: ...)
+    def on_confirm():
+        log_action("Yes/No Confirm", "User clicked Yes")
+        app.state["dialog_result"] = "User confirmed (Yes)"
 
-    # Simulate user clicking "Yes"
-    log_action("Yes/No Confirm", "User clicked Yes")
-    app.state["dialog_result"] = "User confirmed (Yes)"
+    def on_cancel():
+        log_action("Yes/No Confirm", "User clicked No")
+        app.state["dialog_result"] = "User declined (No)"
+
+    dialog = ConfirmDialog(
+        title="Confirm Action",
+        message="Are you sure you want to proceed with this action?",
+        on_confirm=on_confirm,
+        on_cancel=on_cancel,
+        confirm_label="Yes",
+        cancel_label="No",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 @app.on_action("confirm_okcancel")
@@ -241,8 +297,26 @@ def handle_confirm_okcancel(event):
         The action event
     """
     app.state["last_dialog"] = "OK/Cancel Confirm"
-    log_action("OK/Cancel Confirm", "User clicked OK")
-    app.state["dialog_result"] = "User confirmed (OK)"
+    app.state["dialog_result"] = "Showing..."
+
+    def on_confirm():
+        log_action("OK/Cancel Confirm", "User clicked OK")
+        app.state["dialog_result"] = "User confirmed (OK)"
+
+    def on_cancel():
+        log_action("OK/Cancel Confirm", "User clicked Cancel")
+        app.state["dialog_result"] = "User cancelled"
+
+    dialog = ConfirmDialog(
+        title="Confirm",
+        message="Do you want to save your changes before closing?",
+        on_confirm=on_confirm,
+        on_cancel=on_cancel,
+        confirm_label="OK",
+        cancel_label="Cancel",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 @app.on_action("confirm_delete")
@@ -255,10 +329,26 @@ def handle_confirm_delete(event):
         The action event
     """
     app.state["last_dialog"] = "Delete Confirm"
+    app.state["dialog_result"] = "Showing..."
 
-    # Simulate user canceling
-    log_action("Delete Confirm", "User clicked Cancel")
-    app.state["dialog_result"] = "Delete canceled"
+    def on_confirm():
+        log_action("Delete Confirm", "User confirmed deletion")
+        app.state["dialog_result"] = "Item deleted"
+
+    def on_cancel():
+        log_action("Delete Confirm", "User cancelled deletion")
+        app.state["dialog_result"] = "Deletion cancelled"
+
+    dialog = ConfirmDialog(
+        title="Confirm Delete",
+        message="Are you sure you want to delete this item? This action cannot be undone.",
+        on_confirm=on_confirm,
+        on_cancel=on_cancel,
+        confirm_label="Delete",
+        cancel_label="Cancel",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 # Input Dialog Actions
@@ -272,59 +362,64 @@ def handle_input_text(event):
         The action event
     """
     app.state["last_dialog"] = "Text Input"
+    app.state["dialog_result"] = "Showing..."
 
-    # In real implementation:
-    # app.show_input("Enter your name:", on_submit=lambda value: ...)
+    def on_submit(value):
+        log_action("Text Input", f"User entered: {value}")
+        app.state["dialog_result"] = f"Received: {value}"
 
-    # Simulate user entering text
-    simulated_input = "John Doe"
-    log_action("Text Input", f"User entered: {simulated_input}")
-    app.state["dialog_result"] = f"Received: {simulated_input}"
+    def on_cancel():
+        log_action("Text Input", "User cancelled")
+        app.state["dialog_result"] = "Input cancelled"
 
-
-@app.on_action("input_email")
-def handle_input_email(event):
-    """Show email input dialog with validation.
-
-    Parameters
-    ----------
-    event : ActionEvent
-        The action event
-    """
-    app.state["last_dialog"] = "Email Input"
-
-    # Pattern with validation:
-    # def validate_email(value):
-    #     return "@" in value
-    # app.show_input("Enter email:", validator=validate_email, ...)
-
-    simulated_input = "user@example.com"
-    log_action("Email Input", f"User entered: {simulated_input}")
-    app.state["dialog_result"] = f"Received: {simulated_input}"
+    dialog = TextInputDialog(
+        title="Text Input",
+        prompt="Enter some text:",
+        placeholder="Type here...",
+        on_submit=on_submit,
+        on_cancel=on_cancel,
+        submit_label="Submit",
+        cancel_label="Cancel",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
-@app.on_action("input_number")
-def handle_input_number(event):
-    """Show number input dialog.
+@app.on_action("input_name")
+def handle_input_name(event):
+    """Show name input dialog.
 
     Parameters
     ----------
     event : ActionEvent
         The action event
     """
-    app.state["last_dialog"] = "Number Input"
+    app.state["last_dialog"] = "Name Input"
+    app.state["dialog_result"] = "Showing..."
 
-    # Pattern with number validation:
-    # def validate_number(value):
-    #     try:
-    #         int(value)
-    #         return True
-    #     except ValueError:
-    #         return False
+    def on_submit(value):
+        if value.strip():
+            log_action("Name Input", f"User entered: {value}")
+            app.state["dialog_result"] = f"Hello, {value}!"
+        else:
+            log_action("Name Input", "Empty name entered")
+            app.state["dialog_result"] = "Name cannot be empty"
 
-    simulated_input = "42"
-    log_action("Number Input", f"User entered: {simulated_input}")
-    app.state["dialog_result"] = f"Received: {simulated_input}"
+    def on_cancel():
+        log_action("Name Input", "User cancelled")
+        app.state["dialog_result"] = "Input cancelled"
+
+    dialog = TextInputDialog(
+        title="Enter Your Name",
+        prompt="What is your name?",
+        placeholder="John Doe",
+        on_submit=on_submit,
+        on_cancel=on_cancel,
+        submit_label="OK",
+        cancel_label="Cancel",
+        width=50,
+    )
+    show_centered_dialog(dialog)
 
 
 @app.on_action("clear_log")
@@ -365,47 +460,4 @@ def on_quit(event):
 
 
 if __name__ == "__main__":
-    print("Dialog Showcase")
-    print("=" * 50)
-    print()
-    print("This demo showcases all available dialog types:")
-    print()
-    print("Dialog Types:")
-    print("  1. Alert Dialogs:")
-    print("     - Info alerts (information messages)")
-    print("     - Warning alerts (caution messages)")
-    print("     - Error alerts (error messages)")
-    print("     - Success alerts (confirmation messages)")
-    print()
-    print("  2. Confirm Dialogs:")
-    print("     - Yes/No confirmation")
-    print("     - OK/Cancel confirmation")
-    print("     - Custom confirmation (delete, etc.)")
-    print()
-    print("  3. Input Dialogs:")
-    print("     - Text input (general)")
-    print("     - Email input (with validation)")
-    print("     - Number input (with validation)")
-    print()
-    print("Dialog Features:")
-    print("  • Custom titles and messages")
-    print("  • Callback functions on close/submit")
-    print("  • Input validation")
-    print("  • Keyboard shortcuts (ESC to cancel, Enter to confirm)")
-    print("  • Background dimming")
-    print()
-    print("Note: This showcase demonstrates the dialog patterns.")
-    print("      Actual dialog implementations use the overlay system.")
-    print()
-    print("Starting app...")
-    print()
-
-    try:
-        app.run()
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-
-        traceback.print_exc()
+    app.run()

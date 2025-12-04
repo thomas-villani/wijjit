@@ -630,6 +630,11 @@ class ListView(ScrollableElement):
         - 'listview.border': For border characters
         - 'listview.border:focus': For border when focused
         """
+        # Update scroll_manager viewport size based on actual bounds
+        # This is needed because bounds may differ from initial height after layout
+        content_height = self._get_content_height()
+        if self.scroll_manager.state.viewport_size != content_height:
+            self.scroll_manager.update_viewport_size(content_height)
 
         # Resolve styles
         if self.focused:
@@ -643,7 +648,7 @@ class ListView(ScrollableElement):
         details_style = ctx.style_resolver.resolve_style(self, "listview.details")
         divider_style = ctx.style_resolver.resolve_style(self, "listview.divider")
 
-        content_height = self._get_content_height()
+        # content_height already calculated above for viewport update
         content_width = self._get_content_width()
 
         # Render borders if needed

@@ -29,7 +29,7 @@ def main_view():
 
     Press 'o' to open confirmation modal
     Press ESC to cancel modal
-    Press Ctrl+C to quit
+    Press Ctrl+Q to quit
 
     Status: {{ state.status }}
     Button clicks: {{ state.click_count }}

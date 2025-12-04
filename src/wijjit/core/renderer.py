@@ -611,10 +611,15 @@ class Renderer:
                 is_root_frame = True
                 root_frame_found[0] = True
 
+            # Auto-generate key for root frames without explicit ID so scroll state persists
+            frame_key = vnode.key
+            if is_root_frame and not frame_key:
+                frame_key = "_auto_root_frame"
+
             # Check if we have a reconciled Frame with same key (for state preservation)
-            if vnode.key and vnode.key in reconciled_map:
+            if frame_key and frame_key in reconciled_map:
                 # Reuse reconciled Frame element (preserves scroll state)
-                frame_element = reconciled_map[vnode.key]
+                frame_element = reconciled_map[frame_key]
                 # Update dimensions if changed
                 frame_element.width = frame_width
                 frame_element.height = frame_height
@@ -623,7 +628,7 @@ class Renderer:
                     from dataclasses import replace
 
                     frame_element.style = replace(frame_element.style, scrollable=True)
-                logger.debug(f"Reused reconciled Frame {vnode.key}")
+                logger.debug(f"Reused reconciled Frame {frame_key}")
             else:
                 # Create new Frame element with layout dimensions
                 props = vnode.props_dict()
@@ -663,9 +668,12 @@ class Renderer:
                     width=frame_width,
                     height=frame_height,
                     style=style,
-                    id=vnode.key,
+                    id=frame_key,
                 )
-                logger.debug(f"Created new Frame {vnode.key}")
+                # Add to reconciled_map so it can be reused on next render
+                if frame_key:
+                    reconciled_map[frame_key] = frame_element
+                logger.debug(f"Created new Frame {frame_key}")
 
             # Create FrameNode with content container
             from wijjit.layout.engine import FrameNode, VStack
@@ -962,27 +970,76 @@ class Renderer:
                 continue
 
             # Check if element is inside a scrollable frame
+            # Walk up the parent_frame chain and accumulate scroll offsets from ALL
+            # scrollable ancestors (not just the immediate parent). This matches
+            # how _render_frames_to_buffer accumulates scroll offsets.
             scroll_offset = 0
-            frame_clip_top = None
-            frame_clip_bottom = None
+            clip_region = None
 
             if hasattr(element, "parent_frame") and element.parent_frame is not None:
+                # Walk up the parent_frame chain, accumulating scroll offsets
+                # and using the most immediate scrollable parent for clipping
                 parent = element.parent_frame
-                if parent.style.scrollable and parent._needs_scroll:
-                    scroll_offset = parent.get_scroll_offset()
+                accumulated_scroll = 0
 
-                    # Calculate frame's visible content area for clipping
-                    if parent.bounds is not None:
-                        padding_top, _, padding_bottom, _ = parent.style.padding
-                        frame_clip_top = (
-                            parent.bounds.y + 1 + padding_top
-                        )  # +1 for top border
-                        frame_clip_bottom = (
-                            parent.bounds.y + parent.bounds.height - padding_bottom
-                        )
+                while parent is not None:
+                    if parent.style.scrollable and parent._needs_scroll:
+                        accumulated_scroll += parent.get_scroll_offset()
+
+                        # Use the most immediate (innermost) scrollable parent for clip region
+                        # The clip region should be adjusted by the outer scroll offset
+                        if clip_region is None and parent.bounds is not None:
+                            padding_top, padding_right, padding_bottom, padding_left = (
+                                parent.style.padding
+                            )
+
+                            # Account for scrollbar width if present
+                            scrollbar_width = (
+                                1
+                                if parent.style.show_scrollbar and parent._needs_scroll
+                                else 0
+                            )
+
+                            # Calculate the parent's scroll-adjusted Y position
+                            # (outer scroll offsets affect where this parent is drawn)
+                            outer_scroll = (
+                                accumulated_scroll - parent.get_scroll_offset()
+                            )
+
+                            # Calculate clip region (visible content area inside frame)
+                            clip_x = (
+                                parent.bounds.x + 1 + padding_left
+                            )  # +1 for left border
+                            clip_y = (
+                                parent.bounds.y - outer_scroll + 1 + padding_top
+                            )  # +1 for top border
+                            clip_width = (
+                                parent.bounds.width
+                                - 2  # Left and right borders
+                                - padding_left
+                                - padding_right
+                                - scrollbar_width
+                            )
+                            clip_height = (
+                                parent.bounds.height
+                                - 2  # Top and bottom borders
+                                - padding_top
+                                - padding_bottom
+                            )
+
+                            clip_region = Bounds(
+                                x=clip_x,
+                                y=clip_y,
+                                width=max(1, clip_width),
+                                height=max(1, clip_height),
+                            )
+
+                    # Move up to the next parent in the chain
+                    parent = getattr(parent, "parent_frame", None)
+
+                scroll_offset = accumulated_scroll
 
             # Adjust element bounds for scroll offset
-
             adjusted_bounds = Bounds(
                 x=element.bounds.x,
                 y=element.bounds.y - scroll_offset,
@@ -991,17 +1048,20 @@ class Renderer:
             )
 
             # Skip if element is completely outside visible area
-            if frame_clip_top is not None and frame_clip_bottom is not None:
-                if adjusted_bounds.y + adjusted_bounds.height <= frame_clip_top:
+            if clip_region is not None:
+                clip_top = clip_region.y
+                clip_bottom = clip_region.y + clip_region.height
+                if adjusted_bounds.y + adjusted_bounds.height <= clip_top:
                     continue
-                if adjusted_bounds.y >= frame_clip_bottom:
+                if adjusted_bounds.y >= clip_bottom:
                     continue
 
-            # Create paint context for this element
+            # Create paint context for this element with clip region
             ctx = PaintContext(
                 buffer=buffer,
                 style_resolver=style_resolver,
                 bounds=adjusted_bounds,
+                clip_region=clip_region,
             )
 
             # Render element using cell-based rendering
@@ -1044,7 +1104,12 @@ class Renderer:
         return output, buffer
 
     def _render_frames_to_buffer(
-        self, node: "LayoutNode", buffer: ScreenBuffer, style_resolver: StyleResolver
+        self,
+        node: "LayoutNode",
+        buffer: ScreenBuffer,
+        style_resolver: StyleResolver,
+        scroll_offset: int = 0,
+        clip_region: Bounds | None = None,
     ) -> None:
         """Recursively render frame borders to cell buffer.
 
@@ -1056,12 +1121,20 @@ class Renderer:
             Target buffer
         style_resolver : StyleResolver
             Style resolver for theme styles
+        scroll_offset : int, optional
+            Vertical scroll offset from parent scrollable frame (default: 0)
+        clip_region : Bounds, optional
+            Clip region from parent scrollable frame (default: None)
 
         Notes
         -----
         This recursively walks the layout tree and renders frame borders
         to the cell buffer. Frame content is not rendered here - only
         the border decorations.
+
+        When rendering frames inside a scrollable parent, the scroll_offset
+        and clip_region are passed down to adjust positions and prevent
+        rendering outside the visible area.
         """
         # Render this frame's border if it's a FrameNode
         if isinstance(node, FrameNode):
@@ -1071,6 +1144,26 @@ class Renderer:
                 return
             style = frame.style
 
+            # Adjust bounds for scroll offset if inside a scrollable parent
+            if scroll_offset != 0:
+                adjusted_bounds = Bounds(
+                    x=bounds.x,
+                    y=bounds.y - scroll_offset,
+                    width=bounds.width,
+                    height=bounds.height,
+                )
+            else:
+                adjusted_bounds = bounds
+
+            # Skip if frame is completely outside clip region
+            if clip_region is not None:
+                clip_top = clip_region.y
+                clip_bottom = clip_region.y + clip_region.height
+                if adjusted_bounds.y + adjusted_bounds.height <= clip_top:
+                    return  # Frame is above visible area
+                if adjusted_bounds.y >= clip_bottom:
+                    return  # Frame is below visible area
+
             # Resolve frame border style from theme
             border_style = style_resolver.resolve_style_by_class("frame.border")
 
@@ -1079,12 +1172,17 @@ class Renderer:
                 style.border, BORDER_CHARS[BorderStyle.SINGLE]
             )
 
-            # Create paint context for frame
-            ctx = PaintContext(buffer, style_resolver, bounds)
+            # Create paint context for frame with adjusted bounds and clip region
+            ctx = PaintContext(buffer, style_resolver, adjusted_bounds, clip_region)
 
             # Draw frame border
             ctx.draw_border(
-                0, 0, bounds.width, bounds.height, border_style, border_chars
+                0,
+                0,
+                adjusted_bounds.width,
+                adjusted_bounds.height,
+                border_style,
+                border_chars,
             )
 
             # Draw title if present (left-aligned like Frame.render_to)
@@ -1093,9 +1191,9 @@ class Renderer:
                 title_len = visible_length(title_text)
 
                 # Left align after the first horizontal character when space allows
-                title_x = 2 if bounds.width > 4 else 1
+                title_x = 2 if adjusted_bounds.width > 4 else 1
 
-                if title_x + title_len >= bounds.width - 1:
+                if title_x + title_len >= adjusted_bounds.width - 1:
                     # Not enough space - fall back to starting right after corner
                     title_x = 1
 
@@ -1103,13 +1201,60 @@ class Renderer:
                 title_style = style_resolver.resolve_style(frame, "frame.title")
                 ctx.write_text(title_x, 0, title_text, title_style, clip=True)
 
-        # Recursively render children (FrameNode uses content_container)
-        if isinstance(node, FrameNode):
+            # Calculate scroll context for children if this frame is scrollable
+            child_scroll_offset = scroll_offset
+            child_clip_region = clip_region
+
+            if style.scrollable and frame._needs_scroll:
+                # This frame is scrollable - set up scroll context for children
+                child_scroll_offset = scroll_offset + frame.get_scroll_offset()
+
+                # Calculate clip region (visible content area inside frame)
+                padding_top, padding_right, padding_bottom, padding_left = style.padding
+                scrollbar_width = (
+                    1 if style.show_scrollbar and frame._needs_scroll else 0
+                )
+
+                # Use adjusted_bounds for clip calculation since children render relative to scrolled position
+                new_clip_x = adjusted_bounds.x + 1 + padding_left
+                new_clip_y = adjusted_bounds.y + 1 + padding_top
+                new_clip_width = (
+                    adjusted_bounds.width
+                    - 2  # Left and right borders
+                    - padding_left
+                    - padding_right
+                    - scrollbar_width
+                )
+                new_clip_height = (
+                    adjusted_bounds.height
+                    - 2  # Top and bottom borders
+                    - padding_top
+                    - padding_bottom
+                )
+
+                child_clip_region = Bounds(
+                    x=new_clip_x,
+                    y=new_clip_y,
+                    width=max(1, new_clip_width),
+                    height=max(1, new_clip_height),
+                )
+
+            # Recursively render children with scroll context
             for child in node.content_container.children:
-                self._render_frames_to_buffer(child, buffer, style_resolver)
+                self._render_frames_to_buffer(
+                    child,
+                    buffer,
+                    style_resolver,
+                    child_scroll_offset,
+                    child_clip_region,
+                )
+
         elif isinstance(node, Container):
+            # Regular container - pass scroll context through
             for child in node.children:
-                self._render_frames_to_buffer(child, buffer, style_resolver)
+                self._render_frames_to_buffer(
+                    child, buffer, style_resolver, scroll_offset, clip_region
+                )
 
     def _buffer_to_ansi(self, buffer: ScreenBuffer) -> str:
         """Convert cell buffer to ANSI string for terminal output.

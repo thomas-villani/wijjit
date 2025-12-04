@@ -368,16 +368,19 @@ class TestHTMLViewerSizing:
         Verifies
         --------
         - Dynamic sizing flag can be set
-        - set_bounds adjusts dimensions
+        - set_bounds adjusts dimensions to match bounds
+        - Viewport size is correctly calculated for scrolling
         """
         viewer = HTMLViewer(width=40, height=20, border_style="single")
         viewer._dynamic_sizing = True
         assert viewer.supports_dynamic_sizing is True
 
         viewer.set_bounds(Bounds(0, 0, 60, 30))
-        # With border, content dimensions should be 60-2=58, 30-2=28
-        assert viewer.width == 58
-        assert viewer.height == 28
+        # width/height should match bounds dimensions (outer dimensions)
+        assert viewer.width == 60
+        assert viewer.height == 30
+        # Viewport size should be height minus borders for scrolling
+        assert viewer.scroll_manager.state.viewport_size == 28  # 30 - 2 for borders
 
 
 class TestHTMLViewerClasses:

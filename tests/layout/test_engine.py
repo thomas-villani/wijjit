@@ -1055,3 +1055,83 @@ class TestFillChildrenConstraints:
         # Within inner vstack, fill child gets: 45 - 3 (auto) = 42
         assert inner_fill.bounds.height == 42
         assert inner_auto.bounds.height == 3
+
+
+class TestNestedScrollableFrames:
+    """Tests for nested scrollable frames parent_frame assignment."""
+
+    def test_inner_scrollable_frame_parent_takes_precedence(self):
+        """Test that inner scrollable frame sets parent_frame, not outer.
+
+        Verifies
+        --------
+        - When a TextElement is inside an inner scrollable frame
+        - And the inner frame is inside an outer scrollable frame
+        - The TextElement's parent_frame should reference the inner frame
+        """
+        from wijjit.elements.base import TextElement
+        from wijjit.layout.engine import ElementNode, FrameNode
+        from wijjit.layout.frames import Frame, FrameStyle
+
+        # Both frames are scrollable (simulates auto-scroll root + explicit scroll inner)
+        outer_frame = Frame(80, 24, FrameStyle(scrollable=True))
+        outer_frame._has_children = True
+
+        inner_frame = Frame(60, 10, FrameStyle(scrollable=True), id="scrollable_inner")
+        inner_frame._has_children = True
+
+        text_elem = TextElement(text="Test content")
+
+        # Build layout tree
+        inner_frame_node = FrameNode(inner_frame)
+        inner_frame_node.content_container.add_child(ElementNode(text_elem))
+
+        outer_frame_node = FrameNode(outer_frame)
+        outer_frame_node.content_container.add_child(inner_frame_node)
+
+        # Collect elements
+        elements = outer_frame_node.collect_elements()
+
+        # Find the TextElement and verify its parent_frame
+        text_elements = [e for e in elements if isinstance(e, TextElement)]
+        assert len(text_elements) == 1
+
+        parent = text_elements[0].parent_frame
+        assert parent is not None
+        assert parent.id == "scrollable_inner"
+
+    def test_non_scrollable_outer_frame_doesnt_set_parent(self):
+        """Test that non-scrollable outer frame doesn't affect parent_frame.
+
+        Verifies
+        --------
+        - When outer frame is not scrollable
+        - Inner frame is scrollable
+        - TextElement's parent_frame should reference the inner frame
+        """
+        from wijjit.elements.base import TextElement
+        from wijjit.layout.engine import ElementNode, FrameNode
+        from wijjit.layout.frames import Frame, FrameStyle
+
+        outer_frame = Frame(80, 24, FrameStyle(scrollable=False))
+        outer_frame._has_children = True
+
+        inner_frame = Frame(60, 10, FrameStyle(scrollable=True), id="scrollable_inner")
+        inner_frame._has_children = True
+
+        text_elem = TextElement(text="Test content")
+
+        inner_frame_node = FrameNode(inner_frame)
+        inner_frame_node.content_container.add_child(ElementNode(text_elem))
+
+        outer_frame_node = FrameNode(outer_frame)
+        outer_frame_node.content_container.add_child(inner_frame_node)
+
+        elements = outer_frame_node.collect_elements()
+
+        text_elements = [e for e in elements if isinstance(e, TextElement)]
+        assert len(text_elements) == 1
+
+        parent = text_elements[0].parent_frame
+        assert parent is not None
+        assert parent.id == "scrollable_inner"

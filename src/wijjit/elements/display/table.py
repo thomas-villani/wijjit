@@ -557,10 +557,21 @@ class Table(ScrollableElement):
 
         # Generate scrollbar if needed
         scrollbar_chars = []
+        scrollbar_attrs = {}
         if needs_scrollbar:
             scrollbar_chars = render_vertical_scrollbar(
                 self.scroll_manager.state, self.height
             )
+            # Resolve scrollbar style based on focus state
+            if self.focused:
+                scrollbar_style = ctx.style_resolver.resolve_style(
+                    self, "table.scrollbar:focus"
+                )
+            else:
+                scrollbar_style = ctx.style_resolver.resolve_style(
+                    self, "table.scrollbar"
+                )
+            scrollbar_attrs = scrollbar_style.to_cell_attrs()
 
         # Convert each line from ANSI to cells and write to buffer
         for y, line in enumerate(lines):
@@ -583,5 +594,5 @@ class Table(ScrollableElement):
                 ctx.buffer.set_cell(
                     ctx.bounds.x + table_width,
                     ctx.bounds.y + y,
-                    Cell(char=scrollbar_char),
+                    Cell(char=scrollbar_char, **scrollbar_attrs),
                 )

@@ -19,7 +19,7 @@ def dialog_view():
     """View showing a centered dialog."""
     return {
         "template": """
-{% frame title="Desktop" border="double" height=24 %}
+{% frame title="Desktop" border="double" height="fill" %}
   {# Outer frame acts as the "desktop" background #}
   {# The VStack's alignment controls how its child (the dialog) is positioned #}
   {% vstack align_h="center" align_v="middle" %}

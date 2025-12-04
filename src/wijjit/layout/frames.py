@@ -1429,11 +1429,7 @@ class Frame(ScrollableElement):
                             scrollbar_chars[i] if i < len(scrollbar_chars) else " "
                         )
                         cell = Cell(char=scrollbar_char, **border_attrs)
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + scrollbar_x,
-                            ctx.bounds.y + current_y,
-                            cell,
-                        )
+                        ctx.write_cell(scrollbar_x, current_y, cell)
                         current_y += 1
             else:
                 # No scrolling needed, children render themselves
@@ -1619,78 +1615,46 @@ class Frame(ScrollableElement):
 
             if remaining >= 0:
                 # Write top-left corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
+                ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
 
                 # Write left horizontal line (1 char)
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
+                ctx.write_cell(1, 0, Cell(char=chars["h"], **border_attrs))
 
                 # Write title
                 for i, char in enumerate(title_text):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 2 + i,
-                        ctx.bounds.y,
-                        Cell(char=char, **border_attrs),
-                    )
+                    ctx.write_cell(2 + i, 0, Cell(char=char, **border_attrs))
 
                 # Write right horizontal line
                 right_len = remaining - 1
                 for i in range(right_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 2 + title_len + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
+                    ctx.write_cell(
+                        2 + title_len + i, 0, Cell(char=chars["h"], **border_attrs)
                     )
 
                 # Write top-right corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + self.width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
+                ctx.write_cell(
+                    self.width - 1, 0, Cell(char=chars["tr"], **border_attrs)
                 )
             else:
                 # Title too long, truncate and show without extra lines
                 title_text = title_text[: self.width - 2]
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
+                ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
                 for i, char in enumerate(title_text):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=char, **border_attrs),
-                    )
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + self.width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
+                    ctx.write_cell(1 + i, 0, Cell(char=char, **border_attrs))
+                ctx.write_cell(
+                    self.width - 1, 0, Cell(char=chars["tr"], **border_attrs)
                 )
         else:
             # Border without title
             # Top-left corner
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-            )
+            ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
 
             # Horizontal line
             for i in range(1, self.width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + i,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
+                ctx.write_cell(i, 0, Cell(char=chars["h"], **border_attrs))
 
             # Top-right corner
-            ctx.buffer.set_cell(
-                ctx.bounds.x + self.width - 1,
-                ctx.bounds.y,
-                Cell(char=chars["tr"], **border_attrs),
-            )
+            ctx.write_cell(self.width - 1, 0, Cell(char=chars["tr"], **border_attrs))
 
     def _render_to_bottom_border(
         self, ctx: "PaintContext", y: int, chars: dict, border_attrs: dict[str, Any]
@@ -1711,24 +1675,14 @@ class Frame(ScrollableElement):
         from wijjit.terminal.cell import Cell
 
         # Bottom-left corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["bl"], **border_attrs)
-        )
+        ctx.write_cell(0, y, Cell(char=chars["bl"], **border_attrs))
 
         # Horizontal line
         for i in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + i,
-                ctx.bounds.y + y,
-                Cell(char=chars["h"], **border_attrs),
-            )
+            ctx.write_cell(i, y, Cell(char=chars["h"], **border_attrs))
 
         # Bottom-right corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + y,
-            Cell(char=chars["br"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, y, Cell(char=chars["br"], **border_attrs))
 
     def _render_to_empty_line(
         self,
@@ -1765,25 +1719,17 @@ class Frame(ScrollableElement):
         from wijjit.terminal.cell import get_pooled_cell
 
         # Left border (from pool)
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + y,
-            get_pooled_cell(char=chars["v"], **border_attrs),
-        )
+        ctx.write_cell(0, y, get_pooled_cell(char=chars["v"], **border_attrs))
 
-        # OPTIMIZED: Use fill_rect and cell pooling for empty content
+        # Fill empty content with spaces (respects clipping)
         total_inner = padding_left + inner_width + padding_right + scrollbar_width
-        if total_inner > 0:
-            space_cell = get_pooled_cell(char=" ", **border_attrs)
-            ctx.buffer.fill_rect(
-                ctx.bounds.x + 1, ctx.bounds.y + y, total_inner, 1, space_cell
-            )
+        space_cell = get_pooled_cell(char=" ", **border_attrs)
+        for i in range(total_inner):
+            ctx.write_cell(1 + i, y, space_cell)
 
         # Right border (from pool)
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + y,
-            get_pooled_cell(char=chars["v"], **border_attrs),
+        ctx.write_cell(
+            self.width - 1, y, get_pooled_cell(char=chars["v"], **border_attrs)
         )
 
     def _render_to_content_line(
@@ -1835,15 +1781,11 @@ class Frame(ScrollableElement):
         from wijjit.terminal.cell import Cell
 
         # Left border
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
-        )
+        ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
 
         # Left padding
         for i in range(padding_left):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + i, ctx.bounds.y + y, Cell(char=" ", **content_attrs)
-            )
+            ctx.write_cell(1 + i, y, Cell(char=" ", **content_attrs))
 
         # Use cached stripped content if available, otherwise strip on-the-fly
         if (
@@ -1873,40 +1815,37 @@ class Frame(ScrollableElement):
                 elif self.style.content_align_h == "right":
                     clean_content = " " * empty_space + clean_content
 
+        # Determine effective width for content rendering
+        # For "visible" mode, allow content to extend beyond inner_width
+        if self.style.overflow_x == "visible":
+            effective_width = max(inner_width, len(clean_content))
+        else:
+            effective_width = inner_width
+
         # Write content characters
-        for i in range(inner_width):
+        for i in range(effective_width):
             if i < len(clean_content):
                 char = clean_content[i]
             else:
                 char = " "
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + padding_left + i,
-                ctx.bounds.y + y,
-                Cell(char=char, **content_attrs),
-            )
+            ctx.write_cell(1 + padding_left + i, y, Cell(char=char, **content_attrs))
 
         # Right padding
         for i in range(padding_right):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + padding_left + inner_width + i,
-                ctx.bounds.y + y,
-                Cell(char=" ", **content_attrs),
+            ctx.write_cell(
+                1 + padding_left + inner_width + i, y, Cell(char=" ", **content_attrs)
             )
 
         # Vertical scrollbar (if present)
         if scrollbar_char is not None:
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + padding_left + inner_width + padding_right,
-                ctx.bounds.y + y,
+            ctx.write_cell(
+                1 + padding_left + inner_width + padding_right,
+                y,
                 Cell(char=scrollbar_char, **border_attrs),
             )
 
         # Right border
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + y,
-            Cell(char=chars["v"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, y, Cell(char=chars["v"], **border_attrs))
 
     def _render_to_horizontal_scrollbar(
         self,
@@ -1943,15 +1882,11 @@ class Frame(ScrollableElement):
         from wijjit.terminal.cell import Cell
 
         # Left border
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
-        )
+        ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
 
         # Left padding (empty space)
         for i in range(padding_left):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + i, ctx.bounds.y + y, Cell(char=" ", **border_attrs)
-            )
+            ctx.write_cell(1 + i, y, Cell(char=" ", **border_attrs))
 
         # Generate horizontal scrollbar
         scrollbar_width = inner_width
@@ -1964,36 +1899,26 @@ class Frame(ScrollableElement):
 
         # Write scrollbar characters
         for i, char in enumerate(scrollbar_str[:scrollbar_width]):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + padding_left + i,
-                ctx.bounds.y + y,
-                Cell(char=char, **border_attrs),
-            )
+            ctx.write_cell(1 + padding_left + i, y, Cell(char=char, **border_attrs))
 
         # Right padding (empty space)
         for i in range(padding_right):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + padding_left + inner_width + i,
-                ctx.bounds.y + y,
-                Cell(char=" ", **border_attrs),
+            ctx.write_cell(
+                1 + padding_left + inner_width + i, y, Cell(char=" ", **border_attrs)
             )
 
         # Corner cell (where vertical and horizontal scrollbars meet)
         if scrollbar_width_v > 0:
             # Use the border's bottom-right corner character for the corner
             corner_char = chars["br"]
-            ctx.buffer.set_cell(
-                ctx.bounds.x + 1 + padding_left + inner_width + padding_right,
-                ctx.bounds.y + y,
+            ctx.write_cell(
+                1 + padding_left + inner_width + padding_right,
+                y,
                 Cell(char=corner_char, **border_attrs),
             )
 
         # Right border
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + y,
-            Cell(char=chars["v"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, y, Cell(char=chars["v"], **border_attrs))
 
     def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.

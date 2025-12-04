@@ -1014,10 +1014,26 @@ class FrameNode(Container):
 
         # Apply margin
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+
+        # Calculate actual dimensions, respecting fixed size specifications
+        # This is important for root frames with explicit dimensions
+        available_width = width - margin_left - margin_right
+        available_height = height - margin_top - margin_bottom
+
+        # If width_spec is fixed, use that instead of available width
+        if self.width_spec.is_fixed:
+            content_width = min(self.width_spec.value, available_width)
+        else:
+            content_width = available_width
+
+        # If height_spec is fixed, use that instead of available height
+        if self.height_spec.is_fixed:
+            content_height = min(self.height_spec.value, available_height)
+        else:
+            content_height = available_height
+
         content_x = x + margin_left
         content_y = y + margin_top
-        content_width = width - margin_left - margin_right
-        content_height = height - margin_top - margin_bottom
 
         # Assign bounds to frame node and frame object
         self.bounds = Bounds(content_x, content_y, content_width, content_height)
@@ -1121,9 +1137,11 @@ class FrameNode(Container):
             child_elements = child.collect_elements()
 
             # If this frame is scrollable with children, set parent_frame on child elements
+            # Only set if not already set by a more immediate scrollable parent
             if self.frame.style.scrollable and self.frame._has_children:
                 for elem in child_elements:
-                    elem.parent_frame = self.frame
+                    if elem.parent_frame is None:
+                        elem.parent_frame = self.frame
 
                     # Ensure scrollable child elements have scroll_state_key for persistence
                     # This allows scroll positions to survive re-renders even for unnamed elements

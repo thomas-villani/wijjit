@@ -6,7 +6,9 @@ users for text input programmatically.
 Controls:
     n - Show new file dialog
     r - Show rename dialog
-    ESC - Close dialog / quit app
+    up/down - Select file
+    ESC - Close dialog
+    Ctrl+Q - Quit app
 """
 
 from wijjit.core.app import Wijjit

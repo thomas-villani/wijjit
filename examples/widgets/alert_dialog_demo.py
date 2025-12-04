@@ -7,7 +7,8 @@ Controls:
     s - Show success alert
     e - Show error alert
     i - Show info alert
-    ESC - Close dialog / quit app
+    ESC - Close dialog
+    Ctrl+Q - Quit app
 """
 
 from wijjit.core.app import Wijjit

@@ -601,6 +601,10 @@ class EventLoop:
         input_event : Key
             The keyboard input event
         """
+        # Track overlay count at start to detect if a modal was opened during handling
+        # This prevents key leakage (e.g., 'n' key opening dialog AND entering TextInput)
+        overlay_count_before = len(self.app.overlay_manager.overlays)
+
         # Handle quit key (configurable, default Ctrl+Q)
         quit_key = self.app.config["QUIT_KEY"]
         if input_event.name == quit_key:
@@ -644,20 +648,35 @@ class EventLoop:
                     self.app.needs_render = True
                     return  # Don't process event further
 
-        # Create and dispatch key event (async)
-        # Note: on_key handlers are now registered with the event system,
-        # so they will be dispatched via dispatch_async along with all other handlers.
-        # This unifies key handling and ensures consistent priority/cancellation.
+        # Create key event
         event = KeyEvent(
             key=input_event.name,
             modifiers=input_event.modifiers,
             key_obj=input_event,  # Store original Key object
         )
-        await self.app.handler_registry.dispatch_async(event, executor=self.executor)
+
+        # Block global key handlers when a modal with trap_focus is active
+        # This prevents hotkeys (like 's', 'e', 'n', etc.) from firing while dialog is open
+        if not self.app.overlay_manager.should_trap_focus():
+            # No modal trapping focus - dispatch to global handlers normally
+            await self.app.handler_registry.dispatch_async(
+                event, executor=self.executor
+            )
+        else:
+            # Modal is trapping focus - skip global handlers
+            # The overlay's handle_key() already had a chance to process the event above
+            logger.debug(
+                f"Skipping global key dispatch for '{input_event.name}' - "
+                f"focus trapped in overlay"
+            )
+
+        # Check if overlay count changed (a modal was opened during handling)
+        overlay_count_after = len(self.app.overlay_manager.overlays)
+        overlay_added = overlay_count_after > overlay_count_before
 
         # Route key to focused element if not handled by other handlers
-        # If focus is trapped in an overlay, only route to overlay elements
-        if not event.cancelled:
+        # Skip if a new overlay was added to prevent key leakage to modal elements
+        if not event.cancelled and not overlay_added:
             if self.app.overlay_manager.should_trap_focus():
                 # Focus is trapped - only route to focused element if it's in overlay
                 focused = self.app.focus_manager.get_focused_element()
@@ -668,6 +687,11 @@ class EventLoop:
             else:
                 # Normal focus routing
                 self._route_key_to_focused_element(event)
+        elif overlay_added:
+            logger.debug(
+                f"Skipping focused element routing for '{input_event.name}' - "
+                f"overlay was added during event handling"
+            )
 
     async def _handle_mouse_event_async(
         self, terminal_event: TerminalMouseEvent

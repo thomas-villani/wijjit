@@ -5,7 +5,8 @@ a confirmation dialog programmatically.
 
 Controls:
     d - Show delete confirmation dialog
-    ESC - Close dialog / quit app
+    ESC - Close dialog
+    Ctrl+Q - Quit app
 """
 
 from wijjit.core.app import Wijjit
