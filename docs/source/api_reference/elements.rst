@@ -46,8 +46,7 @@ Display widgets
    wijjit.elements.display.progress.ProgressBar
    wijjit.elements.display.spinner.Spinner
    wijjit.elements.display.statusbar.StatusBar
-   wijjit.elements.display.markdown.MarkdownView
-   wijjit.elements.display.code.CodeBlock
+   wijjit.elements.display.contentview.ContentView
    wijjit.elements.display.notification.NotificationElement
    wijjit.elements.display.link.Link
    wijjit.elements.display.tabbed_panel.TabbedPanel
@@ -156,12 +155,7 @@ Module documentation
    :show-inheritance:
    :noindex:
 
-.. automodule:: wijjit.elements.display.markdown
-   :members:
-   :show-inheritance:
-   :noindex:
-
-.. automodule:: wijjit.elements.display.code
+.. automodule:: wijjit.elements.display.contentview
    :members:
    :show-inheritance:
    :noindex:

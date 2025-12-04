@@ -85,37 +85,60 @@ Special behaviors:
 Display widgets
 ---------------
 
-Markdown / Code
-    Render formatted documentation or syntax-highlighted snippets. Markdown supports headings, lists, checkboxes, and tables. Code blocks use Pygments themes tailored for dark/light terminals. Try ``examples/widgets/markdown_demo.py`` and ``examples/widgets/code_demo.py`` for end-to-end samples.
+ContentView
+    Unified content display element supporting multiple content types (:mod:`wijjit.elements.display.contentview`). Renders content in various formats with scrolling, borders, and keyboard/mouse navigation. This single component replaces the need for separate markdown, code, and HTML viewers.
 
-HTMLViewer
-    Scrollable HTML content display (:mod:`wijjit.elements.display.htmlview`). Renders HTML-like markup with text formatting, inline styles, and theme-based class styling. Ideal for rich content that needs custom styling beyond what Markdown offers.
+    Supported content types (``content_type`` attribute):
 
-    Supported HTML features:
-
-    * Text formatting: ``<b>``, ``<i>``, ``<u>``, ``<s>`` (bold, italic, underline, strikethrough)
-    * Inline styles: ``<style fg="red" bg="white">colored text</style>``
-    * Hex colors: ``<style fg="#FF5500">hex color</style>``
-    * Theme classes: ``<text-danger>``, ``<text-success>``, ``<text-warning>``, ``<text-info>``
+    * ``"plain"`` / ``"text"`` - Plain text with word wrapping
+    * ``"ansi"`` - Text with ANSI escape codes passed through
+    * ``"html"`` - HTML-like markup with ``<b>``, ``<i>``, ``<u>``, ``<s>``, and ``<style>`` tags
+    * ``"markdown"`` - Markdown with headings, lists, code blocks, and blockquotes
+    * ``"rich"`` - Rich markup with ``[bold]``, ``[red]``, etc.
+    * ``"code"`` - Syntax-highlighted code (500+ languages via Pygments)
 
     Key attributes:
 
-    * ``width`` / ``height`` - Display dimensions (supports ``"fill"`` for dynamic sizing)
+    * ``content_type`` - Content format (default: ``"plain"``)
+    * ``width`` / ``height`` - Display dimensions
     * ``border_style`` - Border style: ``single``, ``double``, ``rounded``, or ``none``
-    * ``title`` - Optional title in border
-    * ``show_scrollbar`` - Whether to show vertical scrollbar (default: ``True``)
+    * ``title`` - Optional title in top border
+    * ``show_scrollbar`` - Show vertical scrollbar (default: ``True``)
+
+    Code-specific attributes:
+
+    * ``language`` - Programming language for syntax highlighting (default: ``"python"``)
+    * ``theme`` - Syntax highlighting theme (default: ``"monokai"``)
+    * ``show_line_numbers`` - Display line numbers (default: ``False``)
+    * ``line_number_start`` - Starting line number (default: ``1``)
 
     .. code-block:: jinja
 
-       {% htmlview id="content" width=60 height=15 border_style="rounded" title="Help" %}
-           <b>Welcome!</b>
+       {# Markdown content #}
+       {% contentview id="docs" content_type="markdown" title="Documentation" height=15 %}
+       # Welcome
 
-           This viewer supports <i>rich</i> HTML-like formatting.
-           Use <text-danger>theme classes</text-danger> or
-           <style fg="#00FF00">inline colors</style>.
-       {% endhtmlview %}
+       This is **bold** and *italic* text.
 
-    See ``examples/widgets/html_demo.py`` for a complete demonstration.
+       - Bullet points
+       - Multiple items
+       {% endcontentview %}
+
+       {# Syntax-highlighted code #}
+       {% contentview id="code" content_type="code" language="python" show_line_numbers=true title="Example" %}
+       def hello(name: str) -> str:
+           return f"Hello, {name}!"
+       {% endcontentview %}
+
+       {# HTML-style formatting #}
+       {% contentview id="html" content_type="html" title="Styled Text" %}
+       <b>Bold</b> and <i>italic</i>
+       <style fg="red">Red text</style>
+       {% endcontentview %}
+
+    Keyboard controls: Up/Down arrows for line-by-line scrolling, PageUp/PageDown for page scrolling, Home/End to jump to start/end.
+
+    See ``examples/widgets/contentview_demo.py`` for a complete demonstration of all content types.
 
 Table
     Feature-rich table control with column sizing, alignment, zebra striping, sorting, and optional selection/highlighting. Works well for log viewers, data dashboards, and admin lists. Consider pairing with scrollable frames for large datasets or binding button actions to operate on selected rows.

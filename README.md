@@ -306,6 +306,7 @@ app.show_modal(dialog)
 
 ### Display Components
 
+- **ContentView**: Unified content viewer (plain, ANSI, HTML, Markdown, Rich markup, code with syntax highlighting)
 - **Table**: Sortable, scrollable tables (powered by Rich)
 - **Tree**: Hierarchical tree view with expand/collapse
 - **ListView**: Scrollable list with selection
@@ -496,7 +497,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Template rendering with Jinja2
 - ✅ Layout engine (VStack, HStack, Frame)
 - ✅ All input elements (TextInput, TextArea, CodeEditor, Button, Checkbox, Radio, Select)
-- ✅ All display elements (Table, Tree, ListView, LogView, Progress, Spinner, Notification)
+- ✅ All display elements (ContentView, Table, Tree, ListView, LogView, Progress, Spinner, Notification)
 - ✅ Data visualization (BarChart, LineChart, ColumnChart, Gauge, HeatMap, Sparkline)
 - ✅ Focus management with Tab navigation
 - ✅ Mouse support (click, scroll, hover)
