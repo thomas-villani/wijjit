@@ -51,6 +51,136 @@ Renderer & layout pipeline
 5. **Painting** – each element’s ``render_to`` writes to :class:`wijjit.rendering.paint_context.PaintContext`, which wraps a :class:`wijjit.terminal.screen_buffer.ScreenBuffer`. Styles are resolved via :class:`wijjit.styling.resolver.StyleResolver`.
 6. **Terminal flush** – :class:`wijjit.terminal.screen.ScreenManager`` diffs the buffer against the previous frame and writes ANSI commands to the alternate screen for flicker-free updates.
 
+Virtual DOM & Reconciliation
+----------------------------
+
+Wijjit uses a React-style Virtual DOM for efficient UI updates. This system lives in :mod:`wijjit.core.vdom` and :mod:`wijjit.core.reconciler`.
+
+**VNode** (:class:`wijjit.core.vdom.VNode`)
+
+Immutable description of what the UI should look like:
+
+* ``type`` – Element type name (e.g., "TextInput", "Button", "VStack")
+* ``key`` – Stable identity for list reconciliation
+* ``props`` – Immutable properties tuple
+* ``children`` – Child VNodes
+* ``layout_spec`` – Layout configuration (width, height, margin, etc.)
+
+VNodes are frozen dataclasses, ensuring reliable comparison during diffing.
+
+**VNodeBuilder** (:class:`wijjit.core.vdom.VNodeBuilder`)
+
+Mutable builder used during template execution. Template tags call methods like ``add_child()`` and ``set_prop()``. At the end of rendering, call ``freeze()`` to convert to an immutable VNode tree.
+
+**Reconciler** (:class:`wijjit.core.reconciler.Reconciler`)
+
+Compares old and new VNode trees and efficiently updates the Element tree:
+
+1. **Diff phase** – Compares trees, produces :class:`DiffResult` with changes
+2. **Patch phase** – Creates/updates/deletes elements based on diff
+3. **Ephemeral state preservation** – Cursor, scroll, selection state survives re-renders
+
+Diff types (:class:`wijjit.core.reconciler.DiffType`):
+
+* ``CREATE`` – New element needed
+* ``DELETE`` – Element removed
+* ``UPDATE`` – Props changed, reuse element
+* ``REPLACE`` – Type changed, recreate element
+
+Key-based reconciliation matches elements by ``key`` prop for stable identity in lists. Elements with matching keys are considered the "same" and will be updated rather than replaced.
+
+Thread-safe RenderContext
+-------------------------
+
+:class:`wijjit.core.render_context.RenderContext` provides thread-safe, reentrant state management during template processing. It replaces the previous pattern of storing state in Jinja2's ``environment.globals``, which was not thread-safe.
+
+The context holds:
+
+* ``layout_context`` – LayoutContext for building VNode trees
+* ``template_context`` – Template variables including 'state'
+* ``focused_id`` – Currently focused element ID
+* ``radiogroup_stack`` / ``menu_stack`` – For nested component building
+* ``frame_counter`` – Auto-increment counter for generating frame IDs
+* ``overlays`` – Overlay info for dialogs/menus
+* ``statusbar`` – StatusBar element if present
+
+Usage in template extensions::
+
+    from wijjit.core.render_context import get_render_context
+
+    def _render_button(self, ...):
+        ctx = get_render_context()
+        layout_ctx = ctx.layout_context
+        focused_id = ctx.focused_id
+        # ...
+
+The renderer uses ``render_context_scope()`` context manager to establish the context:
+
+.. code-block:: python
+
+    with render_context_scope(layout_context, template_context) as ctx:
+        output = template.render(**template_context)
+
+The context uses Python's ``contextvars`` module for thread safety and reentrancy.
+
+Ephemeral State Pattern
+-----------------------
+
+Elements preserve transient UI state across re-renders using the ephemeral state pattern. This is critical for maintaining cursor position, scroll offset, and selection state when templates re-execute.
+
+**Protected props** (defined in ``wijjit.core.vdom.EPHEMERAL_PROPS``):
+
+* Cursor state: ``cursor_pos``, ``cursor_row``, ``cursor_col``
+* Selection state: ``selection_anchor``, ``selection_start``, ``selection_end``
+* Scroll state: ``scroll_position``, ``scroll_x_position``
+* UI interaction: ``highlighted_index``, ``focused``, ``hovered``
+
+These props are excluded from template-to-element syncing during reconciliation.
+
+**Implementation:**
+
+Elements implement two methods to participate in ephemeral state preservation:
+
+.. code-block:: python
+
+    class MyElement(Element):
+        def get_ephemeral_state(self) -> dict:
+            """Return state that should survive re-renders."""
+            return {
+                "cursor_pos": self.cursor_pos,
+                "scroll_position": self.scroll_position,
+            }
+
+        def restore_ephemeral_state(self, state: dict) -> None:
+            """Restore state after reconciliation."""
+            if "cursor_pos" in state:
+                self.cursor_pos = state["cursor_pos"]
+            if "scroll_position" in state:
+                self.scroll_position = state["scroll_position"]
+
+Elements that implement these methods include: TextInput, TextArea, Menu, Tree, TabbedPanel, and all scrollable elements.
+
+Clip Region System
+------------------
+
+Nested frames require proper clipping to prevent content from rendering outside boundaries. The :class:`wijjit.rendering.paint_context.PaintContext` manages clip regions.
+
+When rendering nested content::
+
+    # Create sub-context with clipped bounds
+    inner_ctx = ctx.sub_context(x, y, width, height)
+    # All writes to inner_ctx are clipped to the sub-region
+    child_element.render_to(inner_ctx)
+
+The ``sub_context()`` method:
+
+1. Creates a new PaintContext with adjusted bounds
+2. Inherits the style resolver and screen buffer
+3. Applies accumulated scroll offsets from parent frames
+4. Clips any writes that fall outside the region
+
+The renderer uses ``clip_region`` during frame rendering to ensure scrollable content doesn't overflow borders. Nested frames accumulate their offsets, so deeply nested scrollable content is correctly clipped to all ancestor frames.
+
 Event system
 ------------
 

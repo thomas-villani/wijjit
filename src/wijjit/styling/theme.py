@@ -376,6 +376,11 @@ class DefaultTheme(Theme):
             "code:focus": Style(fg_color=(255, 255, 255), bold=True),
             "code.border": Style(fg_color=(100, 100, 100)),
             "code.border:focus": Style(fg_color=(0, 255, 255), bold=True),
+            # ContentView styles
+            "contentview": Style(fg_color=(200, 200, 200)),
+            "contentview:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "contentview.border": Style(fg_color=(100, 100, 100)),
+            "contentview.border:focus": Style(fg_color=(0, 255, 255), bold=True),
             # Link styles
             "link": Style(fg_color=(0, 255, 255), underline=True),
             "link:focus": Style(fg_color=(0, 0, 0), bg_color=(0, 255, 255), bold=True),
@@ -662,6 +667,11 @@ class DarkTheme(Theme):
             "code:focus": Style(fg_color=(220, 220, 255), bold=True),
             "code.border": Style(fg_color=(80, 80, 100)),
             "code.border:focus": Style(fg_color=(100, 200, 255), bold=True),
+            # ContentView styles
+            "contentview": Style(fg_color=(200, 200, 220)),
+            "contentview:focus": Style(fg_color=(220, 220, 255), bold=True),
+            "contentview.border": Style(fg_color=(80, 80, 100)),
+            "contentview.border:focus": Style(fg_color=(100, 200, 255), bold=True),
             # Link styles
             "link": Style(fg_color=(100, 200, 255), underline=True),
             "link:focus": Style(
@@ -942,6 +952,11 @@ class LightTheme(Theme):
             "code:focus": Style(fg_color=(0, 0, 0), bold=True),
             "code.border": Style(fg_color=(180, 180, 180)),
             "code.border:focus": Style(fg_color=(0, 100, 200), bold=True),
+            # ContentView styles
+            "contentview": Style(fg_color=(0, 0, 0)),
+            "contentview:focus": Style(fg_color=(0, 0, 0), bold=True),
+            "contentview.border": Style(fg_color=(180, 180, 180)),
+            "contentview.border:focus": Style(fg_color=(0, 100, 200), bold=True),
             # Link styles
             "link": Style(fg_color=(0, 100, 200), underline=True),
             "link:focus": Style(
@@ -1288,6 +1303,11 @@ class HighContrastTheme(Theme):
             "code:focus": Style(fg_color=(255, 255, 255), bold=True),
             "code.border": Style(fg_color=(255, 255, 255), bold=True),
             "code.border:focus": Style(fg_color=(255, 255, 0), bold=True),
+            # ContentView styles
+            "contentview": Style(fg_color=(255, 255, 255), bold=True),
+            "contentview:focus": Style(fg_color=(255, 255, 255), bold=True),
+            "contentview.border": Style(fg_color=(255, 255, 255), bold=True),
+            "contentview.border:focus": Style(fg_color=(255, 255, 0), bold=True),
             # Link styles
             "link": Style(fg_color=(0, 255, 255), underline=True, bold=True),
             "link:focus": Style(fg_color=(0, 0, 0), bg_color=(255, 255, 0), bold=True),

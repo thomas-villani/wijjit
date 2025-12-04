@@ -26,6 +26,32 @@ Override strategies:
 * Disable automatic Tab handling by setting ``app.focus_navigation_enabled = False`` and register your own key handlers (useful for custom grids).
 * For modal dialogs, focus is automatically trapped if you set ``trap_focus=True`` when pushing the overlay. Closing the modal restores the previous focus state.
 
+Focus cycling in modals
+-----------------------
+
+When a modal is displayed with ``trap_focus=True``, Tab and Shift+Tab navigation continues to work within the modal's focusable elements. This allows users to navigate between buttons, inputs, and other interactive elements inside the dialog without affecting the underlying view.
+
+The focus manager automatically:
+
+* **Cycles through focusable elements** - Tab moves forward, Shift+Tab moves backward through the modal's interactive elements
+* **Wraps at boundaries** - From the last element, Tab wraps to the first element (and vice versa for Shift+Tab)
+* **Restores focus on close** - When the modal closes, focus returns to the element that was focused before the modal opened
+
+This behaviour is automatic and requires no configuration. Simply include focusable elements (buttons, inputs, checkboxes, etc.) in your modal template:
+
+.. code-block:: jinja
+
+   {% modal id="confirm_dialog" trap_focus=true %}
+       Are you sure you want to delete this item?
+
+       {% hstack spacing=2 %}
+           {% button action="confirm" %}Yes, Delete{% endbutton %}
+           {% button action="cancel" %}Cancel{% endbutton %}
+       {% endhstack %}
+   {% endmodal %}
+
+With this template, users can Tab between "Yes, Delete" and "Cancel" buttons while the modal is open. See :doc:`modal_dialogs` for more details on building dialogs.
+
 Making elements focusable
 -------------------------
 

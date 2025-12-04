@@ -278,6 +278,48 @@ Modal
 NotificationElement
     For toast-style notifications. Usually managed through :class:`wijjit.core.notification_manager.NotificationManager`.
 
+Container widgets
+-----------------
+
+TabbedPanel
+    Tabbed container for organizing content into switchable panels (:mod:`wijjit.elements.display.tabbed_panel`). Each tab displays a separate frame of content, with keyboard and mouse navigation between tabs. Ideal for settings panels, multi-page forms, or dashboards with distinct sections.
+
+    Key attributes:
+
+    * ``tab_position`` - Position of tabs: ``top`` (default), ``bottom``, ``left``, ``right``
+    * ``width`` / ``height`` - Panel dimensions
+    * ``border_style`` - Border style: ``single`` (default), ``double``, ``rounded``
+    * ``active_tab_index`` - Initially active tab (default: 0)
+
+    Navigation:
+
+    * **Horizontal tabs** (top/bottom): Left/Right arrows switch tabs
+    * **Vertical tabs** (left/right): Up/Down arrows switch tabs
+    * **Mouse**: Click on tab labels to switch
+    * **Content scrolling**: Up/Down/PageUp/PageDown scroll the active tab's content
+
+    State persistence: The active tab index is automatically saved to ``state[id]`` (where ``id`` is the element's id attribute), preserving the user's tab selection across re-renders.
+
+    .. code-block:: jinja
+
+       {% tabbedpanel id="settings" tab_position="top" width=60 height=20 %}
+           {% tab label="General" %}
+               General settings content here...
+               {% checkbox id="dark_mode" label="Dark Mode" %}{% endcheckbox %}
+               {% checkbox id="notifications" label="Enable Notifications" %}{% endcheckbox %}
+           {% endtab %}
+           {% tab label="Advanced" %}
+               Advanced settings content here...
+               {% textinput id="api_key" placeholder="API Key" width=40 %}{% endtextinput %}
+           {% endtab %}
+           {% tab label="About" %}
+               Application version 1.0.0
+               Built with Wijjit
+           {% endtab %}
+       {% endtabbedpanel %}
+
+    See ``examples/widgets/tabbedpanel_demo.py`` for a complete interactive demonstration with all tab positions.
+
 Custom components
 -----------------
 

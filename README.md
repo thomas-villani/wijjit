@@ -297,10 +297,12 @@ app.show_modal(dialog)
 
 - **TextInput**: Single-line text input with cursor editing
 - **TextArea**: Multi-line text input with scrolling
+- **CodeEditor**: Syntax-highlighted code editor (500+ languages, multiple themes)
 - **Button**: Clickable button (mouse or keyboard)
 - **Checkbox**: Single checkbox or checkbox groups
 - **Radio**: Radio button groups
 - **Select**: Dropdown select menu
+- **Link**: Clickable inline text element
 
 ### Display Components
 
@@ -310,18 +312,27 @@ app.show_modal(dialog)
 - **LogView**: Auto-scrolling log viewer
 - **ProgressBar**: Progress indicators (bar, dots, spinner styles)
 - **Spinner**: Animated loading indicators
-- **Markdown**: Markdown rendering with syntax highlighting
-- **CodeBlock**: Syntax-highlighted code display
+- **Notification**: Toast-style notifications with auto-dismiss
+
+### Data Visualization Components
+
+- **BarChart**: Horizontal bar charts with labels and gradient coloring
+- **ColumnChart**: Vertical column charts with Y-axis
+- **LineChart**: High-resolution line charts using braille characters
+- **Gauge**: Linear or arc-style value indicators
+- **HeatMap**: 2D grid visualization with color intensity
+- **Sparkline**: Compact inline trend visualization
 
 ### Layout Components
 
 - **Frame**: Container with borders, titles, padding, and scrolling
 - **VStack**: Vertical stack layout
 - **HStack**: Horizontal stack layout
+- **TabbedPanel**: Tabbed container with keyboard/mouse navigation
 
 ## Examples
 
-The `examples/` directory contains **50+ working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
+The `examples/` directory contains **58 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
 
@@ -484,23 +495,23 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Async/await support for event handlers and callbacks
 - ✅ Template rendering with Jinja2
 - ✅ Layout engine (VStack, HStack, Frame)
-- ✅ All input elements (TextInput, TextArea, Button, Checkbox, Radio, Select)
-- ✅ All display elements (Table, Tree, ListView, LogView, Progress, Spinner, Markdown, Code)
+- ✅ All input elements (TextInput, TextArea, CodeEditor, Button, Checkbox, Radio, Select)
+- ✅ All display elements (Table, Tree, ListView, LogView, Progress, Spinner, Notification)
+- ✅ Data visualization (BarChart, LineChart, ColumnChart, Gauge, HeatMap, Sparkline)
 - ✅ Focus management with Tab navigation
 - ✅ Mouse support (click, scroll, hover)
-- ✅ Scrolling system with scrollbars
+- ✅ Scrolling system with scrollbars (vertical and horizontal)
 - ✅ Modal/overlay system with dialogs
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 50+ working examples
+- ✅ 58 working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations
 
 - **Performance**: Not optimized for large datasets (no virtual scrolling)
 - **Windows**: Some Unicode characters may not display correctly
-- **Documentation**: Limited to code comments, examples, and this README
 - **Plugin System**: Framework is monolithic (no plugin architecture)
 
 ### Planned Features (Future)
@@ -509,7 +520,6 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - Visual debugger/inspector
 - Animation/transition support
 - Drag-and-drop
-- Chart/graph components
 - Virtual scrolling for large datasets
 - Plugin system
 
@@ -553,10 +563,16 @@ Not recommended for:
 
 - **README.md** (this file) - Overview and quick start
 - **CLAUDE.md** - Development guide and architecture
-- **examples/** - 40+ working examples
+- **docs/** - Full Sphinx documentation (build with `cd docs && make html`)
+- **examples/** - 58 working examples
 - **tests/** - Comprehensive test suite showing usage patterns
 
-Full documentation (Sphinx-based) is in development.
+Build the documentation locally:
+```bash
+cd docs
+make html
+# Open docs/build/html/index.html in your browser
+```
 
 ## Contributing
 
@@ -566,12 +582,11 @@ Areas where contributions would be particularly helpful:
 - Performance optimization (virtual scrolling, render caching)
 - Windows terminal compatibility improvements
 - Additional examples and tutorials
-- Documentation (Sphinx docs)
 - Bug fixes and edge case handling
 
 ## License
 
-[Add your license here]
+MIT License
 
 ## Credits
 

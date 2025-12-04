@@ -49,6 +49,8 @@ Display widgets
    wijjit.elements.display.markdown.MarkdownView
    wijjit.elements.display.code.CodeBlock
    wijjit.elements.display.notification.NotificationElement
+   wijjit.elements.display.link.Link
+   wijjit.elements.display.tabbed_panel.TabbedPanel
 
 Data Visualization
 ------------------
@@ -210,6 +212,16 @@ Module documentation
    :noindex:
 
 .. automodule:: wijjit.elements.display.chart_utils
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.link
+   :members:
+   :show-inheritance:
+   :noindex:
+
+.. automodule:: wijjit.elements.display.tabbed_panel
    :members:
    :show-inheritance:
    :noindex:

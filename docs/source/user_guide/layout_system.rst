@@ -67,6 +67,36 @@ Any ``ScrollableElement`` (frames, text areas, log views) integrates with :mod:`
 
 Use scrollable frames to wrap long markdown blocks, tables, or nested layouts.
 
+Horizontal scrolling
+~~~~~~~~~~~~~~~~~~~~
+
+Frames also support horizontal scrolling when content exceeds the frame width. Enable it with these attributes:
+
+* ``overflow_x`` - Control horizontal overflow behaviour:
+
+  * ``"auto"`` - Show horizontal scrollbar only when content exceeds width
+  * ``"scroll"`` - Always show horizontal scrollbar
+  * ``"hidden"`` - Clip content without scrollbar (default)
+
+* ``show_scrollbar_x`` - Explicitly control horizontal scrollbar visibility (default: ``False``)
+
+.. code-block:: jinja
+
+   {% frame width=60 height=15 scrollable=true
+            overflow_x="auto" show_scrollbar_x=true %}
+       Content that may exceed the frame width...
+   {% endframe %}
+
+Keyboard controls for horizontal scrolling:
+
+* **Left/Right arrows** - Scroll horizontally (when frame has focus)
+* **Shift+Left/Right** - Page scroll horizontally
+* **Shift+Mouse wheel** - Horizontal scroll via mouse
+
+Horizontal scroll state is automatically persisted alongside vertical scroll state when ``scroll_state_key`` is set.
+
+See ``examples/advanced/horizontal_scroll_demo.py`` for a demonstration of combined vertical and horizontal scrolling.
+
 Alignment & distribution
 ------------------------
 

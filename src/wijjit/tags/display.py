@@ -668,360 +668,6 @@ class SpinnerExtension(Extension):
         return get_element_marker(context)
 
 
-class MarkdownExtension(Extension):
-    """Jinja2 extension for markdown tag.
-
-    Syntax:
-        {% markdown content=state.readme width=80 height=20
-                    border="single" title="Documentation"
-                    show_scrollbar=true %}
-        {% endmarkdown %}
-
-        Or with body content:
-        {% markdown width=80 height=20 %}
-            # Hello World
-            This is **markdown** content.
-        {% endmarkdown %}
-    """
-
-    tags = {"markdown"}
-
-    def parse(self, parser: Parser) -> nodes.CallBlock:
-        """Parse the markdown tag.
-
-        Parameters
-        ----------
-        parser : jinja2.parser.Parser
-            Jinja2 parser
-
-        Returns
-        -------
-        jinja2.nodes.CallBlock
-            Parsed node tree
-        """
-        lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endmarkdown"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
-
-        # Parse body (markdown content)
-        node = nodes.CallBlock(
-            self.call_method("_render_markdown", [], kwargs),
-            [],
-            [],
-            parser.parse_statements(("name:endmarkdown",), drop_needle=True),
-        ).set_lineno(lineno)
-
-        return cast(nodes.CallBlock, node)
-
-    def _render_markdown(
-        self,
-        caller: Callable[[], str],
-        id: str | None = None,
-        content: str | None = None,
-        width: int | str = "fill",
-        height: int | str = "fill",
-        show_scrollbar: bool = True,
-        border_style: str = "single",
-        title: str | None = None,
-        bind: bool = True,
-        **kwargs: Any,
-    ) -> str:
-        """Render the markdown tag.
-
-        Parameters
-        ----------
-        caller : callable
-            Jinja2 caller for body content
-        id : str, optional
-            Element identifier
-        content : str, optional
-            Markdown content (if not provided in body)
-        width : int or str
-            Markdown view width (default: "fill")
-        height : int or str
-            Markdown view height (default: "fill")
-        show_scrollbar : bool
-            Whether to show scrollbar (default: True)
-        border_style : str
-            Border style (default: "single")
-        title : str, optional
-            Border title
-        bind : bool
-            Whether to auto-bind content to state[id] (default: True)
-
-        Returns
-        -------
-        str
-            Rendered output
-        """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
-
-        # Get layout context from RenderContext
-        render_ctx = get_render_context()
-        context = render_ctx.layout_context
-        state = render_ctx.state
-
-        # Store original width/height specs for layout
-        width_spec = width
-        height_spec = height
-
-        show_scrollbar = bool(show_scrollbar)
-
-        # Auto-generate ID if not provided
-        if id is None:
-            id = context.generate_id("markdown")
-
-        # Get content from body if not provided as attribute
-        if content is None:
-            body = caller().strip()
-            content = body if body else ""
-        else:
-            # Content provided as attribute, consume body anyway
-            caller()
-
-        # If binding is enabled and id is provided, try to get content from state
-        if bind and id:
-            try:
-                if id in state:
-                    content = str(state[id])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Build VNode
-        vnode = VNodeBuilder("MarkdownView", key=id)
-        vnode.set_prop("id", id)  # Set id as prop so Element gets it
-        vnode.set_prop("content", content)
-        vnode.set_prop("show_scrollbar", show_scrollbar)
-        vnode.set_prop("border_style", border_style)
-        if title:
-            vnode.set_prop("title", title)
-        vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
-        vnode.set_layout(width=width_spec, height=height_spec)
-
-        context.add_vnode(vnode)
-
-        # Return marker for text interleaving
-        return get_element_marker(context)
-
-
-class CodeBlockExtension(Extension):
-    """Jinja2 extension for code tag.
-
-        Syntax:
-            {% code language="python" width=80 height=20
-                    line_numbers=true border="single" title="Example" %}
-    {{ state.code }}
-            {% endcode %}
-
-            Or with static code:
-            {% code language="javascript" %}
-    function hello() {
-        console.log("Hello, world!");
-    }
-            {% endcode %}
-    """
-
-    tags = {"code"}
-
-    def parse(self, parser: Parser) -> nodes.CallBlock:
-        """Parse the code tag.
-
-        Parameters
-        ----------
-        parser : jinja2.parser.Parser
-            Jinja2 parser
-
-        Returns
-        -------
-        jinja2.nodes.CallBlock
-            Parsed node tree
-        """
-        lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcode"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
-
-        # Parse body (code content)
-        node = nodes.CallBlock(
-            self.call_method("_render_code", [], kwargs),
-            [],
-            [],
-            parser.parse_statements(("name:endcode",), drop_needle=True),
-        ).set_lineno(lineno)
-
-        return cast(nodes.CallBlock, node)
-
-    def _render_code(
-        self,
-        caller: Callable[[], str],
-        id: str | None = None,
-        code: str | None = None,
-        language: str = "python",
-        width: int = 60,
-        height: int = 20,
-        show_line_numbers: bool = True,
-        line_number_start: int = 1,
-        show_scrollbar: bool = True,
-        border_style: str = "single",
-        title: str | None = None,
-        theme: str = "monokai",
-        bind: bool = True,
-        raw: bool = True,
-        **kwargs: Any,
-    ) -> str:
-        """Render the code tag.
-
-        Parameters
-        ----------
-        caller : callable
-            Jinja2 caller for body content
-        id : str, optional
-            Element identifier
-        code : str, optional
-            Code content (if not provided in body)
-        language : str
-            Programming language (default: "python")
-        width : int
-            Code block width (default: 60)
-        height : int
-            Code block height (default: 20)
-        show_line_numbers : bool
-            Whether to show line numbers (default: True)
-        line_number_start : int
-            Starting line number (default: 1)
-        show_scrollbar : bool
-            Whether to show scrollbar (default: True)
-        border_style : str
-            Border style (default: "single")
-        title : str, optional
-            Border title
-        theme : str
-            Syntax highlighting theme (default: "monokai")
-        bind : bool
-            Whether to auto-bind code to state[id] (default: True)
-        raw : bool
-            Preserve whitespace in body content (default: True for code)
-
-        Returns
-        -------
-        str
-            Rendered output
-        """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
-
-        # Get layout context from RenderContext
-        render_ctx = get_render_context()
-        layout_context = render_ctx.layout_context
-        state = render_ctx.state
-        focused_id = render_ctx.focused_id
-
-        # Store original width/height specs for layout
-        width_spec = width
-        height_spec = height
-
-        # Convert numeric parameters for element creation
-        # If width/height are "fill" or other string specs, use default numeric values
-        # for initial element creation (will be resized on bounds assignment)
-        if isinstance(width, str) and not width.isdigit():
-            element_width = 60  # Default for initial render
-        else:
-            element_width = int(width)
-
-        if isinstance(height, str) and not height.isdigit():
-            element_height = 20  # Default for initial render
-        else:
-            element_height = int(height)
-
-        show_line_numbers = bool(show_line_numbers)
-        line_number_start = int(line_number_start)
-        show_scrollbar = bool(show_scrollbar)
-
-        # Auto-generate ID if not provided
-        if id is None:
-            id = layout_context.generate_id("code")
-
-        # Get code from body if not provided as attribute
-        if code is None:
-            body_output = caller()
-            # For code blocks, preserve whitespace by default
-            code = process_body_content(body_output, raw=raw)
-        else:
-            # Code provided as attribute, consume body anyway
-            caller()
-
-        # If binding is enabled and id is provided, try to get code from state
-        if bind and id:
-            try:
-                if id in state:
-                    code = str(state[id])
-            except Exception as e:
-                logger.warning(f"Failed to restore state: {e}")
-
-        # Create VNode for reconciliation - NO direct Element instantiation
-        # The reconciler will create the Element from this VNode
-        vnode = VNodeBuilder("CodeBlock", key=id)
-        vnode.set_prop("id", id)
-        vnode.set_prop("code", code)
-        vnode.set_prop("language", language)
-        vnode.set_prop("width", element_width)
-        vnode.set_prop("height", element_height)
-        vnode.set_prop("show_line_numbers", show_line_numbers)
-        vnode.set_prop("line_number_start", line_number_start)
-        vnode.set_prop("show_scrollbar", show_scrollbar)
-        vnode.set_prop("border_style", border_style)
-        vnode.set_prop("theme", theme)
-        vnode.set_prop("bind", bind)
-        if title:
-            vnode.set_prop("title", title)
-        if classes:
-            vnode.set_prop("classes", classes)
-
-        # Check if this element should be focused
-        if focused_id and id and focused_id == id:
-            vnode.set_prop("focused", True)
-
-        # Account for borders in layout size if present
-        layout_width = width_spec
-        layout_height = height_spec
-        if border_style != "none":
-            # Add 2 for borders (top+bottom, left+right) if width/height are numeric
-            if isinstance(width_spec, int):
-                layout_width = width_spec + 2
-            if isinstance(height_spec, int):
-                layout_height = height_spec + 2
-
-        vnode.set_layout(width=layout_width, height=layout_height)
-        layout_context.add_vnode(vnode)
-
-        # Return marker for text interleaving
-        return get_element_marker(layout_context)
-
-
 class LogViewExtension(Extension):
     """Jinja2 extension for logview tag.
 
@@ -2319,23 +1965,32 @@ class LinkExtension(Extension):
         return get_element_marker(context)
 
 
-class HTMLViewerExtension(Extension):
-    """Jinja2 extension for {% htmlview %} tag.
+class ContentViewExtension(Extension):
+    """Jinja2 extension for contentview tag.
+
+    A unified content display element supporting multiple content types:
+    plain, text, ansi, html, markdown, rich, and code.
 
     Syntax:
-        {% htmlview id="html" width=60 height=20 %}
-            <b>Bold</b> and <i>italic</i> text
-        {% endhtmlview %}
+        {% contentview content_type="markdown" %}
+        # Hello World
+        This is **markdown** content.
+        {% endcontentview %}
 
-        {% htmlview border_style="rounded" title="HTML Content" %}
-            <text-danger>Error:</text-danger> Something went wrong
-        {% endhtmlview %}
+        {% contentview content_type="code" language="python" %}
+        def hello():
+            print("Hello!")
+        {% endcontentview %}
+
+        {% contentview content_type="rich" %}
+        [green]Success![/green] Operation completed.
+        {% endcontentview %}
     """
 
-    tags = {"htmlview"}
+    tags = {"contentview"}
 
     def parse(self, parser: Parser) -> nodes.CallBlock:
-        """Parse the htmlview tag.
+        """Parse the contentview tag.
 
         Parameters
         ----------
@@ -2352,7 +2007,7 @@ class HTMLViewerExtension(Extension):
         # Parse attributes as keyword arguments
         kwargs: list[nodes.Keyword] = []
         while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endhtmlview"
+            "name:endcontentview"
         ):
             key = parser.stream.expect("name").value
             if parser.stream.current.test("assign"):
@@ -2362,28 +2017,35 @@ class HTMLViewerExtension(Extension):
             else:
                 break
 
-        # Parse body (HTML content)
+        # Parse body content
         node = nodes.CallBlock(
-            self.call_method("_render_htmlview", [], kwargs),
+            self.call_method("_render_contentview", [], kwargs),
             [],
             [],
-            parser.parse_statements(("name:endhtmlview",), drop_needle=True),
+            parser.parse_statements(("name:endcontentview",), drop_needle=True),
         ).set_lineno(lineno)
 
         return cast(nodes.CallBlock, node)
 
-    def _render_htmlview(
+    def _render_contentview(
         self,
         caller: Callable[[], str],
         id: str | None = None,
-        width: int | str = 60,
-        height: int | str = 20,
+        content: str | None = None,
+        content_type: str = "plain",
+        language: str = "python",
+        theme: str = "monokai",
+        show_line_numbers: bool = False,
+        line_number_start: int = 1,
+        width: int | str = "fill",
+        height: int | str = "fill",
         show_scrollbar: bool = True,
         border_style: str = "single",
         title: str | None = None,
+        bind: bool = True,
         **kwargs: Any,
     ) -> str:
-        """Render the htmlview tag.
+        """Render the contentview tag.
 
         Parameters
         ----------
@@ -2391,16 +2053,31 @@ class HTMLViewerExtension(Extension):
             Jinja2 caller for body content
         id : str, optional
             Element identifier
-        width : int or str, optional
-            Display width (default: 60)
-        height : int or str, optional
-            Display height (default: 20)
-        show_scrollbar : bool, optional
-            Show scrollbar (default: True)
-        border_style : str, optional
+        content : str, optional
+            Content to display (if not provided in body)
+        content_type : str
+            Type of content: "plain", "text", "ansi", "html",
+            "markdown", "rich", or "code" (default: "plain")
+        language : str
+            Programming language for code highlighting (default: "python")
+        theme : str
+            Syntax highlighting theme (default: "monokai")
+        show_line_numbers : bool
+            Show line numbers for code (default: False)
+        line_number_start : int
+            Starting line number (default: 1)
+        width : int or str
+            View width (default: "fill")
+        height : int or str
+            View height (default: "fill")
+        show_scrollbar : bool
+            Whether to show scrollbar (default: True)
+        border_style : str
             Border style (default: "single")
         title : str, optional
             Border title
+        bind : bool
+            Whether to auto-bind content to state[id] (default: True)
         **kwargs : dict
             Additional attributes
 
@@ -2409,32 +2086,59 @@ class HTMLViewerExtension(Extension):
         str
             Rendered output
         """
-
-        # Handle 'class' attribute
+        # Handle 'class' attribute (rename to 'classes')
         classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
+        state = render_ctx.state
 
-        # Get HTML content
-        html_content = caller().strip()
+        # Store original width/height specs for layout
+        width_spec = width
+        height_spec = height
 
-        # Determine sizing
-        width_spec: int | str = "fill" if width == "fill" else width
-        height_spec: int | str = "fill" if height == "fill" else height
+        show_scrollbar = bool(show_scrollbar)
 
-        # Create VNode for reconciliation (removed duplicate old-style element creation)
-        vnode = VNodeBuilder("HTMLViewer", key=id)
-        vnode.set_prop("content", html_content)
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("contentview")
+
+        # Get content from body if not provided as attribute
+        if content is None:
+            body = caller().strip()
+            content = body if body else ""
+        else:
+            # Content provided as attribute, consume body anyway
+            caller()
+
+        # If binding is enabled and id is provided, try to get content from state
+        if bind and id:
+            try:
+                if id in state:
+                    content = str(state[id])
+            except Exception as e:
+                logger.warning(f"Failed to restore state: {e}")
+
+        # Build VNode
+        vnode = VNodeBuilder("ContentView", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("content", content)
+        vnode.set_prop("content_type", content_type)
+        vnode.set_prop("language", language)
+        vnode.set_prop("theme", theme)
+        vnode.set_prop("show_line_numbers", show_line_numbers)
+        vnode.set_prop("line_number_start", line_number_start)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
         if title:
             vnode.set_prop("title", title)
+        vnode.set_prop("bind", bind)
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_layout(width=width_spec, height=height_spec)
+
         context.add_vnode(vnode)
 
-        # Return marker
+        # Return marker for text interleaving
         return get_element_marker(context)

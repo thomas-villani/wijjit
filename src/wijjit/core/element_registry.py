@@ -52,16 +52,14 @@ class ElementRegistry:
         # Base elements
         from wijjit.elements.base import Container, TextElement
         from wijjit.elements.display.barchart import BarChart
-        from wijjit.elements.display.code import CodeBlock
         from wijjit.elements.display.columnchart import ColumnChart
+        from wijjit.elements.display.contentview import ContentView
         from wijjit.elements.display.gauge import Gauge
         from wijjit.elements.display.heatmap import HeatMap
-        from wijjit.elements.display.htmlview import HTMLViewer
         from wijjit.elements.display.linechart import LineChart
         from wijjit.elements.display.link import Link
         from wijjit.elements.display.list import ListView
         from wijjit.elements.display.logview import LogView
-        from wijjit.elements.display.markdown import MarkdownView
         from wijjit.elements.display.modal import ModalElement
         from wijjit.elements.display.notification import NotificationElement
         from wijjit.elements.display.progress import ProgressBar
@@ -111,10 +109,6 @@ class ElementRegistry:
             "ProgressBar": ProgressBar,
             "Progress": ProgressBar,  # Alias
             "Spinner": Spinner,
-            "MarkdownView": MarkdownView,
-            "Markdown": MarkdownView,  # Alias
-            "CodeBlock": CodeBlock,
-            "Code": CodeBlock,  # Alias
             "StatusBar": StatusBar,
             "Notification": NotificationElement,
             "Modal": ModalElement,
@@ -122,7 +116,7 @@ class ElementRegistry:
             # tabs internally. The template extension creates and populates it
             # directly, similar to how Frame/VStack/HStack work.
             "Link": Link,
-            "HTMLViewer": HTMLViewer,
+            "ContentView": ContentView,
             # Chart elements
             "Sparkline": Sparkline,
             "BarChart": BarChart,

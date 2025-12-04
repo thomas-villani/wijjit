@@ -1,38 +1,86 @@
-"""Markdown display element with Rich integration.
+"""Unified content display element supporting multiple content types.
 
-This module provides the MarkdownView element for rendering markdown content
-in terminal user interfaces using Rich's Markdown renderer. Supports scrolling,
-borders, and keyboard/mouse interaction.
+This module provides the ContentView element which can render content in
+multiple formats: plain text, ANSI, HTML, Markdown, Rich markup, and code
+with syntax highlighting. It replaces the separate MarkdownView, HTMLViewer,
+and CodeBlock elements with a unified, flexible component.
 """
+
+from __future__ import annotations
+
+from enum import Enum, auto
+from typing import TYPE_CHECKING
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
-from wijjit.terminal.ansi import clip_to_width, visible_length
+from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent
 
+if TYPE_CHECKING:
+    from wijjit.styling.resolver import StyleResolver
 
-class MarkdownView(ScrollableElement):
-    """Markdown content display element with Rich integration.
 
-    This element renders markdown content using Rich's Markdown renderer,
-    with support for scrolling, borders, and mouse/keyboard interaction.
+class ContentType(Enum):
+    """Content type enumeration for ContentView rendering."""
+
+    PLAIN = auto()
+    TEXT = auto()  # Alias for PLAIN
+    ANSI = auto()
+    HTML = auto()
+    MARKDOWN = auto()
+    RICH = auto()
+    CODE = auto()
+
+
+# String to enum mapping for template convenience
+_CONTENT_TYPE_MAP = {
+    "plain": ContentType.PLAIN,
+    "text": ContentType.TEXT,
+    "ansi": ContentType.ANSI,
+    "html": ContentType.HTML,
+    "markdown": ContentType.MARKDOWN,
+    "rich": ContentType.RICH,
+    "code": ContentType.CODE,
+}
+
+
+class ContentView(ScrollableElement):
+    """Unified content display element supporting multiple content types.
+
+    This element renders content in various formats with support for scrolling,
+    borders, and keyboard/mouse interaction. It provides a single component
+    that can display plain text, ANSI-formatted text, HTML, Markdown, Rich
+    markup, or syntax-highlighted code.
 
     Parameters
     ----------
     id : str, optional
         Element identifier
-    content : str, optional
-        Markdown content to display (default: "")
-    width : int, optional
+    classes : str or list of str, optional
+        CSS class names for styling
+    content : str
+        Content to display (default: "")
+    content_type : str or ContentType
+        Type of content: "plain", "text", "ansi", "html", "markdown",
+        "rich", or "code" (default: "plain")
+    language : str
+        Programming language for code syntax highlighting (default: "python")
+    theme : str
+        Syntax highlighting theme (default: "monokai")
+    show_line_numbers : bool
+        Show line numbers for code (default: False)
+    line_number_start : int
+        Starting line number (default: 1)
+    width : int
         Display width in columns (default: 60)
-    height : int, optional
+    height : int
         Display height in rows (default: 20)
-    show_scrollbar : bool, optional
+    show_scrollbar : bool
         Whether to show vertical scrollbar (default: True)
-    border_style : str, optional
+    border_style : str
         Border style: "single", "double", "rounded", or "none" (default: "single")
     title : str, optional
         Title to display in top border (default: None)
@@ -40,7 +88,17 @@ class MarkdownView(ScrollableElement):
     Attributes
     ----------
     content : str
-        Markdown content
+        Content to display
+    content_type : ContentType
+        Content type enumeration value
+    language : str
+        Programming language for code highlighting
+    theme : str
+        Syntax highlighting theme
+    show_line_numbers : bool
+        Whether line numbers are shown (code only)
+    line_number_start : int
+        Starting line number (code only)
     width : int
         Display width
     height : int
@@ -54,7 +112,9 @@ class MarkdownView(ScrollableElement):
     scroll_manager : ScrollManager
         Manages scrolling of content
     rendered_lines : list of str
-        Cached rendered content lines
+        Cached rendered content lines (for ANSI-based content types)
+    rendered_cells : list of list of Cell
+        Cached rendered cells (for cell-based content types like HTML)
     """
 
     def __init__(
@@ -62,6 +122,11 @@ class MarkdownView(ScrollableElement):
         id: str | None = None,
         classes: str | list[str] | None = None,
         content: str = "",
+        content_type: str | ContentType = "plain",
+        language: str = "python",
+        theme: str = "monokai",
+        show_line_numbers: bool = False,
+        line_number_start: int = 1,
         width: int = 60,
         height: int = 20,
         show_scrollbar: bool = True,
@@ -72,43 +137,120 @@ class MarkdownView(ScrollableElement):
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
-        # Content and display properties
+        # Content and type
         self.content = content
+        self._content_type = self._resolve_content_type(content_type)
+
+        # Code-specific options
+        self.language = language
+        self.theme = theme
+        self.show_line_numbers = show_line_numbers
+        self.line_number_start = line_number_start
+
+        # Display properties
         self.width = width
         self.height = height
         self.show_scrollbar = show_scrollbar
         self.border_style = border_style
         self.title = title
 
-        # Rendered content cache
+        # Rendered content caches
         self.rendered_lines: list[str] = []
+        self.rendered_cells: list[list] = []  # For HTML content type
+        self._uses_cells = False  # Flag to indicate cell-based rendering
 
-        # Cache for Rich rendering (content_hash -> rendered_lines)
-        self._render_cache_key: tuple[str, int] | None = None
+        # Cache key for avoiding re-renders
+        self._render_cache_key: tuple | None = None
+
+        # Store style resolver for HTML rendering (set during render_to)
+        self._style_resolver: StyleResolver | None = None
 
         # Render initial content
         self._render_content()
 
         # Scroll management
+        content_count = (
+            len(self.rendered_cells) if self._uses_cells else len(self.rendered_lines)
+        )
         self.scroll_manager = ScrollManager(
-            content_size=len(self.rendered_lines),
+            content_size=content_count,
             viewport_size=self._get_content_height(),
         )
-
-        # Callbacks (on_scroll provided by ScrollableElement)
 
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
 
-        # State persistence (scroll_state_key provided by ScrollableElement)
-
         # Dynamic sizing flag (set by template tag)
         self._dynamic_sizing: bool = False
 
+        # Store style resolver for HTML rendering
+        self._style_resolver: StyleResolver | None = None
+
+    @property
+    def content_type(self) -> ContentType:
+        """Get the current content type.
+
+        Returns
+        -------
+        ContentType
+            Current content type enumeration value
+        """
+        return self._content_type
+
+    @content_type.setter
+    def content_type(self, value: str | ContentType) -> None:
+        """Set the content type.
+
+        Parameters
+        ----------
+        value : str or ContentType
+            New content type
+        """
+        new_type = self._resolve_content_type(value)
+        if new_type != self._content_type:
+            self._content_type = new_type
+            self._render_content()
+            content_count = (
+                len(self.rendered_cells)
+                if self._uses_cells
+                else len(self.rendered_lines)
+            )
+            self.scroll_manager.update_content_size(content_count)
+
+    def _resolve_content_type(self, value: str | ContentType) -> ContentType:
+        """Resolve content type from string or enum.
+
+        Parameters
+        ----------
+        value : str or ContentType
+            Content type specification
+
+        Returns
+        -------
+        ContentType
+            Resolved content type enum
+
+        Raises
+        ------
+        ValueError
+            If string value is not a valid content type
+        """
+        if isinstance(value, ContentType):
+            return value
+
+        value_lower = value.lower()
+        if value_lower in _CONTENT_TYPE_MAP:
+            return _CONTENT_TYPE_MAP[value_lower]
+
+        raise ValueError(
+            f"Invalid content_type: {value}. "
+            f"Valid types: {', '.join(_CONTENT_TYPE_MAP.keys())}"
+        )
+
     @property
     def supports_dynamic_sizing(self) -> bool:
-        """Whether this Markdown viewer supports dynamic sizing.
+        """Whether this content view supports dynamic sizing.
 
         Returns
         -------
@@ -118,7 +260,7 @@ class MarkdownView(ScrollableElement):
         return self._dynamic_sizing
 
     def set_bounds(self, bounds) -> None:
-        """Set bounds and dynamically resize if needed.
+        """Set bounds and resize element to fit.
 
         Parameters
         ----------
@@ -127,15 +269,16 @@ class MarkdownView(ScrollableElement):
         """
         super().set_bounds(bounds)
 
-        # If dynamic sizing is enabled, resize the element to fit the bounds
-        if self.supports_dynamic_sizing and bounds:
+        # Always resize element to fit allocated bounds
+        # This handles both dynamic (fill) sizing and fixed sizing from template
+        if bounds:
             new_width = bounds.width
             new_height = bounds.height
 
-            # Account for borders
+            # Account for borders - bounds are OUTER size, we store INNER size
             if self.border_style != "none":
-                new_width = max(3, new_width - 2)  # Minimum width for borders
-                new_height = max(3, new_height - 2)  # Minimum height for borders
+                new_width = max(3, new_width - 2)
+                new_height = max(3, new_height - 2)
 
             # Update dimensions if changed
             if new_width != self.width or new_height != self.height:
@@ -146,24 +289,31 @@ class MarkdownView(ScrollableElement):
                 self._render_content()
 
                 # Update scroll manager with new viewport size
-                self.scroll_manager.update_content_size(len(self.rendered_lines))
+                content_count = (
+                    len(self.rendered_cells)
+                    if self._uses_cells
+                    else len(self.rendered_lines)
+                )
+                self.scroll_manager.update_content_size(content_count)
                 self.scroll_manager.update_viewport_size(self._get_content_height())
 
     def _get_content_height(self) -> int:
-        """Calculate content area height accounting for borders.
+        """Calculate content area height.
+
+        Note: self.height is already the inner content height (not including borders).
 
         Returns
         -------
         int
             Content height in rows
         """
-        if self.border_style != "none":
-            # Borders take 2 rows (top and bottom)
-            return max(1, self.height - 2)
         return self.height
 
     def _get_content_width(self) -> int:
-        """Calculate content area width accounting for borders and scrollbar.
+        """Calculate content area width accounting for scrollbar.
+
+        Note: self.width is already the inner content width (not including borders).
+        This method only subtracts space for the scrollbar if needed.
 
         Returns
         -------
@@ -172,82 +322,104 @@ class MarkdownView(ScrollableElement):
         """
         content_width = self.width
 
-        # Account for borders
-        if self.border_style != "none":
-            content_width -= 2  # Left and right borders
-
-        # Account for scrollbar
-        # During initialization, reserve space if show_scrollbar is True
-        # After initialization, only reserve if actually scrollable
+        # Account for scrollbar (borders are NOT subtracted here since
+        # self.width is already the inner width)
         if self.show_scrollbar:
             if not hasattr(self, "scroll_manager"):
-                # During initialization - always reserve space
                 content_width -= 1
             elif self.scroll_manager.state.is_scrollable:
-                # After initialization - only if content is scrollable
                 content_width -= 1
 
         return max(1, content_width)
 
     def _render_content(self) -> None:
-        """Render markdown content to ANSI strings using Rich.
+        """Render content based on content_type.
 
-        Updates the rendered_lines cache with the current content.
-
-        Notes
-        -----
-        Uses caching to avoid re-rendering when content and width haven't changed.
-        This significantly improves performance when resizing without content changes.
+        Updates the rendered_lines or rendered_cells cache.
         """
-        # Get content width for rendering
+        from wijjit.rendering.content_renderers import (
+            render_ansi_to_lines,
+            render_code_to_lines,
+            render_html_to_cells,
+            render_markdown_to_lines,
+            render_plain_to_lines,
+            render_rich_to_lines,
+        )
+
         content_width = self._get_content_width()
 
-        # Check cache - only re-render if content or width changed
-        cache_key = (self.content, content_width)
+        # Build cache key based on content type and relevant parameters
+        if self._content_type == ContentType.CODE:
+            cache_key = (
+                self.content,
+                content_width,
+                self._content_type,
+                self.language,
+                self.theme,
+                self.show_line_numbers,
+                self.line_number_start,
+            )
+        else:
+            cache_key = (self.content, content_width, self._content_type)
+
         if self._render_cache_key == cache_key:
-            # Content and width unchanged - use cached result
             return
 
-        from io import StringIO
+        # Render based on content type
+        self._uses_cells = False
 
-        from rich.console import Console
-        from rich.markdown import Markdown
+        if self._content_type in (ContentType.PLAIN, ContentType.TEXT):
+            self.rendered_lines = render_plain_to_lines(self.content, content_width)
 
-        # Render markdown using Rich
-        md = Markdown(self.content)
-        string_buffer = StringIO()
-        console = Console(
-            file=string_buffer,
-            width=content_width,
-            legacy_windows=False,
-            force_terminal=True,
-        )
-        console.print(md)
-        output = string_buffer.getvalue()
+        elif self._content_type == ContentType.ANSI:
+            self.rendered_lines = render_ansi_to_lines(self.content, content_width)
 
-        # Split into lines
-        self.rendered_lines = output.rstrip("\n").split("\n")
+        elif self._content_type == ContentType.HTML:
+            self._uses_cells = True
+            self.rendered_cells = render_html_to_cells(
+                self.content, content_width, self._style_resolver
+            )
 
-        # Ensure at least one line
-        if not self.rendered_lines:
-            self.rendered_lines = [""]
+        elif self._content_type == ContentType.MARKDOWN:
+            self.rendered_lines = render_markdown_to_lines(self.content, content_width)
 
-        # Update cache key
+        elif self._content_type == ContentType.RICH:
+            self.rendered_lines = render_rich_to_lines(self.content, content_width)
+
+        elif self._content_type == ContentType.CODE:
+            self.rendered_lines = render_code_to_lines(
+                self.content,
+                content_width,
+                language=self.language,
+                theme=self.theme,
+                show_line_numbers=self.show_line_numbers,
+                line_number_start=self.line_number_start,
+            )
+
         self._render_cache_key = cache_key
 
-    def set_content(self, content: str) -> None:
-        """Update markdown content and re-render.
+    def set_content(
+        self, content: str, content_type: str | ContentType | None = None
+    ) -> None:
+        """Update content and optionally content type.
 
         Parameters
         ----------
         content : str
-            New markdown content
+            New content
+        content_type : str or ContentType, optional
+            New content type (if None, keeps current type)
         """
         self.content = content
+        if content_type is not None:
+            self._content_type = self._resolve_content_type(content_type)
+
         self._render_content()
 
-        # Update scroll manager with new content size
-        self.scroll_manager.update_content_size(len(self.rendered_lines))
+        content_count = (
+            len(self.rendered_cells) if self._uses_cells else len(self.rendered_lines)
+        )
+        self.scroll_manager.update_content_size(content_count)
 
     def restore_scroll_position(self, position: int) -> None:
         """Restore scroll position from saved state.
@@ -304,7 +476,10 @@ class MarkdownView(ScrollableElement):
         bool
             True if key was handled
         """
-        if not self.rendered_lines:
+        content_count = (
+            len(self.rendered_cells) if self._uses_cells else len(self.rendered_lines)
+        )
+        if not content_count:
             return False
 
         # Up arrow - scroll up one row
@@ -397,82 +572,8 @@ class MarkdownView(ScrollableElement):
 
         return False
 
-    def _render_with_border(self, content_lines: list[str]) -> list[str]:
-        """Render content with border.
-
-        Parameters
-        ----------
-        content_lines : list of str
-            Content lines to wrap with border
-
-        Returns
-        -------
-        list of str
-            Lines with border added
-        """
-        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
-        from wijjit.terminal.ansi import ANSIColor, ANSIStyle
-
-        # Get border characters
-        border_map = {
-            "single": BorderStyle.SINGLE,
-            "double": BorderStyle.DOUBLE,
-            "rounded": BorderStyle.ROUNDED,
-        }
-        style = border_map.get(self.border_style, BorderStyle.SINGLE)
-        chars = BORDER_CHARS[style]
-
-        # Choose border color based on focus
-        if self.focused:
-            border_color = f"{ANSIStyle.BOLD}{ANSIColor.CYAN}"
-            reset = ANSIStyle.RESET
-        else:
-            border_color = ""
-            reset = ""
-
-        # Calculate content width (total width - 2 for borders)
-        content_width = self.width - 2
-
-        # Build top border
-        if self.title:
-            # Border with title
-            title_text = f" {self.title} "
-            title_len = visible_length(title_text)
-            if title_len < content_width:
-                remaining = content_width - title_len
-                left_line = chars["h"] * (remaining // 2)
-                right_line = chars["h"] * (remaining - len(left_line))
-                top_line = f"{border_color}{chars['tl']}{left_line}{title_text}{right_line}{chars['tr']}{reset}"
-            else:
-                # Title too long, just show border
-                top_line = f"{border_color}{chars['tl']}{chars['h'] * content_width}{chars['tr']}{reset}"
-        else:
-            # Border without title
-            top_line = f"{border_color}{chars['tl']}{chars['h'] * content_width}{chars['tr']}{reset}"
-
-        # Build bottom border
-        bottom_line = f"{border_color}{chars['bl']}{chars['h'] * content_width}{chars['br']}{reset}"
-
-        # Wrap content lines with borders
-        bordered_lines = [top_line]
-        for line in content_lines:
-            # Ensure line is padded to content width
-            line_len = visible_length(line)
-            if line_len < content_width:
-                line = line + " " * (content_width - line_len)
-            elif line_len > content_width:
-                line = clip_to_width(line, content_width, ellipsis="")
-
-            bordered_lines.append(
-                f"{border_color}{chars['v']}{reset}{line}{border_color}{chars['v']}{reset}"
-            )
-
-        bordered_lines.append(bottom_line)
-
-        return bordered_lines
-
     def render_to(self, ctx: PaintContext) -> None:
-        """Render markdown view using cell-based rendering (NEW API).
+        """Render content view using cell-based rendering.
 
         Parameters
         ----------
@@ -481,30 +582,30 @@ class MarkdownView(ScrollableElement):
 
         Notes
         -----
-        This method implements cell-based rendering for markdown views, supporting:
-        - Rich markdown formatting (preserves headers, bold, code, etc.)
-        - Scrolling with scrollbar
-        - Borders with titles and focus styling
-        - Theme-based styling for borders and background
-
-        The markdown content is rendered by Rich, which generates ANSI codes.
-        These ANSI codes are converted to cells, preserving Rich's formatting.
+        This method implements cell-based rendering for content views,
+        supporting all content types with their respective formatting.
 
         Theme Styles
         ------------
         This element uses the following theme style classes:
-        - 'markdown': Base markdown style (for background/fallback)
-        - 'markdown:focus': When markdown view has focus
-        - 'markdown.border': For border characters
-        - 'markdown.border:focus': For border when focused
+        - 'contentview': Base style (for background/fallback)
+        - 'contentview:focus': When content view has focus
+        - 'contentview.border': For border characters
+        - 'contentview.border:focus': For border when focused
         """
+        # Store style resolver for HTML rendering
+        self._style_resolver = ctx.style_resolver
+
+        # Re-render if needed (width may have changed)
+        self._render_content()
+
         # Resolve border style based on focus
         if self.focused:
             border_style = ctx.style_resolver.resolve_style(
-                self, "markdown.border:focus"
+                self, "contentview.border:focus"
             )
         else:
-            border_style = ctx.style_resolver.resolve_style(self, "markdown.border")
+            border_style = ctx.style_resolver.resolve_style(self, "contentview.border")
 
         content_height = self._get_content_height()
         content_width = self._get_content_width()
@@ -525,7 +626,7 @@ class MarkdownView(ScrollableElement):
         content_height: int,
         content_width: int,
     ) -> None:
-        """Render markdown view with border using cells.
+        """Render content view with border using cells.
 
         Parameters
         ----------
@@ -551,82 +652,62 @@ class MarkdownView(ScrollableElement):
         chars = BORDER_CHARS[style]
         border_attrs = border_style.to_cell_attrs()
 
-        # Calculate total width (content + borders + optional scrollbar)
+        # Calculate total width
         needs_scrollbar = (
             self.show_scrollbar and self.scroll_manager.state.is_scrollable
         )
         scrollbar_width = 1 if needs_scrollbar else 0
-        total_width = content_width + scrollbar_width + 2  # +2 for borders
+        total_width = content_width + scrollbar_width + 2
 
         # Render top border with optional title
         if self.title:
             title_text = f" {self.title} "
             title_len = visible_length(title_text)
-            border_width = total_width - 2  # Width without corners
+            border_width = total_width - 2
 
             if title_len < border_width:
                 remaining = border_width - title_len
                 left_len = remaining // 2
                 right_len = remaining - left_len
 
-                # OPTIMIZED: Use batch operations and pooled cells
                 h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
-
-                # Build top border with title using batch operations
                 top_cells = []
-                top_cells.append(
-                    get_pooled_cell(char=chars["tl"], **border_attrs)
-                )  # Corner
-                top_cells.extend([h_cell] * left_len)  # Left line
+                top_cells.append(get_pooled_cell(char=chars["tl"], **border_attrs))
+                top_cells.extend([h_cell] * left_len)
                 top_cells.extend(
                     [get_pooled_cell(char=c, **border_attrs) for c in title_text]
-                )  # Title
-                top_cells.extend([h_cell] * right_len)  # Right line
-                top_cells.append(
-                    get_pooled_cell(char=chars["tr"], **border_attrs)
-                )  # Corner
-
-                # Set entire top border in one batch
+                )
+                top_cells.extend([h_cell] * right_len)
+                top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
                 ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
             else:
-                # Title too long - OPTIMIZED: Use batch operation
                 h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
                 top_cells = [get_pooled_cell(char=chars["tl"], **border_attrs)]
                 top_cells.extend([h_cell] * border_width)
                 top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
                 ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
         else:
-            # No title - OPTIMIZED: Use batch operation
             h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
             top_cells = [get_pooled_cell(char=chars["tl"], **border_attrs)]
             top_cells.extend([h_cell] * (total_width - 2))
             top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
             ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
 
-        # Render content area (starting at y=1, inside border)
-        # Create sub-context for content (inside borders)
+        # Render content area
         content_ctx = ctx.sub_context(
             1, 1, content_width + scrollbar_width, content_height
         )
-        self._render_to_content(
-            content_ctx,
-            0,
-            content_height,
-            content_width,
-        )
+        self._render_to_content(content_ctx, 0, content_height, content_width)
 
-        # OPTIMIZED: Render side borders using vertical batch operations
+        # Render side borders
         v_cell = get_pooled_cell(char=chars["v"], **border_attrs)
         v_cells = [v_cell] * content_height
-
-        # Left border
         ctx.buffer.set_cells_vertical(ctx.bounds.x, ctx.bounds.y + 1, v_cells)
-        # Right border
         ctx.buffer.set_cells_vertical(
             ctx.bounds.x + total_width - 1, ctx.bounds.y + 1, v_cells
         )
 
-        # OPTIMIZED: Render bottom border using horizontal batch operation
+        # Render bottom border
         bottom_y = content_height + 1
         h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
         bottom_cells = [get_pooled_cell(char=chars["bl"], **border_attrs)]
@@ -643,7 +724,7 @@ class MarkdownView(ScrollableElement):
         content_height: int,
         content_width: int,
     ) -> None:
-        """Render markdown content using cells.
+        """Render content using cells.
 
         Parameters
         ----------
@@ -655,15 +736,11 @@ class MarkdownView(ScrollableElement):
             Content area height
         content_width : int
             Content area width
-
-        Notes
-        -----
-        Rich-generated ANSI codes are converted to cells, preserving
-        all markdown formatting (headers, bold, italic, code, etc.).
         """
         from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+        from wijjit.terminal.cell import Cell, get_pooled_cell
 
-        # Get visible range from scroll manager
+        # Get visible range
         visible_start, visible_end = self.scroll_manager.get_visible_range()
 
         # Determine if scrollbar is needed
@@ -678,66 +755,77 @@ class MarkdownView(ScrollableElement):
                 self.scroll_manager.state, content_height
             )
 
-        # Render visible markdown lines
+        # Render content based on type
         current_y = start_y
-        rendered_line_idx = visible_start
+        rendered_idx = visible_start
 
-        while current_y < start_y + content_height and rendered_line_idx < visible_end:
-            if rendered_line_idx >= len(self.rendered_lines):
-                # OPTIMIZED: Pad with empty lines using batch operation
-                from wijjit.terminal.cell import get_pooled_cell
-
-                space_cell = get_pooled_cell(char=" ")
-                empty_line = [space_cell] * content_width
-                ctx.buffer.set_cells_horizontal(
-                    ctx.bounds.x, ctx.bounds.y + current_y, empty_line
-                )
-                current_y += 1
-                rendered_line_idx += 1
-                continue
-
-            ansi_line = self.rendered_lines[rendered_line_idx]
-
-            # OPTIMIZED: Convert ANSI string to cells (preserves Rich formatting)
-            cells = ansi_string_to_cells(ansi_line)
-
-            # Prepare full line of cells (content + padding)
-            line_cells = cells[:content_width]  # Clip to width
-
-            # Pad remaining width with spaces
-            if len(line_cells) < content_width:
-                from wijjit.terminal.cell import get_pooled_cell
-
-                # Use last cell's style for padding if available
-                if line_cells:
-                    last_bg = line_cells[-1].bg_color
-                    pad_cell = get_pooled_cell(char=" ", bg_color=last_bg)
+        while current_y < start_y + content_height and rendered_idx < visible_end:
+            if self._uses_cells:
+                # HTML content - use pre-rendered cells
+                if rendered_idx >= len(self.rendered_cells):
+                    space_cell = get_pooled_cell(char=" ")
+                    empty_line = [space_cell] * content_width
+                    ctx.buffer.set_cells_horizontal(
+                        ctx.bounds.x, ctx.bounds.y + current_y, empty_line
+                    )
                 else:
-                    pad_cell = get_pooled_cell(char=" ")
+                    cells = self.rendered_cells[rendered_idx]
+                    line_cells = cells[:content_width]
 
-                line_cells.extend([pad_cell] * (content_width - len(line_cells)))
+                    # Pad remaining width
+                    if len(line_cells) < content_width:
+                        pad_cell = get_pooled_cell(char=" ")
+                        line_cells = list(line_cells)
+                        line_cells.extend(
+                            [pad_cell] * (content_width - len(line_cells))
+                        )
 
-            # OPTIMIZED: Write entire line in one batch operation
-            ctx.buffer.set_cells_horizontal(
-                ctx.bounds.x, ctx.bounds.y + current_y, line_cells
-            )
+                    ctx.buffer.set_cells_horizontal(
+                        ctx.bounds.x, ctx.bounds.y + current_y, line_cells
+                    )
+            else:
+                # ANSI-based content types
+                if rendered_idx >= len(self.rendered_lines):
+                    space_cell = get_pooled_cell(char=" ")
+                    empty_line = [space_cell] * content_width
+                    ctx.buffer.set_cells_horizontal(
+                        ctx.bounds.x, ctx.bounds.y + current_y, empty_line
+                    )
+                else:
+                    ansi_line = self.rendered_lines[rendered_idx]
+                    cells = ansi_string_to_cells(ansi_line)
 
-            # Add scrollbar character if needed
+                    line_cells = cells[:content_width]
+
+                    # Pad remaining width
+                    if len(line_cells) < content_width:
+                        if line_cells:
+                            last_bg = line_cells[-1].bg_color
+                            pad_cell = get_pooled_cell(char=" ", bg_color=last_bg)
+                        else:
+                            pad_cell = get_pooled_cell(char=" ")
+
+                        line_cells.extend(
+                            [pad_cell] * (content_width - len(line_cells))
+                        )
+
+                    ctx.buffer.set_cells_horizontal(
+                        ctx.bounds.x, ctx.bounds.y + current_y, line_cells
+                    )
+
+            # Add scrollbar character
             if needs_scrollbar:
                 scrollbar_idx = current_y - start_y
                 if scrollbar_idx < len(scrollbar_chars):
-                    # Resolve scrollbar style (use border style)
                     if self.focused:
                         scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "markdown.border:focus"
+                            self, "contentview.border:focus"
                         )
                     else:
                         scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "markdown.border"
+                            self, "contentview.border"
                         )
                     scrollbar_attrs = scrollbar_style.to_cell_attrs()
-
-                    from wijjit.terminal.cell import Cell
 
                     ctx.buffer.set_cell(
                         ctx.bounds.x + content_width,
@@ -746,12 +834,10 @@ class MarkdownView(ScrollableElement):
                     )
 
             current_y += 1
-            rendered_line_idx += 1
+            rendered_idx += 1
 
-        # OPTIMIZED: Fill remaining rows if any using batch operation
+        # Fill remaining rows
         if current_y < start_y + content_height:
-            from wijjit.terminal.cell import get_pooled_cell
-
             space_cell = get_pooled_cell(char=" ")
             empty_line = [space_cell] * content_width
 
@@ -765,11 +851,11 @@ class MarkdownView(ScrollableElement):
                     if scrollbar_idx < len(scrollbar_chars):
                         if self.focused:
                             scrollbar_style = ctx.style_resolver.resolve_style(
-                                self, "markdown.border:focus"
+                                self, "contentview.border:focus"
                             )
                         else:
                             scrollbar_style = ctx.style_resolver.resolve_style(
-                                self, "markdown.border"
+                                self, "contentview.border"
                             )
                         scrollbar_attrs = scrollbar_style.to_cell_attrs()
 
@@ -782,3 +868,16 @@ class MarkdownView(ScrollableElement):
                         )
 
                 current_y += 1
+
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Return preferred size for auto sizing.
+
+        Returns
+        -------
+        tuple of (int, int)
+            Preferred (width, height)
+        """
+        # Account for borders
+        if self.border_style != "none":
+            return (self.width + 2, self.height + 2)
+        return (self.width, self.height)

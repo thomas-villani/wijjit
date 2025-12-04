@@ -48,12 +48,10 @@ from wijjit.tags.dialogs import (
     TextInputDialogExtension,
 )
 from wijjit.tags.display import (
-    CodeBlockExtension,
-    HTMLViewerExtension,
+    ContentViewExtension,
     LinkExtension,
     ListViewExtension,
     LogViewExtension,
-    MarkdownExtension,
     ModalExtension,
     ProgressBarExtension,
     SpinnerExtension,
@@ -164,8 +162,6 @@ class Renderer:
                 TextExtension,
                 ListViewExtension,
                 LogViewExtension,
-                MarkdownExtension,
-                CodeBlockExtension,
                 TextAreaExtension,
                 CodeEditorExtension,
                 ModalExtension,
@@ -177,9 +173,9 @@ class Renderer:
                 ContextMenuExtension,
                 TabExtension,
                 TabbedPanelExtension,
-                # HTML/Link extensions
+                # Link and unified content view
                 LinkExtension,
-                HTMLViewerExtension,
+                ContentViewExtension,
                 # Chart extensions
                 SparklineExtension,
                 BarChartExtension,

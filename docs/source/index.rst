@@ -10,7 +10,7 @@ Why Wijjit
 * **Jinja-first layout system** – compose frames, stacks, inputs, and display widgets with template tags instead of manual cursor math.
 * **Reactive state** – ``State`` tracks mutations, schedules renders, and keeps elements in sync automatically.
 * **Full interaction model** – keyboard, mouse, focus traversal, overlays, dialogs, and notifications are provided out of the box.
-* **Production features** – 40+ examples, comprehensive tests, and a renderer that understands ANSI styling and terminal constraints.
+* **Production features** – 58 examples, comprehensive tests, and a renderer that understands ANSI styling and terminal constraints.
 
 Quick Example
 -------------
@@ -94,6 +94,7 @@ Documentation Contents
    user_guide/focus_navigation
    user_guide/mouse_support
    user_guide/styling
+   user_guide/configuration
 
 .. toctree::
    :maxdepth: 2
