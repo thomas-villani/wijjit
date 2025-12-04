@@ -145,13 +145,19 @@ def stats_view():
 
 
 def setup_home_handlers():
-    """Set up view-scoped handlers for the home view."""
-    app.state["view_name"] = "Home"
-    app.state["status_message"] = "Ready"
-    # Update statusbar for home view
-    app.state["sb_left"] = f"File: {app.state['current_file']}"
-    app.state["sb_center"] = "Ready"
-    app.state["sb_right"] = f"Edits: {app.state['edit_count']}"
+    """Set up view-scoped handlers for the home view.
+
+    Uses batch_update() to reduce intermediate renders when updating
+    multiple state values at once.
+    """
+    # Use batch_update to avoid triggering multiple renders
+    with app.state.batch_update():
+        app.state["view_name"] = "Home"
+        app.state["status_message"] = "Ready"
+        # Update statusbar for home view
+        app.state["sb_left"] = f"File: {app.state['current_file']}"
+        app.state["sb_center"] = "Ready"
+        app.state["sb_right"] = f"Edits: {app.state['edit_count']}"
 
     def on_e_key(event):
         if event.key == "e":
@@ -166,15 +172,21 @@ def setup_home_handlers():
 
 
 def setup_editor_handlers():
-    """Set up view-scoped handlers for the editor view."""
-    app.state["view_name"] = "Editor"
-    app.state["status_message"] = "Editing"
-    # Update statusbar for editor view
-    app.state["sb_left"] = f"{app.state['current_file']} [modified]"
-    app.state["sb_center"] = "-- INSERT --"
-    app.state["sb_right"] = (
-        f"Ln {app.state['line_number']}, Col {app.state['column_number']}"
-    )
+    """Set up view-scoped handlers for the editor view.
+
+    Uses batch_update() to reduce intermediate renders when updating
+    multiple state values at once.
+    """
+    # Use batch_update to avoid triggering multiple renders
+    with app.state.batch_update():
+        app.state["view_name"] = "Editor"
+        app.state["status_message"] = "Editing"
+        # Update statusbar for editor view
+        app.state["sb_left"] = f"{app.state['current_file']} [modified]"
+        app.state["sb_center"] = "-- INSERT --"
+        app.state["sb_right"] = (
+            f"Ln {app.state['line_number']}, Col {app.state['column_number']}"
+        )
 
     def on_arrow_keys(event):
         if event.key == "up":
@@ -196,15 +208,21 @@ def setup_editor_handlers():
 
 
 def setup_stats_handlers():
-    """Set up view-scoped handlers for the stats view."""
-    app.state["view_name"] = "Stats"
-    app.state["status_message"] = "Viewing stats"
-    # Update statusbar for stats view
-    app.state["sb_left"] = f"Document: {app.state['current_file']}"
-    app.state["sb_center"] = "Statistics Mode"
-    app.state["sb_right"] = (
-        f"Chars: {app.state['char_count']} | Words: {app.state['word_count']}"
-    )
+    """Set up view-scoped handlers for the stats view.
+
+    Uses batch_update() to reduce intermediate renders when updating
+    multiple state values at once.
+    """
+    # Use batch_update to avoid triggering multiple renders
+    with app.state.batch_update():
+        app.state["view_name"] = "Stats"
+        app.state["status_message"] = "Viewing stats"
+        # Update statusbar for stats view
+        app.state["sb_left"] = f"Document: {app.state['current_file']}"
+        app.state["sb_center"] = "Statistics Mode"
+        app.state["sb_right"] = (
+            f"Chars: {app.state['char_count']} | Words: {app.state['word_count']}"
+        )
 
     def on_a_key(event):
         if event.key == "a":

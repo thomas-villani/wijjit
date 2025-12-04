@@ -177,6 +177,30 @@ class Spinner(Element):
         frame_idx = self.frame_index % len(frames)
         return frames[frame_idx]
 
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size of the spinner.
+
+        Returns the total width including frame character and label.
+        Always returns the maximum size (active case) to ensure proper
+        clearing when spinner becomes inactive.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) tuple
+        """
+        # Get max frame width across all frames in the current style
+        frames = self._get_style_frames(self.style)
+        max_frame_len = max(len(f) for f in frames) if frames else 1
+
+        if self.label:
+            # frame + space + label
+            width = max_frame_len + 1 + len(self.label)
+        else:
+            width = max_frame_len
+
+        return (width, 1)
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render the spinner using cell-based rendering (NEW API).
 
@@ -198,11 +222,17 @@ class Spinner(Element):
         - 'spinner.active': Active/animating spinner style
         - 'spinner.text': Label text style
         """
+        # Get the intrinsic size to know how much area to clear
+        width, _ = self.get_intrinsic_size()
 
-        # If not active, render label only (if present)
+        # Clear the full area first to remove any leftover characters
+        # This is important when transitioning from active to inactive
+        text_style = ctx.style_resolver.resolve_style(self, "spinner.text")
+        ctx.write_text(0, 0, " " * width, text_style)
+
+        # If not active, render label only (if present) starting at position 0
         if not self.active:
             if self.label:
-                text_style = ctx.style_resolver.resolve_style(self, "spinner.text")
                 ctx.write_text(0, 0, self.label, text_style)
             return
 
@@ -211,7 +241,6 @@ class Spinner(Element):
 
         # Resolve style for active spinner
         spinner_style = ctx.style_resolver.resolve_style(self, "spinner.active")
-        text_style = ctx.style_resolver.resolve_style(self, "spinner.text")
 
         # Render spinner frame
         ctx.write_text(0, 0, frame, spinner_style)

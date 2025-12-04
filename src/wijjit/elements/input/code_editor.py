@@ -936,6 +936,16 @@ class CodeEditor(TextArea):
                     token_text = "".join(text for _, text in tokens)
                     tokens_valid = token_text == line
 
+                # If tokens are stale and highlighting is enabled, re-tokenize immediately
+                # This prevents flickering between highlighted and plain text during edits
+                if not tokens_valid and self.highlighter.is_highlighting_enabled():
+                    self._tokenize_line(line_idx)
+                    tokens = self.highlighter.get_line_tokens(line_idx)
+                    # Verify tokens are now valid
+                    if tokens:
+                        token_text = "".join(text for _, text in tokens)
+                        tokens_valid = token_text == line
+
                 # Render with syntax highlighting only if tokens are fresh
                 if tokens_valid and self.highlighter.is_highlighting_enabled():
                     self._render_highlighted_line(

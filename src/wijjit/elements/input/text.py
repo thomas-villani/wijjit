@@ -395,6 +395,26 @@ class TextInput(Element):
             elif self.style == InputStyle.MINIMAL:
                 ctx.write_text(0, 0, visible_text, resolved_style)
 
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size of the text input.
+
+        Returns the total width including border characters based on style.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) tuple where width includes borders
+        """
+        # Calculate border overhead based on style
+        if self.style in (InputStyle.BRACKETS, InputStyle.BOX, InputStyle.BLOCK):
+            # These styles have left and right border characters
+            border_width = 2
+        else:
+            # UNDERLINE and MINIMAL have no side borders
+            border_width = 0
+
+        return (self.width + border_width, 1)
+
     def get_ephemeral_state(self) -> dict:
         """Get ephemeral state for reconciliation.
 

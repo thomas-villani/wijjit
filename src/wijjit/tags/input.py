@@ -153,7 +153,25 @@ class TextInputExtension(Extension):
             if key != "class":  # Skip 'class' as it's already handled as 'classes'
                 vnode.set_prop(key, val)
 
-        vnode.set_layout(width=width, height=1)
+        # Calculate layout width including border characters based on style
+        # Default style is BRACKETS which has left and right borders
+        style = kwargs.get("style", "brackets")
+        # Normalize style to string for comparison
+        if hasattr(style, "name"):
+            # Handle InputStyle enum
+            style_name = style.name.lower()
+        elif isinstance(style, str):
+            style_name = style.lower()
+        else:
+            style_name = "brackets"  # Default
+        # BRACKETS, BOX, and BLOCK styles have 2-character border overhead
+        # UNDERLINE and MINIMAL have no side borders
+        if style_name in ("brackets", "box", "block"):
+            layout_width = width + 2
+        else:
+            layout_width = width
+
+        vnode.set_layout(width=layout_width, height=1)
         layout_context.add_vnode(vnode)
 
         # Return marker for text interleaving

@@ -72,6 +72,12 @@ class State(UserDict[str, Any]):
         object.__setattr__(
             self, "_pending_tasks", set()
         )  # Track pending async callback tasks
+        object.__setattr__(
+            self, "_batch_mode", False
+        )  # Track if we're in batch update mode
+        object.__setattr__(
+            self, "_batch_changes", []
+        )  # Queue of (key, old_value, new_value) during batch mode
 
         # Validate keys don't conflict with dict methods
         if data:
@@ -277,6 +283,82 @@ class State(UserDict[str, Any]):
             if not self._watchers[key]:
                 del self._watchers[key]
 
+    class _BatchContext:
+        """Context manager for batch state updates.
+
+        Parameters
+        ----------
+        state : State
+            The state object to batch updates for
+        """
+
+        def __init__(self, state: "State") -> None:
+            self.state = state
+
+        def __enter__(self) -> "State":
+            """Enter batch mode."""
+            self.state._batch_mode = True
+            self.state._batch_changes = []
+            return self.state
+
+        def __exit__(
+            self,
+            exc_type: type | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> bool:
+            """Exit batch mode and trigger callbacks for all changes.
+
+            Only triggers callbacks once, passing all changes that occurred.
+            """
+            self.state._batch_mode = False
+
+            # If there were any changes, trigger a single batch callback
+            if self.state._batch_changes and not exc_val:
+                # Get unique keys that changed (use the last old/new values)
+                changes_by_key: dict[str, tuple[Any, Any]] = {}
+                for key, old_value, new_value in self.state._batch_changes:
+                    if key not in changes_by_key:
+                        # First change for this key - record original old value
+                        changes_by_key[key] = (old_value, new_value)
+                    else:
+                        # Subsequent changes - keep original old, update new
+                        original_old, _ = changes_by_key[key]
+                        changes_by_key[key] = (original_old, new_value)
+
+                # Trigger callbacks once for each unique key that actually changed
+                for key, (old_value, new_value) in changes_by_key.items():
+                    if old_value != new_value:
+                        # Temporarily disable batch mode to allow _trigger_change to work
+                        self.state._batch_mode = False
+                        self.state._trigger_change(key, old_value, new_value)
+
+            self.state._batch_changes = []
+            return False  # Don't suppress exceptions
+
+    def batch_update(self) -> _BatchContext:
+        """Context manager for batch state updates.
+
+        Use this to update multiple state values while suppressing intermediate
+        callbacks. Callbacks are triggered once at the end of the batch for
+        each key that actually changed.
+
+        Returns
+        -------
+        _BatchContext
+            Context manager for batch updates
+
+        Examples
+        --------
+        >>> state = State({'a': 1, 'b': 2})
+        >>> with state.batch_update():
+        ...     state['a'] = 10
+        ...     state['b'] = 20
+        ...     state['a'] = 100  # Only this final value is used
+        # Callbacks triggered once for 'a' (1 -> 100) and once for 'b' (2 -> 20)
+        """
+        return self._BatchContext(self)
+
     def _trigger_change(self, key: str, old_value: Any, new_value: Any) -> None:
         """Trigger change callbacks (synchronous).
 
@@ -297,7 +379,14 @@ class State(UserDict[str, Any]):
         -----
         Async callbacks are tracked in _pending_tasks set for cleanup and monitoring.
         Use flush_pending_async() to wait for all callbacks to complete.
+
+        If in batch mode, changes are queued instead of triggering callbacks.
         """
+        # If in batch mode, queue the change instead of triggering immediately
+        if self._batch_mode:
+            self._batch_changes.append((key, old_value, new_value))
+            return
+
         # Trigger global change callbacks
         for callback in self._change_callbacks:
             try:

@@ -78,6 +78,11 @@ class EventLoop:
         # Render throttling
         self._last_render_time: float = 0.0
 
+        # Spinner animation timing (separate from refresh_interval)
+        # Spinners advance their frames at this interval regardless of refresh_interval
+        self._last_spinner_advance_time: float = 0.0
+        self._spinner_frame_interval: float = 0.2  # 200ms between frame advances
+
         # Error recovery
         self._consecutive_errors = 0
         self._max_consecutive_errors = 3  # Terminate after 3 consecutive errors
@@ -327,6 +332,16 @@ class EventLoop:
         # Render immediately if needed (before disabling auto-refresh)
         # This ensures the final notification removal is rendered
         if self.app.needs_render:
+            # Advance spinner frames if enough time has passed
+            # This ensures spinners animate even when refresh() is called manually
+            current_time = time.time()
+            if (
+                current_time - self._last_spinner_advance_time
+                >= self._spinner_frame_interval
+            ):
+                self._advance_spinner_frames()
+                self._last_spinner_advance_time = current_time
+
             self.app._render()
             self.app._last_refresh_time = time.time()
 
@@ -421,6 +436,16 @@ class EventLoop:
         # Render immediately if needed (before disabling auto-refresh)
         # This ensures the final notification removal is rendered
         if self.app.needs_render and self._should_render_now():
+            # Advance spinner frames if enough time has passed
+            # This ensures spinners animate even when refresh() is called manually
+            current_time = time.time()
+            if (
+                current_time - self._last_spinner_advance_time
+                >= self._spinner_frame_interval
+            ):
+                self._advance_spinner_frames()
+                self._last_spinner_advance_time = current_time
+
             self.app._render()
             self.app._last_refresh_time = time.time()
             # Yield control to allow other async tasks to run
