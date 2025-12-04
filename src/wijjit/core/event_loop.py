@@ -657,13 +657,15 @@ class EventLoop:
 
         # Block global key handlers when a modal with trap_focus is active
         # This prevents hotkeys (like 's', 'e', 'n', etc.) from firing while dialog is open
-        if not self.app.overlay_manager.should_trap_focus():
-            # No modal trapping focus - dispatch to global handlers normally
+        # Exception: Tab/Shift+Tab must always be dispatched for focus cycling within modals
+        is_tab_key = input_event.name in ("tab", "shift+tab")
+        if not self.app.overlay_manager.should_trap_focus() or is_tab_key:
+            # No modal trapping focus, OR it's Tab key for focus cycling
             await self.app.handler_registry.dispatch_async(
                 event, executor=self.executor
             )
         else:
-            # Modal is trapping focus - skip global handlers
+            # Modal is trapping focus - skip global handlers (except Tab)
             # The overlay's handle_key() already had a chance to process the event above
             logger.debug(
                 f"Skipping global key dispatch for '{input_event.name}' - "
