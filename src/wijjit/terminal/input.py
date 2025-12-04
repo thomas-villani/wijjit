@@ -315,9 +315,9 @@ class InputHandler:
         self._mouse_tracking_mode = (
             mouse_tracking_mode
             if mouse_tracking_mode is not None
-            else (MouseTrackingMode.BUTTON_EVENT if MouseTrackingMode else None)
+            else MouseTrackingMode.BUTTON_EVENT
         )
-        self.mouse_parser = MouseEventParser() if MouseEventParser else None
+        self.mouse_parser = MouseEventParser()
 
         # Queue for handling lookahead keys (used for Alt detection and mouse parsing)
         self._key_queue = []
@@ -955,9 +955,6 @@ class InputHandler:
         mode : MouseTrackingMode, optional
             Tracking mode to use (default: uses mode from constructor)
         """
-        if not MouseTrackingMode:
-            return  # Mouse module not available
-
         if mode is not None:
             self._mouse_tracking_mode = mode
 

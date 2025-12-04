@@ -219,14 +219,17 @@ class Button(Element):
         elif self.style == ButtonStyle.ROUNDED:
             # ( Label ) format: 2 spaces + 2 parens + label
             width = label_width + 4
-        elif self.style == ButtonStyle.DOUBLE:
-            # [[ Label ]] format: 4 spaces + 4 brackets + label
-            width = label_width + 6
-        elif self.style == ButtonStyle.SIMPLE:
-            # Label format: just the label
-            width = label_width
+        elif self.style == ButtonStyle.BOX:
+            # Box drawing format: 2 spaces + 2 chars + label
+            width = label_width + 4
+        elif self.style == ButtonStyle.BLOCK:
+            # Block character format: 2 spaces + 2 chars + label
+            width = label_width + 4
+        elif self.style == ButtonStyle.MINIMAL:
+            # Minimal format: 2 spaces padding + label
+            width = label_width + 2
         else:
-            # Default: add padding
+            # Fallback for any unknown styles - use default padding
             width = label_width + 4
 
         return (max(1, width), 1)  # Height is always 1 for buttons
@@ -290,4 +293,9 @@ class Button(Element):
             # Button - Just the label with styling, no borders
             # Add padding spaces for better visual separation
             text = f" {self.label} "
+            ctx.write_text(0, 0, text, resolved_style)
+
+        else:
+            # Fallback for any unknown styles - use BRACKETS style
+            text = f"< {self.label} >"
             ctx.write_text(0, 0, text, resolved_style)

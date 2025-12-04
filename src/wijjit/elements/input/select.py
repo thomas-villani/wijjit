@@ -11,6 +11,7 @@ from typing import Any, Literal
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager
+from wijjit.rendering.paint_context import PaintContext
 from wijjit.terminal.ansi import ANSIStyle, clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -573,7 +574,7 @@ class Select(ScrollableElement):
         if self.on_scroll:
             self.on_scroll(self.scroll_manager.state.scroll_position)
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render the select element using cell-based rendering (NEW API).
 
         Parameters

@@ -14,6 +14,7 @@ from wijjit.elements.base import OverlayElement
 from wijjit.elements.input.button import Button
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.rendering.paint_context import PaintContext
 from wijjit.terminal.ansi import (
     ANSIColor,
     supports_unicode,
@@ -212,7 +213,7 @@ class NotificationElement(OverlayElement):
         else:  # INFO
             return ANSIColor.CYAN
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render the notification using cell-based rendering (NEW API).
 
         Parameters

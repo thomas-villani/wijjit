@@ -8,6 +8,7 @@ including filled bars, percentages, and gradients.
 from typing import Literal
 
 from wijjit.elements.base import Element, ElementType
+from wijjit.rendering.paint_context import PaintContext
 from wijjit.terminal.ansi import clip_to_width
 
 
@@ -310,7 +311,7 @@ class ProgressBar(Element):
         else:
             return bar
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render the progress bar using cell-based rendering (NEW API).
 
         Parameters

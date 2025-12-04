@@ -101,7 +101,7 @@ class ModalElement(OverlayElement):
         """
         self.content_lines = content.split("\n")
 
-    def render_to(self, ctx) -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render the modal using cell-based rendering (NEW API).
 
         Parameters
