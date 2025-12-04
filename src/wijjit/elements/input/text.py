@@ -201,7 +201,7 @@ class TextInput(Element):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
 
         Parameters
@@ -2366,7 +2366,7 @@ class TextArea(Element):
         # Ensure cursor stays visible
         self._ensure_cursor_visible()
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
 
         Parameters

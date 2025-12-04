@@ -412,7 +412,7 @@ class LineChart(Element):
                 )
 
         # Write braille canvas to buffer
-        lines = canvas.render()
+        lines = canvas.to_lines()
         line_attrs = line_style.to_cell_attrs()
 
         for y, line in enumerate(lines):

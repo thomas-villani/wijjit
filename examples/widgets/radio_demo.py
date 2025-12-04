@@ -35,7 +35,7 @@ def main_view():
     """Main form view with radio groups."""
     return {
         "template": """
-{% frame title="Radio Button Demo" border="double" width=80 height=32 %}
+{% frame title="Radio Button Demo" border_style="double" width=80 height=32 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}
@@ -43,7 +43,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=25 %}
-        {% frame title="Select Size" border="rounded" width="fill" %}
+        {% frame title="Select Size" border_style="rounded" width="fill" %}
           {% radiogroup id="size" title="Size" border_style="single" orientation="vertical" %}
             {% radio value="xs" %}Extra Small{% endradio %}
             {% radio value="s" %}Small{% endradio %}
@@ -55,7 +55,7 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=25 %}
-        {% frame title="Select Color" border="single" width="fill" %}
+        {% frame title="Select Color" border_style="single" width="fill" %}
           {% radiogroup id="color" orientation="vertical" %}
             {% radio value="Red" %}Red{% endradio %}
             {% radio value="Green" %}Green{% endradio %}
@@ -67,7 +67,7 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=25 %}
-        {% frame title="Shipping Method" border="double" width="fill" %}
+        {% frame title="Shipping Method" border_style="double" width="fill" %}
           {% radiogroup id="shipping" orientation="vertical" %}
             {% radio value="standard" %}Standard (5-7 days){% endradio %}
             {% radio value="express" %}Express (2-3 days){% endradio %}

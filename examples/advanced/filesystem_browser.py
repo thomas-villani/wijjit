@@ -61,7 +61,7 @@ def main_view():
     """Main filesystem browser view."""
     return {
         "template": """
-{% frame title="Filesystem Browser" border="double" width=100 height=35 %}
+{% frame title="Filesystem Browser" border_style="double" width=100 height=35 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.message }}
 
@@ -69,7 +69,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" height=22 %}
       {% vstack spacing=0 width=54 %}
-        {% frame title="Directory Tree" border="single" width="fill" height=20 %}
+        {% frame title="Directory Tree" border_style="single" width="fill" height=20 %}
           {% tree id="filetree"
                   data=state.file_tree
                   width=50
@@ -83,7 +83,7 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=0 width=42 %}
-        {% frame title="Details" border="single" width="fill" height=20 %}
+        {% frame title="Details" border_style="single" width="fill" height=20 %}
           {% if state.selected_file %}
 Name: {{ state.selected_file.label }}
 Path: {{ state.selected_file.value }}

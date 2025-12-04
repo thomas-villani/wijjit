@@ -187,12 +187,12 @@ class TestBrailleCanvas:
         assert canvas.get_pixel(0, 0) is True
         assert canvas.get_pixel(4, 4) is True
 
-    def test_render(self):
-        """Test canvas rendering to strings."""
+    def test_to_lines(self):
+        """Test canvas conversion to braille strings."""
         canvas = BrailleCanvas(2, 1)
 
         canvas.set_pixel(0, 0)
-        lines = canvas.render()
+        lines = canvas.to_lines()
 
         assert len(lines) == 1
         assert len(lines[0]) == 2

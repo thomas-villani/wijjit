@@ -116,8 +116,8 @@ class Button(Element):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
-        """Handle mouse input (synchronous).
+    async def handle_mouse(self, event: MouseEvent) -> bool:
+        """Handle mouse input.
 
         Parameters
         ----------
@@ -131,35 +131,7 @@ class Button(Element):
 
         Notes
         -----
-        This is the legacy synchronous handler. For async callback support,
-        handle_mouse_async() is now preferred and will be called by the
-        mouse router if available.
-        """
-        # Activate on click or double-click
-        if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
-            self.activate()
-            return True
-
-        return False
-
-    async def handle_mouse_async(self, event: MouseEvent) -> bool:
-        """Handle mouse input (asynchronous).
-
-        Parameters
-        ----------
-        event : MouseEvent
-            Mouse event to handle
-
-        Returns
-        -------
-        bool
-            True if event was handled
-
-        Notes
-        -----
-        This async version supports async on_click and on_activate callbacks.
-        It's preferred over handle_mouse() and will be called by the mouse
-        router when available.
+        This async handler supports async on_click and on_activate callbacks.
         """
         # Activate on click or double-click
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):

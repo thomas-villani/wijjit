@@ -32,7 +32,7 @@ The `{% markdown %}` tag renders markdown content with Rich formatting:
 
 ```jinja2
 {% markdown content=state.docs width=60 height=20
-            border="double" title="Documentation" %}
+            border_style="double" title="Documentation" %}
 {% endmarkdown %}
 ```
 
@@ -49,7 +49,7 @@ The `{% code %}` tag displays syntax-highlighted code:
 
 ```jinja2
 {% code language="python" width=60 height=15
-        line_numbers=true border="single" %}
+        line_numbers=true border_style="single" %}
 {{ state.source_code }}
 {% endcode %}
 ```
@@ -108,7 +108,7 @@ app = Wijjit(initial_state={
 def main_view():
     return {
         "template": """
-{% frame title="Hello World" border="double" width=60 height=10 %}
+{% frame title="Hello World" border_style="double" width=60 height=10 %}
   {% vstack padding=2 %}
     {% markdown %}
 # Welcome
@@ -138,7 +138,7 @@ app = Wijjit(initial_state={
 def main_view():
     return {
         "template": """
-{% frame title="Code Viewer" border="double" %}
+{% frame title="Code Viewer" border_style="double" %}
   {% vstack spacing=1 padding=1 %}
     {% code language=state.language width=70 height=20
             line_numbers=true title="Source Code" %}
@@ -225,11 +225,11 @@ def main_view():
         "template": """
 {% hstack spacing=2 %}
   {% markdown id="docs" width=40 height=25
-              border="double" title="Docs" %}
+              border_style="double" title="Docs" %}
   {% endmarkdown %}
 
   {% code language="python" width=50 height=25
-          id="code" border="double" title="Code" %}
+          id="code" border_style="double" title="Code" %}
   {% endcode %}
 {% endhstack %}
         """
@@ -242,7 +242,7 @@ app.run()
 
 
 TEMPLATE = """
-{% frame title="Rich Content Template Demo" border="double" %}
+{% frame title="Rich Content Template Demo" border_style="double" %}
   Instructions: [Tab] Switch Focus | [Arrows/PgUp/PgDn] Scroll | [1-3] Switch Example | [q] Quit
   {% vstack spacing=1 padding=1 %}
     {% hstack spacing=2 height=20 %}

@@ -115,7 +115,7 @@ def main_view():
     """Main view showcasing LogView elements."""
     return {
         "template": """
-{% frame title="LogView Demo - Log Display with Auto-Coloring" border="double" width="fill" height="fill" %}
+{% frame title="LogView Demo - Log Display with Auto-Coloring" border_style="double" width="fill" height="fill" %}
   {{ state.status }}
     {% vstack %}
     {% hstack spacing=1 %}

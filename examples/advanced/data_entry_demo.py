@@ -117,7 +117,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Business Order Entry Form" border="double" width=110 height=45 %}
+{% frame title="Business Order Entry Form" border_style="double" width=110 height=45 %}
   {% vstack spacing=1 padding=1 %}
     {% if not state.submitted %}
       {% vstack spacing=0 %}
@@ -126,7 +126,7 @@ def main_view():
 
       {% hstack spacing=2 align_v="top" %}
         {% vstack spacing=1 width=52 %}
-          {% frame title="Customer Information" border="single" width="fill" %}
+          {% frame title="Customer Information" border_style="single" width="fill" %}
             {% vstack spacing=1 padding=1 %}
               {% vstack spacing=0 %}
                 Customer Name: *
@@ -156,7 +156,7 @@ def main_view():
             {% endvstack %}
           {% endframe %}
 
-          {% frame title="Shipping Address" border="single" width="fill" %}
+          {% frame title="Shipping Address" border_style="single" width="fill" %}
             {% vstack spacing=1 padding=1 %}
               {% vstack spacing=0 %}
                 Street Address: *
@@ -197,7 +197,7 @@ def main_view():
         {% endvstack %}
 
         {% vstack spacing=1 width=52 %}
-          {% frame title="Order Details" border="single" width="fill" %}
+          {% frame title="Order Details" border_style="single" width="fill" %}
             {% vstack spacing=1 padding=1 %}
               {% vstack spacing=0 %}
                 Product: *
@@ -231,13 +231,13 @@ def main_view():
             {% endvstack %}
           {% endframe %}
 
-          {% frame title="Additional Options" border="single" width="fill" %}
+          {% frame title="Additional Options" border_style="single" width="fill" %}
               {% checkbox id="gift_wrap" label="Gift wrap (+$5)" %}{% endcheckbox %}
               {% checkbox id="insurance" label="Shipping insurance (+$10)" %}{% endcheckbox %}
               {% checkbox id="signature_required" label="Signature required" %}{% endcheckbox %}
           {% endframe %}
 
-          {% frame title="Special Instructions" border="single" width="fill" %}
+          {% frame title="Special Instructions" border_style="single" width="fill" %}
             {% vstack spacing=0 padding=1 %}
               {% textinput id="special_instructions" width=45 placeholder="Any special requests..." %}{% endtextinput %}
             {% endvstack %}
@@ -246,7 +246,7 @@ def main_view():
       {% endhstack %}
 
       {% if state.validation_errors %}
-        {% frame border="single" %}
+        {% frame border_style="single" %}
           {% vstack spacing=0 padding=1 %}
             Validation Errors:
 {{ errors_text }}
@@ -262,7 +262,7 @@ def main_view():
       {% endhstack %}
 
     {% else %}
-      {% frame title="Order Submitted Successfully!" border="single" %}
+      {% frame title="Order Submitted Successfully!" border_style="single" %}
         {% vstack spacing=1 padding=2 %}
           {% vstack spacing=0 %}
             Order Number: {{ state.order_number }}

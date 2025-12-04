@@ -26,7 +26,7 @@ def login_view():
     """Login form view."""
     return {
         "template": """
-{% frame title="Login" border="single" width=50 height=15 %}
+{% frame title="Login" border_style="single" width=50 height=15 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.status }}
     Username: {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}

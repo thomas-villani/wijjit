@@ -22,12 +22,12 @@ app = Wijjit()
 
 # Demo template with various HTML features
 TEMPLATE = """
-{% frame border="single" title="HTML Content Demo" width="fill" height="fill" %}
+{% frame border_style="single" title="HTML Content Demo" width="fill" height="fill" %}
 
     {% text %}Tab/Shift+Tab: Navigate | Enter/Space: Click | Arrows: Scroll | Ctrl+Q: Quit{% endtext %}
 
     {# Section 1: Basic HTML formatting in text #}
-    {% frame border="single" title="1. HTML Text Formatting (html=true)" width=74 height=4 %}
+    {% frame border_style="single" title="1. HTML Text Formatting (html=true)" width=74 height=4 %}
       {% vstack %}
         {% text html=true wrap=false %}<b>Bold</b>, <i>Italic</i>, <u>Underline</u>, <b><i>Bold+Italic</i></b>, <s>Strikethrough</s>{% endtext %}
         {% text html=true wrap=false %}<style fg="red">Red</style>, <style fg="green">Green</style>, <style fg="#0088FF">Blue (#0088FF)</style>, <style fg="#F0F">Magenta (#F0F)</style>{% endtext %}
@@ -35,7 +35,7 @@ TEMPLATE = """
     {% endframe %}
 
     {# Section 2: Theme-styled HTML #}
-    {% frame border="single" title="2. Theme CSS Classes in HTML" width=74 height=4 %}
+    {% frame border_style="single" title="2. Theme CSS Classes in HTML" width=74 height=4 %}
       {% vstack %}
         {% text html=true wrap=false %}<text-danger>text-danger</text-danger> | <text-warning>text-warning</text-warning> | <text-success>text-success</text-success> | <text-info>text-info</text-info>{% endtext %}
         {% text html=true wrap=false %}<text-primary>text-primary</text-primary> | <text-secondary>text-secondary</text-secondary> | <text-muted>text-muted</text-muted>{% endtext %}
@@ -43,7 +43,7 @@ TEMPLATE = """
     {% endframe %}
 
     {# Section 3: Link elements #}
-    {% frame border="single" title="3. Link Elements (focusable, clickable)" width=74 height=3 %}
+    {% frame border_style="single" title="3. Link Elements (focusable, clickable)" width=74 height=3 %}
       {% hstack spacing=3 %}
         {% link id="link1" action="link1" %}Default Link{% endlink %}
         {% link id="link2" action="link2" class="text-danger" %}Danger Link{% endlink %}
@@ -74,7 +74,7 @@ Keep scrolling...
     {% endhtmlview %}
 
     {# Status bar #}
-    {% frame border="single" width=74 height=3 %}
+    {% frame border_style="single" width=74 height=3 %}
       {% vstack %}
         {% text %}Last action: {{ state.last_action }}{% endtext %}
         {% text %}Click count: {{ state.click_count }}{% endtext %}

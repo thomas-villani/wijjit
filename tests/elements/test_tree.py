@@ -1,5 +1,7 @@
 """Tests for Tree display element."""
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.tree import Tree
@@ -479,7 +481,8 @@ class TestTreeKeyboardNavigation:
 class TestTreeMouseInteraction:
     """Tests for mouse interaction."""
 
-    def test_mouse_scroll_down(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scroll_down(self):
         """Test mouse wheel scroll down."""
         # Create tree with many nodes
         children = [{"label": f"Child {i}", "value": f"c{i}"} for i in range(20)]
@@ -497,11 +500,12 @@ class TestTreeMouseInteraction:
             x=0,
             y=0,
         )
-        tree.handle_mouse(event)
+        await tree.handle_mouse(event)
 
         assert tree.scroll_manager.state.scroll_position > initial_pos
 
-    def test_mouse_scroll_up(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scroll_up(self):
         """Test mouse wheel scroll up."""
         # Create tree with many nodes
         children = [{"label": f"Child {i}", "value": f"c{i}"} for i in range(20)]
@@ -521,11 +525,12 @@ class TestTreeMouseInteraction:
             x=0,
             y=0,
         )
-        tree.handle_mouse(event)
+        await tree.handle_mouse(event)
 
         assert tree.scroll_manager.state.scroll_position < initial_pos
 
-    def test_mouse_click_to_select(self):
+    @pytest.mark.asyncio
+    async def test_mouse_click_to_select(self):
         """Test clicking on a node to select it."""
         data = {
             "label": "Root",
@@ -550,7 +555,7 @@ class TestTreeMouseInteraction:
             x=10,  # Middle of line
             y=1,  # Second row
         )
-        result = tree.handle_mouse(event)
+        result = await tree.handle_mouse(event)
 
         assert result is True
         assert tree.highlighted_index == 1

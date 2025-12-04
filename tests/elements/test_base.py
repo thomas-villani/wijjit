@@ -1,5 +1,7 @@
 """Tests for base element classes."""
 
+import pytest
+
 from wijjit.elements.base import Container, Element
 from wijjit.layout.bounds import Bounds
 from wijjit.rendering.paint_context import PaintContext
@@ -91,7 +93,8 @@ class TestElementBase:
         elem.on_hover_exit()
         assert not elem.hovered
 
-    def test_handle_mouse_default(self):
+    @pytest.mark.asyncio
+    async def test_handle_mouse_default(self):
         """Test default mouse event handling."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -101,7 +104,8 @@ class TestElementBase:
         )
 
         # Default implementation returns False
-        assert not elem.handle_mouse(event)
+        result = await elem.handle_mouse(event)
+        assert not result
 
     def test_element_starts_not_hovered(self):
         """Test that elements start with hovered = False."""

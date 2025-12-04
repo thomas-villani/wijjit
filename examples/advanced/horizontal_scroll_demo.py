@@ -47,10 +47,10 @@ def main_view():
 
     return {
         "template": """
-{% frame width="fill" height="fill" border="single" title="Horizontal Scrolling Demo" %}
+{% frame width="fill" height="fill" border_style="single" title="Horizontal Scrolling Demo" %}
 
     {# Frame with overflow_x="scroll" - Always shows horizontal scrollbar #}
-    {% frame width="fill" height=8 border="rounded" title="overflow_x='scroll' (always show h-scrollbar)"
+    {% frame width="fill" height=8 border_style="rounded" title="overflow_x='scroll' (always show h-scrollbar)"
              scrollable=true show_scrollbar=true
              overflow_x="scroll" show_scrollbar_x=true padding=(0,1,0,1) id="scroll_frame" %}
 {{ long_content }}
@@ -58,13 +58,13 @@ def main_view():
 
     {# Frame with overflow_x="auto" - Shows scrollbar only when needed #}
     {% hstack spacing=2 %}
-      {% frame width="50%" height=6 border="single" title="overflow_x='auto' (needs scroll)"
+      {% frame width="50%" height=6 border_style="single" title="overflow_x='auto' (needs scroll)"
                scrollable=true show_scrollbar=true
                overflow_x="auto" show_scrollbar_x=true padding=(0,1,0,1) id="auto_frame_long" %}
 {{ long_content }}
       {% endframe %}
 
-      {% frame width="50%" height=6 border="single" title="overflow_x='auto' (fits)"
+      {% frame width="50%" height=6 border_style="single" title="overflow_x='auto' (fits)"
                scrollable=true show_scrollbar=true
                overflow_x="auto" show_scrollbar_x=true padding=(0,1,0,1) id="auto_frame_short" %}
 {{ short_content }}
@@ -72,14 +72,14 @@ def main_view():
     {% endhstack %}
 
     {# TextArea with horizontal scrolling #}
-    {% frame width="fill" border="single" title="TextArea with Horizontal Scroll" padding=(0,1,0,1) %}
+    {% frame width="fill" border_style="single" title="TextArea with Horizontal Scroll" padding=(0,1,0,1) %}
       {% textarea id="text_area" width="fill" height=4 wrap_mode="none"
                   show_scrollbar=true show_scrollbar_x=true value=long_text %}
       {% endtextarea %}
     {% endframe %}
 
     {# Instructions #}
-    {% frame width="fill" height=5 border="single" title="Controls" padding=(0,1,0,1) %}
+    {% frame width="fill" height=5 border_style="single" title="Controls" padding=(0,1,0,1) %}
 Left/Right: Scroll horizontally | Shift+Left/Right: Page scroll
 Up/Down: Scroll vertically | Shift+Wheel: Horizontal scroll
 Tab: Switch focus | q: Quit

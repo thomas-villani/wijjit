@@ -154,7 +154,7 @@ class FrameStyle:
 
     Parameters
     ----------
-    border : BorderStyle
+    border_style : BorderStyle
         Border style to use
     title : str, optional
         Frame title
@@ -184,7 +184,7 @@ class FrameStyle:
         - "auto": Enable horizontal scrolling only when content exceeds width
     """
 
-    border: BorderStyle = BorderStyle.SINGLE
+    border_style: BorderStyle = BorderStyle.SINGLE
     title: str | None = None
     padding: tuple[int, int, int, int] = (0, 1, 0, 1)  # top, right, bottom, left
     content_align_h: Literal["left", "center", "right", "stretch"] = "stretch"
@@ -617,7 +617,12 @@ class Frame(ScrollableElement):
             self.scroll_manager_x.scroll_to(position)
 
     def render(self) -> str:
-        """Render the frame as a string.
+        """Render the frame as a string (DEPRECATED).
+
+        .. deprecated::
+            Use ``render_to(ctx)`` for cell-based rendering instead.
+            This method is kept for backwards compatibility with tests
+            and debugging purposes.
 
         Returns
         -------
@@ -654,7 +659,7 @@ class Frame(ScrollableElement):
             Rendered frame
         """
         lines = []
-        chars = get_border_chars(self.style.border)
+        chars = get_border_chars(self.style.border_style)
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -736,7 +741,7 @@ class Frame(ScrollableElement):
             return self._render_static()
 
         lines = []
-        chars = get_border_chars(self.style.border)
+        chars = get_border_chars(self.style.border_style)
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -820,7 +825,7 @@ class Frame(ScrollableElement):
             return ""
 
         lines = []
-        chars = get_border_chars(self.style.border)
+        chars = get_border_chars(self.style.border_style)
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -1220,7 +1225,7 @@ class Frame(ScrollableElement):
             self.on_scroll(self.scroll_position)
         return True
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse events (scrolling).
 
         Parameters
@@ -1368,7 +1373,7 @@ class Frame(ScrollableElement):
             border_style = ctx.style_resolver.resolve_style(self, "frame.border")
 
         # Get border characters (respects UNICODE_SUPPORT config)
-        chars = get_border_chars(self.style.border)
+        chars = get_border_chars(self.style.border_style)
         border_attrs = border_style.to_cell_attrs()
         content_attrs = content_style.to_cell_attrs()
 

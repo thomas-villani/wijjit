@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from wijjit.elements.base import ElementType
 from wijjit.elements.input.text import TextArea
 from wijjit.terminal.input import Key, Keys, KeyType
@@ -175,7 +177,8 @@ class TestTextAreaScrolling:
 class TestTextAreaMouse:
     """Tests for TextArea mouse support."""
 
-    def test_mouse_wheel_up(self):
+    @pytest.mark.asyncio
+    async def test_mouse_wheel_up(self):
         """Test mouse wheel up scrolls content."""
         # Create textarea with content larger than viewport
         content = "\n".join([f"Line {i}" for i in range(20)])
@@ -188,11 +191,12 @@ class TestTextAreaMouse:
         event = MouseEvent(
             type=MouseEventType.SCROLL, button=MouseButton.SCROLL_UP, x=0, y=0
         )
-        result = textarea.handle_mouse(event)
+        result = await textarea.handle_mouse(event)
         assert result
         assert textarea.scroll_manager.state.scroll_position == 7
 
-    def test_mouse_wheel_down(self):
+    @pytest.mark.asyncio
+    async def test_mouse_wheel_down(self):
         """Test mouse wheel down scrolls content."""
         content = "\n".join([f"Line {i}" for i in range(20)])
         textarea = TextArea(value=content, height=5)
@@ -200,7 +204,7 @@ class TestTextAreaMouse:
         event = MouseEvent(
             type=MouseEventType.SCROLL, button=MouseButton.SCROLL_DOWN, x=0, y=0
         )
-        result = textarea.handle_mouse(event)
+        result = await textarea.handle_mouse(event)
         assert result
         assert textarea.scroll_manager.state.scroll_position == 3
 
@@ -213,7 +217,8 @@ class TestTextAreaStatePersistence:
             """No-op dispatch placeholder for wiring."""
             return None
 
-    def test_horizontal_scroll_state_saved(self):
+    @pytest.mark.asyncio
+    async def test_horizontal_scroll_state_saved(self):
         """Horizontal scroll position is preserved via reconciliation ephemeral state.
 
         Note: The old behavior stored scroll state to __id_scroll_x keys in the
@@ -242,18 +247,19 @@ class TestTextAreaStatePersistence:
             y=0,
             shift=True,
         )
-        textarea.handle_mouse(event)
+        await textarea.handle_mouse(event)
 
         # Scroll position is now preserved on the element itself via reconciliation
         # (ephemeral state), not through state dict hacks
         assert textarea.scroll_manager_x.state.scroll_position > 0
 
-    def test_mouse_click_positions_cursor(self):
+    @pytest.mark.asyncio
+    async def test_mouse_click_positions_cursor(self):
         """Test clicking positions cursor."""
         textarea = TextArea(value="Line1\nLine2\nLine3", height=5)
 
         event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=3, y=1)
-        textarea.handle_mouse(event)
+        await textarea.handle_mouse(event)
         assert textarea.cursor_row == 1
         assert textarea.cursor_col == 3
 
@@ -976,7 +982,8 @@ class TestTextAreaSelectionEditing:
 class TestTextAreaMouseSelection:
     """Tests for mouse-based text selection."""
 
-    def test_click_clears_selection(self):
+    @pytest.mark.asyncio
+    async def test_click_clears_selection(self):
         """Test clicking clears existing selection."""
         textarea = TextArea(value="Hello World", width=20, height=5)
         textarea.selection_anchor = (0, 0)
@@ -989,11 +996,12 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=False,
         )
-        textarea.handle_mouse(event)
+        await textarea.handle_mouse(event)
 
         assert not textarea._has_selection()
 
-    def test_shift_click_extends_selection(self):
+    @pytest.mark.asyncio
+    async def test_shift_click_extends_selection(self):
         """Test Shift+Click extends selection."""
         textarea = TextArea(value="Hello World", width=20, height=5)
         textarea.cursor_col = 0
@@ -1005,12 +1013,13 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=True,
         )
-        textarea.handle_mouse(event)
+        await textarea.handle_mouse(event)
 
         assert textarea._has_selection()
         assert textarea.selection_anchor == (0, 0)
 
-    def test_double_click_selects_word(self):
+    @pytest.mark.asyncio
+    async def test_double_click_selects_word(self):
         """Test double-click selects word."""
         textarea = TextArea(value="Hello World Test", width=20, height=5)
 
@@ -1021,12 +1030,13 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=False,
         )
-        textarea.handle_mouse(event)
+        await textarea.handle_mouse(event)
 
         assert textarea._has_selection()
         # Should select word at position (implementation may vary based on wrapping)
 
-    def test_mouse_drag_creates_selection(self):
+    @pytest.mark.asyncio
+    async def test_mouse_drag_creates_selection(self):
         """Test mouse drag creates selection."""
         textarea = TextArea(value="Hello World", width=20, height=5)
 
@@ -1038,7 +1048,7 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=False,
         )
-        textarea.handle_mouse(press_event)
+        await textarea.handle_mouse(press_event)
         assert textarea._mouse_down
 
         # Drag
@@ -1049,7 +1059,7 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=False,
         )
-        textarea.handle_mouse(drag_event)
+        await textarea.handle_mouse(drag_event)
 
         assert textarea._has_selection()
 
@@ -1061,11 +1071,12 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=False,
         )
-        textarea.handle_mouse(release_event)
+        await textarea.handle_mouse(release_event)
 
         assert not textarea._mouse_down
 
-    def test_mouse_press_with_shift_extends_selection(self):
+    @pytest.mark.asyncio
+    async def test_mouse_press_with_shift_extends_selection(self):
         """Test mouse press with Shift extends selection."""
         textarea = TextArea(value="Hello World", width=20, height=5)
         textarea.cursor_col = 0
@@ -1077,7 +1088,7 @@ class TestTextAreaMouseSelection:
             y=0,
             shift=True,
         )
-        textarea.handle_mouse(event)
+        await textarea.handle_mouse(event)
 
         assert textarea._has_selection()
         assert textarea.selection_anchor == (0, 0)

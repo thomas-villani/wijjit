@@ -1,5 +1,7 @@
 """Tests for HTMLViewer element."""
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.htmlview import HTMLViewer
@@ -231,7 +233,8 @@ class TestHTMLViewerScrolling:
 class TestHTMLViewerMouse:
     """Tests for HTMLViewer mouse interaction."""
 
-    def test_mouse_scroll_down(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scroll_down(self):
         """Test mouse wheel scroll down.
 
         Verifies
@@ -249,10 +252,11 @@ class TestHTMLViewerMouse:
                 button=MouseButton.SCROLL_DOWN,
                 type=MouseEventType.SCROLL,
             )
-            viewer.handle_mouse(event)
+            await viewer.handle_mouse(event)
             assert viewer.scroll_manager.state.scroll_position >= 1
 
-    def test_mouse_scroll_up(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scroll_up(self):
         """Test mouse wheel scroll up.
 
         Verifies
@@ -275,7 +279,7 @@ class TestHTMLViewerMouse:
                 button=MouseButton.SCROLL_UP,
                 type=MouseEventType.SCROLL,
             )
-            viewer.handle_mouse(event)
+            await viewer.handle_mouse(event)
             assert viewer.scroll_manager.state.scroll_position < pos
 
 

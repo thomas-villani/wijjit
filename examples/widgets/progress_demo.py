@@ -31,7 +31,7 @@ def main_view():
     """Main view showcasing progress indicators."""
     return {
         "template": """
-{% frame title="Progress Indicators Demo" border="double" width=90 height=40 %}
+{% frame title="Progress Indicators Demo" border_style="double" width=90 height=40 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}

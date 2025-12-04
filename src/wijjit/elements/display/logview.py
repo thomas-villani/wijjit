@@ -197,10 +197,31 @@ class LogView(ScrollableElement):
         self.action: str | None = None
         self.bind: bool = True
 
-        # State persistence
-        # scroll_state_key provided by ScrollableElement
-        self.autoscroll_state_key: str | None = None
+        # State persistence - auto-generated from id
+        # scroll_state_key provided by ScrollableElement (auto-generates to "{id}:scroll")
+        self._autoscroll_state_key_override: str | None = None
         self._state_dict: dict[str, Any] | None = None
+
+    @property
+    def autoscroll_state_key(self) -> str | None:
+        """Get the state key for auto-scroll state.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:autoscroll".
+
+        Returns
+        -------
+        str or None
+            State key for autoscroll, or None if no id
+        """
+        if self._autoscroll_state_key_override is not None:
+            return self._autoscroll_state_key_override
+        return self._state_key("autoscroll")
+
+    @autoscroll_state_key.setter
+    def autoscroll_state_key(self, value: str | None) -> None:
+        """Set an explicit autoscroll state key."""
+        self._autoscroll_state_key_override = value
 
     def _get_content_height(self) -> int:
         """Calculate content area height accounting for borders.
@@ -272,41 +293,6 @@ class LogView(ScrollableElement):
 
         return None
 
-    def _colorize_line(self, line: str) -> str:
-        """Apply color to a log line based on detected level (LEGACY).
-
-        Parameters
-        ----------
-        line : str
-            Log line to colorize
-
-        Returns
-        -------
-        str
-            Colorized line with ANSI codes (or original if no level detected)
-
-        Notes
-        -----
-        This is the legacy ANSI string-based colorization method.
-        New code should use _get_log_level_style() for cell-based rendering.
-        Kept for backward compatibility.
-        """
-        level = self._detect_log_level(line)
-
-        if level == "ERROR":
-            return f"{ANSIStyle.BOLD}{ANSIColor.RED}{line}{ANSIStyle.RESET}"
-        elif level == "WARNING":
-            return f"{ANSIColor.YELLOW}{line}{ANSIStyle.RESET}"
-        elif level == "INFO":
-            return f"{ANSIColor.CYAN}{line}{ANSIStyle.RESET}"
-        elif level == "DEBUG":
-            return f"{ANSIStyle.DIM}{line}{ANSIStyle.RESET}"
-        elif level == "TRACE":
-            return f"{ANSIStyle.DIM}{ANSIColor.BRIGHT_BLACK}{line}{ANSIStyle.RESET}"
-        else:
-            # No level detected, return as-is (preserves existing ANSI)
-            return line
-
     def _get_log_level_style_class(self, line: str) -> str:
         """Get theme style class for a log line based on detected level.
 
@@ -367,12 +353,12 @@ class LogView(ScrollableElement):
         content_width = self._get_content_width()
 
         for i, line in enumerate(self.lines):
-            # Colorize the line if detection is enabled
-            colored_line = self._colorize_line(line)
+            # Note: Line coloring is now done at render time via theme styles
+            # This preserves any existing ANSI codes in the original line
 
             if self.soft_wrap:
                 # Wrap long lines
-                wrapped_segments = wrap_text(colored_line, content_width)
+                wrapped_segments = wrap_text(line, content_width)
                 for j, segment in enumerate(wrapped_segments):
                     # Add line number only to first segment of wrapped line
                     if self.show_line_numbers and j == 0:
@@ -393,18 +379,17 @@ class LogView(ScrollableElement):
                     self._rendered_line_origins.append(i)
             else:
                 # Clip long lines
-                if visible_length(colored_line) > content_width:
-                    colored_line = clip_to_width(
-                        colored_line, content_width, ellipsis="..."
-                    )
+                clipped_line = line
+                if visible_length(line) > content_width:
+                    clipped_line = clip_to_width(line, content_width, ellipsis="...")
 
                 # Add line number if enabled
                 if self.show_line_numbers:
                     line_num = self.line_number_start + i
                     line_prefix = self._format_line_number(line_num)
-                    full_line = line_prefix + colored_line
+                    full_line = line_prefix + clipped_line
                 else:
-                    full_line = colored_line
+                    full_line = clipped_line
 
                 self.rendered_lines.append(full_line)
                 # Track which original line this rendered line came from
@@ -687,7 +672,7 @@ class LogView(ScrollableElement):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input for scrolling.
 
         Parameters

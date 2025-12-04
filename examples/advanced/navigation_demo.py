@@ -51,7 +51,7 @@ def home_view():
     """
     return {
         "template": """
-{% frame title="Home View" border="rounded" width=70 height=22 %}
+{% frame title="Home View" border_style="rounded" width=70 height=22 %}
   {% vstack spacing=1 padding=2 %}
     Welcome to the Home View!
 
@@ -99,7 +99,7 @@ def profile_view():
     """
     return {
         "template": """
-{% frame title="Profile View" border="rounded" width=70 height=22 %}
+{% frame title="Profile View" border_style="rounded" width=70 height=22 %}
   {% vstack spacing=1 padding=2 %}
     User Profile: {{ state.username }}
 
@@ -151,7 +151,7 @@ def settings_view():
     """
     return {
         "template": """
-{% frame title="Settings View" border="rounded" width=70 height=24 %}
+{% frame title="Settings View" border_style="rounded" width=70 height=24 %}
   {% vstack spacing=1 padding=2 %}
     Application Settings
 

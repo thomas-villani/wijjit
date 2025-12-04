@@ -532,7 +532,7 @@ class TestRootFrameAutoScroll:
         # Implicit frame should have no visible border
         from wijjit.layout.frames import BorderStyle
 
-        assert layout_ctx.root.frame.style.border == BorderStyle.NONE
+        assert layout_ctx.root.frame.style.border_style == BorderStyle.NONE
 
     def test_frame_in_vstack_is_root_frame(self):
         """First frame inside a VStack should be marked as root frame."""

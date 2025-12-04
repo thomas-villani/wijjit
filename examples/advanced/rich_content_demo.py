@@ -51,7 +51,7 @@ app = Wijjit()
 def main_view():
     return {
         "template": """
-{% frame title="Hello" border="double" %}
+{% frame title="Hello" border_style="double" %}
   {% vstack padding=2 %}
     Hello, World!
 
@@ -120,7 +120,7 @@ app = Wijjit(
 def main_view():
     return {
         "template": """
-{% frame title="Counter" border="double" %}
+{% frame title="Counter" border_style="double" %}
   {% vstack spacing=1 padding=2 %}
     Counter: {{ state.counter }}
 
@@ -204,7 +204,7 @@ app = Wijjit(initial_state={
 def main_view():
     return {
         "template": """
-{% frame title="Events" border="double" %}
+{% frame title="Events" border_style="double" %}
   {% vstack spacing=1 padding=2 %}
     {% vstack spacing=0 %}
       {{ state.message }}
@@ -294,7 +294,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Rich Content Demo - Docs + Code" border="double" width=120 height=35 %}
+{% frame title="Rich Content Demo - Docs + Code" border_style="double" width=120 height=35 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Page {{ page }}/3: {{ page_title }}
@@ -302,13 +302,13 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack width=55 %}
-        {% frame title="Documentation" border="single" height=25 scrollable=true %}
+        {% frame title="Documentation" border_style="single" height=25 scrollable=true %}
           {% markdown content=docs_content %}{% endmarkdown %}
         {% endframe %}
       {% endvstack %}
 
       {% vstack width=60 %}
-        {% frame title="Implementation" border="single" height=25 scrollable=true %}
+        {% frame title="Implementation" border_style="single" height=25 scrollable=true %}
           {% code language="python" content=code_content show_line_numbers=true %}{% endcode %}
         {% endframe %}
       {% endvstack %}

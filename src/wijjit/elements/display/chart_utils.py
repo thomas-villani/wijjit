@@ -99,7 +99,7 @@ class BrailleCanvas:
     >>> canvas = BrailleCanvas(20, 5)
     >>> canvas.set_pixel(0, 0)  # Top-left dot
     >>> canvas.set_pixel(39, 19)  # Bottom-right dot
-    >>> lines = canvas.render()
+    >>> lines = canvas.to_lines()
     """
 
     def __init__(self, width: int, height: int) -> None:
@@ -236,8 +236,8 @@ class BrailleCanvas:
         for fill_y in range(y, self.pixel_height):
             self.set_pixel(x, fill_y)
 
-    def render(self) -> list[str]:
-        """Render the canvas to a list of strings.
+    def to_lines(self) -> list[str]:
+        """Convert the canvas to a list of braille character strings.
 
         Returns
         -------
@@ -250,15 +250,29 @@ class BrailleCanvas:
             lines.append(line)
         return lines
 
+    def render(self) -> list[str]:
+        """Convert the canvas to a list of braille character strings (DEPRECATED).
+
+        .. deprecated::
+            Use ``to_lines()`` instead. This method is kept for
+            backwards compatibility.
+
+        Returns
+        -------
+        list of str
+            Lines of braille characters representing the canvas
+        """
+        return self.to_lines()
+
     def render_to_string(self) -> str:
-        """Render the canvas to a single string with newlines.
+        """Convert the canvas to a single string with newlines.
 
         Returns
         -------
         str
             Complete canvas as a string
         """
-        return "\n".join(self.render())
+        return "\n".join(self.to_lines())
 
 
 def normalize_data(

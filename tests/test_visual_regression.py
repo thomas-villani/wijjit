@@ -32,7 +32,7 @@ class TestFrameSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE)
+        style = FrameStyle(border_style=BorderStyle.SINGLE)
         frame = Frame(width=30, height=8, style=style)
         frame.set_content("Test content with single border")
 
@@ -53,7 +53,7 @@ class TestFrameSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.DOUBLE)
+        style = FrameStyle(border_style=BorderStyle.DOUBLE)
         frame = Frame(width=30, height=8, style=style)
         frame.set_content("Test content with double border")
 
@@ -74,7 +74,7 @@ class TestFrameSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.ROUNDED)
+        style = FrameStyle(border_style=BorderStyle.ROUNDED)
         frame = Frame(width=30, height=8, style=style)
         frame.set_content("Test content with rounded border")
 
@@ -96,7 +96,8 @@ class TestFrameSnapshots:
             Syrupy snapshot fixture
         """
         style = FrameStyle(
-            border=BorderStyle.SINGLE, padding=(1, 2, 1, 2)  # top, right, bottom, left
+            border_style=BorderStyle.SINGLE,
+            padding=(1, 2, 1, 2),  # top, right, bottom, left
         )
         frame = Frame(width=35, height=10, style=style)
         frame.set_content("Padded content")
@@ -118,7 +119,7 @@ class TestFrameSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE)
+        style = FrameStyle(border_style=BorderStyle.SINGLE)
         frame = Frame(width=40, height=12, style=style)
         frame.set_content("Line 1\nLine 2\nLine 3\nLine 4\nLine 5")
 
@@ -250,7 +251,7 @@ class TestOverflowSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE, overflow_x="clip")
+        style = FrameStyle(border_style=BorderStyle.SINGLE, overflow_x="clip")
         frame = Frame(width=25, height=5, style=style)
         frame.set_content("This is a very long line that will be clipped at the edge")
 
@@ -271,7 +272,7 @@ class TestOverflowSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE, overflow_x="wrap")
+        style = FrameStyle(border_style=BorderStyle.SINGLE, overflow_x="wrap")
         frame = Frame(width=25, height=8, style=style)
         frame.set_content("This is a very long line that will wrap to multiple lines")
 
@@ -407,7 +408,7 @@ class TestAlignmentSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE, content_align_h="left")
+        style = FrameStyle(border_style=BorderStyle.SINGLE, content_align_h="left")
         frame = Frame(width=40, height=8, style=style)
         frame.set_content("Left aligned")
 
@@ -428,7 +429,7 @@ class TestAlignmentSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE, content_align_h="center")
+        style = FrameStyle(border_style=BorderStyle.SINGLE, content_align_h="center")
         frame = Frame(width=40, height=8, style=style)
         frame.set_content("Centered")
 
@@ -449,7 +450,7 @@ class TestAlignmentSnapshots:
         snapshot
             Syrupy snapshot fixture
         """
-        style = FrameStyle(border=BorderStyle.SINGLE, content_align_h="right")
+        style = FrameStyle(border_style=BorderStyle.SINGLE, content_align_h="right")
         frame = Frame(width=40, height=8, style=style)
         frame.set_content("Right aligned")
 

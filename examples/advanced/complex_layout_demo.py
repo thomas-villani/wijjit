@@ -17,7 +17,7 @@ def main():
 
     # Create a dashboard-like layout
     template = """
-{% frame title="Dashboard - Complex Layout Demo" border="double" width=120 height=40 %}
+{% frame title="Dashboard - Complex Layout Demo" border_style="double" width=120 height=40 %}
   {% vstack spacing=1 padding=1 %}
 
     {# Top section: Three side-by-side panels with fill height #}
@@ -37,13 +37,13 @@ This is a **markdown** viewer that automatically fills available space.
 
       {# Middle panel: VStack with mixed content #}
       {% vstack spacing=1 width=40 %}
-        {% frame border="single" title="Status" %}
+        {% frame border_style="single" title="Status" %}
           System: Online
           CPU: 45%
           Memory: 2.1GB / 8GB
         {% endframe %}
 
-        {% frame border="rounded" title="Log" height=fill %}
+        {% frame border_style="rounded" title="Log" height=fill %}
           {% textarea border_style="none" width=fill height=fill %}
 [INFO] Application started
 [INFO] Layout engine initialized
@@ -55,13 +55,13 @@ This is a **markdown** viewer that automatically fills available space.
 
       {# Right panel: Another VStack with different sizing #}
       {% vstack spacing=1 width=30 %}
-        {% frame border="single" title="Quick Stats" %}
+        {% frame border_style="single" title="Quick Stats" %}
           Users: 1,234
           Active: 89
           Tasks: 42
         {% endframe %}
 
-        {% frame border="single" title="Alerts" height=fill %}
+        {% frame border_style="single" title="Alerts" height=fill %}
           No new alerts
         {% endframe %}
       {% endvstack %}
@@ -81,7 +81,7 @@ This is a **markdown** viewer that automatically fills available space.
 
       {# Left: 70% width - command output #}
       {% vstack width=80 %}
-        {% frame border="single" title="Command Output" height=fill %}
+        {% frame border_style="single" title="Command Output" height=fill %}
           $ python app.py
           Starting application...
           Loading configuration...

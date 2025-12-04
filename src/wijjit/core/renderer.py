@@ -459,7 +459,7 @@ class Renderer:
                     width="fill",
                     height="fill",
                     style=FrameStyle(
-                        border=BorderStyle.NONE,
+                        border_style=BorderStyle.NONE,
                         padding=(0, 0, 0, 0),
                         scrollable=True,
                         show_scrollbar=True,
@@ -637,7 +637,7 @@ class Renderer:
                 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 
                 # Build FrameStyle from props
-                border = props.get("border", BorderStyle.SINGLE)
+                border_style = props.get("border_style", BorderStyle.SINGLE)
                 title = props.get("title")
                 padding = props.get("padding", (0, 1, 0, 1))
                 scrollable = props.get("scrollable", False)
@@ -652,7 +652,7 @@ class Renderer:
                 content_align_v = props.get("content_align_v", "stretch")
 
                 style = FrameStyle(
-                    border=border,
+                    border_style=border_style,
                     title=title,
                     padding=padding,
                     content_align_h=content_align_h,
@@ -826,7 +826,7 @@ class Renderer:
                     style=FrameStyle(
                         scrollable=True,
                         show_scrollbar=True,
-                        border=BorderStyle.SINGLE,
+                        border_style=BorderStyle.SINGLE,
                     ),
                 )
                 frame.scroll_state_key = scroll_state_key
@@ -1169,7 +1169,7 @@ class Renderer:
 
             # Get border characters
             border_chars = BORDER_CHARS.get(
-                style.border, BORDER_CHARS[BorderStyle.SINGLE]
+                style.border_style, BORDER_CHARS[BorderStyle.SINGLE]
             )
 
             # Create paint context for frame with adjusted bounds and clip region

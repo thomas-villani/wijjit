@@ -1,5 +1,7 @@
 """Tests for LogView display element."""
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.logview import LogView
@@ -96,19 +98,25 @@ class TestLogView:
         lines = ["ERROR: This should not be colored", "INFO: Neither should this"]
         logview = LogView(lines=lines, detect_log_levels=False)
 
-        # Colorize should return line as-is
-        colored = logview._colorize_line(lines[0])
-        assert colored == lines[0]  # No ANSI codes added
+        # When detection is disabled, _detect_log_level returns None
+        assert logview._detect_log_level(lines[0]) is None
+        assert logview._detect_log_level(lines[1]) is None
 
-    def test_colorize_line(self):
-        """Test line colorization."""
+        # Style class should be base 'logview' (not level-specific)
+        assert logview._get_log_level_style_class(lines[0]) == "logview"
+        assert logview._get_log_level_style_class(lines[1]) == "logview"
+
+    def test_get_log_level_style_class(self):
+        """Test theme style class selection based on log level."""
         logview = LogView(detect_log_levels=True)
 
-        error_line = "ERROR: Failed"
-        colored = logview._colorize_line(error_line)
-        # Should contain ANSI codes
-        assert len(colored) > len(error_line)
-        assert strip_ansi(colored) == error_line
+        # Each log level should return appropriate style class
+        assert logview._get_log_level_style_class("ERROR: Failed") == "logview.error"
+        assert logview._get_log_level_style_class("WARNING: Issue") == "logview.warning"
+        assert logview._get_log_level_style_class("INFO: Started") == "logview.info"
+        assert logview._get_log_level_style_class("DEBUG: Value=42") == "logview.debug"
+        assert logview._get_log_level_style_class("TRACE: Step") == "logview.trace"
+        assert logview._get_log_level_style_class("Regular line") == "logview"
 
     def test_auto_scroll_initial(self):
         """Test auto-scroll starts at bottom."""
@@ -284,7 +292,8 @@ class TestLogView:
         logview.handle_key(Keys.PAGE_UP)
         assert logview.scroll_manager.state.scroll_position < current_pos
 
-    def test_mouse_scrolling(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scrolling(self):
         """Test mouse wheel scrolling."""
         lines = [f"Line {i}" for i in range(50)]
         logview = LogView(lines=lines, height=10, auto_scroll=False)
@@ -298,7 +307,7 @@ class TestLogView:
             x=0,
             y=0,
         )
-        logview.handle_mouse(event_down)
+        await logview.handle_mouse(event_down)
         assert logview.scroll_manager.state.scroll_position > initial_pos
 
         # Scroll up with mouse wheel
@@ -309,7 +318,7 @@ class TestLogView:
             x=0,
             y=0,
         )
-        logview.handle_mouse(event_up)
+        await logview.handle_mouse(event_up)
         assert logview.scroll_manager.state.scroll_position < current_pos
 
     def test_render_basic(self):

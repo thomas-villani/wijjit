@@ -165,7 +165,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="State Management Demo" border="double" width=100 height=38 %}
+{% frame title="State Management Demo" border_style="double" width=100 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Status: {{ state.status }}
@@ -173,7 +173,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=45 %}
-        {% frame title="State Controls" border="single" width="fill" %}
+        {% frame title="State Controls" border_style="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% vstack spacing=0 %}
               Counter: {{ state.counter }}
@@ -208,13 +208,13 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=50 %}
-        {% frame title="State Change Log (Last 5)" border="single" width="fill" height=20 %}
+        {% frame title="State Change Log (Last 5)" border_style="single" width="fill" height=20 %}
           {% vstack padding=1 %}
 {{ change_log_text }}
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Watcher Info" border="single" width="fill" %}
+        {% frame title="Watcher Info" border_style="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Active Watchers:
             • counter → update_derived_state()

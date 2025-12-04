@@ -18,16 +18,16 @@ from wijjit import Wijjit
 from wijjit.core.renderer import Renderer
 
 TEMPLATE = """
-{% frame title="Scrollable Children" border="double" width=80 height=25 %}
+{% frame title="Scrollable Children" border_style="double" width=80 height=25 %}
   {% vstack spacing=1 padding=2 %}
     This frame contains multiple child elements that extend beyond
     the visible viewport height. Use Tab to focus the scrollable
     frame below, then use arrow keys to scroll.
 
-    {% frame id="scrollable_content" title="Scrollable Content Area" border="single" width="fill" height=15 scrollable=true %}
+    {% frame id="scrollable_content" title="Scrollable Content Area" border_style="single" width="fill" height=15 scrollable=true %}
       {% vstack spacing=0 %}
         {% for item in item_list %}
-          {% frame border="rounded" width="fill" height=auto padding=0 %}
+          {% frame border_style="rounded" width="fill" height=auto padding=0 %}
             {{ item }}
           {% endframe %}
         {% endfor %}

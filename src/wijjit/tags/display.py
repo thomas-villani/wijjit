@@ -1525,7 +1525,7 @@ class ModalExtension(Extension):
         title: str | None = None,
         width: int = 50,
         height: int = 12,
-        border: str = "single",
+        border_style: str = "single",
         **kwargs: Any,
     ) -> str:
         """Render the modal tag.
@@ -1544,7 +1544,7 @@ class ModalExtension(Extension):
             Modal width (default: 50)
         height : int
             Modal height (default: 12)
-        border : str
+        border_style : str
             Border style: "single", "double", "rounded" (default: "single")
 
         Returns
@@ -1580,7 +1580,7 @@ class ModalExtension(Extension):
             title=title,
             width=width,
             height=height,
-            border=border,
+            border_style=border_style,
             centered=True,
         )
 
@@ -1606,7 +1606,7 @@ class ModalExtension(Extension):
         vnode = VNodeBuilder("Modal", key=id)
         if title:
             vnode.set_prop("title", title)
-        vnode.set_prop("border", border)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("centered", True)
         if visible:
             vnode.set_prop("visible_state_key", visible)

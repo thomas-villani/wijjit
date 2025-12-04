@@ -402,7 +402,8 @@ class TestMenuFocusIntegration:
         menu.handle_key(Keys.DOWN)
         assert menu.highlighted_index != initial_index
 
-    def test_menu_mouse_interaction_updates_highlight(self):
+    @pytest.mark.asyncio
+    async def test_menu_mouse_interaction_updates_highlight(self):
         """Test mouse interaction with menu updates highlight.
 
         Verifies mouse -> menu highlight integration.
@@ -416,12 +417,13 @@ class TestMenuFocusIntegration:
 
         # Hover over second item (border at y=5, item 1 at y=6, item 2 at y=7)
         event = MouseEvent(type=MouseEventType.MOVE, button=MouseButton.NONE, x=15, y=7)
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
 
         assert result is True
         assert menu.highlighted_index == 1
 
-    def test_menu_click_selects_and_closes(self):
+    @pytest.mark.asyncio
+    async def test_menu_click_selects_and_closes(self):
         """Test menu click selects item and triggers close.
 
         Verifies mouse click -> selection -> close integration.
@@ -444,7 +446,7 @@ class TestMenuFocusIntegration:
 
         # Click on item (y=1, accounting for border)
         event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=1)
-        menu.handle_mouse(event)
+        await menu.handle_mouse(event)
 
         # Both callbacks should have fired
         assert len(select_called) == 1

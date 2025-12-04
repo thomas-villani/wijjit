@@ -45,25 +45,25 @@ Features:
         """Main demo view showing three overflow modes."""
         return {
             "template": """
-{% frame title="Frame Text Overflow Demo" border="double" width=105 height=26 %}
+{% frame title="Frame Text Overflow Demo" border_style="double" width=105 height=26 %}
   {% vstack spacing=0 padding=1 %}
     {{ state.message }}
 
     {% hstack spacing=2 align_v="top" height=18 %}
       {% vstack spacing=0 width=32 %}
-        {% frame title="CLIP (default)" border="single" width="fill" height=16 overflow_x="clip" %}
+        {% frame title="CLIP (default)" border_style="single" width="fill" height=16 overflow_x="clip" %}
 {{ state.sample_text }}
         {% endframe %}
       {% endvstack %}
 
       {% vstack spacing=0 width=32 %}
-        {% frame title="VISIBLE" border="single" width="fill" height=16 overflow_x="visible" %}
+        {% frame title="VISIBLE" border_style="single" width="fill" height=16 overflow_x="visible" %}
 {{ state.sample_text }}
         {% endframe %}
       {% endvstack %}
 
       {% vstack spacing=0 width=32 %}
-        {% frame title="WRAP" border="single" width="fill" height=16 overflow_x="wrap" scrollable=true %}
+        {% frame title="WRAP" border_style="single" width="fill" height=16 overflow_x="wrap" scrollable=true %}
 {{ state.sample_text }}
         {% endframe %}
       {% endvstack %}

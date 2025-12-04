@@ -138,7 +138,7 @@ class NotificationElement(OverlayElement):
 
         # Create frame for rendering with rounded borders
         style = FrameStyle(
-            border=BorderStyle.ROUNDED,
+            border_style=BorderStyle.ROUNDED,
             padding=(0, 1, 0, 1),  # Horizontal padding only
         )
         self.frame = Frame(width=width, height=height, style=style)
@@ -319,7 +319,7 @@ class NotificationElement(OverlayElement):
             # Render button using cell-based rendering
             self.action_button.render_to(button_ctx)
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse events on notification.
 
         Parameters

@@ -73,7 +73,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Error Handling Demo" border="double" width=100 height=40 %}
+{% frame title="Error Handling Demo" border_style="double" width=100 height=40 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Last Action: {{ state.last_action }}
@@ -81,7 +81,7 @@ def main_view():
     {% endvstack %}
 
     {% if state.error_message %}
-      {% frame border="single" %}
+      {% frame border_style="single" %}
         {% vstack spacing=0 padding=1 %}
           ERROR: {{ state.error_message }}
         {% endvstack %}
@@ -90,7 +90,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=48 %}
-        {% frame title="Error Scenarios" border="single" width="fill" %}
+        {% frame title="Error Scenarios" border_style="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% vstack spacing=0 %}
               1. Division by Zero:
@@ -136,13 +136,13 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=48 %}
-        {% frame title="Error History (Last 5)" border="single" width="fill" height=22 %}
+        {% frame title="Error History (Last 5)" border_style="single" width="fill" height=22 %}
           {% vstack padding=1 %}
 {{ error_history_text }}
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Error Handling Patterns" border="single" width="fill" %}
+        {% frame title="Error Handling Patterns" border_style="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Demonstrated Patterns:
             • Try/except in action handlers

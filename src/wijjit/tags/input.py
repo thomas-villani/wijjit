@@ -989,7 +989,7 @@ class RadioGroupExtension(Extension):
 
             # Create VNode builder for reconciliation
             frame_vnode = VNodeBuilder("Frame", key=id)
-            frame_vnode.set_prop("border", border_enum)
+            frame_vnode.set_prop("border_style", border_enum)
             frame_vnode.set_prop("title", title)
             frame_vnode.set_prop("scrollable", False)
             frame_vnode.set_layout(

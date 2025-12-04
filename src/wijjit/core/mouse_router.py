@@ -127,8 +127,7 @@ class MouseEventRouter:
 
         Notes
         -----
-        Checks for handle_mouse_async() first, falls back to handle_mouse()
-        for backwards compatibility.
+        Routes the mouse event to the overlay's element handle_mouse() method.
         """
         overlay = self.app.overlay_manager.get_at_position(event.x, event.y)
 
@@ -140,16 +139,8 @@ class MouseEventRouter:
             logger.debug(f"Event type: {event.type}, button: {event.button}")
 
             # Mouse event is on an overlay - route to overlay element
-            # Check for async handler first
-            if hasattr(overlay.element, "handle_mouse_async"):
-                handled = await overlay.element.handle_mouse_async(event)
-                logger.debug(f"handle_mouse_async returned: {handled}")
-                if handled:
-                    self.app.needs_render = True
-            elif hasattr(overlay.element, "handle_mouse"):
-                # Fallback to sync handler
-                logger.debug("Calling handle_mouse (sync)")
-                handled = overlay.element.handle_mouse(event)
+            if hasattr(overlay.element, "handle_mouse"):
+                handled = await overlay.element.handle_mouse(event)
                 logger.debug(f"handle_mouse returned: {handled}")
                 if handled:
                     self.app.needs_render = True
@@ -359,8 +350,7 @@ class MouseEventRouter:
 
         Notes
         -----
-        Checks for handle_mouse_async() first on each element, falls back
-        to handle_mouse() for backwards compatibility.
+        Routes the mouse event to elements via their handle_mouse() method.
         """
         # Create core MouseEvent for handler registry
         mouse_event = MouseEvent(
@@ -380,17 +370,10 @@ class MouseEventRouter:
             return
 
         # Dispatch to target element if it exists
-        # Check for async handler first, fall back to sync
         handled = False
         if target_element:
-            if hasattr(target_element, "handle_mouse_async"):
-                handled = await target_element.handle_mouse_async(event)
-                if handled:
-                    # Element handled the event, trigger re-render
-                    self.app.needs_render = True
-            elif hasattr(target_element, "handle_mouse"):
-                # Fallback to sync handler
-                handled = target_element.handle_mouse(event)
+            if hasattr(target_element, "handle_mouse"):
+                handled = await target_element.handle_mouse(event)
                 if handled:
                     # Element handled the event, trigger re-render
                     self.app.needs_render = True
@@ -404,14 +387,8 @@ class MouseEventRouter:
                 and target_element.parent_frame is not None
             ):
                 parent = target_element.parent_frame
-                # Check for async handler first on parent
-                if hasattr(parent, "handle_mouse_async"):
-                    handled = await parent.handle_mouse_async(event)
-                    if handled:
-                        self.app.needs_render = True
-                elif hasattr(parent, "handle_mouse"):
-                    # Fallback to sync handler
-                    handled = parent.handle_mouse(event)
+                if hasattr(parent, "handle_mouse"):
+                    handled = await parent.handle_mouse(event)
                     if handled:
                         self.app.needs_render = True
 
@@ -421,12 +398,8 @@ class MouseEventRouter:
                     event.x, event.y
                 )
                 if scrollable_container and scrollable_container != target_element:
-                    if hasattr(scrollable_container, "handle_mouse_async"):
-                        handled = await scrollable_container.handle_mouse_async(event)
-                        if handled:
-                            self.app.needs_render = True
-                    elif hasattr(scrollable_container, "handle_mouse"):
-                        handled = scrollable_container.handle_mouse(event)
+                    if hasattr(scrollable_container, "handle_mouse"):
+                        handled = await scrollable_container.handle_mouse(event)
                         if handled:
                             self.app.needs_render = True
 

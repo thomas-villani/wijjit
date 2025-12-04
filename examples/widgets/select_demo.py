@@ -29,7 +29,7 @@ def main_view():
     """Main view showcasing select elements."""
     return {
         "template": """
-{% frame title="Select List Demo" border="single" width=100 height=32 %}
+{% frame title="Select List Demo" border_style="single" width=100 height=32 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}

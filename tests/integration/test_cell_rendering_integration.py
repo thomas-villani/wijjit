@@ -30,7 +30,9 @@ class TestFrameCellRendering:
             width=50,
             height=10,
             style=FrameStyle(
-                border=BorderStyle.SINGLE, title="Test Frame", padding=(1, 2, 1, 2)
+                border_style=BorderStyle.SINGLE,
+                title="Test Frame",
+                padding=(1, 2, 1, 2),
             ),
         )
         frame.set_content("Line 1\nLine 2\nLine 3")
@@ -103,7 +105,9 @@ class TestFrameCellRendering:
         ]
 
         for border_style, expected_tl, expected_h, expected_tr in styles:
-            frame = Frame(width=20, height=5, style=FrameStyle(border=border_style))
+            frame = Frame(
+                width=20, height=5, style=FrameStyle(border_style=border_style)
+            )
 
             buffer = ScreenBuffer(20, 5)
             resolver = StyleResolver(DefaultTheme())

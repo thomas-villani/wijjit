@@ -344,7 +344,7 @@ class HTMLViewer(ScrollableElement):
             return True
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input for scrolling.
 
         Parameters

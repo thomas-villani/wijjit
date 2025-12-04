@@ -306,7 +306,7 @@ class BarChart(ScrollableElement):
 
         return False
 
-    def handle_mouse(self, event) -> bool:
+    async def handle_mouse(self, event) -> bool:
         """Handle mouse events.
 
         Parameters

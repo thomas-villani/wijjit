@@ -171,7 +171,7 @@ def main_view():
     """Main view showcasing tree element."""
     return {
         "template": """
-{% frame title="Tree Demo - File System Explorer" border="double" width=100 height=35 %}
+{% frame title="Tree Demo - File System Explorer" border_style="double" width=100 height=35 %}
     {{ state.message }}
 
     Instructions: TAB to focus | Arrow keys navigate | Left/Right expand/collapse | Enter/Space toggle | Mouse wheel scrolls | Click to select | 'q' to quit
@@ -183,13 +183,13 @@ def main_view():
                 height=18
                 show_scrollbar=true
                 show_root=true
-                border="rounded"
+                border_style="rounded"
                 title="File Tree"
                 expanded="expanded_nodes"
                 on_select="file_selected" %}
         {% endtree %}
 
-        {% frame title="File Details" border="single" width="fill" height=18 %}
+        {% frame title="File Details" border_style="single" width="fill" height=18 %}
           {% if state.selected_file %}
             Name: {{ state.selected_file.label }}
 

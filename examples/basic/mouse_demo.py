@@ -34,7 +34,7 @@ def main_view():
     """Main view with clickable buttons."""
     return {
         "template": """
-{% frame title="Mouse Interaction Demo" border="double" width=60 height=18 %}
+{% frame title="Mouse Interaction Demo" border_style="double" width=60 height=18 %}
   {% vstack spacing=1 padding=2 %}
     {{ state.status }}
 

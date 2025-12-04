@@ -210,7 +210,7 @@ class Sparkline(Element):
             x1, y1 = points[i + 1]
             canvas.draw_line(x0, y0, x1, y1)
 
-        return canvas.render()
+        return canvas.to_lines()
 
     def _render_bar_style(self, chart_width: int, chart_height: int) -> list[str]:
         """Render sparkline using vertical bar style.
@@ -334,7 +334,7 @@ class Sparkline(Element):
             y = int((1 - val) * (pixel_height - 1))
             canvas.set_pixel(x, y)
 
-        return canvas.render()
+        return canvas.to_lines()
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the sparkline using cell-based rendering.

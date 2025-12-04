@@ -171,11 +171,33 @@ class Select(ScrollableElement):
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
-        self.highlight_state_key: str | None = None
-        # scroll_state_key provided by ScrollableElement
+        # scroll_state_key provided by ScrollableElement (auto-generates to "{id}:scroll")
+        # highlight_state_key auto-generates to "{id}:highlight"
+        self._highlight_state_key_override: str | None = None
 
         # Backward compatibility
         self.max_visible = visible_rows  # Alias for tests
+
+    @property
+    def highlight_state_key(self) -> str | None:
+        """Get the state key for highlighted index.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:highlight".
+
+        Returns
+        -------
+        str or None
+            State key for highlight, or None if no id
+        """
+        if self._highlight_state_key_override is not None:
+            return self._highlight_state_key_override
+        return self._state_key("highlight")
+
+    @highlight_state_key.setter
+    def highlight_state_key(self, value: str | None) -> None:
+        """Set an explicit highlight state key."""
+        self._highlight_state_key_override = value
 
     def _normalize_border_style(
         self, style: BorderStyle | Literal["single", "double", "rounded"] | None
@@ -457,7 +479,7 @@ class Select(ScrollableElement):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
 
         Parameters

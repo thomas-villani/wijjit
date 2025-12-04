@@ -65,7 +65,7 @@ def main_view():
     """Main view showcasing ListView elements."""
     return {
         "template": """
-{% frame title="ListView Demo - Multiple Styles" border="double" height="auto" %}
+{% frame title="ListView Demo - Multiple Styles" border_style="double" height="auto" %}
     {{ state.message }}
     {% hstack spacing=1 %}
         {% listview id="fruits_bullet"

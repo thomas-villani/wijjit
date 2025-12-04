@@ -24,7 +24,7 @@ def main():
 
     # Define template with layout tags
     template = """
-{% frame title="Test Frame" border="single" %}
+{% frame title="Test Frame" border_style="single" %}
 {% vstack spacing=1 padding=2 %}
     {% button id="btn1" %}Hello{% endbutton %}
     {% button id="btn2" %}World{% endbutton %}

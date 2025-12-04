@@ -60,7 +60,7 @@ def main():
 
         # Create frame with scrolling enabled
         frame_style = FrameStyle(
-            border=BorderStyle.DOUBLE,
+            border_style=BorderStyle.DOUBLE,
             title="Scrollable Frame Demo (100 lines)",
             padding=(1, 2, 1, 2),
             scrollable=True,

@@ -373,7 +373,7 @@ class FrameBuilder:
         FrameBuilder
             Self for chaining
         """
-        self.style.border = border_style
+        self.style.border_style = border_style
         return self
 
     def with_title(self, title: str, position: str = "center"):

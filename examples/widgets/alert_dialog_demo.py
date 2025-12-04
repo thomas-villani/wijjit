@@ -38,7 +38,7 @@ def main_view():
     }
 
 
-def show_alert(title, message, border="single", severity=None):
+def show_alert(title, message, border_style="single", severity=None):
     """Helper function to show an alert dialog."""
 
     def on_ok():
@@ -52,7 +52,7 @@ def show_alert(title, message, border="single", severity=None):
         ok_label="OK",
         width=50,
         height=None,  # Auto-size based on content
-        border=border,
+        border_style=border_style,
         severity=severity,
     )
 
@@ -85,7 +85,7 @@ def show_success(event):
     show_alert(
         "Success",
         f"Operation completed successfully! This is a longer message to test text wrapping functionality. The text should wrap automatically within the dialog boundaries. (Count: {state['counter']})",
-        border="double",
+        border_style="double",
         severity="success",
     )
 
@@ -98,7 +98,7 @@ def show_error(event):
     show_alert(
         "Error",
         f"An error occurred! Something went wrong and we need to display a detailed error message that will automatically wrap to fit within the dialog width. (Count: {state['counter']})",
-        border="single",
+        border_style="single",
         severity="error",
     )
 
@@ -111,7 +111,7 @@ def show_info(event):
     show_alert(
         "Information",
         f"This is an informational message for you that contains quite a bit of text. The text wrapping feature will automatically break this into multiple lines to ensure it fits nicely within the dialog frame. (Count: {state['counter']})",
-        border="rounded",
+        border_style="rounded",
         severity="info",
     )
 

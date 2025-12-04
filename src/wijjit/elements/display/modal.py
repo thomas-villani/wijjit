@@ -30,7 +30,7 @@ class ModalElement(OverlayElement):
         Modal width in characters (default: 50)
     height : int, optional
         Modal height in lines (default: 10)
-    border : str or BorderStyle, optional
+    border_style : str or BorderStyle, optional
         Border style: "single", "double", or "rounded" (default: "single")
     centered : bool, optional
         Whether to center the modal (default: True)
@@ -41,7 +41,7 @@ class ModalElement(OverlayElement):
     ----------
     title : str or None
         Modal title
-    border : BorderStyle
+    border_style : BorderStyle
         Border style
     padding : tuple
         Content padding
@@ -58,7 +58,7 @@ class ModalElement(OverlayElement):
         title: str | None = None,
         width: int = 50,
         height: int = 10,
-        border: str | BorderStyle = "single",
+        border_style: str | BorderStyle = "single",
         centered: bool = True,
         padding: tuple[int, int, int, int] = (1, 2, 1, 2),
     ):
@@ -70,19 +70,19 @@ class ModalElement(OverlayElement):
         self.padding = padding
 
         # Convert border string to BorderStyle enum
-        if isinstance(border, str):
+        if isinstance(border_style, str):
             border_map = {
                 "single": BorderStyle.SINGLE,
                 "double": BorderStyle.DOUBLE,
                 "rounded": BorderStyle.ROUNDED,
             }
-            self.border = border_map.get(border.lower(), BorderStyle.SINGLE)
+            self.border_style = border_map.get(border_style.lower(), BorderStyle.SINGLE)
         else:
-            self.border = border
+            self.border_style = border_style
 
         # Create frame for rendering
         style = FrameStyle(
-            border=self.border,
+            border_style=self.border_style,
             title=self.title,
             padding=self.padding,
         )

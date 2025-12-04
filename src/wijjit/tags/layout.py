@@ -710,7 +710,7 @@ class FrameExtension(Extension):
     """Jinja2 extension for {% frame %} tag.
 
     Syntax:
-        {% frame title="Title" border="single" width="fill" height="auto"
+        {% frame title="Title" border_style="single" width="fill" height="auto"
                  margin=0 align_h="stretch" align_v="stretch"
                  content_align_h="stretch" content_align_v="stretch" %}
             ... content ...
@@ -763,7 +763,7 @@ class FrameExtension(Extension):
         width: int | str = "fill",
         height: int | str = "auto",
         title: str | None = None,
-        border: str = "single",
+        border_style: str = "single",
         margin: int | str | tuple[int, ...] = 0,
         padding: int | str | tuple[int, ...] | None = None,
         align_h: str = "stretch",
@@ -790,7 +790,7 @@ class FrameExtension(Extension):
             Height specification
         title : str, optional
             Frame title
-        border : str
+        border_style : str
             Border style
         margin : int or tuple, optional
             Margin around frame (default: 0)
@@ -858,7 +858,7 @@ class FrameExtension(Extension):
             "double": BorderStyle.DOUBLE,
             "rounded": BorderStyle.ROUNDED,
         }
-        border_style = border_map.get(border, BorderStyle.SINGLE)
+        border_style_enum = border_map.get(border_style, BorderStyle.SINGLE)
 
         # Parse padding - could be int or tuple string like "(1,2,3,4)"
         padding_parsed: tuple[int, int, int, int]
@@ -891,7 +891,7 @@ class FrameExtension(Extension):
         # Create VNode builder for reconciliation
         # The renderer will create the actual Frame element from these props
         vnode = VNodeBuilder("Frame", key=id)
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style_enum)
         vnode.set_prop("title", title)
         vnode.set_prop("scrollable", scrollable)
         vnode.set_prop("show_scrollbar", show_scrollbar)

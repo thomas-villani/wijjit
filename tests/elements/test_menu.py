@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement, MenuItem
@@ -294,7 +296,8 @@ class TestMenuElement:
         result = menu.handle_key(Keys.DOWN)
         assert result is False
 
-    def test_mouse_hover_highlights(self):
+    @pytest.mark.asyncio
+    async def test_mouse_hover_highlights(self):
         """Test mouse hover updates highlighted_index."""
         items = [MenuItem(label=f"Item {i}", action=f"a{i}") for i in range(3)]
         menu = MenuElement(items=items, width=20)
@@ -302,11 +305,12 @@ class TestMenuElement:
 
         # Hover over second item (y=7: border at 5, item 0 at 6, item 1 at 7)
         event = MouseEvent(type=MouseEventType.MOVE, button=MouseButton.NONE, x=15, y=7)
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is True
         assert menu.highlighted_index == 1
 
-    def test_mouse_click_selects_item(self):
+    @pytest.mark.asyncio
+    async def test_mouse_click_selects_item(self):
         """Test mouse click selects item."""
         items = [
             MenuItem(label="Item 1", action="a1"),
@@ -321,13 +325,14 @@ class TestMenuElement:
         event = MouseEvent(
             type=MouseEventType.CLICK, button=MouseButton.LEFT, x=15, y=6
         )
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is True
         callback.assert_called_once()
         args = callback.call_args[0]
         assert args[0] == "a1"
 
-    def test_mouse_double_click_selects_item(self):
+    @pytest.mark.asyncio
+    async def test_mouse_double_click_selects_item(self):
         """Test mouse double-click selects item."""
         items = [MenuItem(label="Item", action="action")]
         menu = MenuElement(items=items, width=20)
@@ -338,11 +343,12 @@ class TestMenuElement:
         event = MouseEvent(
             type=MouseEventType.DOUBLE_CLICK, button=MouseButton.LEFT, x=5, y=1
         )
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is True
         callback.assert_called_once()
 
-    def test_mouse_on_disabled_item_no_highlight(self):
+    @pytest.mark.asyncio
+    async def test_mouse_on_disabled_item_no_highlight(self):
         """Test mouse hover on disabled item does not highlight."""
         items = [
             MenuItem(label="Item 1", action="a1"),
@@ -354,12 +360,13 @@ class TestMenuElement:
 
         # Hover over disabled item
         event = MouseEvent(type=MouseEventType.MOVE, button=MouseButton.NONE, x=5, y=2)
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is True
         # Highlighted index should not change
         assert menu.highlighted_index == 0
 
-    def test_mouse_on_divider_no_highlight(self):
+    @pytest.mark.asyncio
+    async def test_mouse_on_divider_no_highlight(self):
         """Test mouse hover on divider does not highlight."""
         items = [
             MenuItem(label="Item 1", action="a1"),
@@ -371,11 +378,12 @@ class TestMenuElement:
 
         # Hover over divider
         event = MouseEvent(type=MouseEventType.MOVE, button=MouseButton.NONE, x=5, y=2)
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is True
         assert menu.highlighted_index == 0
 
-    def test_mouse_click_on_disabled_no_select(self):
+    @pytest.mark.asyncio
+    async def test_mouse_click_on_disabled_no_select(self):
         """Test mouse click on disabled item does not select."""
         items = [MenuItem(label="Item", action="action", disabled=True)]
         menu = MenuElement(items=items, width=20)
@@ -384,11 +392,12 @@ class TestMenuElement:
         menu.on_item_select = callback
 
         event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=1)
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is True
         callback.assert_not_called()
 
-    def test_mouse_outside_bounds_not_handled(self):
+    @pytest.mark.asyncio
+    async def test_mouse_outside_bounds_not_handled(self):
         """Test mouse event outside menu bounds is not handled."""
         items = [MenuItem(label="Item", action="action")]
         menu = MenuElement(items=items, width=20)
@@ -398,16 +407,17 @@ class TestMenuElement:
         event = MouseEvent(
             type=MouseEventType.CLICK, button=MouseButton.LEFT, x=50, y=50
         )
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is False
 
-    def test_mouse_no_bounds_returns_false(self):
+    @pytest.mark.asyncio
+    async def test_mouse_no_bounds_returns_false(self):
         """Test mouse event when menu has no bounds returns False."""
         items = [MenuItem(label="Item", action="action")]
         menu = MenuElement(items=items)
         # Don't set bounds
         event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=5)
-        result = menu.handle_mouse(event)
+        result = await menu.handle_mouse(event)
         assert result is False
 
     def test_render_basic_menu(self):

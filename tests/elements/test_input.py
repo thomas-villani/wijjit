@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import ElementType
@@ -272,7 +274,8 @@ class TestButton:
         # Should not raise an error
         button.activate()
 
-    def test_activate_with_mouse_click(self):
+    @pytest.mark.asyncio
+    async def test_activate_with_mouse_click(self):
         """Test activating button with mouse click passes ActionEvent."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -283,7 +286,7 @@ class TestButton:
             type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=5
         )
 
-        result = button.handle_mouse(event)
+        result = await button.handle_mouse(event)
         assert result
         callback.assert_called_once()
 
@@ -292,7 +295,8 @@ class TestButton:
         assert isinstance(action_event, ActionEvent)
         assert action_event.source_element_id == "mouse_btn"
 
-    def test_activate_with_mouse_double_click(self):
+    @pytest.mark.asyncio
+    async def test_activate_with_mouse_double_click(self):
         """Test activating button with mouse double-click passes ActionEvent."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -307,7 +311,7 @@ class TestButton:
             click_count=2,
         )
 
-        result = button.handle_mouse(event)
+        result = await button.handle_mouse(event)
         assert result
         callback.assert_called_once()
 
@@ -332,7 +336,8 @@ class TestButton:
         assert event.source_element_id == "save_btn"
         assert event.data == {"label": "Save"}
 
-    def test_mouse_press_doesnt_activate(self):
+    @pytest.mark.asyncio
+    async def test_mouse_press_doesnt_activate(self):
         """Test that mouse press alone doesn't activate button."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -343,11 +348,12 @@ class TestButton:
             type=MouseEventType.PRESS, button=MouseButton.LEFT, x=10, y=5
         )
 
-        result = button.handle_mouse(event)
+        result = await button.handle_mouse(event)
         assert not result
         callback.assert_not_called()
 
-    def test_mouse_move_doesnt_activate(self):
+    @pytest.mark.asyncio
+    async def test_mouse_move_doesnt_activate(self):
         """Test that mouse move doesn't activate button."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -356,7 +362,7 @@ class TestButton:
 
         event = MouseEvent(type=MouseEventType.MOVE, button=MouseButton.NONE, x=10, y=5)
 
-        result = button.handle_mouse(event)
+        result = await button.handle_mouse(event)
         assert not result
         callback.assert_not_called()
 
@@ -588,7 +594,8 @@ class TestSelect:
         assert select.scroll_manager.state.viewport_size == 5
         assert select.scroll_manager.state.is_scrollable
 
-    def test_mouse_click_option(self):
+    @pytest.mark.asyncio
+    async def test_mouse_click_option(self):
         """Test clicking an option to select it."""
         from wijjit.layout.bounds import Bounds
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -602,13 +609,14 @@ class TestSelect:
             type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=11
         )
 
-        result = select.handle_mouse(event)
+        result = await select.handle_mouse(event)
         assert result
         assert select.value == "B"
         assert select.selected_index == 1
         callback.assert_called_once_with(None, "B")
 
-    def test_mouse_scroll_up(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scroll_up(self):
         """Test mouse scroll wheel up."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -621,11 +629,12 @@ class TestSelect:
         )
 
         old_pos = select.scroll_manager.state.scroll_position
-        result = select.handle_mouse(event)
+        result = await select.handle_mouse(event)
         assert result
         assert select.scroll_manager.state.scroll_position < old_pos
 
-    def test_mouse_scroll_down(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scroll_down(self):
         """Test mouse scroll wheel down."""
         from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -637,7 +646,7 @@ class TestSelect:
         )
 
         old_pos = select.scroll_manager.state.scroll_position
-        result = select.handle_mouse(event)
+        result = await select.handle_mouse(event)
         assert result
         assert select.scroll_manager.state.scroll_position > old_pos
 

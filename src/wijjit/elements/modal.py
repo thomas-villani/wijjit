@@ -58,7 +58,7 @@ class ConfirmDialog(ModalElement):
         Dialog width in characters (default: 50)
     height : int, optional
         Dialog height in lines (default: 14)
-    border : str, optional
+    border_style : str, optional
         Border style: "single", "double", or "rounded" (default: "single")
 
     Attributes
@@ -84,7 +84,7 @@ class ConfirmDialog(ModalElement):
         cancel_label: str = "Cancel",
         width: int | None = 50,
         height: int | None = None,
-        border: str = "single",
+        border_style: str = "single",
     ) -> None:
         # Auto-size if width/height not provided
         if width is None:
@@ -109,7 +109,7 @@ class ConfirmDialog(ModalElement):
             title=title,
             width=width,
             height=height,
-            border=border,
+            border_style=border_style,
             padding=(1, 2, 1, 2),
         )
 
@@ -191,7 +191,7 @@ class AlertDialog(ModalElement):
         Dialog width in characters (default: 50, or auto-sized if None)
     height : int, optional
         Dialog height in lines (default: auto-sized based on content)
-    border : str, optional
+    border_style : str, optional
         Border style: "single", "double", or "rounded" (default: "single")
 
     Attributes
@@ -216,7 +216,7 @@ class AlertDialog(ModalElement):
         severity: str | AlertSeverity | None = None,
         width: int | None = 50,
         height: int | None = None,
-        border: str = "single",
+        border_style: str = "single",
     ) -> None:
         # Convert severity string to enum if needed
         if isinstance(severity, str):
@@ -246,7 +246,7 @@ class AlertDialog(ModalElement):
             title=title,
             width=width,
             height=height,
-            border=border,
+            border_style=border_style,
             padding=(1, 2, 1, 2),
         )
 
@@ -391,7 +391,7 @@ class TextInputDialog(ModalElement):
         Dialog width in characters (default: 50)
     height : int, optional
         Dialog height in lines (default: 16)
-    border : str, optional
+    border_style : str, optional
         Border style: "single", "double", or "rounded" (default: "single")
     input_width : int, optional
         Width of the text input field (default: 30)
@@ -423,7 +423,7 @@ class TextInputDialog(ModalElement):
         cancel_label: str = "Cancel",
         width: int = 50,
         height: int = 16,
-        border: str = "single",
+        border_style: str = "single",
         input_width: int = 30,
     ) -> None:
         super().__init__(
@@ -431,7 +431,7 @@ class TextInputDialog(ModalElement):
             title=title,
             width=width,
             height=height,
-            border=border,
+            border_style=border_style,
             padding=(1, 2, 1, 2),
         )
 

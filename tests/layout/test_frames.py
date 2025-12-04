@@ -1,5 +1,7 @@
 """Tests for frame rendering."""
 
+import pytest
+
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
 from wijjit.terminal.input import Key, KeyType
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -55,7 +57,7 @@ class TestFrame:
 
     def test_border_style_single(self):
         """Test single border style."""
-        style = FrameStyle(border=BorderStyle.SINGLE)
+        style = FrameStyle(border_style=BorderStyle.SINGLE)
         frame = Frame(width=10, height=3, style=style)
         result = frame.render()
 
@@ -67,7 +69,7 @@ class TestFrame:
 
     def test_border_style_double(self):
         """Test double border style."""
-        style = FrameStyle(border=BorderStyle.DOUBLE)
+        style = FrameStyle(border_style=BorderStyle.DOUBLE)
         frame = Frame(width=10, height=3, style=style)
         result = frame.render()
 
@@ -79,7 +81,7 @@ class TestFrame:
 
     def test_border_style_rounded(self):
         """Test rounded border style."""
-        style = FrameStyle(border=BorderStyle.ROUNDED)
+        style = FrameStyle(border_style=BorderStyle.ROUNDED)
         frame = Frame(width=10, height=3, style=style)
         result = frame.render()
 
@@ -378,7 +380,7 @@ class TestContentAlignmentWithBorders:
     def test_content_align_with_single_border(self):
         """Test content alignment with single border style."""
         style = FrameStyle(
-            border=BorderStyle.SINGLE,
+            border_style=BorderStyle.SINGLE,
             content_align_h="center",
             content_align_v="middle",
         )
@@ -396,7 +398,9 @@ class TestContentAlignmentWithBorders:
     def test_content_align_with_double_border(self):
         """Test content alignment with double border style."""
         style = FrameStyle(
-            border=BorderStyle.DOUBLE, content_align_h="right", content_align_v="bottom"
+            border_style=BorderStyle.DOUBLE,
+            content_align_h="right",
+            content_align_v="bottom",
         )
         frame = Frame(width=20, height=8, style=style)
         frame.set_content("Test")
@@ -574,7 +578,8 @@ class TestFrameScrolling:
         assert handled
         assert frame.scroll_manager.state.scroll_position == initial_pos
 
-    def test_handle_mouse_scroll_events(self):
+    @pytest.mark.asyncio
+    async def test_handle_mouse_scroll_events(self):
         """Test handling mouse scroll events."""
         style = FrameStyle(scrollable=True)
         frame = Frame(width=20, height=8, style=style)
@@ -587,7 +592,7 @@ class TestFrameScrolling:
         scroll_down = MouseEvent(
             type=MouseEventType.SCROLL, button=MouseButton.SCROLL_DOWN, x=10, y=5
         )
-        handled = frame.handle_mouse(scroll_down)
+        handled = await frame.handle_mouse(scroll_down)
         assert handled
         assert frame.scroll_manager.state.scroll_position > initial_pos
 
@@ -595,7 +600,7 @@ class TestFrameScrolling:
         scroll_up = MouseEvent(
             type=MouseEventType.SCROLL, button=MouseButton.SCROLL_UP, x=10, y=5
         )
-        handled = frame.handle_mouse(scroll_up)
+        handled = await frame.handle_mouse(scroll_up)
         assert handled
 
     def test_scrollbar_not_shown_when_content_fits(self):
@@ -651,7 +656,9 @@ class TestFrameScrolling:
     def test_content_align_with_rounded_border(self):
         """Test content alignment with rounded border style."""
         style = FrameStyle(
-            border=BorderStyle.ROUNDED, content_align_h="center", content_align_v="top"
+            border_style=BorderStyle.ROUNDED,
+            content_align_h="center",
+            content_align_v="top",
         )
         frame = Frame(width=20, height=8, style=style)
         frame.set_content("Test")

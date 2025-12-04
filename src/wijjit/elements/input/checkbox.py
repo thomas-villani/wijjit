@@ -127,7 +127,7 @@ class Checkbox(Element):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
 
         Parameters
@@ -147,22 +147,6 @@ class Checkbox(Element):
                 return True
 
         return False
-
-    async def handle_mouse_async(self, event: MouseEvent) -> bool:
-        """Handle mouse input (asynchronous).
-
-        Parameters
-        ----------
-        event : MouseEvent
-            Mouse event to handle
-
-        Returns
-        -------
-        bool
-            True if event was handled
-        """
-        # Delegate to synchronous handler
-        return self.handle_mouse(event)
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render checkbox using cell-based rendering.
@@ -312,7 +296,29 @@ class CheckboxGroup(Element):
         # Template metadata
         self.action: str | None = None
         self.bind: bool = True
-        self.highlight_state_key: str | None = None
+        # highlight_state_key auto-generates to "{id}:highlight"
+        self._highlight_state_key_override: str | None = None
+
+    @property
+    def highlight_state_key(self) -> str | None:
+        """Get the state key for highlighted index.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:highlight".
+
+        Returns
+        -------
+        str or None
+            State key for highlight, or None if no id
+        """
+        if self._highlight_state_key_override is not None:
+            return self._highlight_state_key_override
+        return self._state_key("highlight")
+
+    @highlight_state_key.setter
+    def highlight_state_key(self, value: str | None) -> None:
+        """Set an explicit highlight state key."""
+        self._highlight_state_key_override = value
 
     def _normalize_border_style(
         self, style: BorderStyle | Literal["single", "double", "rounded"] | None
@@ -418,7 +424,7 @@ class CheckboxGroup(Element):
         if self.on_highlight_change:
             self.on_highlight_change(new_index)
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input."""
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             if not self.bounds:

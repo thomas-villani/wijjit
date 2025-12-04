@@ -1,5 +1,7 @@
 """Tests for Table display element."""
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.table import Table
@@ -134,7 +136,8 @@ class TestTable:
         table.handle_key(Keys.HOME)
         assert table.scroll_manager.state.scroll_position == 0
 
-    def test_mouse_scrolling(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scrolling(self):
         """Test mouse wheel scrolling."""
         # Create table with more data than viewport
         data = [{"name": f"User {i}", "age": 20 + i} for i in range(20)]
@@ -149,7 +152,7 @@ class TestTable:
             x=0,
             y=0,
         )
-        table.handle_mouse(event_down)
+        await table.handle_mouse(event_down)
         assert table.scroll_manager.state.scroll_position > initial_pos
 
         # Scroll up with mouse wheel
@@ -160,7 +163,7 @@ class TestTable:
             x=0,
             y=0,
         )
-        table.handle_mouse(event_up)
+        await table.handle_mouse(event_up)
         assert table.scroll_manager.state.scroll_position < current_pos
 
     def test_render_basic(self):

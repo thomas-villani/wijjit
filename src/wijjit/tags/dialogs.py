@@ -185,7 +185,7 @@ class ConfirmDialogExtension(Extension):
             cancel_label=cancel_label,
             width=width,
             height=height,
-            border=border,
+            border_style=border,
         )
 
         # Set action IDs on buttons if provided
@@ -363,7 +363,7 @@ class AlertDialogExtension(Extension):
             ok_label=ok_label,
             width=width,
             height=height,
-            border=border,
+            border_style=border,
         )
 
         # Set action ID on button if provided
@@ -551,7 +551,7 @@ class TextInputDialogExtension(Extension):
             cancel_label=cancel_label,
             width=width,
             height=height,
-            border=border,
+            border_style=border,
             input_width=input_width,
         )
 

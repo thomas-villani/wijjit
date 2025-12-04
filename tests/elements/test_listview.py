@@ -1,5 +1,7 @@
 """Tests for ListView display element."""
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.list import ListView
@@ -156,7 +158,8 @@ class TestListView:
         listview.handle_key(Keys.END)
         assert listview.scroll_manager.state.scroll_position > 0
 
-    def test_mouse_scrolling(self):
+    @pytest.mark.asyncio
+    async def test_mouse_scrolling(self):
         """Test mouse wheel scrolling."""
         # Create ListView with more items than viewport
         items = [f"Item {i}" for i in range(20)]
@@ -171,7 +174,7 @@ class TestListView:
             x=0,
             y=0,
         )
-        listview.handle_mouse(event_down)
+        await listview.handle_mouse(event_down)
         assert listview.scroll_manager.state.scroll_position > initial_pos
 
         # Scroll up with mouse wheel
@@ -182,7 +185,7 @@ class TestListView:
             x=0,
             y=0,
         )
-        listview.handle_mouse(event_up)
+        await listview.handle_mouse(event_up)
         assert listview.scroll_manager.state.scroll_position < current_pos
 
     def test_render_basic(self):

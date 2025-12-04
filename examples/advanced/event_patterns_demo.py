@@ -61,7 +61,7 @@ def view1():
 
     return {
         "template": """
-{% frame title="Event Patterns Demo - View 1" border="double" width=100 height=36 %}
+{% frame title="Event Patterns Demo - View 1" border_style="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Current View: {{ state.current_view }}
@@ -71,7 +71,7 @@ def view1():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=48 %}
-        {% frame title="Event Scopes" border="single" width="fill" %}
+        {% frame title="Event Scopes" border_style="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             1. GLOBAL Handlers:
                • Active in ALL views
@@ -96,7 +96,7 @@ def view1():
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Event Features" border="single" width="fill" %}
+        {% frame title="Event Features" border_style="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Priority:
             • Higher priority = runs first
@@ -117,7 +117,7 @@ def view1():
       {% endvstack %}
 
       {% vstack spacing=1 width=48 %}
-        {% frame title="Event Log" border="single" width="fill" height=26 %}
+        {% frame title="Event Log" border_style="single" width="fill" height=26 %}
           {% vstack padding=1 %}
 {{ event_log_text }}
           {% endvstack %}
@@ -158,14 +158,14 @@ def view2():
 
     return {
         "template": """
-{% frame title="Event Patterns Demo - View 2" border="double" width=100 height=36 %}
+{% frame title="Event Patterns Demo - View 2" border_style="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Current View: {{ state.current_view }}
       This view has different view-scoped handlers than View 1
     {% endvstack %}
 
-    {% frame title="Event Log" border="single" height=25 %}
+    {% frame title="Event Log" border_style="single" height=25 %}
       {% vstack padding=1 %}
 {{ event_log_text }}
       {% endvstack %}
@@ -204,14 +204,14 @@ def view3():
 
     return {
         "template": """
-{% frame title="Event Patterns Demo - View 3 (Priority Demo)" border="double" width=100 height=36 %}
+{% frame title="Event Patterns Demo - View 3 (Priority Demo)" border_style="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Current View: {{ state.current_view }}
       This view demonstrates handler priorities
     {% endvstack %}
 
-    {% frame title="Event Log" border="single" height=25 %}
+    {% frame title="Event Log" border_style="single" height=25 %}
       {% vstack padding=1 %}
 {{ event_log_text }}
       {% endvstack %}

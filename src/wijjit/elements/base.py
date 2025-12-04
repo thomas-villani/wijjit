@@ -91,6 +91,34 @@ class Element(ABC):
             None  # State key for highlight persistence
         )
 
+    def _state_key(self, property_name: str) -> str | None:
+        """Generate a consistent state key for this element.
+
+        State keys follow the convention `{id}:{property}` for predictable
+        and consistent naming across all elements.
+
+        Parameters
+        ----------
+        property_name : str
+            The property name (e.g., "scroll", "highlight", "expanded")
+
+        Returns
+        -------
+        str or None
+            The state key in format "{id}:{property}", or None if element has no id
+
+        Examples
+        --------
+        >>> element = Tree(id="my_tree")
+        >>> element._state_key("scroll")
+        'my_tree:scroll'
+        >>> element._state_key("highlight")
+        'my_tree:highlight'
+        """
+        if self.id:
+            return f"{self.id}:{property_name}"
+        return None
+
     def add_class(self, class_name: str) -> None:
         """Add a CSS class to this element.
 
@@ -325,8 +353,8 @@ class Element(ABC):
         """
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
-        """Handle a mouse event (synchronous).
+    async def handle_mouse(self, event: MouseEvent) -> bool:
+        """Handle a mouse event.
 
         Parameters
         ----------
@@ -340,39 +368,11 @@ class Element(ABC):
 
         Notes
         -----
-        This is the synchronous mouse event handler. For async mouse handling,
-        override handle_mouse_async() instead. The mouse router will check for
-        handle_mouse_async() first and fall back to this method if not defined.
+        This is an async method to support async operations during mouse handling
+        (e.g., calling async APIs, awaiting async state updates). Subclasses
+        should override this method for custom mouse handling.
         """
         return False
-
-    async def handle_mouse_async(self, event: MouseEvent) -> bool:
-        """Handle a mouse event (asynchronous).
-
-        Parameters
-        ----------
-        event : MouseEvent
-            The mouse event that occurred
-
-        Returns
-        -------
-        bool
-            True if the event was handled, False otherwise
-
-        Notes
-        -----
-        This is the asynchronous mouse event handler. Elements that need to
-        perform async operations during mouse handling (e.g., calling async
-        APIs, awaiting async state updates) should override this method instead
-        of handle_mouse().
-
-        The default implementation delegates to handle_mouse() so that
-        subclasses that only override the sync version will still work.
-        Subclasses that need async behavior should override this method.
-        The mouse router checks for this async version first.
-        """
-        # Delegate to sync handler by default
-        return self.handle_mouse(event)
 
     def on_focus(self) -> None:
         """Called when element gains focus."""
@@ -549,12 +549,16 @@ class ScrollableElement(Element, ABC):
     Attributes
     ----------
     scroll_state_key : str or None
-        State key for persisting vertical scroll position (typically "_scroll_{id}")
+        State key for persisting vertical scroll position.
+        Defaults to "{id}:scroll" if element has an id.
+        Can be explicitly set to override the default.
     on_scroll : Callable[[int], None] or None
         Callback function called when vertical scroll position changes.
         Signature: on_scroll(position: int) -> None
     scroll_state_key_x : str or None
-        State key for persisting horizontal scroll position (typically "_scroll_x_{id}")
+        State key for persisting horizontal scroll position.
+        Defaults to "{id}:scroll_x" if element has an id.
+        Can be explicitly set to override the default.
     on_scroll_x : Callable[[int], None] or None
         Callback function called when horizontal scroll position changes.
         Signature: on_scroll_x(position: int) -> None
@@ -566,9 +570,13 @@ class ScrollableElement(Element, ABC):
     - can_scroll(direction): Check if scrolling is possible
 
     Subclasses should:
-    1. Initialize scroll_state_key in their __init__ (usually via template tags)
-    2. Call self.on_scroll(position) when scroll position changes
-    3. The application will wire on_scroll to update state automatically
+    1. Call self.on_scroll(position) when scroll position changes
+    2. The application will wire on_scroll to update state automatically
+
+    State keys follow the convention "{id}:{property}" for consistent naming
+    across all elements. For example, an element with id="my_list" will have:
+    - scroll_state_key = "my_list:scroll"
+    - scroll_state_key_x = "my_list:scroll_x"
 
     Examples
     --------
@@ -610,12 +618,66 @@ class ScrollableElement(Element, ABC):
             CSS class names for styling
         """
         super().__init__(id=id, classes=classes)
-        # Vertical scroll attributes
-        self.scroll_state_key: str | None = None
+        # Vertical scroll attributes - auto-generate from id
+        self._scroll_state_key_override: str | None = None
         self.on_scroll: Callable[[int], None] | None = None
-        # Horizontal scroll attributes
-        self.scroll_state_key_x: str | None = None
+        # Horizontal scroll attributes - auto-generate from id
+        self._scroll_state_key_x_override: str | None = None
         self.on_scroll_x: Callable[[int], None] | None = None
+
+    @property
+    def scroll_state_key(self) -> str | None:
+        """Get the state key for vertical scroll position.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:scroll".
+
+        Returns
+        -------
+        str or None
+            State key for scroll position, or None if no id
+        """
+        if self._scroll_state_key_override is not None:
+            return self._scroll_state_key_override
+        return self._state_key("scroll")
+
+    @scroll_state_key.setter
+    def scroll_state_key(self, value: str | None) -> None:
+        """Set an explicit scroll state key.
+
+        Parameters
+        ----------
+        value : str or None
+            Explicit state key to use, or None to use auto-generated key
+        """
+        self._scroll_state_key_override = value
+
+    @property
+    def scroll_state_key_x(self) -> str | None:
+        """Get the state key for horizontal scroll position.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:scroll_x".
+
+        Returns
+        -------
+        str or None
+            State key for horizontal scroll position, or None if no id
+        """
+        if self._scroll_state_key_x_override is not None:
+            return self._scroll_state_key_x_override
+        return self._state_key("scroll_x")
+
+    @scroll_state_key_x.setter
+    def scroll_state_key_x(self, value: str | None) -> None:
+        """Set an explicit horizontal scroll state key.
+
+        Parameters
+        ----------
+        value : str or None
+            Explicit state key to use, or None to use auto-generated key
+        """
+        self._scroll_state_key_x_override = value
 
     @property
     @abstractmethod
@@ -784,7 +846,7 @@ class OverlayElement(Container):
                 return True
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse event by routing to child at mouse position.
 
         Parameters
@@ -808,7 +870,7 @@ class OverlayElement(Container):
         for child in reversed(self.children):
             if child.bounds and child.bounds.contains(event.x, event.y):
                 if hasattr(child, "handle_mouse") and callable(child.handle_mouse):
-                    if child.handle_mouse(event):
+                    if await child.handle_mouse(event):
                         return True
         return False
 

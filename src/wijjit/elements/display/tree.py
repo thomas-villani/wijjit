@@ -188,14 +188,77 @@ class Tree(ScrollableElement):
         self.action = action
         self.bind: bool = True
 
-        # State persistence keys
-        # scroll_state_key provided by ScrollableElement
-        self.expand_state_key: str | None = None
-        self.highlight_state_key: str | None = None
-        self.selected_state_key: str | None = None
+        # State persistence keys - auto-generated from id
+        # scroll_state_key provided by ScrollableElement (auto-generates to "{id}:scroll")
+        self._expand_state_key_override: str | None = None
+        self._highlight_state_key_override: str | None = None
+        self._selected_state_key_override: str | None = None
 
         # State save callback (set by app/template)
         self._state_dict: dict[str, Any] | None = None
+
+    @property
+    def expand_state_key(self) -> str | None:
+        """Get the state key for expanded nodes.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:expanded".
+
+        Returns
+        -------
+        str or None
+            State key for expanded nodes, or None if no id
+        """
+        if self._expand_state_key_override is not None:
+            return self._expand_state_key_override
+        return self._state_key("expanded")
+
+    @expand_state_key.setter
+    def expand_state_key(self, value: str | None) -> None:
+        """Set an explicit expand state key."""
+        self._expand_state_key_override = value
+
+    @property
+    def highlight_state_key(self) -> str | None:
+        """Get the state key for highlighted index.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:highlight".
+
+        Returns
+        -------
+        str or None
+            State key for highlight, or None if no id
+        """
+        if self._highlight_state_key_override is not None:
+            return self._highlight_state_key_override
+        return self._state_key("highlight")
+
+    @highlight_state_key.setter
+    def highlight_state_key(self, value: str | None) -> None:
+        """Set an explicit highlight state key."""
+        self._highlight_state_key_override = value
+
+    @property
+    def selected_state_key(self) -> str | None:
+        """Get the state key for selected node.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:selected".
+
+        Returns
+        -------
+        str or None
+            State key for selection, or None if no id
+        """
+        if self._selected_state_key_override is not None:
+            return self._selected_state_key_override
+        return self._state_key("selected")
+
+    @selected_state_key.setter
+    def selected_state_key(self, value: str | None) -> None:
+        """Set an explicit selected state key."""
+        self._selected_state_key_override = value
 
     def _normalize_data(self, data: dict[str, Any] | list) -> dict:
         """Normalize tree data to internal nested dict format.
@@ -831,7 +894,7 @@ class Tree(ScrollableElement):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
 
         Parameters

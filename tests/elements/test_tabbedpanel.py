@@ -1,5 +1,7 @@
 """Tests for TabbedPanel display element."""
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition
@@ -270,7 +272,8 @@ class TestTabbedPanelKeyboardNavigation:
 class TestTabbedPanelMouseNavigation:
     """Tests for mouse event handling."""
 
-    def test_click_tab_horizontal(self):
+    @pytest.mark.asyncio
+    async def test_click_tab_horizontal(self):
         """Test clicking on a tab in horizontal mode."""
         panel = TabbedPanel(tab_position=TabPosition.TOP, width=60, height=20)
         panel.add_tab("Tab 1", Frame(width=50, height=10))
@@ -286,12 +289,13 @@ class TestTabbedPanelMouseNavigation:
             type=MouseEventType.CLICK,
         )
 
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
 
         assert result is True
         assert panel.active_tab_index == 1
 
-    def test_click_first_tab(self):
+    @pytest.mark.asyncio
+    async def test_click_first_tab(self):
         """Test clicking on the first tab."""
         panel = TabbedPanel(tab_position=TabPosition.TOP, width=60, height=20)
         panel.add_tab("A", Frame(width=50, height=10))
@@ -307,12 +311,13 @@ class TestTabbedPanelMouseNavigation:
             type=MouseEventType.CLICK,
         )
 
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
 
         assert result is True
         assert panel.active_tab_index == 0
 
-    def test_click_vertical_tab(self):
+    @pytest.mark.asyncio
+    async def test_click_vertical_tab(self):
         """Test clicking on a tab in vertical mode."""
         panel = TabbedPanel(tab_position=TabPosition.LEFT, width=60, height=20)
         panel.add_tab("Tab 1", Frame(width=50, height=10))
@@ -327,12 +332,13 @@ class TestTabbedPanelMouseNavigation:
             type=MouseEventType.CLICK,
         )
 
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
 
         assert result is True
         assert panel.active_tab_index == 1
 
-    def test_click_outside_tabs_no_switch(self):
+    @pytest.mark.asyncio
+    async def test_click_outside_tabs_no_switch(self):
         """Test clicking outside tab area doesn't switch tabs."""
         panel = TabbedPanel(tab_position=TabPosition.TOP, width=60, height=20)
         panel.add_tab("Tab 1", Frame(width=50, height=10))
@@ -347,12 +353,13 @@ class TestTabbedPanelMouseNavigation:
             type=MouseEventType.CLICK,
         )
 
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
 
         assert result is False
         assert panel.active_tab_index == 0
 
-    def test_scroll_wheel_delegates_to_frame(self):
+    @pytest.mark.asyncio
+    async def test_scroll_wheel_delegates_to_frame(self):
         """Test scroll wheel events are delegated to active frame."""
         panel = TabbedPanel(tab_position=TabPosition.TOP, width=60, height=20)
         frame = Frame(
@@ -372,10 +379,11 @@ class TestTabbedPanelMouseNavigation:
         )
 
         # Should not raise and should return True if frame handles scroll
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
         # Result depends on frame scroll handling
 
-    def test_empty_panel_handles_mouse(self):
+    @pytest.mark.asyncio
+    async def test_empty_panel_handles_mouse(self):
         """Test that empty panel handles mouse events gracefully."""
         panel = TabbedPanel()
         panel.bounds = Bounds(0, 0, 60, 20)
@@ -387,11 +395,12 @@ class TestTabbedPanelMouseNavigation:
             type=MouseEventType.CLICK,
         )
 
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
 
         assert result is False
 
-    def test_no_bounds_handles_mouse(self):
+    @pytest.mark.asyncio
+    async def test_no_bounds_handles_mouse(self):
         """Test that panel without bounds handles mouse gracefully."""
         panel = TabbedPanel()
         panel.add_tab("Tab 1", Frame(width=50, height=10))
@@ -403,7 +412,7 @@ class TestTabbedPanelMouseNavigation:
             type=MouseEventType.CLICK,
         )
 
-        result = panel.handle_mouse(event)
+        result = await panel.handle_mouse(event)
 
         assert result is False
 
@@ -563,10 +572,9 @@ class TestTabbedPanelChildElements:
 class TestTabbedPanelAsyncMouse:
     """Tests for async mouse handling."""
 
-    def test_async_mouse_delegates_to_sync(self):
-        """Test async mouse handler delegates to sync version."""
-        import asyncio
-
+    @pytest.mark.asyncio
+    async def test_async_mouse_handler(self):
+        """Test async handle_mouse method works correctly."""
         panel = TabbedPanel(tab_position=TabPosition.TOP, width=60, height=20)
         panel.add_tab("Tab 1", Frame(width=50, height=10))
         panel.add_tab("Tab 2", Frame(width=50, height=10))
@@ -579,11 +587,7 @@ class TestTabbedPanelAsyncMouse:
             type=MouseEventType.CLICK,
         )
 
-        async def test():
-            return await panel.handle_mouse_async(event)
+        result = await panel.handle_mouse(event)
 
-        # Use asyncio.run() for Python 3.10+ compatibility
-        result = asyncio.run(test())
-
-        # Should have switched tabs via sync handler
+        # Should have switched tabs
         assert panel.active_tab_index == 1

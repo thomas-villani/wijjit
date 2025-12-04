@@ -140,9 +140,30 @@ class TabbedPanel(Container):
         self.action: str | None = None
         self.bind: bool = True
 
-        # State persistence
-        self.active_tab_state_key: str | None = None
+        # State persistence - auto-generated from id
+        self._active_tab_state_key_override: str | None = None
         self._state_dict: dict[str, Any] | None = None
+
+    @property
+    def active_tab_state_key(self) -> str | None:
+        """Get the state key for active tab index.
+
+        Returns the explicitly set key if provided, otherwise auto-generates
+        from the element id using the convention "{id}:active_tab".
+
+        Returns
+        -------
+        str or None
+            State key for active tab, or None if no id
+        """
+        if self._active_tab_state_key_override is not None:
+            return self._active_tab_state_key_override
+        return self._state_key("active_tab")
+
+    @active_tab_state_key.setter
+    def active_tab_state_key(self, value: str | None) -> None:
+        """Set an explicit active tab state key."""
+        self._active_tab_state_key_override = value
 
     def add_tab(self, label: str, content: TabContent) -> None:
         """Add a tab to the panel.
@@ -723,7 +744,7 @@ class TabbedPanel(Container):
 
         return False
 
-    def handle_mouse(self, event: MouseEvent) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input for tab clicking and content scrolling.
 
         Parameters
@@ -820,25 +841,6 @@ class TabbedPanel(Container):
                 return True
 
         return False
-
-    async def handle_mouse_async(self, event: MouseEvent) -> bool:
-        """Handle mouse input asynchronously.
-
-        Parameters
-        ----------
-        event : MouseEvent
-            Mouse event to handle
-
-        Returns
-        -------
-        bool
-            True if event was handled
-
-        Notes
-        -----
-        Delegates to synchronous handle_mouse for actual handling.
-        """
-        return self.handle_mouse(event)
 
     def get_ephemeral_state(self) -> dict:
         """Get ephemeral state for reconciliation.
