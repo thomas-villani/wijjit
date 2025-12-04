@@ -940,3 +940,363 @@ class FrameExtension(Extension):
 
         # Return marker for text interleaving
         return get_element_marker(layout_context)
+
+
+class GridExtension(Extension):
+    """Jinja2 extension for {% grid %} tag.
+
+    Syntax:
+        {% grid rows=2 cols=3 row_gap=1 col_gap=2 %}
+            ... children ...
+        {% endgrid %}
+    """
+
+    tags = {"grid"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the grid tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endgrid"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body
+        node = nodes.CallBlock(
+            self.call_method("_render_grid", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endgrid",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_grid(
+        self,
+        caller: Callable[[], str],
+        rows: int = 2,
+        cols: int = 2,
+        row_gap: int = 0,
+        col_gap: int = 0,
+        width: int | str = "fill",
+        height: int | str = "auto",
+        padding: int | str | tuple[int, ...] = 0,
+        margin: int | str | tuple[int, ...] = 0,
+        align_h: str = "stretch",
+        align_v: str = "stretch",
+        id: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Render the grid tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        rows : int
+            Number of rows in the grid (default: 2)
+        cols : int
+            Number of columns in the grid (default: 2)
+        row_gap : int
+            Vertical gap between rows (default: 0)
+        col_gap : int
+            Horizontal gap between columns (default: 0)
+        width : int or str
+            Width specification (default: "fill")
+        height : int or str
+            Height specification (default: "auto")
+        padding : int or str or tuple
+            Padding around the grid (default: 0)
+        margin : int or str or tuple
+            Margin around the grid (default: 0)
+        align_h : str
+            Horizontal alignment within cells (default: "stretch")
+        align_v : str
+            Vertical alignment within cells (default: "stretch")
+        id : str, optional
+            Node identifier
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+
+        # Parse attributes
+        width_parsed = parse_size_attr(width)
+        height_parsed = parse_size_attr(height)
+        rows_int = int(rows)
+        cols_int = int(cols)
+        row_gap_int = int(row_gap)
+        col_gap_int = int(col_gap)
+
+        # Parse padding and margin
+        _, _, _, padding_parsed, margin_parsed = _parse_for_render(
+            width, height, 0, padding, None, None, None, None, margin
+        )
+
+        # Create VNode builder for reconciliation
+        vnode = VNodeBuilder("Grid", key=id)
+        vnode.set_prop("rows", rows_int)
+        vnode.set_prop("cols", cols_int)
+        vnode.set_prop("row_gap", row_gap_int)
+        vnode.set_prop("col_gap", col_gap_int)
+        vnode.set_layout(
+            width=width_parsed,
+            height=height_parsed,
+            padding=padding_parsed,
+            margin=margin_parsed,
+            align_h=align_h,
+            align_v=align_v,
+        )
+        layout_context.push_vnode(vnode)
+
+        # Render body - nested elements will add themselves via push_vnode/add_vnode
+        body_output = caller()
+
+        # Handle text content for VNodes
+        vnode_children = vnode.children
+
+        if vnode_children:
+            # Has VNode children - interleave in source order
+            interleaved_vnode_builders = interleave_text_and_vnode_builders(
+                body_output, vnode_children, False, layout_context
+            )
+            vnode.children = interleaved_vnode_builders
+
+        # Pop VNode from stack
+        layout_context.pop_vnode()
+
+        # Return marker for text interleaving
+        return get_element_marker(layout_context)
+
+
+class ColspanExtension(Extension):
+    """Jinja2 extension for {% colspan %} tag.
+
+    Syntax:
+        {% colspan cols=2 %}
+            {% frame %}Content{% endframe %}
+        {% endcolspan %}
+    """
+
+    tags = {"colspan"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the colspan tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endcolspan"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body
+        node = nodes.CallBlock(
+            self.call_method("_render_colspan", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endcolspan",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_colspan(
+        self,
+        caller: Callable[[], str],
+        cols: int = 1,
+        **kwargs: Any,
+    ) -> str:
+        """Render the colspan wrapper.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        cols : int
+            Number of columns to span (default: 1)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+
+        # Create wrapper VNode
+        vnode = VNodeBuilder("GridSpanWrapper")
+        vnode.set_prop("colspan", int(cols))
+        vnode.set_prop("rowspan", 1)
+        layout_context.push_vnode(vnode)
+
+        # Render child content
+        body_output = caller()
+
+        # Get the children
+        vnode_children = vnode.children
+
+        # Wrapper should have exactly one child element
+        if vnode_children:
+            # Interleave to preserve order (though we expect only 1 child)
+            interleaved = interleave_text_and_vnode_builders(
+                body_output, vnode_children, False, layout_context
+            )
+            # Filter to only element vnodes (ignore text-only vnodes)
+            element_children = [c for c in interleaved if c.type != "TextElement"]
+            if len(element_children) != 1:
+                logger.warning(
+                    f"colspan wrapper should contain exactly 1 element, "
+                    f"got {len(element_children)}"
+                )
+            vnode.children = interleaved
+
+        layout_context.pop_vnode()
+
+        return get_element_marker(layout_context)
+
+
+class RowspanExtension(Extension):
+    """Jinja2 extension for {% rowspan %} tag.
+
+    Syntax:
+        {% rowspan rows=2 %}
+            {% frame %}Tall content{% endframe %}
+        {% endrowspan %}
+    """
+
+    tags = {"rowspan"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the rowspan tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+
+        # Parse attributes as keyword arguments
+        kwargs = []
+        while parser.stream.current.test("name") and not parser.stream.current.test(
+            "name:endrowspan"
+        ):
+            key = parser.stream.expect("name").value
+            if parser.stream.current.test("assign"):
+                parser.stream.expect("assign")
+                value = parser.parse_expression()
+                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+            else:
+                break
+
+        # Parse body
+        node = nodes.CallBlock(
+            self.call_method("_render_rowspan", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endrowspan",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_rowspan(
+        self,
+        caller: Callable[[], str],
+        rows: int = 1,
+        **kwargs: Any,
+    ) -> str:
+        """Render the rowspan wrapper.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        rows : int
+            Number of rows to span (default: 1)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+
+        # Create wrapper VNode
+        vnode = VNodeBuilder("GridSpanWrapper")
+        vnode.set_prop("colspan", 1)
+        vnode.set_prop("rowspan", int(rows))
+        layout_context.push_vnode(vnode)
+
+        # Render child content
+        body_output = caller()
+
+        # Get the children
+        vnode_children = vnode.children
+
+        # Wrapper should have exactly one child element
+        if vnode_children:
+            # Interleave to preserve order (though we expect only 1 child)
+            interleaved = interleave_text_and_vnode_builders(
+                body_output, vnode_children, False, layout_context
+            )
+            # Filter to only element vnodes (ignore text-only vnodes)
+            element_children = [c for c in interleaved if c.type != "TextElement"]
+            if len(element_children) != 1:
+                logger.warning(
+                    f"rowspan wrapper should contain exactly 1 element, "
+                    f"got {len(element_children)}"
+                )
+            vnode.children = interleaved
+
+        layout_context.pop_vnode()
+
+        return get_element_marker(layout_context)

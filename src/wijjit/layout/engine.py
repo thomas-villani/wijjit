@@ -835,6 +835,520 @@ class HStack(Container):
             current_x += child_width + self.spacing
 
 
+@dataclass
+class GridCell:
+    """Represents a cell or span in the grid.
+
+    Parameters
+    ----------
+    row : int
+        Starting row index (0-based)
+    col : int
+        Starting column index (0-based)
+    rowspan : int
+        Number of rows this cell spans (default: 1)
+    colspan : int
+        Number of columns this cell spans (default: 1)
+    node : LayoutNode or None
+        The layout node occupying this cell
+
+    Attributes
+    ----------
+    row : int
+        Starting row index
+    col : int
+        Starting column index
+    rowspan : int
+        Number of rows spanned
+    colspan : int
+        Number of columns spanned
+    node : LayoutNode or None
+        The layout node in this cell
+    """
+
+    row: int
+    col: int
+    rowspan: int = 1
+    colspan: int = 1
+    node: LayoutNode | None = None
+
+
+class GridSpanWrapper(LayoutNode):
+    """Wrapper node that carries colspan/rowspan information.
+
+    This wrapper is used by {% colspan %} and {% rowspan %} tags to
+    communicate span information to the parent Grid container.
+
+    Parameters
+    ----------
+    child : LayoutNode
+        The actual layout node being wrapped
+    colspan : int
+        Number of columns to span (default: 1)
+    rowspan : int
+        Number of rows to span (default: 1)
+
+    Attributes
+    ----------
+    child : LayoutNode
+        The wrapped layout node
+    colspan : int
+        Number of columns to span
+    rowspan : int
+        Number of rows to span
+    """
+
+    def __init__(
+        self,
+        child: LayoutNode,
+        colspan: int = 1,
+        rowspan: int = 1,
+    ) -> None:
+        super().__init__()
+        self.child = child
+        self.colspan = colspan
+        self.rowspan = rowspan
+
+    def calculate_constraints(self) -> SizeConstraints:
+        """Delegate to wrapped child.
+
+        Returns
+        -------
+        SizeConstraints
+            Constraints from the wrapped child
+        """
+        self.constraints = self.child.calculate_constraints()
+        return self.constraints
+
+    def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
+        """Delegate to wrapped child.
+
+        Parameters
+        ----------
+        x : int
+            X position
+        y : int
+            Y position
+        width : int
+            Assigned width
+        height : int
+            Assigned height
+        """
+        self.bounds = Bounds(x=x, y=y, width=width, height=height)
+        self.child.assign_bounds(x, y, width, height)
+
+    def collect_elements(self) -> list[Element]:
+        """Delegate to wrapped child.
+
+        Returns
+        -------
+        list of Element
+            Elements from the wrapped child
+        """
+        return self.child.collect_elements()
+
+
+class Grid(Container):
+    """Grid container for 2D layouts.
+
+    Arranges children in a rows x cols grid with optional gaps.
+    Supports colspan and rowspan via GridSpanWrapper children.
+
+    Parameters
+    ----------
+    rows : int
+        Number of rows in the grid
+    cols : int
+        Number of columns in the grid
+    children : list of LayoutNode, optional
+        Child nodes (may include GridSpanWrapper for spans)
+    row_gap : int, optional
+        Vertical gap between rows (default: 0)
+    col_gap : int, optional
+        Horizontal gap between columns (default: 0)
+    width : int, str, or Size, optional
+        Width specification (default: "fill")
+    height : int, str, or Size, optional
+        Height specification (default: "auto")
+    padding : int, optional
+        Padding around the grid (default: 0)
+    margin : int or tuple, optional
+        Margin around the grid (default: 0)
+    align_h : {"left", "center", "right", "stretch"}, optional
+        Horizontal alignment of cells (default: "stretch")
+    align_v : {"top", "middle", "bottom", "stretch"}, optional
+        Vertical alignment of cells (default: "stretch")
+    id : str, optional
+        Node identifier
+
+    Attributes
+    ----------
+    rows : int
+        Number of grid rows
+    cols : int
+        Number of grid columns
+    row_gap : int
+        Gap between rows
+    col_gap : int
+        Gap between columns
+
+    Raises
+    ------
+    ValueError
+        If child count doesn't match grid capacity after accounting for spans
+    """
+
+    def __init__(
+        self,
+        rows: int,
+        cols: int,
+        children: list[LayoutNode] | None = None,
+        row_gap: int = 0,
+        col_gap: int = 0,
+        width: int | str | Size = "fill",
+        height: int | str | Size = "auto",
+        padding: int = 0,
+        margin: int | tuple[int, int, int, int] = 0,
+        align_h: HAlign = "stretch",
+        align_v: VAlign = "stretch",
+        id: str | None = None,
+    ) -> None:
+        super().__init__(
+            children, width, height, 0, padding, margin, align_h, align_v, id
+        )
+        self.rows = rows
+        self.cols = cols
+        self.row_gap = row_gap
+        self.col_gap = col_gap
+
+        # Internal tracking (initialized in validate_and_place_children)
+        self._cell_map: list[list[GridCell | None]] = []
+        self._row_heights: list[int] = []
+        self._col_widths: list[int] = []
+        self._children_placed: list[tuple[LayoutNode, GridCell]] = []
+
+    def _span_fits(self, row: int, col: int, rowspan: int, colspan: int) -> bool:
+        """Check if a span fits at the given position.
+
+        Parameters
+        ----------
+        row : int
+            Starting row
+        col : int
+            Starting column
+        rowspan : int
+            Number of rows to span
+        colspan : int
+            Number of columns to span
+
+        Returns
+        -------
+        bool
+            True if span fits, False otherwise
+        """
+        if row + rowspan > self.rows or col + colspan > self.cols:
+            return False
+
+        for r in range(row, row + rowspan):
+            for c in range(col, col + colspan):
+                if self._cell_map[r][c] is not None:
+                    return False
+        return True
+
+    def validate_and_place_children(self) -> None:
+        """Validate child count and place children in grid cells.
+
+        Places children in left-to-right, top-to-bottom order,
+        respecting colspan/rowspan from GridSpanWrapper children.
+
+        Raises
+        ------
+        ValueError
+            If children don't fit exactly in grid capacity
+        """
+        self._cell_map = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+        self._children_placed = []
+
+        current_row = 0
+        current_col = 0
+
+        for child in self.children:
+            # Extract span info if wrapped
+            if isinstance(child, GridSpanWrapper):
+                colspan = child.colspan
+                rowspan = child.rowspan
+                actual_child = child.child
+            else:
+                colspan = 1
+                rowspan = 1
+                actual_child = child
+
+            # Find next available cell
+            found = False
+            while current_row < self.rows:
+                while current_col < self.cols:
+                    if self._cell_map[current_row][current_col] is None:
+                        # Check if span fits
+                        if self._span_fits(current_row, current_col, rowspan, colspan):
+                            found = True
+                            break
+                    current_col += 1
+
+                if found:
+                    break
+
+                current_row += 1
+                current_col = 0
+
+            if not found:
+                raise ValueError(
+                    f"Grid overflow: Cannot place child. "
+                    f"Grid has {self.rows} rows x {self.cols} cols = "
+                    f"{self.rows * self.cols} cells. "
+                    f"Check that child count matches grid capacity "
+                    f"accounting for colspan/rowspan."
+                )
+
+            # Place the child
+            cell = GridCell(
+                row=current_row,
+                col=current_col,
+                rowspan=rowspan,
+                colspan=colspan,
+                node=actual_child,
+            )
+
+            # Mark cells as occupied
+            for r in range(current_row, current_row + rowspan):
+                for c in range(current_col, current_col + colspan):
+                    self._cell_map[r][c] = cell
+
+            self._children_placed.append((actual_child, cell))
+
+            # Move to next cell
+            current_col += colspan
+            if current_col >= self.cols:
+                current_col = 0
+                current_row += 1
+
+        # Validate: all cells must be filled
+        for r in range(self.rows):
+            for c in range(self.cols):
+                if self._cell_map[r][c] is None:
+                    raise ValueError(
+                        f"Grid underflow: Cell ({r}, {c}) is empty. "
+                        f"Grid has {self.rows} rows x {self.cols} cols = "
+                        f"{self.rows * self.cols} cells. "
+                        f"Add more children or reduce grid size."
+                    )
+
+    def calculate_constraints(self) -> SizeConstraints:
+        """Calculate size constraints for the grid.
+
+        Auto-sizes columns to fit largest content in each column,
+        and rows to fit tallest content in each row.
+
+        Returns
+        -------
+        SizeConstraints
+            Calculated constraints
+        """
+        margin_top, margin_right, margin_bottom, margin_left = self.margin
+
+        if not self.children:
+            min_size = 2 * self.padding
+            self.constraints = SizeConstraints(
+                min_width=min_size + margin_left + margin_right,
+                min_height=min_size + margin_top + margin_bottom,
+            )
+            return self.constraints
+
+        # Validate and place children first
+        self.validate_and_place_children()
+
+        # Calculate child constraints
+        for child, _cell in self._children_placed:
+            child.calculate_constraints()
+
+        # Initialize column widths and row heights
+        self._col_widths = [0] * self.cols
+        self._row_heights = [0] * self.rows
+
+        # First pass: Process non-spanning cells to establish base sizes
+        for child, cell in self._children_placed:
+            if cell.colspan == 1 and cell.rowspan == 1:
+                if child.constraints:
+                    self._col_widths[cell.col] = max(
+                        self._col_widths[cell.col],
+                        child.constraints.preferred_width,
+                    )
+                    self._row_heights[cell.row] = max(
+                        self._row_heights[cell.row],
+                        child.constraints.preferred_height,
+                    )
+
+        # Second pass: Handle spanning cells
+        # Distribute any extra needed size across spanned columns/rows
+        for child, cell in self._children_placed:
+            if cell.colspan > 1 or cell.rowspan > 1:
+                if child.constraints:
+                    # Calculate current spanned width
+                    spanned_cols = list(range(cell.col, cell.col + cell.colspan))
+                    current_width = sum(self._col_widths[c] for c in spanned_cols)
+                    current_width += self.col_gap * (cell.colspan - 1)
+
+                    # If child needs more width, distribute evenly
+                    if child.constraints.preferred_width > current_width:
+                        extra = child.constraints.preferred_width - current_width
+                        per_col = extra // cell.colspan
+                        remainder = extra % cell.colspan
+                        for i, c in enumerate(spanned_cols):
+                            self._col_widths[c] += per_col
+                            if i < remainder:
+                                self._col_widths[c] += 1
+
+                    # Same for height
+                    spanned_rows = list(range(cell.row, cell.row + cell.rowspan))
+                    current_height = sum(self._row_heights[r] for r in spanned_rows)
+                    current_height += self.row_gap * (cell.rowspan - 1)
+
+                    if child.constraints.preferred_height > current_height:
+                        extra = child.constraints.preferred_height - current_height
+                        per_row = extra // cell.rowspan
+                        remainder = extra % cell.rowspan
+                        for i, r in enumerate(spanned_rows):
+                            self._row_heights[r] += per_row
+                            if i < remainder:
+                                self._row_heights[r] += 1
+
+        # Calculate total size
+        total_width = sum(self._col_widths) + self.col_gap * (self.cols - 1)
+        total_height = sum(self._row_heights) + self.row_gap * (self.rows - 1)
+
+        # Add padding and margins
+        min_width = total_width + 2 * self.padding + margin_left + margin_right
+        min_height = total_height + 2 * self.padding + margin_top + margin_bottom
+
+        # Apply fixed size specs
+        if self.width_spec.is_fixed:
+            min_width = self.width_spec.value
+            preferred_width = self.width_spec.value
+        else:
+            preferred_width = min_width
+
+        if self.height_spec.is_fixed:
+            min_height = self.height_spec.value
+            preferred_height = self.height_spec.value
+        else:
+            preferred_height = min_height
+
+        self.constraints = SizeConstraints(
+            min_width=min_width,
+            min_height=min_height,
+            preferred_width=preferred_width,
+            preferred_height=preferred_height,
+        )
+        return self.constraints
+
+    def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
+        """Assign bounds to grid and position children in cells.
+
+        Parameters
+        ----------
+        x : int
+            X position
+        y : int
+            Y position
+        width : int
+            Assigned width
+        height : int
+            Assigned height
+        """
+        self.bounds = Bounds(x=x, y=y, width=width, height=height)
+
+        if not self.children:
+            return
+
+        margin_top, margin_right, margin_bottom, margin_left = self.margin
+
+        # Calculate content area
+        content_x = x + margin_left + self.padding
+        content_y = y + margin_top + self.padding
+
+        # Calculate row Y positions
+        row_y_positions = [0] * self.rows
+        current_y = content_y
+        for r in range(self.rows):
+            row_y_positions[r] = current_y
+            current_y += self._row_heights[r] + self.row_gap
+
+        # Calculate column X positions
+        col_x_positions = [0] * self.cols
+        current_x = content_x
+        for c in range(self.cols):
+            col_x_positions[c] = current_x
+            current_x += self._col_widths[c] + self.col_gap
+
+        # Assign bounds to each child based on its cell position and span
+        for child, cell in self._children_placed:
+            cell_x = col_x_positions[cell.col]
+            cell_y = row_y_positions[cell.row]
+
+            # Calculate spanned width (sum of columns + gaps)
+            cell_width = sum(
+                self._col_widths[c] for c in range(cell.col, cell.col + cell.colspan)
+            )
+            cell_width += self.col_gap * (cell.colspan - 1)
+
+            # Calculate spanned height (sum of rows + gaps)
+            cell_height = sum(
+                self._row_heights[r] for r in range(cell.row, cell.row + cell.rowspan)
+            )
+            cell_height += self.row_gap * (cell.rowspan - 1)
+
+            # Apply alignment within cell
+            child_width = cell_width
+            child_height = cell_height
+            child_x = cell_x
+            child_y = cell_y
+
+            # Horizontal alignment
+            if self.align_h != "stretch" and child.constraints:
+                child_width = min(child.constraints.preferred_width, cell_width)
+                if self.align_h == "center":
+                    child_x = cell_x + (cell_width - child_width) // 2
+                elif self.align_h == "right":
+                    child_x = cell_x + (cell_width - child_width)
+
+            # Vertical alignment
+            if self.align_v != "stretch" and child.constraints:
+                child_height = min(child.constraints.preferred_height, cell_height)
+                if self.align_v == "middle":
+                    child_y = cell_y + (cell_height - child_height) // 2
+                elif self.align_v == "bottom":
+                    child_y = cell_y + (cell_height - child_height)
+
+            child.assign_bounds(child_x, child_y, child_width, child_height)
+
+    def collect_elements(self) -> list[Element]:
+        """Collect all elements from children.
+
+        Returns
+        -------
+        list of Element
+            All elements in the subtree
+
+        Notes
+        -----
+        Iterates through the children list (which may contain GridSpanWrapper),
+        collecting elements from each.
+        """
+        elements = []
+        for child in self.children:
+            elements.extend(child.collect_elements())
+        return elements
+
+
 class FrameNode(Container):
     """Frame container node that wraps Frame objects with children.
 

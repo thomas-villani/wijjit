@@ -1135,3 +1135,321 @@ class TestNestedScrollableFrames:
         parent = text_elements[0].parent_frame
         assert parent is not None
         assert parent.id == "scrollable_inner"
+
+
+class TestGrid:
+    """Tests for Grid container."""
+
+    def test_simple_2x2_grid(self):
+        """Test 2x2 grid with 4 children.
+
+        Verifies
+        --------
+        - Width = sum of column widths
+        - Height = sum of row heights
+        """
+        from wijjit.layout.engine import Grid
+
+        children = [ElementNode(MockElement(width=10, height=3)) for _ in range(4)]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Each column is 10 wide, so total = 10 + 10 = 20
+        # Each row is 3 high, so total = 3 + 3 = 6
+        assert constraints.preferred_width == 20
+        assert constraints.preferred_height == 6
+
+    def test_grid_with_gaps(self):
+        """Test grid with row and column gaps.
+
+        Verifies
+        --------
+        - row_gap adds vertical space between rows
+        - col_gap adds horizontal space between columns
+        """
+        from wijjit.layout.engine import Grid
+
+        children = [ElementNode(MockElement(width=10, height=3)) for _ in range(4)]
+        grid = Grid(rows=2, cols=2, row_gap=2, col_gap=3, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Width = 10 + 3 (gap) + 10 = 23
+        # Height = 3 + 2 (gap) + 3 = 8
+        assert constraints.preferred_width == 23
+        assert constraints.preferred_height == 8
+
+    def test_grid_auto_sizing_columns(self):
+        """Test columns auto-size to largest content.
+
+        Verifies
+        --------
+        - Each column width matches its widest child
+        """
+        from wijjit.layout.engine import Grid
+
+        # Column 0 has wider content
+        children = [
+            ElementNode(MockElement(width=20, height=2)),  # (0,0) wide
+            ElementNode(MockElement(width=10, height=2)),  # (0,1)
+            ElementNode(MockElement(width=5, height=2)),  # (1,0)
+            ElementNode(MockElement(width=10, height=2)),  # (1,1)
+        ]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Col 0: max(20, 5) = 20
+        # Col 1: max(10, 10) = 10
+        # Total width = 20 + 10 = 30
+        assert constraints.preferred_width == 30
+
+    def test_grid_auto_sizing_rows(self):
+        """Test rows auto-size to tallest content.
+
+        Verifies
+        --------
+        - Each row height matches its tallest child
+        """
+        from wijjit.layout.engine import Grid
+
+        # Row 0 has taller content
+        children = [
+            ElementNode(MockElement(width=10, height=5)),  # (0,0) tall
+            ElementNode(MockElement(width=10, height=2)),  # (0,1)
+            ElementNode(MockElement(width=10, height=2)),  # (1,0)
+            ElementNode(MockElement(width=10, height=3)),  # (1,1)
+        ]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Row 0: max(5, 2) = 5
+        # Row 1: max(2, 3) = 3
+        # Total height = 5 + 3 = 8
+        assert constraints.preferred_height == 8
+
+    def test_grid_position_children(self):
+        """Test children are positioned in grid cells.
+
+        Verifies
+        --------
+        - Children are placed at correct x,y positions
+        """
+        from wijjit.layout.engine import Grid
+
+        children = [
+            ElementNode(MockElement(width=10, height=5)),  # (0,0)
+            ElementNode(MockElement(width=10, height=5)),  # (0,1)
+            ElementNode(MockElement(width=10, height=5)),  # (1,0)
+            ElementNode(MockElement(width=10, height=5)),  # (1,1)
+        ]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        grid.calculate_constraints()
+        grid.assign_bounds(0, 0, 40, 20)
+
+        # Check positions
+        assert children[0].bounds.x == 0
+        assert children[0].bounds.y == 0
+        assert children[1].bounds.x == 10
+        assert children[1].bounds.y == 0
+        assert children[2].bounds.x == 0
+        assert children[2].bounds.y == 5
+        assert children[3].bounds.x == 10
+        assert children[3].bounds.y == 5
+
+    def test_grid_overflow_raises_error(self):
+        """Test grid raises error when too many children.
+
+        Verifies
+        --------
+        - ValueError raised with "Grid overflow" message
+        """
+        import pytest
+
+        from wijjit.layout.engine import Grid
+
+        children = [
+            ElementNode(MockElement(width=10, height=3))
+            for _ in range(5)  # 5 children for 2x2 grid
+        ]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        with pytest.raises(ValueError, match="Grid overflow"):
+            grid.calculate_constraints()
+
+    def test_grid_underflow_raises_error(self):
+        """Test grid raises error when too few children.
+
+        Verifies
+        --------
+        - ValueError raised with "Grid underflow" message
+        """
+        import pytest
+
+        from wijjit.layout.engine import Grid
+
+        children = [
+            ElementNode(MockElement(width=10, height=3))
+            for _ in range(3)  # 3 children for 2x2 grid
+        ]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        with pytest.raises(ValueError, match="Grid underflow"):
+            grid.calculate_constraints()
+
+    def test_grid_with_colspan(self):
+        """Test grid with colspan wrapper.
+
+        Verifies
+        --------
+        - Colspan child spans multiple columns
+        - Remaining columns are filled correctly
+        """
+        from wijjit.layout.engine import Grid, GridSpanWrapper
+
+        wide_child = GridSpanWrapper(
+            ElementNode(MockElement(width=25, height=3)),
+            colspan=2,
+        )
+        children = [
+            wide_child,  # (0,0)-(0,1) spans 2 cols
+            ElementNode(MockElement(width=10, height=3)),  # (0,2)
+            ElementNode(MockElement(width=10, height=3)),  # (1,0)
+            ElementNode(MockElement(width=10, height=3)),  # (1,1)
+            ElementNode(MockElement(width=10, height=3)),  # (1,2)
+        ]
+        grid = Grid(rows=2, cols=3, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Spanning child needs 25 width across 2 columns
+        # That's at least 12.5 per column (rounds to 13 + 12)
+        # Plus normal column 2 with 10
+        # Total width should be at least 25 + 10 = 35
+        assert constraints.preferred_width >= 35
+        assert constraints.preferred_height == 6  # 3 + 3
+
+    def test_grid_with_rowspan(self):
+        """Test grid with rowspan wrapper.
+
+        Verifies
+        --------
+        - Rowspan child spans multiple rows
+        - Remaining rows are filled correctly
+        """
+        from wijjit.layout.engine import Grid, GridSpanWrapper
+
+        tall_child = GridSpanWrapper(
+            ElementNode(MockElement(width=10, height=10)),
+            rowspan=2,
+        )
+        children = [
+            tall_child,  # (0,0)-(1,0) spans 2 rows
+            ElementNode(MockElement(width=10, height=3)),  # (0,1)
+            ElementNode(MockElement(width=10, height=3)),  # (1,1)
+        ]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Spanning child needs 10 height across 2 rows
+        # That's at least 5 per row
+        # Other cells have height 3, so rows might be 5+5=10
+        assert constraints.preferred_height >= 10
+        assert constraints.preferred_width == 20  # 10 + 10
+
+    def test_grid_with_padding(self):
+        """Test grid with padding.
+
+        Verifies
+        --------
+        - Padding is added to total size
+        """
+        from wijjit.layout.engine import Grid
+
+        children = [ElementNode(MockElement(width=10, height=3)) for _ in range(4)]
+        grid = Grid(rows=2, cols=2, padding=2, children=children)
+
+        constraints = grid.calculate_constraints()
+
+        # Base: 20 x 6
+        # With padding=2: 20 + 4 = 24, 6 + 4 = 10
+        assert constraints.preferred_width == 24
+        assert constraints.preferred_height == 10
+
+    def test_grid_collect_elements(self):
+        """Test that grid collects all child elements.
+
+        Verifies
+        --------
+        - All elements from children are collected
+        """
+        from wijjit.layout.engine import Grid
+
+        children = [ElementNode(MockElement(width=10, height=3)) for _ in range(4)]
+        grid = Grid(rows=2, cols=2, children=children)
+
+        elements = grid.collect_elements()
+
+        assert len(elements) == 4
+
+
+class TestGridSpanWrapper:
+    """Tests for GridSpanWrapper."""
+
+    def test_span_wrapper_delegates_constraints(self):
+        """Test that wrapper delegates to wrapped child.
+
+        Verifies
+        --------
+        - Constraints come from wrapped child
+        """
+        from wijjit.layout.engine import GridSpanWrapper
+
+        child = ElementNode(MockElement(width=15, height=5))
+        wrapper = GridSpanWrapper(child, colspan=2)
+
+        constraints = wrapper.calculate_constraints()
+
+        assert constraints.preferred_width == 15
+        assert constraints.preferred_height == 5
+
+    def test_span_wrapper_delegates_bounds(self):
+        """Test that wrapper delegates bounds to child.
+
+        Verifies
+        --------
+        - Bounds are passed to wrapped child
+        """
+        from wijjit.layout.engine import GridSpanWrapper
+
+        child = ElementNode(MockElement(width=15, height=5))
+        wrapper = GridSpanWrapper(child, colspan=2)
+
+        wrapper.calculate_constraints()
+        wrapper.assign_bounds(10, 20, 30, 10)
+
+        assert child.bounds is not None
+        assert child.bounds.x == 10
+        assert child.bounds.y == 20
+        assert child.bounds.width == 30
+        assert child.bounds.height == 10
+
+    def test_span_wrapper_collects_elements(self):
+        """Test that wrapper collects elements from child.
+
+        Verifies
+        --------
+        - Elements from wrapped child are collected
+        """
+        from wijjit.layout.engine import GridSpanWrapper
+
+        child = ElementNode(MockElement(width=15, height=5))
+        wrapper = GridSpanWrapper(child, colspan=2)
+
+        elements = wrapper.collect_elements()
+
+        assert len(elements) == 1

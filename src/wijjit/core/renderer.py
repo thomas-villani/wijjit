@@ -74,9 +74,12 @@ from wijjit.tags.input import (
     TextInputExtension,
 )
 from wijjit.tags.layout import (
+    ColspanExtension,
     FrameExtension,
+    GridExtension,
     HStackExtension,
     LayoutContext,
+    RowspanExtension,
     VStackExtension,
 )
 from wijjit.tags.menu import (
@@ -147,6 +150,9 @@ class Renderer:
                 FrameExtension,
                 VStackExtension,
                 HStackExtension,
+                GridExtension,
+                ColspanExtension,
+                RowspanExtension,
                 TextInputExtension,
                 ButtonExtension,
                 CheckboxExtension,
@@ -592,6 +598,63 @@ class Renderer:
                 )
                 container.add_child(child_node)
             return container
+
+        elif vnode.type == "Grid":
+            from wijjit.layout.engine import Grid
+
+            props = vnode.props_dict()
+
+            container = Grid(
+                rows=props.get("rows", 2),
+                cols=props.get("cols", 2),
+                row_gap=props.get("row_gap", 0),
+                col_gap=props.get("col_gap", 0),
+                width=layout_spec.width or "fill",
+                height=layout_spec.height or "auto",
+                padding=layout_spec.padding or 0,
+                margin=layout_spec.margin or 0,
+                align_h=layout_spec.align_h or "stretch",
+                align_v=layout_spec.align_v or "stretch",
+            )
+            for child_vnode in vnode.children:
+                child_node = self._build_layout_tree_from_vnode(
+                    child_vnode,
+                    reconciled_map,
+                    state_dict,
+                    root_frame_found=root_frame_found,
+                )
+                container.add_child(child_node)
+            return container
+
+        elif vnode.type == "GridSpanWrapper":
+            from wijjit.layout.engine import GridSpanWrapper
+
+            props = vnode.props_dict()
+
+            # GridSpanWrapper should have exactly one child
+            if vnode.children:
+                child_node = self._build_layout_tree_from_vnode(
+                    vnode.children[0],
+                    reconciled_map,
+                    state_dict,
+                    root_frame_found=root_frame_found,
+                )
+                return GridSpanWrapper(
+                    child=child_node,
+                    colspan=props.get("colspan", 1),
+                    rowspan=props.get("rowspan", 1),
+                )
+            else:
+                # No child - create placeholder
+                from wijjit.elements.base import TextElement
+                from wijjit.layout.engine import ElementNode
+
+                placeholder = TextElement(text="[Empty span]")
+                return GridSpanWrapper(
+                    child=ElementNode(placeholder),
+                    colspan=props.get("colspan", 1),
+                    rowspan=props.get("rowspan", 1),
+                )
 
         elif vnode.type == "Frame":
             # Frame needs layout dimensions to be created
