@@ -216,3 +216,134 @@ class TestContainer:
     # NOTE: Container rendering tests removed - in cell-based rendering,
     # containers don't render themselves. They're logical groupings, and
     # the layout system handles child rendering.
+
+
+class TestElementMouseCallbacks:
+    """Tests for Element mouse event callbacks."""
+
+    @pytest.mark.asyncio
+    async def test_on_double_click_callback(self):
+        """Test on_double_click callback is invoked on double-click."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        elem = TestElement()
+        elem.set_bounds(Bounds(0, 0, 20, 5))
+
+        callback_called = []
+
+        def on_double_click(event):
+            callback_called.append(event)
+
+        elem.on_double_click = on_double_click
+
+        event = MouseEvent(
+            type=MouseEventType.DOUBLE_CLICK, button=MouseButton.LEFT, x=5, y=2
+        )
+
+        result = await elem.handle_mouse(event)
+        assert result is True
+        assert len(callback_called) == 1
+        assert callback_called[0] == event
+
+    @pytest.mark.asyncio
+    async def test_on_double_click_not_called_for_single_click(self):
+        """Test on_double_click is not called for single clicks."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        elem = TestElement()
+        callback_called = []
+        elem.on_double_click = lambda e: callback_called.append(e)
+
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=2)
+
+        result = await elem.handle_mouse(event)
+        assert result is False
+        assert len(callback_called) == 0
+
+    @pytest.mark.asyncio
+    async def test_on_context_menu_callback(self):
+        """Test on_context_menu callback is invoked on right-click."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        elem = TestElement()
+        callback_called = []
+
+        def on_context_menu(event):
+            callback_called.append(event)
+            return [{"label": "Test Item"}]
+
+        elem.on_context_menu = on_context_menu
+
+        event = MouseEvent(
+            type=MouseEventType.CLICK, button=MouseButton.RIGHT, x=5, y=2
+        )
+
+        result = await elem.handle_mouse(event)
+        assert result is True
+        assert len(callback_called) == 1
+
+    @pytest.mark.asyncio
+    async def test_on_context_menu_not_called_for_left_click(self):
+        """Test on_context_menu is not called for left clicks."""
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        elem = TestElement()
+        callback_called = []
+        elem.on_context_menu = lambda e: callback_called.append(e)
+
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=2)
+
+        result = await elem.handle_mouse(event)
+        assert result is False
+        assert len(callback_called) == 0
+
+
+class TestElementDragDropCallbacks:
+    """Tests for Element drag-and-drop callbacks."""
+
+    def test_draggable_default_false(self):
+        """Test elements are not draggable by default."""
+        elem = TestElement()
+        assert elem.draggable is False
+
+    def test_drop_target_default_false(self):
+        """Test elements are not drop targets by default."""
+        elem = TestElement()
+        assert elem.drop_target is False
+
+    def test_drag_callbacks_exist(self):
+        """Test drag callback attributes exist and are None by default."""
+        elem = TestElement()
+        assert elem.on_drag_start is None
+        assert elem.on_drag is None
+        assert elem.on_drag_end is None
+        assert elem.on_drag_over is None
+        assert elem.on_drop is None
+
+    def test_can_set_draggable(self):
+        """Test setting draggable flag."""
+        elem = TestElement()
+        elem.draggable = True
+        assert elem.draggable is True
+
+    def test_can_set_drop_target(self):
+        """Test setting drop_target flag."""
+        elem = TestElement()
+        elem.drop_target = True
+        assert elem.drop_target is True
+
+    def test_can_set_drag_callbacks(self):
+        """Test setting drag callback functions."""
+        elem = TestElement()
+
+        elem.on_drag_start = lambda e: {"item": "test"}
+        elem.on_drag = lambda e, d: None
+        elem.on_drag_end = lambda e, d, dropped: None
+        elem.on_drag_over = lambda e, d: True
+        elem.on_drop = lambda e, d, src: True
+
+        assert elem.on_drag_start is not None
+        assert elem.on_drag is not None
+        assert elem.on_drag_end is not None
+        assert elem.on_drag_over is not None
+        assert elem.on_drop is not None

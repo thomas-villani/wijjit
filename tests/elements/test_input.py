@@ -704,3 +704,160 @@ class TestSelect:
         )
         assert select.width == 30
         assert select.visible_rows == 2
+
+
+class TestTextInputCallbacks:
+    """Tests for TextInput event callbacks."""
+
+    def test_on_submit_callback(self):
+        """Test on_submit callback is invoked on Enter key."""
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput(value="test value")
+        callback_calls = []
+
+        def on_submit(value):
+            callback_calls.append(value)
+
+        inp.on_submit = on_submit
+
+        result = inp.handle_key(Keys.ENTER)
+
+        assert result is True
+        assert len(callback_calls) == 1
+        assert callback_calls[0] == "test value"
+
+    def test_on_submit_and_on_action_both_called(self):
+        """Test both on_submit and on_action are called on Enter."""
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput(value="hello")
+        submit_calls = []
+        action_calls = []
+
+        inp.on_submit = lambda v: submit_calls.append(v)
+        inp.on_action = lambda: action_calls.append(True)
+
+        inp.handle_key(Keys.ENTER)
+
+        assert len(submit_calls) == 1
+        assert len(action_calls) == 1
+
+    def test_on_paste_callback(self):
+        """Test on_paste callback allows modifying pasted text."""
+        from unittest.mock import patch
+
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput(value="")
+        paste_calls = []
+
+        def on_paste(text):
+            paste_calls.append(text)
+            return text.upper()  # Modify to uppercase
+
+        inp.on_paste = on_paste
+
+        # Mock the clipboard method to return our test value
+        with patch.object(inp, "_get_clipboard_text", return_value="hello"):
+            from wijjit.terminal.input import Key, KeyType
+
+            ctrl_v = Key("ctrl+v", KeyType.CONTROL, "\x16")
+            inp.handle_key(ctrl_v)
+
+        # Check callback was called and text was modified
+        assert len(paste_calls) == 1
+        assert paste_calls[0] == "hello"
+        assert inp.value == "HELLO"
+
+    def test_on_file_path_paste_callback(self):
+        """Test on_file_path_paste detects file paths."""
+        from unittest.mock import patch
+
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput(value="")
+        path_calls = []
+
+        def on_file_path_paste(paths):
+            path_calls.append(paths)
+            return True  # Prevent paste
+
+        inp.on_file_path_paste = on_file_path_paste
+
+        # Mock the clipboard method to return a Windows-style path
+        with patch.object(
+            inp, "_get_clipboard_text", return_value="C:\\path\\to\\file.txt"
+        ):
+            from wijjit.terminal.input import Key, KeyType
+
+            ctrl_v = Key("ctrl+v", KeyType.CONTROL, "\x16")
+            result = inp.handle_key(ctrl_v)
+
+        assert result is True
+        assert len(path_calls) == 1
+        assert "C:\\path\\to\\file.txt" in path_calls[0]
+        # Value should be unchanged since callback returned True
+        assert inp.value == ""
+
+    def test_detect_file_paths_unix(self):
+        """Test file path detection for Unix-style paths."""
+        import sys
+
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput()
+
+        # Tilde path (works cross-platform)
+        paths = inp._detect_file_paths("~/documents/file.txt")
+        assert "~/documents/file.txt" in paths
+
+        # Relative paths (work cross-platform)
+        paths = inp._detect_file_paths("./local/file.txt")
+        assert "./local/file.txt" in paths
+
+        paths = inp._detect_file_paths("../parent/file.txt")
+        assert "../parent/file.txt" in paths
+
+        # Absolute Unix path - only test on non-Windows
+        if sys.platform != "win32":
+            paths = inp._detect_file_paths("/home/user/file.txt")
+            assert "/home/user/file.txt" in paths
+
+    def test_detect_file_paths_windows(self):
+        """Test file path detection for Windows paths."""
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput()
+
+        # Windows drive path
+        paths = inp._detect_file_paths("C:\\Users\\name\\file.txt")
+        assert "C:\\Users\\name\\file.txt" in paths
+
+        # UNC path
+        paths = inp._detect_file_paths("\\\\server\\share\\file.txt")
+        assert "\\\\server\\share\\file.txt" in paths
+
+    def test_detect_file_paths_not_a_path(self):
+        """Test file path detection ignores non-path text."""
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput()
+
+        # Regular text
+        paths = inp._detect_file_paths("hello world")
+        assert len(paths) == 0
+
+        # URL-like (not a file path)
+        paths = inp._detect_file_paths("http://example.com")
+        assert len(paths) == 0
+
+    def test_callbacks_default_to_none(self):
+        """Test that callbacks default to None."""
+        from wijjit.elements.input.text import TextInput
+
+        inp = TextInput()
+
+        assert inp.on_submit is None
+        assert inp.on_paste is None
+        assert inp.on_file_path_paste is None

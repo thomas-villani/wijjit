@@ -25,7 +25,6 @@ import tinycss2
 
 from wijjit.styling.style import Style, parse_color
 
-
 # CSS property to Wijjit Style attribute mapping
 CSS_PROPERTY_MAP: dict[str, str] = {
     "color": "fg_color",

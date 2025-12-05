@@ -119,10 +119,59 @@ class TextInput(Element):
             None  # (old_value, new_value)
         )
         self.on_action: Callable[[], None] | None = None  # Called on Enter
+        self.on_submit: Callable[[str], None] | None = None  # (value) on Enter
+        self.on_paste: Callable[[str], str | None] | None = (
+            None  # (text) -> modified_text or None to use original
+        )
+        self.on_file_path_paste: Callable[[list[str]], bool] | None = (
+            None  # (paths) -> True to prevent paste, False to allow
+        )
 
         # Action ID and bind settings (set by template extension)
         self.action: str | None = None
         self.bind: bool = True
+
+    def _detect_file_paths(self, text: str) -> list[str]:
+        """Detect file paths in pasted text.
+
+        Parameters
+        ----------
+        text : str
+            Pasted text to check
+
+        Returns
+        -------
+        list of str
+            Detected file paths, empty list if none detected
+        """
+        import os
+        import re
+
+        paths = []
+        # Split by newlines and common delimiters
+        candidates = re.split(r"[\n\r]+", text.strip())
+
+        for candidate in candidates:
+            candidate = candidate.strip().strip('"').strip("'")
+            if not candidate:
+                continue
+
+            # Check for common file path patterns
+            # Windows: C:\..., \\server\..., etc.
+            # Unix: /..., ~/..., ./..., etc.
+            is_path = (
+                os.path.isabs(candidate)
+                or candidate.startswith("~")
+                or candidate.startswith("./")
+                or candidate.startswith("../")
+                or re.match(r"^[A-Za-z]:\\", candidate)  # Windows drive
+                or candidate.startswith("\\\\")  # UNC path
+            )
+
+            if is_path:
+                paths.append(candidate)
+
+        return paths
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
@@ -139,8 +188,10 @@ class TextInput(Element):
         """
         old_value = self.value
 
-        # Enter key - trigger action
+        # Enter key - trigger action/submit
         if key == Keys.ENTER:
+            if self.on_submit:
+                self.on_submit(self.value)
             if self.on_action:
                 self.on_action()
             return True
@@ -199,7 +250,67 @@ class TextInput(Element):
             self.cursor_pos = len(self.value)
             return True
 
+        # Ctrl+V - Paste
+        elif key.name == "ctrl+v":
+            clipboard_text = self._get_clipboard_text()
+            if clipboard_text:
+                # Check for file paths and call callback if detected
+                if self.on_file_path_paste:
+                    file_paths = self._detect_file_paths(clipboard_text)
+                    if file_paths:
+                        # Callback returns True to prevent paste
+                        if self.on_file_path_paste(file_paths):
+                            return True
+
+                # Call on_paste callback to allow modification
+                if self.on_paste:
+                    modified = self.on_paste(clipboard_text)
+                    if modified is not None:
+                        clipboard_text = modified
+
+                # Remove newlines for single-line input
+                clipboard_text = clipboard_text.replace("\r\n", " ").replace("\n", " ")
+
+                # Check max_length constraint
+                if self.max_length is not None:
+                    available = self.max_length - len(self.value)
+                    clipboard_text = clipboard_text[:available]
+
+                if clipboard_text:
+                    # Insert at cursor position
+                    self.value = (
+                        self.value[: self.cursor_pos]
+                        + clipboard_text
+                        + self.value[self.cursor_pos :]
+                    )
+                    self.cursor_pos += len(clipboard_text)
+                    self._emit_change(old_value, self.value)
+                    return True
+
         return False
+
+    def _get_clipboard_text(self) -> str:
+        """Get text from system clipboard.
+
+        Returns
+        -------
+        str
+            Clipboard text, or empty string if unavailable
+        """
+        global _FALLBACK_CLIPBOARD
+
+        try:
+            import pyperclip
+
+            text = pyperclip.paste()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        # Fall back to internal clipboard
+        with _CLIPBOARD_LOCK:
+            return _FALLBACK_CLIPBOARD
 
     async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
@@ -579,6 +690,13 @@ class TextArea(Element):
         # Callbacks
         self.on_change: Callable[[str, str], None] | None = None
         self.on_action: Callable[[], None] | None = None
+        self.on_submit: Callable[[str], None] | None = None  # (value) on Ctrl+Enter
+        self.on_paste: Callable[[str], str | None] | None = (
+            None  # (text) -> modified_text or None to use original
+        )
+        self.on_file_path_paste: Callable[[list[str]], bool] | None = (
+            None  # (paths) -> True to prevent paste, False to allow
+        )
         self.on_scroll_x: Callable[[int], None] | None = None
 
         # Action settings (set by template extension)
@@ -937,6 +1055,14 @@ class TextArea(Element):
             if handled:
                 self._emit_change(old_value, self.get_value())
             return handled
+
+        # Ctrl+Enter - submit (trigger action without inserting newline)
+        elif key.name == "ctrl+enter":
+            if self.on_submit:
+                self.on_submit(self.get_value())
+            if self.on_action:
+                self.on_action()
+            return True
 
         # Enter key - replaces selection or creates new line
         elif key == Keys.ENTER:
@@ -2076,6 +2202,48 @@ class TextArea(Element):
         with _CLIPBOARD_LOCK:
             return _FALLBACK_CLIPBOARD
 
+    def _detect_file_paths(self, text: str) -> list[str]:
+        """Detect file paths in pasted text.
+
+        Parameters
+        ----------
+        text : str
+            Pasted text to check
+
+        Returns
+        -------
+        list of str
+            Detected file paths, empty list if none detected
+        """
+        import os
+        import re
+
+        paths = []
+        # Split by newlines and common delimiters
+        candidates = re.split(r"[\n\r]+", text.strip())
+
+        for candidate in candidates:
+            candidate = candidate.strip().strip('"').strip("'")
+            if not candidate:
+                continue
+
+            # Check for common file path patterns
+            # Windows: C:\..., \\server\..., etc.
+            # Unix: /..., ~/..., ./..., etc.
+            is_path = (
+                os.path.isabs(candidate)
+                or candidate.startswith("~")
+                or candidate.startswith("./")
+                or candidate.startswith("../")
+                or re.match(r"^[A-Za-z]:\\", candidate)  # Windows drive
+                or candidate.startswith("\\\\")  # UNC path
+            )
+
+            if is_path:
+                paths.append(candidate)
+
+        return paths
+
     def _copy_selection(self) -> bool:
         """Copy selected text to clipboard.
 
@@ -2118,10 +2286,27 @@ class TextArea(Element):
         Notes
         -----
         Replaces selection if one exists, otherwise inserts at cursor.
+        Calls on_paste callback if set, allowing modification of pasted text.
         """
         clipboard_text = self._paste_from_clipboard()
         if not clipboard_text:
             return False
+
+        # Check for file paths and call callback if detected
+        if self.on_file_path_paste:
+            file_paths = self._detect_file_paths(clipboard_text)
+            if file_paths:
+                # Callback returns True to prevent paste
+                if self.on_file_path_paste(file_paths):
+                    return True
+
+        # Call on_paste callback to allow modification
+        if self.on_paste:
+            modified = self.on_paste(clipboard_text)
+            if modified is not None:
+                clipboard_text = modified
+            if not clipboard_text:
+                return False
 
         # Delete selection if exists
         if self._has_selection():

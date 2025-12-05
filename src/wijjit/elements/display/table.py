@@ -88,6 +88,16 @@ class Table(ScrollableElement):
         Sort direction ("asc" or "desc")
     scroll_manager : ScrollManager
         Manages scrolling of table rows
+    on_sort : callable or None
+        Callback when sort changes. Signature: on_sort(column_key, direction) -> None
+    on_row_click : callable or None
+        Callback when a row is clicked. Signature: on_row_click(row_index, row_data) -> None
+    on_row_double_click : callable or None
+        Callback when a row is double-clicked. Signature: on_row_double_click(row_index, row_data) -> None
+    on_cell_click : callable or None
+        Callback when a cell is clicked. Signature: on_cell_click(row_index, column_key, cell_value) -> None
+    on_header_click : callable or None
+        Callback when a column header is clicked. Signature: on_header_click(column_key) -> None
     """
 
     def __init__(
@@ -150,6 +160,16 @@ class Table(ScrollableElement):
         self.on_sort: Callable[[str | None, str], None] | None = (
             None  # (column, direction)
         )
+        self.on_row_click: Callable[[int, dict], None] | None = (
+            None  # (row_index, row_data)
+        )
+        self.on_row_double_click: Callable[[int, dict], None] | None = (
+            None  # (row_index, row_data)
+        )
+        self.on_cell_click: Callable[[int, str, str], None] | None = (
+            None  # (row_index, column_key, cell_value)
+        )
+        self.on_header_click: Callable[[str], None] | None = None  # (column_key)
 
         # Template metadata
         self.action: str | None = None
@@ -440,24 +460,119 @@ class Table(ScrollableElement):
                 return True
             return False
 
-        # Handle clicks on header for sorting
-        if event.type == MouseEventType.CLICK:
-            if not self.bounds or not self.sortable:
-                return False
+        if not self.bounds:
+            return await super().handle_mouse(event)
 
-            # relative_x = event.x - self.bounds.x
-            relative_y = event.y - self.bounds.y
+        relative_x = event.x - self.bounds.x
+        relative_y = event.y - self.bounds.y
 
-            # Check if click is on header
-            if self.show_header and relative_y == 0:
-                # Determine which column was clicked
-                # This is a simplified version - will refine with actual column positions
-                # For now, just toggle sort on first column
-                if self.columns:
-                    self.sort_by_column(self.columns[0]["key"])
-                return True
+        # Determine click location within table structure
+        # Rich table structure (with header):
+        # Row 0: top border
+        # Row 1: header row
+        # Row 2: header separator
+        # Row 3+: data rows
+        # Last row: bottom border
+        header_offset = 3 if self.show_header else 1  # After top border
 
-        return False
+        # Handle clicks and double-clicks
+        if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+            is_double = event.type == MouseEventType.DOUBLE_CLICK
+
+            # Check if click is on header (row 1 with header shown)
+            if self.show_header and relative_y == 1:
+                column_key = self._get_column_at_x(relative_x)
+                if column_key:
+                    # Fire header click callback
+                    if self.on_header_click:
+                        self.on_header_click(column_key)
+
+                    # Also trigger sort if sortable
+                    if self.sortable:
+                        self.sort_by_column(column_key)
+                    return True
+
+            # Check if click is on a data row
+            data_row_index = relative_y - header_offset
+            if data_row_index >= 0:
+                # Convert to actual data index (accounting for scroll)
+                actual_row_index = (
+                    self.scroll_manager.state.scroll_position + data_row_index
+                )
+
+                # Validate row index is within data bounds
+                if 0 <= actual_row_index < len(self.data):
+                    row_data = self.data[actual_row_index]
+
+                    # Handle double-click
+                    if is_double:
+                        if self.on_row_double_click:
+                            self.on_row_double_click(actual_row_index, row_data)
+                        return True
+
+                    # Handle single click
+                    if self.on_row_click:
+                        self.on_row_click(actual_row_index, row_data)
+
+                    # Handle cell click
+                    if self.on_cell_click:
+                        column_key = self._get_column_at_x(relative_x)
+                        if column_key:
+                            cell_value = str(row_data.get(column_key, ""))
+                            self.on_cell_click(actual_row_index, column_key, cell_value)
+
+                    return True
+
+        # Fall back to base class for on_double_click/on_context_menu
+        return await super().handle_mouse(event)
+
+    def _get_column_at_x(self, x: int) -> str | None:
+        """Determine which column is at the given x position.
+
+        Parameters
+        ----------
+        x : int
+            X position relative to table bounds
+
+        Returns
+        -------
+        str or None
+            Column key at position, or None if outside columns
+        """
+        if not self.columns:
+            return None
+
+        # Account for left border (1 char)
+        content_x = x - 1
+        if content_x < 0:
+            return None
+
+        # Calculate column widths
+        # If no explicit widths, distribute evenly
+        needs_scrollbar = (
+            self.show_scrollbar and self.scroll_manager.state.is_scrollable
+        )
+        available_width = self.width - 2  # Minus borders
+        if needs_scrollbar:
+            available_width -= 1
+
+        # Padding between columns (Rich uses 1 space padding on each side)
+        padding_per_col = 2
+        total_padding = padding_per_col * len(self.columns)
+        content_width = available_width - total_padding
+
+        # Calculate per-column width (simplified: equal distribution)
+        col_width = max(1, content_width // len(self.columns))
+
+        # Find column at x position
+        current_x = 0
+        for col in self.columns:
+            col_total_width = col_width + padding_per_col
+            if current_x <= content_x < current_x + col_total_width:
+                return col["key"]
+            current_x += col_total_width
+
+        return None
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render table using cell-based rendering (NEW API).

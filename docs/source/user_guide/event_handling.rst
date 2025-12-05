@@ -111,6 +111,54 @@ Mouse events surface through :class:`wijjit.core.events.MouseEvent`. Typical pat
 
 For widget-level interactions (click a specific element), implement ``handle_mouse`` on the element or rely on built-in widgets (buttons, menus, scroll containers) which already handle mouse input.
 
+Element event callbacks
+-----------------------
+
+In addition to app-level handlers, elements expose callback attributes for direct event handling:
+
+**Base Element Callbacks** (all elements):
+
+* ``on_double_click(event: MouseEvent)`` – Called on double-click
+* ``on_context_menu(event: MouseEvent) -> list | None`` – Called on right-click, return menu items
+
+**Drag-and-Drop** (all elements, set ``draggable=True`` or ``drop_target=True`` to enable):
+
+* ``on_drag_start(event) -> data | None`` – Start drag, return data or None to cancel
+* ``on_drag(event, data)`` – Called during drag
+* ``on_drag_end(event, data, dropped)`` – Called when drag ends
+* ``on_drag_over(event, data) -> bool`` – Check if drop allowed
+* ``on_drop(event, data, source_element) -> bool`` – Handle drop
+
+**Table Callbacks**:
+
+* ``on_row_click(row_index, row_data)`` – Row clicked
+* ``on_row_double_click(row_index, row_data)`` – Row double-clicked
+* ``on_cell_click(row_index, column_key, value)`` – Cell clicked
+* ``on_header_click(column_key)`` – Column header clicked
+* ``on_sort(column_key, direction)`` – Sort changed
+
+**TextInput/TextArea Callbacks**:
+
+* ``on_change(old_value, new_value)`` – Value changed
+* ``on_submit(value)`` – Enter pressed (TextInput) or Ctrl+Enter (TextArea)
+* ``on_paste(text) -> str | None`` – Modify pasted text, return None to use original
+* ``on_file_path_paste(paths) -> bool`` – File paths detected in paste, return True to prevent
+
+Example:
+
+.. code-block:: python
+
+    from wijjit.elements.input.text import TextInput
+    from wijjit.elements.display.table import Table
+
+    # TextInput with submit handling
+    search = TextInput(id="search")
+    search.on_submit = lambda value: print(f"Search: {value}")
+
+    # Table with row selection
+    table = Table(data=data, columns=columns)
+    table.on_row_click = lambda idx, row: print(f"Selected: {row}")
+
 Asynchronous handlers
 ---------------------
 

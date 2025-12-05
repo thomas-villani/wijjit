@@ -225,6 +225,56 @@ def setup_handlers():
     app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
 ```
 
+### Element Event Callbacks
+
+In addition to app-level handlers, elements expose callback attributes for direct event handling:
+
+**Mouse Callbacks** (all elements):
+```python
+from wijjit.elements.display.table import Table
+
+# Double-click handling
+element.on_double_click = lambda event: print("Double-clicked!")
+
+# Context menu (right-click) - return menu items or None
+element.on_context_menu = lambda event: [{"label": "Copy"}, {"label": "Paste"}]
+```
+
+**Drag-and-Drop** (set `draggable=True` or `drop_target=True`):
+```python
+element.draggable = True
+element.on_drag_start = lambda event: {"item": "data"}  # Return drag data
+element.on_drag = lambda event, data: None  # Called during drag
+element.on_drag_end = lambda event, data, dropped: None  # Drag finished
+
+element.drop_target = True
+element.on_drag_over = lambda event, data: True  # Return True to allow drop
+element.on_drop = lambda event, data, source: handle_drop(data)  # Handle drop
+```
+
+**Table Callbacks**:
+```python
+table = Table(data=users, columns=["name", "email"])
+table.on_row_click = lambda row_idx, row_data: select_user(row_data)
+table.on_row_double_click = lambda row_idx, row_data: edit_user(row_data)
+table.on_cell_click = lambda row_idx, col_key, value: print(f"Clicked {col_key}")
+table.on_header_click = lambda col_key: sort_by(col_key)
+```
+
+**TextInput/TextArea Callbacks**:
+```python
+from wijjit.elements.input.text import TextInput, TextArea
+
+# Submit on Enter (TextInput) or Ctrl+Enter (TextArea)
+text_input.on_submit = lambda value: search(value)
+
+# Intercept paste - return modified text or None
+text_input.on_paste = lambda text: text.strip()
+
+# Detect file paths in paste (e.g., drag files to terminal)
+text_input.on_file_path_paste = lambda paths: handle_files(paths)
+```
+
 ### Layout System
 
 Wijjit provides flexible layout containers:
@@ -520,7 +570,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - Hot reload for templates
 - Visual debugger/inspector
 - Animation/transition support
-- Drag-and-drop
+- Drag-and-drop manager (callbacks defined, manager not yet implemented)
 - Virtual scrolling for large datasets
 - Plugin system
 

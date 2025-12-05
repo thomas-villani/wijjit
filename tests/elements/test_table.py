@@ -246,3 +246,136 @@ class TestTable:
 
         output = render_element(table, width=40, height=10)
         assert "No columns defined" in output
+
+
+class TestTableClickCallbacks:
+    """Tests for Table row, cell, and header click callbacks."""
+
+    @pytest.mark.asyncio
+    async def test_on_row_click_callback(self):
+        """Test on_row_click callback is invoked on row click."""
+        data = [
+            {"name": "Alice", "age": 30},
+            {"name": "Bob", "age": 25},
+        ]
+        table = Table(data=data, columns=["name", "age"], width=40, height=10)
+        table.set_bounds(Bounds(0, 0, 40, 10))
+
+        callback_calls = []
+
+        def on_row_click(row_index, row_data):
+            callback_calls.append((row_index, row_data))
+
+        table.on_row_click = on_row_click
+
+        # Click on first data row (row index 3 = top border + header + separator)
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=3)
+        result = await table.handle_mouse(event)
+
+        assert result is True
+        assert len(callback_calls) == 1
+        assert callback_calls[0][0] == 0  # First row
+        assert callback_calls[0][1]["name"] == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_on_row_double_click_callback(self):
+        """Test on_row_double_click callback is invoked on row double-click."""
+        data = [
+            {"name": "Alice", "age": 30},
+            {"name": "Bob", "age": 25},
+        ]
+        table = Table(data=data, columns=["name", "age"], width=40, height=10)
+        table.set_bounds(Bounds(0, 0, 40, 10))
+
+        callback_calls = []
+
+        def on_row_double_click(row_index, row_data):
+            callback_calls.append((row_index, row_data))
+
+        table.on_row_double_click = on_row_double_click
+
+        # Double-click on first data row
+        event = MouseEvent(
+            type=MouseEventType.DOUBLE_CLICK, button=MouseButton.LEFT, x=5, y=3
+        )
+        result = await table.handle_mouse(event)
+
+        assert result is True
+        assert len(callback_calls) == 1
+        assert callback_calls[0][0] == 0
+
+    @pytest.mark.asyncio
+    async def test_on_cell_click_callback(self):
+        """Test on_cell_click callback is invoked on cell click."""
+        data = [
+            {"name": "Alice", "age": 30},
+        ]
+        table = Table(data=data, columns=["name", "age"], width=40, height=10)
+        table.set_bounds(Bounds(0, 0, 40, 10))
+
+        callback_calls = []
+
+        def on_cell_click(row_index, column_key, cell_value):
+            callback_calls.append((row_index, column_key, cell_value))
+
+        table.on_cell_click = on_cell_click
+
+        # Click on first data row
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=3)
+        await table.handle_mouse(event)
+
+        assert len(callback_calls) == 1
+        assert callback_calls[0][0] == 0  # First row
+
+    @pytest.mark.asyncio
+    async def test_on_header_click_callback(self):
+        """Test on_header_click callback is invoked on header click."""
+        data = [{"name": "Alice", "age": 30}]
+        table = Table(data=data, columns=["name", "age"], width=40, height=10)
+        table.set_bounds(Bounds(0, 0, 40, 10))
+
+        callback_calls = []
+
+        def on_header_click(column_key):
+            callback_calls.append(column_key)
+
+        table.on_header_click = on_header_click
+
+        # Click on header row (row 1)
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=1)
+        result = await table.handle_mouse(event)
+
+        assert result is True
+        assert len(callback_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_on_header_click_triggers_sort_when_sortable(self):
+        """Test header click triggers sort when sortable is True."""
+        data = [
+            {"name": "Charlie", "age": 35},
+            {"name": "Alice", "age": 30},
+        ]
+        table = Table(
+            data=data, columns=["name", "age"], width=40, height=10, sortable=True
+        )
+        table.set_bounds(Bounds(0, 0, 40, 10))
+
+        header_clicks = []
+        table.on_header_click = lambda col: header_clicks.append(col)
+
+        # Click on header
+        event = MouseEvent(type=MouseEventType.CLICK, button=MouseButton.LEFT, x=5, y=1)
+        await table.handle_mouse(event)
+
+        assert len(header_clicks) == 1
+        # Sort should have been applied
+        assert table.sort_column is not None
+
+    def test_callbacks_default_to_none(self):
+        """Test that click callbacks default to None."""
+        table = Table(columns=["name", "age"])
+
+        assert table.on_row_click is None
+        assert table.on_row_double_click is None
+        assert table.on_cell_click is None
+        assert table.on_header_click is None

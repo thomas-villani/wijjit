@@ -35,7 +35,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 from wijjit.terminal.input import Key
-from wijjit.terminal.mouse import MouseEvent
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.layout.bounds import Bounds
@@ -80,6 +80,29 @@ class Element(ABC):
         Screen position and size
     element_type : ElementType
         Type of this element
+    on_double_click : callable or None
+        Callback for double-click events. Signature: on_double_click(event: MouseEvent) -> None
+    on_context_menu : callable or None
+        Callback for context menu (right-click) events. Return a list of menu items
+        to display, or None to use default behavior.
+        Signature: on_context_menu(event: MouseEvent) -> list | None
+    draggable : bool
+        Whether this element can be dragged (default: False)
+    drop_target : bool
+        Whether this element can receive drops (default: False)
+    on_drag_start : callable or None
+        Callback when drag starts. Return drag data to continue, None to cancel.
+        Signature: on_drag_start(event: MouseEvent) -> Any | None
+    on_drag : callable or None
+        Callback during drag. Signature: on_drag(event: MouseEvent, drag_data: Any) -> None
+    on_drag_end : callable or None
+        Callback when drag ends. Signature: on_drag_end(event: MouseEvent, drag_data: Any, dropped: bool) -> None
+    on_drag_over : callable or None
+        Callback to check if drop is allowed. Return True to allow.
+        Signature: on_drag_over(event: MouseEvent, drag_data: Any) -> bool
+    on_drop : callable or None
+        Callback when something is dropped on this element.
+        Signature: on_drop(event: MouseEvent, drag_data: Any, source_element: Element) -> bool
     """
 
     def __init__(
@@ -111,6 +134,29 @@ class Element(ABC):
         self._state_dict = None  # Reference to application state
         self._highlight_state_key: str | None = (
             None  # State key for highlight persistence
+        )
+
+        # Mouse event callbacks
+        self.on_double_click: Callable[[MouseEvent], None] | None = None
+        self.on_context_menu: Callable[[MouseEvent], list[Any] | None] | None = None
+
+        # Drag-and-drop callbacks
+        self.draggable: bool = False  # Whether element can be dragged
+        self.drop_target: bool = False  # Whether element can receive drops
+        self.on_drag_start: Callable[[MouseEvent], Any | None] | None = (
+            None  # (event) -> drag_data or None to cancel
+        )
+        self.on_drag: Callable[[MouseEvent, Any], None] | None = (
+            None  # (event, drag_data) - called during drag
+        )
+        self.on_drag_end: Callable[[MouseEvent, Any, bool], None] | None = (
+            None  # (event, drag_data, dropped) - called when drag ends
+        )
+        self.on_drag_over: Callable[[MouseEvent, Any], bool] | None = (
+            None  # (event, drag_data) -> True if can accept drop
+        )
+        self.on_drop: Callable[[MouseEvent, Any, Element], bool] | None = (
+            None  # (event, drag_data, source_element) -> True if handled
         )
 
     def _state_key(self, property_name: str) -> str | None:
@@ -408,7 +454,26 @@ class Element(ABC):
         This is an async method to support async operations during mouse handling
         (e.g., calling async APIs, awaiting async state updates). Subclasses
         should override this method for custom mouse handling.
+
+        The base implementation checks for double-click and context menu events
+        and invokes the corresponding callbacks if set. Subclasses that override
+        this method should call super().handle_mouse(event) to preserve this
+        behavior, or handle these events themselves.
         """
+        # Handle double-click callback
+        if event.type == MouseEventType.DOUBLE_CLICK and self.on_double_click:
+            self.on_double_click(event)
+            return True
+
+        # Handle context menu (right-click) callback
+        if (
+            event.type == MouseEventType.CLICK
+            and event.button == MouseButton.RIGHT
+            and self.on_context_menu
+        ):
+            self.on_context_menu(event)
+            return True
+
         return False
 
     def on_focus(self) -> None:
