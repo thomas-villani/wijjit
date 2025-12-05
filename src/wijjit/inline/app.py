@@ -15,21 +15,22 @@ from typing import TYPE_CHECKING, Any
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
 from wijjit.inline.cursor import (
-    hide_cursor,
-    show_cursor,
-    move_cursor_up,
-    save_cursor_position,
-    restore_cursor_position,
-    clear_to_end_of_line,
     carriage_return,
+    clear_to_end_of_line,
+    hide_cursor,
+    move_cursor_up,
+    restore_cursor_position,
+    save_cursor_position,
+    show_cursor,
 )
-from wijjit.inline.render import _render_row_optimized, _calculate_content_height
+from wijjit.inline.render import _calculate_content_height, _render_row_optimized
 
 if TYPE_CHECKING:
     from types import TracebackType
-    from wijjit.elements.base import Element
-    from wijjit.terminal.input import InputHandler, Key
+
     from wijjit.core.focus import FocusManager
+    from wijjit.elements.base import Element
+    from wijjit.terminal.input import InputHandler
 
 
 class InlineApp:
@@ -151,7 +152,7 @@ class InlineApp:
         """
         self._needs_render = True
 
-    async def __aenter__(self) -> "InlineApp":
+    async def __aenter__(self) -> InlineApp:
         """Enter context: reserve space, initial render, start input.
 
         Returns
@@ -183,8 +184,8 @@ class InlineApp:
 
         # Initialize input handling if enabled
         if self._enable_input:
-            from wijjit.terminal.input import InputHandler
             from wijjit.core.focus import FocusManager
+            from wijjit.terminal.input import InputHandler
 
             self._input_handler = InputHandler(enable_mouse=False)
             self._focus_manager = FocusManager()
@@ -207,7 +208,7 @@ class InlineApp:
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: "TracebackType | None",
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit context: stop refresh, final render, cleanup.
 
@@ -399,7 +400,7 @@ class InlineApp:
         input_event : Key or MouseEvent
             The input event from InputHandler
         """
-        from wijjit.terminal.input import Key, Keys
+        from wijjit.terminal.input import Key
 
         # Only handle keyboard events (ignore mouse for now)
         if not isinstance(input_event, Key):
@@ -431,7 +432,7 @@ class InlineApp:
                     self._sync_element_state(focused)
                     self._needs_render = True
 
-    def _sync_element_state(self, element: "Element") -> None:
+    def _sync_element_state(self, element: Element) -> None:
         """Sync element value to app state.
 
         Parameters

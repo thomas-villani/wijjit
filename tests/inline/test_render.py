@@ -1,15 +1,13 @@
 """Tests for inline render functions."""
 
 import io
-from unittest.mock import Mock, patch
-
-import pytest
+from unittest.mock import Mock
 
 from wijjit.inline.render import (
-    render_inline,
-    _calculate_content_height,
     _buffer_to_inline_ansi,
+    _calculate_content_height,
     _render_row_optimized,
+    render_inline,
 )
 from wijjit.terminal.cell import Cell
 
@@ -43,7 +41,9 @@ class TestRenderInline:
         """Test render_inline prints to file when specified."""
         output_buffer = io.StringIO()
         template = "{% frame %}Test output{% endframe %}"
-        result = render_inline(template, print_output=True, file=output_buffer, width=40)
+        result = render_inline(
+            template, print_output=True, file=output_buffer, width=40
+        )
 
         # Should return None when printing
         assert result is None

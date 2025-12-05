@@ -1,16 +1,16 @@
 """Tests for cursor control utilities."""
 
 from wijjit.inline.cursor import (
-    hide_cursor,
-    show_cursor,
-    move_cursor_up,
-    move_cursor_down,
-    move_to_column,
-    save_cursor_position,
-    restore_cursor_position,
+    carriage_return,
     clear_line,
     clear_to_end_of_line,
-    carriage_return,
+    hide_cursor,
+    move_cursor_down,
+    move_cursor_up,
+    move_to_column,
+    restore_cursor_position,
+    save_cursor_position,
+    show_cursor,
 )
 
 

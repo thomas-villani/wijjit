@@ -22,6 +22,7 @@ applications. We built this library to bring the syntactic elegance of Flask's d
 - **Modal Dialogs**: Built-in confirm, alert, and input dialogs
 - **Layout System**: Flexible frames with stacks (vertical/horizontal), scrolling, and sizing options
 - **Mouse Support**: Click buttons, scroll content, and interact with elements
+- **Inline Rendering**: Output styled UI to terminal scrollback without alternate screen
 - **ANSI-Aware**: Proper handling of colors and styling throughout
 
 ## Installation
@@ -341,6 +342,63 @@ dialog = TextInputDialog(
 app.show_modal(dialog)
 ```
 
+### Inline Rendering
+
+For CLI tools that don't need full-screen mode, Wijjit provides inline rendering that outputs styled content directly to terminal scrollback:
+
+**One-shot rendering with `render_inline()`:**
+```python
+from wijjit import render_inline
+
+# Render styled output directly to terminal
+render_inline('''
+{% frame title="Results" border="rounded" %}
+  {% vstack %}
+    Status: {{ status }}
+    Count: {{ count }}
+  {% endvstack %}
+{% endframe %}
+''', status="Complete", count=42)
+```
+
+**Interactive inline apps with `InlineApp`:**
+```python
+import asyncio
+from wijjit import InlineApp
+
+template = '''
+{% frame title="Progress" %}
+  {% progress value=state.progress max=100 %}{% endprogress %}
+  {{ state.status }}
+{% endframe %}
+'''
+
+async def main():
+    async with InlineApp(template, initial_state={"progress": 0, "status": "Starting"}) as app:
+        for i in range(101):
+            app.state.progress = i
+            app.state.status = f"Processing... {i}%"
+            await asyncio.sleep(0.05)
+        app.state.status = "Complete!"
+
+asyncio.run(main())
+```
+
+**Interactive forms with keyboard input:**
+```python
+template = '''
+{% frame title="Quick Input" %}
+  Name: {% textinput id="name" %}{% endtextinput %}
+  Press Ctrl+Q when done
+{% endframe %}
+'''
+
+async with InlineApp(template, enable_input=True, quit_key="ctrl+q") as app:
+    await app.wait()  # Wait for quit key
+
+print(f"You entered: {app.state.name}")
+```
+
 ## Component Library
 
 ### Input Components
@@ -383,7 +441,7 @@ app.show_modal(dialog)
 
 ## Examples
 
-The `examples/` directory contains **58 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
+The `examples/` directory contains **61 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
 
@@ -394,6 +452,9 @@ Introductory examples demonstrating core concepts:
 - `mouse_demo.py` - Mouse interaction (clicks, hovers, scrolling)
 - `debug_keys.py` - Key event debugging tool
 - `alignment_demo.py` - Content alignment in layouts
+- `inline_demo.py` - One-shot inline rendering to scrollback
+- `inline_progress_demo.py` - Interactive progress with `InlineApp`
+- `inline_input_demo.py` - Interactive forms with keyboard input
 
 ### Widget Examples (`examples/widgets/`)
 
@@ -553,10 +614,11 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Mouse support (click, scroll, hover)
 - ✅ Scrolling system with scrollbars (vertical and horizontal)
 - ✅ Modal/overlay system with dialogs
+- ✅ Inline rendering (render_inline, InlineApp with keyboard input)
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 58 working examples
+- ✅ 61 working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations
@@ -578,6 +640,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 
 Wijjit is ideal for:
 
+- ✅ CLI tools with styled output (using inline rendering)
 - ✅ CLI tools with forms (login, data entry, configuration)
 - ✅ System monitoring dashboards
 - ✅ File browsers and managers
@@ -585,6 +648,7 @@ Wijjit is ideal for:
 - ✅ Data tables with sorting/filtering
 - ✅ Interactive configuration editors
 - ✅ Terminal-based admin interfaces
+- ✅ Progress indicators and status displays
 
 Not recommended for:
 

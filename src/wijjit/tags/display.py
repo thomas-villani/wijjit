@@ -1983,3 +1983,273 @@ class ContentViewExtension(Extension):
 
         # Return marker for text interleaving
         return get_element_marker(context)
+
+
+class PageExtension(Extension):
+    """Jinja2 extension for {% page %} tag (used within {% pager %}).
+
+    Syntax:
+        {% page title="Page Title" %}
+            Content for this page
+        {% endpage %}
+
+    Notes
+    -----
+    This tag must be used within a {% pager %} tag.
+    The content is automatically wrapped in a Frame.
+    """
+
+    tags = {"page"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the page tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endpage", lineno)
+
+        # Parse body (page content)
+        node = nodes.CallBlock(
+            self.call_method("_render_page", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endpage",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_page(
+        self,
+        caller: Callable[[], str],
+        title: str = "",
+        **kwargs: Any,
+    ) -> str:
+        """Render the page tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        title : str
+            Page title (default: "")
+
+        Returns
+        -------
+        str
+            Rendered output (empty string, pages collected via VNode tree)
+        """
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+
+        # Create a PageContent VNode to hold this page's content
+        page_index = len(
+            [
+                c
+                for c in (
+                    context.vnode_stack[-1].children if context.vnode_stack else []
+                )
+                if getattr(c, "type", None) == "PageContent"
+            ]
+        )
+        page_key = f"_page_{page_index}"
+
+        page_vnode = VNodeBuilder("PageContent", key=page_key)
+        page_vnode.set_prop("title", title)
+
+        # Push the page VNode onto the stack to collect children
+        context.push_vnode(page_vnode)
+
+        # Render body - child elements will add themselves via add_vnode
+        body_output = caller()
+
+        # Pop the page VNode from the stack
+        context.pop_vnode()
+
+        # Handle text interleaving for VNode children
+        vnode_children = page_vnode.children
+
+        if not vnode_children and body_output.strip():
+            # No VNode children but has text - create a single TextElement VNode
+            processed_text = process_body_content(body_output, raw=False)
+            if processed_text:
+                text_key = context.generate_id("text")
+                text_vnode = VNodeBuilder("TextElement", key=text_key)
+                text_vnode.set_prop("id", text_key)
+                text_vnode.set_prop("text", processed_text)
+                text_vnode.set_prop("wrap", True)
+                text_vnode.set_layout(width="auto", height="auto")
+                page_vnode.add_child(text_vnode)
+        elif vnode_children:
+            # Has VNode children - interleave text and VNodes in source order
+            interleaved = interleave_text_and_vnode_builders(
+                body_output, vnode_children, False, context
+            )
+            page_vnode.children = interleaved
+
+        # Return empty string (page is added as child VNode, no marker needed)
+        return ""
+
+
+class PagerExtension(Extension):
+    """Jinja2 extension for {% pager %} tag.
+
+    Syntax:
+        {% pager id="my_pager" nav_position="bottom" show_indicator=True %}
+            {% page title="Page 1" %}
+                Content for page 1
+            {% endpage %}
+            {% page title="Page 2" %}
+                Content for page 2
+            {% endpage %}
+        {% endpager %}
+    """
+
+    tags = {"pager"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the pager tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endpager", lineno)
+
+        # Parse body (page elements)
+        node = nodes.CallBlock(
+            self.call_method("_render_pager", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endpager",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_pager(
+        self,
+        caller: Callable[[], str],
+        id: str | None = None,
+        nav_position: str = "bottom",
+        show_indicator: bool = True,
+        show_titles: bool = False,
+        loop: bool = False,
+        current_page: str | int = 0,
+        width: int | str = 60,
+        height: int | str = 20,
+        border_style: str = "single",
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the pager tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        nav_position : str
+            Position of navigation: "top", "bottom", or "both" (default: "bottom")
+        show_indicator : bool
+            Show "Page X of Y" indicator (default: True)
+        show_titles : bool
+            Show page title in indicator (default: False)
+        loop : bool
+            Wrap from last to first page (default: False)
+        current_page : str or int
+            State key name for page binding, or initial page index (default: 0)
+        width : int or str
+            Pager width (default: 60)
+        height : int or str
+            Pager height (default: 20)
+        border_style : str
+            Border style: "single", "double", "rounded", "none" (default: "single")
+        bind : bool
+            Whether to auto-bind current page to state (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Handle 'class' attribute
+        classes = kwargs.get("class", None)
+
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
+
+        # Store original width/height specs for layout
+        width_spec = width
+        height_spec = height
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("pager")
+
+        # Create Pager VNode and push to stack
+        vnode = VNodeBuilder("Pager", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("nav_position", nav_position)
+        vnode.set_prop("show_indicator", bool(show_indicator))
+        vnode.set_prop("show_titles", bool(show_titles))
+        vnode.set_prop("loop", bool(loop))
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+
+        # Push VNode to stack - PageExtension children will add PageContent VNodes
+        context.push_vnode(vnode)
+
+        # Render body - this will collect all {% page %} tags as PageContent VNode children
+        _body_output = caller()
+
+        # Pop VNode from stack
+        context.pop_vnode()
+
+        # Determine initial page index
+        current_page_index = 0
+        if isinstance(current_page, int):
+            current_page_index = current_page
+        elif isinstance(current_page, str) and bind:
+            # current_page is a state key - try to restore from state
+            try:
+                if current_page in state:
+                    current_page_index = int(state[current_page])
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
+                logger.warning(f"Failed to restore current page state: {e}")
+
+        # Add remaining props to VNode
+        vnode.set_prop("current_page", current_page_index)
+        if isinstance(current_page, str) and bind:
+            vnode.set_prop("page_state_key", current_page)
+
+        # Check if this element should be focused
+        if focused_id and id and focused_id == id:
+            vnode.set_prop("focused", True)
+
+        # Set layout dimensions
+        vnode.set_layout(width=width_spec, height=height_spec)
+
+        # Return marker for text interleaving
+        return get_element_marker(context)

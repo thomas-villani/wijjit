@@ -184,7 +184,7 @@ def _calculate_content_height(elements: list) -> int:
 
 
 def _buffer_to_inline_ansi(
-    buffer: "ScreenBuffer",
+    buffer: ScreenBuffer,
     width: int,
     height: int,
 ) -> str:

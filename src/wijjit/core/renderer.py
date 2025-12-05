@@ -53,6 +53,8 @@ from wijjit.tags.display import (
     ListViewExtension,
     LogViewExtension,
     ModalExtension,
+    PageExtension,
+    PagerExtension,
     ProgressBarExtension,
     SpinnerExtension,
     StatusBarExtension,
@@ -179,6 +181,9 @@ class Renderer:
                 ContextMenuExtension,
                 TabExtension,
                 TabbedPanelExtension,
+                # Pager (linear pagination)
+                PageExtension,
+                PagerExtension,
                 # Link and unified content view
                 LinkExtension,
                 ContentViewExtension,
@@ -933,6 +938,174 @@ class Renderer:
             )
 
             return ElementNode(tabbed_panel, width=width_spec, height=height_spec)
+
+        elif vnode.type == "Pager":
+            # Build Pager from VNode tree with PageContent children
+            from wijjit.elements.base import TextElement
+            from wijjit.elements.display.pager import Page, Pager
+            from wijjit.layout.engine import ElementNode, FrameNode, VStack
+            from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+
+            # Get props from VNode
+            props = vnode.props_dict()
+            layout_dict = vnode.layout_spec_dict()
+
+            # Parse dimensions
+            width_spec = layout_dict.get("width", 60)
+            height_spec = layout_dict.get("height", 20)
+
+            # Convert to numeric for element creation
+            if isinstance(width_spec, str) and not str(width_spec).isdigit():
+                element_width = 60
+            else:
+                element_width = int(width_spec)
+
+            if isinstance(height_spec, str) and not str(height_spec).isdigit():
+                element_height = 20
+            else:
+                element_height = int(height_spec)
+
+            # Get other props
+            nav_position = props.get("nav_position", "bottom")
+            show_indicator = props.get("show_indicator", True)
+            show_titles = props.get("show_titles", False)
+            loop = props.get("loop", False)
+            current_page = props.get("current_page", 0)
+            border_style = props.get("border_style", "single")
+            bind = props.get("bind", True)
+            classes = props.get("classes")
+            page_state_key = props.get("page_state_key")
+            focused = props.get("focused", False)
+
+            # Check if we have a reconciled Pager with same key (for state preservation)
+            if vnode.key and vnode.key in reconciled_map:
+                # Reuse reconciled Pager element (preserves current_page state)
+                pager = reconciled_map[vnode.key]
+                # Update dimensions if changed
+                pager.width = element_width
+                pager.height = element_height
+                pager.nav_position = nav_position
+                pager.show_indicator = show_indicator
+                pager.show_titles = show_titles
+                pager.loop = loop
+                # Clear existing pages - we'll rebuild them from VNode children
+                pager.pages.clear()
+                logger.debug(f"Reused reconciled Pager {vnode.key}")
+            else:
+                # Create new Pager element
+                pager = Pager(
+                    id=vnode.key,
+                    classes=classes,
+                    width=element_width,
+                    height=element_height,
+                    border_style=border_style,
+                    nav_position=nav_position,
+                    show_indicator=show_indicator,
+                    show_titles=show_titles,
+                    loop=loop,
+                    current_page=current_page,
+                )
+                pager.bind = bind
+                pager.focused = focused
+
+                if page_state_key:
+                    pager.page_state_key = page_state_key
+
+                # Add to reconciled_map so it can be found for event handling
+                if vnode.key:
+                    reconciled_map[vnode.key] = pager
+                    logger.debug(
+                        f"Created Pager {vnode.key} and added to reconciled_map"
+                    )
+
+            # Wire up state_dict for page state persistence
+            if state_dict is not None:
+                pager._state_dict = state_dict
+
+            # Process each PageContent child to create pages
+            for page_index, page_vnode in enumerate(vnode.children):
+                if page_vnode.type != "PageContent":
+                    continue
+
+                page_props = page_vnode.props_dict()
+                title = page_props.get("title", "")
+                content = page_props.get("content", "")
+
+                # Check if PageContent has VNode children (complex content)
+                if page_vnode.children:
+                    # Build content from PageContent's VNode children
+                    # Create a Frame to hold the content
+                    scroll_state_key = (
+                        f"_scroll_{vnode.key}_page_{page_index}" if vnode.key else None
+                    )
+                    frame = Frame(
+                        width=element_width - 2,
+                        height=element_height - 4,
+                        style=FrameStyle(
+                            scrollable=True,
+                            show_scrollbar=True,
+                            border_style=BorderStyle.SINGLE,
+                            title=title if title else None,
+                        ),
+                    )
+                    frame.scroll_state_key = scroll_state_key
+
+                    # Wire up state_dict for scroll state persistence
+                    if state_dict is not None:
+                        frame._state_dict = state_dict
+
+                    content_children = []
+                    for child_vnode in page_vnode.children:
+                        child_node = self._build_layout_tree_from_vnode(
+                            child_vnode,
+                            reconciled_map,
+                            state_dict,
+                            root_frame_found=root_frame_found,
+                        )
+                        content_children.append(child_node)
+
+                    # Create FrameNode with content
+                    frame_node = FrameNode(
+                        frame=frame,
+                        children=content_children,
+                        width=element_width - 2,
+                        height=element_height - 4,
+                    )
+
+                    # If only text children, extract text for frame content
+                    # Need to recursively check for non-text elements in containers
+                    def has_non_text_elements(nodes: list) -> bool:
+                        for node in nodes:
+                            if hasattr(node, "element"):
+                                if not isinstance(node.element, TextElement):
+                                    return True
+                            # Check container children recursively
+                            if hasattr(node, "children") and node.children:
+                                if has_non_text_elements(node.children):
+                                    return True
+                        return False
+
+                    has_non_text = has_non_text_elements(content_children)
+                    if not has_non_text and content_children:
+                        text_parts = []
+                        for child in content_children:
+                            if hasattr(child, "element") and hasattr(
+                                child.element, "text"
+                            ):
+                                text_parts.append(child.element.text)
+                        if text_parts:
+                            frame.set_content("\n".join(text_parts))
+
+                    pager.add_page(Page(title=title, content=frame_node))
+                else:
+                    # Simple text content
+                    pager.add_page(Page(title=title, content=content))
+
+            logger.debug(
+                f"Built Pager from VNode: {vnode.key} with {len(pager.pages)} pages"
+            )
+
+            return ElementNode(pager, width=width_spec, height=height_spec)
 
         else:
             # Regular element (TextInput, Button, etc.)

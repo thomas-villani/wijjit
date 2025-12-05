@@ -11,7 +11,7 @@ from wijjit.config import Config, DefaultConfig
 from wijjit.core.app import Wijjit
 
 # Inline rendering
-from wijjit.inline import render_inline, InlineApp
+from wijjit.inline import InlineApp, render_inline
 
 # from wijjit.core.events import (
 #     ActionEvent,

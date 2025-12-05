@@ -12,6 +12,20 @@ Application lifecycle
 
    wijjit.core.app.Wijjit
 
+Inline rendering
+----------------
+
+The ``wijjit.inline`` module provides APIs for rendering Wijjit templates without entering alternate screen mode. Content is output directly to terminal scrollback.
+
+.. py:function:: wijjit.render_inline(template, *, width=None, height="auto", print_output=True, file=None, **context)
+
+   One-shot template rendering to stdout. See :doc:`../user_guide/inline_rendering`.
+
+.. py:class:: wijjit.InlineApp(template, *, height="auto", width=None, initial_state=None, refresh_interval=0.1, enable_input=False, quit_key="ctrl+q")
+
+   Async context manager for interactive inline displays with reactive state.
+   See :doc:`../user_guide/inline_rendering`.
+
 Event loop & routing
 --------------------
 

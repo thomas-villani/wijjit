@@ -1,7 +1,7 @@
 Examples
 ========
 
-Wijjit ships with 40+ runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+Wijjit ships with 60+ runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
 
 * ``examples/basic`` – first steps, focus, events, async, alignment.
 * ``examples/widgets`` – component spotlights (tables, trees, dialogs, etc.).
@@ -25,6 +25,17 @@ Basics & essentials
 * ``examples/basic/mouse_demo.py`` – hover, click, and scroll routing.
 * ``examples/basic/async_demo.py`` – async view/event handlers with progress updates.
 * ``examples/basic/alignment_demo.py`` – compare horizontal/vertical alignment settings.
+
+Inline rendering
+----------------
+
+These examples demonstrate inline rendering—outputting styled UI to terminal scrollback without using alternate screen mode:
+
+* ``examples/basic/inline_demo.py`` – one-shot rendering with frames, tables, and nested layouts.
+* ``examples/basic/inline_progress_demo.py`` – interactive progress bars with ``InlineApp`` and reactive state.
+* ``examples/basic/inline_input_demo.py`` – keyboard-enabled inline forms with focus navigation.
+
+See :doc:`../user_guide/inline_rendering` for detailed documentation.
 
 Widgets & components
 --------------------

@@ -2,13 +2,12 @@
 
 import asyncio
 import io
-import sys
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 
-from wijjit.inline.app import InlineApp
 from wijjit.core.state import State
+from wijjit.inline.app import InlineApp
 
 
 class TestInlineAppInit:
@@ -150,7 +149,9 @@ class TestInlineAppContextManager:
         # Mock stdout and terminal size
         mock_stdout = io.StringIO()
         with patch("sys.stdout", mock_stdout):
-            with patch("shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)):
+            with patch(
+                "shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)
+            ):
                 try:
                     result = await app.__aenter__()
                     assert result is app
@@ -171,7 +172,9 @@ class TestInlineAppContextManager:
 
         mock_stdout = io.StringIO()
         with patch("sys.stdout", mock_stdout):
-            with patch("shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)):
+            with patch(
+                "shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)
+            ):
                 try:
                     await app.__aenter__()
                     assert app._running is True
@@ -192,7 +195,9 @@ class TestInlineAppContextManager:
 
         mock_stdout = io.StringIO()
         with patch("sys.stdout", mock_stdout):
-            with patch("shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)):
+            with patch(
+                "shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)
+            ):
                 await app.__aenter__()
                 await app.__aexit__(None, None, None)
 
@@ -205,7 +210,9 @@ class TestInlineAppContextManager:
 
         mock_stdout = io.StringIO()
         with patch("sys.stdout", mock_stdout):
-            with patch("shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)):
+            with patch(
+                "shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)
+            ):
                 await app.__aenter__()
                 refresh_task = app._refresh_task
                 await app.__aexit__(None, None, None)
@@ -219,8 +226,12 @@ class TestInlineAppContextManager:
 
         mock_stdout = io.StringIO()
         with patch("sys.stdout", mock_stdout):
-            with patch("shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)):
-                async with InlineApp(template, height=1, width=40, initial_state={"count": 0}) as app:
+            with patch(
+                "shutil.get_terminal_size", return_value=Mock(columns=80, lines=24)
+            ):
+                async with InlineApp(
+                    template, height=1, width=40, initial_state={"count": 0}
+                ) as app:
                     app.state.count = 5
                     # Brief pause to allow render
                     await asyncio.sleep(0.01)

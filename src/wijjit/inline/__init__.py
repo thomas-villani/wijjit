@@ -10,7 +10,7 @@ Two main APIs are provided:
 2. InlineApp - Interactive inline with in-place updates
 """
 
-from wijjit.inline.render import render_inline
 from wijjit.inline.app import InlineApp
+from wijjit.inline.render import render_inline
 
 __all__ = ["render_inline", "InlineApp"]

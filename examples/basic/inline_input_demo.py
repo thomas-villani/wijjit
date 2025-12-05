@@ -47,7 +47,9 @@ async def demo_simple_form():
         await app.wait()
 
     print()
-    print(f"Submitted: name={app.state.get('name', '')!r}, email={app.state.get('email', '')!r}")
+    print(
+        f"Submitted: name={app.state.get('name', '')!r}, email={app.state.get('email', '')!r}"
+    )
     print()
 
 
