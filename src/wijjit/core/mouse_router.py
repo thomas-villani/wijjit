@@ -149,35 +149,6 @@ class MouseEventRouter:
 
         return False
 
-    def _route_to_overlay(self, event: TerminalMouseEvent) -> bool:
-        """Route event to overlay if mouse is over one (sync wrapper).
-
-        This method exists for backwards compatibility but should not be used.
-        Use _route_to_overlay_async() instead.
-
-        Parameters
-        ----------
-        event : TerminalMouseEvent
-            The mouse event
-
-        Returns
-        -------
-        bool
-            True if event was routed to overlay, False otherwise
-        """
-        overlay = self.app.overlay_manager.get_at_position(event.x, event.y)
-
-        if overlay:
-            # Mouse event is on an overlay - route to overlay element
-            if hasattr(overlay.element, "handle_mouse"):
-                handled = overlay.element.handle_mouse(event)
-                if handled:
-                    self.app.needs_render = True
-            # Overlay consumed the event even if not handled
-            return True
-
-        return False
-
     def _handle_click_outside_overlays(self, event: TerminalMouseEvent) -> bool:
         """Handle clicks outside all overlays.
 

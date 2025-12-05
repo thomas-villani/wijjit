@@ -7,6 +7,7 @@ Also provides utility functions for processing template body content.
 
 from __future__ import annotations
 
+import re
 import textwrap
 from ast import literal_eval
 from collections.abc import Callable
@@ -25,6 +26,75 @@ if TYPE_CHECKING:
     pass
 
 logger = get_logger(__name__)
+
+# Pre-compiled regex patterns for element marker handling
+# Pattern to match element markers (with capture group for digit extraction)
+_MARKER_EXTRACT_PATTERN = re.compile(r"\x00ELEM_(\d+)\x00")
+# Pattern for splitting (without capture group to avoid nested groups)
+_MARKER_SPLIT_PATTERN = re.compile(r"(\x00ELEM_\d+\x00)")
+
+
+def safe_int(value: Any, default: int = 0, name: str = "value") -> int:
+    """Safely convert a value to int with error handling.
+
+    Parameters
+    ----------
+    value : Any
+        Value to convert to int
+    default : int, optional
+        Default value if conversion fails (default: 0)
+    name : str, optional
+        Name of the value for logging (default: "value")
+
+    Returns
+    -------
+    int
+        Converted integer or default value
+    """
+    if isinstance(value, int):
+        return value
+    try:
+        return int(value)
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Invalid {name} '{value}', using default {default}: {e}")
+        return default
+
+
+def parse_tag_attributes(
+    parser: Parser, end_tag: str, lineno: int
+) -> list[nodes.Keyword]:
+    """Parse tag attributes as keyword arguments.
+
+    This helper consolidates the common attribute parsing pattern used by all
+    template tag extensions. It parses key=value pairs until it encounters
+    the end tag.
+
+    Parameters
+    ----------
+    parser : Parser
+        Jinja2 parser instance
+    end_tag : str
+        The end tag name (e.g., "endvstack", "endbutton")
+    lineno : int
+        Line number for creating Keyword nodes
+
+    Returns
+    -------
+    list[nodes.Keyword]
+        List of parsed keyword arguments
+    """
+    kwargs: list[nodes.Keyword] = []
+    while parser.stream.current.test("name") and not parser.stream.current.test(
+        f"name:{end_tag}"
+    ):
+        key = parser.stream.expect("name").value
+        if parser.stream.current.test("assign"):
+            parser.stream.expect("assign")
+            value = parser.parse_expression()
+            kwargs.append(nodes.Keyword(key, value, lineno=lineno))
+        else:
+            break
+    return kwargs
 
 
 def process_body_content(body_output: str, raw: bool = False) -> str:
@@ -82,24 +152,16 @@ def interleave_text_and_vnode_builders(
     list
         New children list with text and elements properly interleaved as VNodeBuilders
     """
-    import re
-
     from wijjit.core.vdom import VNodeBuilder
 
-    # Pattern to match element markers (with capture group for digit extraction)
-    marker_pattern = r"\x00ELEM_(\d+)\x00"
-
-    # Pattern for splitting (without capture group to avoid nested groups)
-    split_pattern = r"(\x00ELEM_\d+\x00)"
-
     # Split body_output on markers, keeping the markers
-    parts = re.split(split_pattern, body_output)
+    parts = _MARKER_SPLIT_PATTERN.split(body_output)
 
     result = []
 
     for part in parts:
         # Check if this is a marker
-        marker_match = re.match(marker_pattern, part)
+        marker_match = _MARKER_EXTRACT_PATTERN.match(part)
         if marker_match:
             # This is an element marker
             elem_index = int(marker_match.group(1))
@@ -306,7 +368,7 @@ def _parse_for_render(
     # Parse attributes
     width_parsed = parse_size_attr(width)
     height_parsed = parse_size_attr(height)
-    spacing_int = int(spacing)
+    spacing_int = safe_int(spacing, default=0, name="spacing")
 
     # Parse padding - could be int, tuple, or directional attributes
     padding_parsed: int | tuple[int, int, int, int]
@@ -394,19 +456,7 @@ class VStackExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endvstack"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endvstack", lineno)
 
         # Parse body
         node = nodes.CallBlock(
@@ -563,19 +613,7 @@ class HStackExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endhstack"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endhstack", lineno)
 
         # Parse body
         node = nodes.CallBlock(
@@ -733,19 +771,7 @@ class FrameExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endframe"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endframe", lineno)
 
         # Parse body
         node = nodes.CallBlock(
@@ -967,19 +993,7 @@ class GridExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endgrid"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endgrid", lineno)
 
         # Parse body
         node = nodes.CallBlock(
@@ -1119,19 +1133,7 @@ class ColspanExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcolspan"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endcolspan", lineno)
 
         # Parse body
         node = nodes.CallBlock(
@@ -1223,19 +1225,7 @@ class RowspanExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endrowspan"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endrowspan", lineno)
 
         # Parse body
         node = nodes.CallBlock(

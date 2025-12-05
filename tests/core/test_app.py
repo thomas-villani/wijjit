@@ -353,7 +353,8 @@ class TestNavigation:
 class TestEventHandlers:
     """Tests for event handler registration."""
 
-    def test_register_global_handler(self):
+    @pytest.mark.asyncio
+    async def test_register_global_handler(self):
         """Test registering a global event handler."""
         app = Wijjit()
         called = []
@@ -371,11 +372,12 @@ class TestEventHandlers:
 
         # Dispatch an event
         event = KeyEvent(key="a")
-        app.handler_registry.dispatch(event)
+        await app.handler_registry.dispatch_async(event)
 
         assert len(called) == 1
 
-    def test_register_view_handler(self):
+    @pytest.mark.asyncio
+    async def test_register_view_handler(self):
         """Test registering a view-scoped handler."""
         app = Wijjit()
         called = []
@@ -392,12 +394,12 @@ class TestEventHandlers:
 
         # Handler shouldn't fire without matching view
         event = KeyEvent(key="a")
-        app.handler_registry.dispatch(event)
+        await app.handler_registry.dispatch_async(event)
         assert len(called) == 0
 
         # Set current view and dispatch again
         app.handler_registry.current_view = "main"
-        app.handler_registry.dispatch(KeyEvent(key="b"))
+        await app.handler_registry.dispatch_async(KeyEvent(key="b"))
         assert len(called) == 1
 
 

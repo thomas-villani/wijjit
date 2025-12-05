@@ -22,6 +22,9 @@ from wijjit.terminal.mouse import MouseEvent, MouseEventParser, MouseTrackingMod
 # Get logger for this module
 logger = get_logger(__name__)
 
+# Maximum paste size to prevent infinite loop from malicious/stuck input
+MAX_PASTE_SIZE = 1_000_000
+
 
 class _ReaderError:
     """Sentinel object to signal fatal error from reader thread.
@@ -498,7 +501,8 @@ class InputHandler:
                         logger.debug(f"Detected paste start: {len(paste_chars)} chars")
 
                         # Continue aggregating with short timeout (20ms window)
-                        while True:
+                        # Apply MAX_PASTE_SIZE limit to prevent infinite loop
+                        while len(paste_chars) < MAX_PASTE_SIZE:
                             more_keys = self._get_keys_from_queue(timeout=0.02)
                             if not more_keys:
                                 break  # Timeout - no more paste data
@@ -517,6 +521,9 @@ class InputHandler:
                                 for k in more_keys:
                                     self._key_queue.append(k)
                                 break
+
+                        if len(paste_chars) >= MAX_PASTE_SIZE:
+                            logger.warning(f"Paste truncated at {MAX_PASTE_SIZE} chars")
 
                         pasted_text = "".join(paste_chars)
                         logger.debug(f"Detected paste: {pasted_text!r}")

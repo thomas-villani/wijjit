@@ -301,7 +301,11 @@ class CSSParser:
         rgb_match = re.match(r"rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", value)
         if rgb_match:
             r, g, b = rgb_match.groups()
-            return (int(r), int(g), int(b))
+            # Clamp values to valid 0-255 range
+            r_val = max(0, min(255, int(r)))
+            g_val = max(0, min(255, int(g)))
+            b_val = max(0, min(255, int(b)))
+            return (r_val, g_val, b_val)
 
         # Hex format: #RRGGBB or #RGB
         if value.startswith("#"):

@@ -286,7 +286,8 @@ class TestStateRenderingIntegration:
 class TestEventHandlingIntegration:
     """Test event handling integration with app lifecycle."""
 
-    def test_action_handler_integration(self):
+    @pytest.mark.asyncio
+    async def test_action_handler_integration(self):
         """Test that action handlers integrate with event system.
 
         Verifies end-to-end event dispatch from event to handler.
@@ -309,12 +310,13 @@ class TestEventHandlingIntegration:
 
         # Dispatch action event
         event = ActionEvent(action_id="submit", source_element_id="btn1")
-        app.handler_registry.dispatch(event)
+        await app.handler_registry.dispatch_async(event)
 
         # Handler should be called
         assert "submit" in handler_called
 
-    def test_key_handler_integration(self):
+    @pytest.mark.asyncio
+    async def test_key_handler_integration(self):
         """Test keyboard event handling integration.
 
         Verifies key event dispatch and handling.
@@ -329,11 +331,12 @@ class TestEventHandlingIntegration:
 
         # Dispatch key event
         event = KeyEvent(key=Keys.ENTER)
-        app.handler_registry.dispatch(event)
+        await app.handler_registry.dispatch_async(event)
 
         assert Keys.ENTER in keys_pressed
 
-    def test_view_scoped_handlers_cleared_on_navigation(self):
+    @pytest.mark.asyncio
+    async def test_view_scoped_handlers_cleared_on_navigation(self):
         """Test that view-scoped handlers are cleared when leaving view.
 
         Verifies proper cleanup of view-local event handlers.
@@ -364,22 +367,23 @@ class TestEventHandlingIntegration:
             return {"template": "View 2"}
 
         # Trigger view1's on_enter (registers handler)
-        app.navigate("view1")
+        # Use async navigation to properly await the on_enter hook
+        await app.view_router._navigate_async_impl("view1", None)
         handler_calls.clear()
 
         # Dispatch event - view1 handler should be called
         app.handler_registry.current_view = "view1"
         event = ActionEvent(action_id="test", source_element_id="btn1")
-        app.handler_registry.dispatch(event)
+        await app.handler_registry.dispatch_async(event)
         assert "view1" in handler_calls
 
         # Navigate to view2 (should clear view1 handlers)
         handler_calls.clear()
-        app.navigate("view2")
+        await app.view_router._navigate_async_impl("view2", None)
 
         # Dispatch event - view1 handler should NOT be called
         app.handler_registry.current_view = "view2"
-        app.handler_registry.dispatch(event)
+        await app.handler_registry.dispatch_async(event)
         assert "view1" not in handler_calls
 
 

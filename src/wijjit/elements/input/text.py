@@ -204,6 +204,10 @@ class TextInput(Element):
     async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input.
 
+        On click events, positions the cursor at the clicked character position.
+        Focus management is handled separately by the MouseEventRouter before
+        this method is called (see mouse_router.py:_handle_focus_on_click).
+
         Parameters
         ----------
         event : MouseEvent
@@ -212,10 +216,44 @@ class TextInput(Element):
         Returns
         -------
         bool
-            True if event was handled
+            True if event was handled (click/double-click consumed)
+
+        Notes
+        -----
+        The MouseEventRouter sets focus on focusable elements before calling
+        handle_mouse(). This method handles cursor positioning within the text.
+        Returning True indicates the event was consumed, preventing propagation
+        to parent containers.
         """
-        # On click, just indicate we handled it - App will set focus
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+            # Position cursor at click location if bounds are available
+            if self.bounds is not None:
+                # Calculate click position relative to text content
+                # Account for style-specific decorations (borders, brackets, etc.)
+                content_start_x = self.bounds.x
+                if self.style == InputStyle.BRACKETS:
+                    content_start_x += 2  # "[ " prefix
+                elif self.style == InputStyle.BOX:
+                    content_start_x += 1  # Border
+                elif self.style == InputStyle.BLOCK:
+                    content_start_x += 1  # Block char
+
+                # Calculate character position from click x
+                click_offset = event.x - content_start_x
+
+                # Calculate scroll offset (same logic as render_to)
+                scroll_offset = 0
+                display_text = self.value if self.value else self.placeholder
+                if len(display_text) > self.width:
+                    if self.cursor_pos >= self.width:
+                        scroll_offset = self.cursor_pos - self.width + 1
+
+                # Calculate new cursor position
+                new_pos = scroll_offset + click_offset
+                # Clamp to valid range
+                new_pos = max(0, min(new_pos, len(self.value)))
+                self.cursor_pos = new_pos
+
             return True
 
         return False

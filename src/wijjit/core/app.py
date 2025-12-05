@@ -53,6 +53,10 @@ from wijjit.terminal.screen import ScreenManager
 # Get logger for this module
 logger = get_logger(__name__)
 
+# Default refresh interval when auto-refresh is enabled for notifications
+# This is used to check notification expiry without user input
+NOTIFICATION_REFRESH_INTERVAL: float = 0.1
+
 
 class Wijjit:
     """Main Wijjit application class.
@@ -267,6 +271,9 @@ class Wijjit:
         # Auto-refresh for animations (from config)
         self.refresh_interval: float | None = self.config["REFRESH_INTERVAL"]
         self._last_refresh_time: float = 0.0
+        # Track whether refresh was enabled specifically for notifications
+        # Used by event loop to know when to disable refresh after notifications clear
+        self._notification_auto_refresh: bool = False
 
         # Terminal size tracking for resize detection
         term_size = shutil.get_terminal_size()
@@ -738,12 +745,40 @@ class Wijjit:
                 priority=priority,
             )
 
-            # Track registration for potential unregistration
+            # Track registration for unregister_key() support
             self._key_handler_registrations[key_lower] = handler
 
             return func
 
         return decorator
+
+    def unregister_key(self, key: str) -> bool:
+        """Unregister a key handler.
+
+        Parameters
+        ----------
+        key : str
+            Key combination to unregister (e.g., 'ctrl+s', 'f1')
+
+        Returns
+        -------
+        bool
+            True if handler was found and removed, False otherwise
+
+        Examples
+        --------
+        >>> @app.on_key("ctrl+s")
+        ... def save_handler(event):
+        ...     pass
+        >>> app.unregister_key("ctrl+s")  # Returns True
+        True
+        """
+        key_lower = key.lower()
+        if key_lower in self._key_handler_registrations:
+            handler = self._key_handler_registrations.pop(key_lower)
+            self.handler_registry.unregister(handler)
+            return True
+        return False
 
     def on_action(self, action_id: str) -> Callable:
         """Decorator to register an action handler.
@@ -1589,7 +1624,8 @@ class Wijjit:
         # Enable auto-refresh if we have notifications with timeouts
         # This ensures notifications auto-dismiss even without user input
         if duration is not None and self.refresh_interval is None:
-            self.refresh_interval = 0.1  # Check every 100ms
+            self.refresh_interval = NOTIFICATION_REFRESH_INTERVAL
+            self._notification_auto_refresh = True
 
         # Trigger render to show notification
         self.needs_render = True

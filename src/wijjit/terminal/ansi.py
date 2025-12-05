@@ -5,6 +5,7 @@ colors, cursor control, and text styling.
 """
 
 import re
+import threading
 
 from wcwidth import wcswidth, wcwidth
 
@@ -15,6 +16,52 @@ logger = get_logger(__name__)
 
 # ANSI escape sequence pattern for stripping
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+# Characters that terminate ANSI escape sequences
+_ANSI_TERMINATORS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+
+
+def _find_ansi_sequence_end(text: str, start: int) -> int:
+    """Find the end index of an ANSI escape sequence.
+
+    Given a position in text where an ANSI sequence starts (at "\x1b["),
+    returns the index immediately after the sequence ends.
+
+    Parameters
+    ----------
+    text : str
+        The text containing the ANSI sequence
+    start : int
+        The starting index (should point to the "\x1b" character)
+
+    Returns
+    -------
+    int
+        The index immediately after the ANSI sequence ends.
+        If no terminator is found, returns len(text).
+
+    Notes
+    -----
+    ANSI escape sequences have the format: ESC [ <params> <letter>
+    where <params> is optional digits/semicolons and <letter> is a-zA-Z.
+
+    Examples
+    --------
+    >>> text = "\x1b[31mHello"
+    >>> _find_ansi_sequence_end(text, 0)
+    5
+    >>> text[0:5]
+    '\x1b[31m'
+    """
+    # Skip past the "\x1b[" prefix
+    end = start + 2
+    # Scan until we find a letter (terminator)
+    while end < len(text) and text[end] not in _ANSI_TERMINATORS:
+        end += 1
+    # Include the terminator letter if present
+    if end < len(text):
+        end += 1
+    return end
 
 
 class ANSIColor:
@@ -557,16 +604,8 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
 
     while i < len(text) and visible_count < target_width:
         if text[i : i + 2] == "\x1b[":
-            # Found ANSI escape sequence - find the end
-            end = i + 2
-            while (
-                end < len(text)
-                and text[end]
-                not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-            ):
-                end += 1
-            if end < len(text):
-                end += 1
+            # Found ANSI escape sequence - preserve it without counting
+            end = _find_ansi_sequence_end(text, i)
             result.append(text[i:end])
             i = end
         else:
@@ -592,16 +631,8 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
     trailing_ansi = []
     while i < len(text):
         if text[i : i + 2] == "\x1b[":
-            # Found trailing ANSI escape sequence
-            end = i + 2
-            while (
-                end < len(text)
-                and text[end]
-                not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-            ):
-                end += 1
-            if end < len(text):
-                end += 1
+            # Found trailing ANSI escape sequence - preserve it
+            end = _find_ansi_sequence_end(text, i)
             trailing_ansi.append(text[i:end])
             i = end
         else:
@@ -617,6 +648,9 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
 
 # Module-level color mode setting (None = check env var, True = no color, False = use color)
 _no_color: bool | None = None
+# Lock for thread-safe access to global color/unicode settings
+# InputHandler runs in a separate thread, so these settings need protection
+_settings_lock = threading.Lock()
 
 
 def set_no_color(enabled: bool) -> None:
@@ -632,9 +666,12 @@ def set_no_color(enabled: bool) -> None:
     This should be called by the application during initialization to apply
     the NO_COLOR configuration. When set, this takes precedence over the
     NO_COLOR environment variable.
+
+    Thread-safe: Uses a lock to protect global state.
     """
     global _no_color
-    _no_color = enabled
+    with _settings_lock:
+        _no_color = enabled
 
 
 def is_no_color() -> bool:
@@ -650,11 +687,14 @@ def is_no_color() -> bool:
     Checks in order:
     1. Module-level setting (set via set_no_color())
     2. NO_COLOR environment variable
+
+    Thread-safe: Uses a lock to protect global state.
     """
     import os
 
-    if _no_color is not None:
-        return _no_color
+    with _settings_lock:
+        if _no_color is not None:
+            return _no_color
     return os.environ.get("NO_COLOR") is not None
 
 
@@ -731,12 +771,15 @@ def set_unicode_mode(mode: str) -> None:
     -----
     This should be called by the application during initialization to apply
     the UNICODE_SUPPORT configuration.
+
+    Thread-safe: Uses a lock to protect global state.
     """
     global _unicode_mode, _unicode_support_cache
 
-    _unicode_mode = mode
-    # Clear cache when mode changes
-    _unicode_support_cache = None
+    with _settings_lock:
+        _unicode_mode = mode
+        # Clear cache when mode changes
+        _unicode_support_cache = None
 
 
 def supports_unicode() -> bool:
@@ -760,58 +803,64 @@ def supports_unicode() -> bool:
     - System default encoding (UTF-8, utf8, etc.)
     - LANG environment variable
     - Terminal type environment variable
+
+    Thread-safe: Uses a lock to protect global state.
     """
     global _unicode_support_cache, _unicode_mode
-
-    # Check if mode is explicitly set
-    if _unicode_mode == "force":
-        return True
-    elif _unicode_mode == "disable":
-        return False
-    # else: 'auto' or None - proceed with detection
-
-    if _unicode_support_cache is not None:
-        return _unicode_support_cache
 
     import locale
     import os
     import sys
 
+    with _settings_lock:
+        # Check if mode is explicitly set
+        if _unicode_mode == "force":
+            return True
+        elif _unicode_mode == "disable":
+            return False
+        # else: 'auto' or None - proceed with detection
+
+        if _unicode_support_cache is not None:
+            return _unicode_support_cache
+
+    # Detection can happen outside the lock since it's read-only system info
     try:
+        result = False
+
         # Check system encoding
         encoding = sys.getdefaultencoding().lower()
         if "utf" in encoding or "utf8" in encoding:
-            _unicode_support_cache = True
-            return True
+            result = True
 
         # Check locale encoding
-        locale_encoding = locale.getpreferredencoding().lower()
-        if "utf" in locale_encoding or "utf8" in locale_encoding:
-            _unicode_support_cache = True
-            return True
+        if not result:
+            locale_encoding = locale.getpreferredencoding().lower()
+            if "utf" in locale_encoding or "utf8" in locale_encoding:
+                result = True
 
         # Check LANG environment variable
-        lang = os.environ.get("LANG", "").lower()
-        if "utf" in lang or "utf8" in lang:
-            _unicode_support_cache = True
-            return True
+        if not result:
+            lang = os.environ.get("LANG", "").lower()
+            if "utf" in lang or "utf8" in lang:
+                result = True
 
         # Check if running on Windows with modern terminal
-        if sys.platform == "win32":
+        if not result and sys.platform == "win32":
             # Windows Terminal and Windows 10+ console support unicode
             wt_session = os.environ.get("WT_SESSION")
             if wt_session:
-                _unicode_support_cache = True
-                return True
+                result = True
 
-        # Default to False for safety
-        _unicode_support_cache = False
-        return False
+        # Cache the result under lock
+        with _settings_lock:
+            _unicode_support_cache = result
+        return result
 
     except Exception as e:
         # If detection fails, default to False for safety
         logger.debug(f"Unicode support detection failed, defaulting to False: {e}")
-        _unicode_support_cache = False
+        with _settings_lock:
+            _unicode_support_cache = False
         return False
 
 
@@ -943,27 +992,24 @@ def wrap_text(text: str, width: int) -> list[str]:
 
         # Find best wrap point within width
         # Scan through the visible characters to find last boundary before width
-        last_boundary_vis = None
-        last_boundary_actual = None
+        last_boundary_pos = None
 
         # Strip ANSI to find visible character positions
+        # We scan the stripped string to find wrap boundaries by visible position
         stripped = strip_ansi(remaining)
 
-        # Build mapping of visible positions to actual positions
-        # This accounts for ANSI codes in the original string
         for i, char in enumerate(stripped):
             if i >= width:
                 break
 
             # Check if this is a wrap boundary
             if is_wrap_boundary(char):
-                last_boundary_vis = i + 1  # Break after the boundary char
-                last_boundary_actual = i + 1
+                last_boundary_pos = i + 1  # Break after the boundary char
 
         # Decide where to break
-        if last_boundary_actual is not None and last_boundary_actual < len(stripped):
+        if last_boundary_pos is not None and last_boundary_pos < len(stripped):
             # Found a wrap boundary within width
-            target_vis_width = last_boundary_vis
+            target_vis_width = last_boundary_pos
         else:
             # No wrap boundary found, force break at width
             target_vis_width = width
@@ -977,15 +1023,7 @@ def wrap_text(text: str, width: int) -> list[str]:
         while byte_pos < len(remaining) and visible_count < target_vis_width:
             if remaining[byte_pos : byte_pos + 2] == "\x1b[":
                 # Found ANSI escape sequence - include it but don't count
-                end = byte_pos + 2
-                while (
-                    end < len(remaining)
-                    and remaining[end]
-                    not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-                ):
-                    end += 1
-                if end < len(remaining):
-                    end += 1
+                end = _find_ansi_sequence_end(remaining, byte_pos)
                 segment_chars.append(remaining[byte_pos:end])
                 byte_pos = end
             else:
@@ -998,10 +1036,11 @@ def wrap_text(text: str, width: int) -> list[str]:
         segments.append(segment)
 
         # Cut at the actual byte position where we stopped
-        if last_boundary_actual is not None and last_boundary_actual < len(stripped):
-            # Remove leading spaces from continuation
+        if last_boundary_pos is not None and last_boundary_pos < len(stripped):
+            # Remove leading spaces from continuation (we wrapped at a word boundary)
             remaining = remaining[byte_pos:].lstrip()
         else:
+            # Hard break at width - keep remaining text as-is
             remaining = remaining[byte_pos:]
 
     return segments if segments else [""]

@@ -16,7 +16,7 @@ from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import get_element_marker
+from wijjit.tags.layout import get_element_marker, parse_tag_attributes, safe_int
 
 if TYPE_CHECKING:
     pass
@@ -48,19 +48,7 @@ class TextInputExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtextinput"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtextinput", lineno)
 
         # Parse body (should be empty, but we need to consume until endtextinput)
         node = nodes.CallBlock(
@@ -118,8 +106,8 @@ class TextInputExtension(Extension):
         state = render_ctx.state
         focused_id = render_ctx.focused_id
 
-        # Convert width to int
-        width = int(width)
+        # Convert width to int safely
+        width = safe_int(width, default=30, name="width")
 
         # Auto-generate ID if not provided
         if id is None:
@@ -201,19 +189,7 @@ class ButtonExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endbutton"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endbutton", lineno)
 
         # Parse body (button label)
         node = nodes.CallBlock(
@@ -328,19 +304,7 @@ class SelectExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endselect"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endselect", lineno)
 
         # Parse body (options list)
         node = nodes.CallBlock(
@@ -409,9 +373,9 @@ class SelectExtension(Extension):
         state = render_ctx.state
         focused_id = render_ctx.focused_id
 
-        # Convert numeric parameters
-        width = int(width)
-        visible_rows = int(visible_rows)
+        # Convert numeric parameters safely
+        width = safe_int(width, default=20, name="width")
+        visible_rows = safe_int(visible_rows, default=5, name="visible_rows")
 
         # Parse options from body if not provided as attribute
         if options is None:
@@ -536,19 +500,7 @@ class CheckboxExtension(Extension):
     def parse(self, parser: Parser) -> nodes.Node:
         """Parse the checkbox tag."""
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcheckbox"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endcheckbox", lineno)
 
         # Parse body (should be empty, but consume until endcheckbox)
         node = nodes.CallBlock(
@@ -632,19 +584,7 @@ class RadioExtension(Extension):
     def parse(self, parser: Parser) -> nodes.Node:
         """Parse the radio tag."""
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endradio"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endradio", lineno)
 
         # Parse body (should be empty, but consume until endradio)
         node = nodes.CallBlock(
@@ -742,19 +682,7 @@ class CheckboxGroupExtension(Extension):
     def parse(self, parser: Parser) -> nodes.Node:
         """Parse the checkboxgroup tag."""
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcheckboxgroup"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endcheckboxgroup", lineno)
 
         # Parse body (should be empty, but consume until endcheckboxgroup)
         node = nodes.CallBlock(
@@ -870,19 +798,7 @@ class RadioGroupExtension(Extension):
     def parse(self, parser: Parser) -> nodes.Node:
         """Parse the radiogroup tag."""
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endradiogroup"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endradiogroup", lineno)
 
         # Parse body (should be empty, but consume until endradiogroup)
         node = nodes.CallBlock(
@@ -1062,19 +978,7 @@ class TextAreaExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtextarea"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtextarea", lineno)
 
         # Parse body (should be empty, but consume until endtextarea)
         node = nodes.CallBlock(
@@ -1252,19 +1156,7 @@ class CodeEditorExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcodeeditor"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endcodeeditor", lineno)
 
         # Parse body (should be empty, but consume until endcodeeditor)
         node = nodes.CallBlock(

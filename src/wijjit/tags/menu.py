@@ -14,6 +14,7 @@ from wijjit.core.overlay import LayerType
 from wijjit.core.render_context import get_render_context
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuItem
 from wijjit.logging_config import get_logger
+from wijjit.tags.layout import parse_tag_attributes
 
 if TYPE_CHECKING:
     pass
@@ -49,19 +50,7 @@ class MenuItemExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endmenuitem"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endmenuitem", lineno)
 
         # Parse body (menu item label)
         node = nodes.CallBlock(
@@ -165,19 +154,7 @@ class DropdownExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:enddropdown"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "enddropdown", lineno)
 
         # Parse body (menu items)
         node = nodes.CallBlock(
@@ -319,19 +296,7 @@ class ContextMenuExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcontextmenu"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endcontextmenu", lineno)
 
         # Parse body (menu items)
         node = nodes.CallBlock(

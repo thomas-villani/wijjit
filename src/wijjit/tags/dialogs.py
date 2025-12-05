@@ -14,6 +14,7 @@ from wijjit.core.overlay import LayerType
 from wijjit.core.render_context import get_render_context
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 from wijjit.logging_config import get_logger
+from wijjit.tags.layout import parse_tag_attributes
 
 if TYPE_CHECKING:
     pass
@@ -62,19 +63,7 @@ class ConfirmDialogExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endconfirmdialog"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endconfirmdialog", lineno)
 
         # Parse body (optional message content)
         body = parser.parse_statements(("name:endconfirmdialog",), drop_needle=True)
@@ -248,19 +237,7 @@ class AlertDialogExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endalertdialog"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endalertdialog", lineno)
 
         # Parse body (optional message content)
         body = parser.parse_statements(("name:endalertdialog",), drop_needle=True)
@@ -421,19 +398,7 @@ class TextInputDialogExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endinputdialog"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endinputdialog", lineno)
 
         # Parse body (should be empty for input dialog)
         body = parser.parse_statements(("name:endinputdialog",), drop_needle=True)

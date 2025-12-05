@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import shutil
 import time
-import warnings
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
@@ -276,115 +275,6 @@ class EventLoop:
 
         return False
 
-    def _process_frame(self) -> None:
-        """Process a single frame of the event loop (synchronous - deprecated).
-
-        .. deprecated::
-            This method is deprecated. Use :meth:`_process_frame_async` instead.
-
-        This method handles:
-        - Auto-refresh for animations
-        - Notification expiry
-        - Terminal resize detection
-        - Input reading and event dispatch
-        - Re-rendering when needed
-        """
-        warnings.warn(
-            "_process_frame() is deprecated. Use _process_frame_async() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        # Check if auto-refresh is needed (for animations like spinners or notification expiry)
-        if self.app.refresh_interval is not None:
-            current_time = time.time()
-            elapsed = current_time - self.app._last_refresh_time
-
-            if elapsed >= self.app.refresh_interval:
-                # Time to refresh - advance spinner frames
-                self._advance_spinner_frames()
-                # Trigger re-render to show updated animation frames
-                self.app.needs_render = True
-
-                # Check for expired notifications
-                if self.app.notification_manager.check_expired():
-                    self.app.needs_render = True
-
-                self.app._last_refresh_time = current_time
-
-        # Check for terminal resize
-        term_size = shutil.get_terminal_size()
-        current_size = (term_size.columns, term_size.lines)
-        if current_size != self.app._last_terminal_size:
-            logger.debug(
-                f"Terminal resized from {self.app._last_terminal_size} to {current_size}"
-            )
-            # Recalculate overlay positions
-            self.app.overlay_manager.recalculate_centered_overlays(
-                term_size.columns, term_size.lines
-            )
-            # Update notification positions
-            self.app.notification_manager.update_terminal_size(
-                term_size.columns, term_size.lines
-            )
-            self.app._last_terminal_size = current_size
-            self.app.needs_render = True
-
-        # Render immediately if needed (before disabling auto-refresh)
-        # This ensures the final notification removal is rendered
-        if self.app.needs_render:
-            # Advance spinner frames if enough time has passed
-            # This ensures spinners animate even when refresh() is called manually
-            current_time = time.time()
-            if (
-                current_time - self._last_spinner_advance_time
-                >= self._spinner_frame_interval
-            ):
-                self._advance_spinner_frames()
-                self._last_spinner_advance_time = current_time
-
-            self.app._render()
-            self.app._last_refresh_time = time.time()
-
-        # Disable auto-refresh if no notifications remain
-        # Do this AFTER rendering to ensure the final state is displayed
-        if (
-            self.app.notification_manager.is_empty()
-            and self.app.refresh_interval == 0.1
-        ):
-            self.app.refresh_interval = None
-
-        # Read input - use short timeout if refresh_interval is set
-        # This allows animations to run smoothly without requiring user input
-        # Use a fallback timeout of 0.5s when refresh_interval is None to support
-        # background thread updates via app.refresh()
-        if self.app.refresh_interval is not None:
-            timeout = self.app.refresh_interval / 2
-        else:
-            timeout = 0.5  # Fallback: check for pending renders every 0.5s
-
-        input_event = self.app.input_handler.read_input(timeout=timeout)
-
-        if input_event is None:
-            # Timeout or error reading input
-            # Check if a background thread requested a render
-            if self.app.needs_render:
-                self.app._render()
-                self.app._last_refresh_time = time.time()
-            return
-
-        # Check if it's a keyboard event
-        if isinstance(input_event, Key):
-            self._handle_key_event(input_event)
-
-        # Check if it's a mouse event
-        elif isinstance(input_event, TerminalMouseEvent):
-            self._handle_mouse_event(input_event)
-
-        # Re-render if needed
-        if self.app.needs_render:
-            self.app._render()
-            self.app._last_refresh_time = time.time()
-
     async def _process_frame_async(self) -> None:
         """Process a single frame of the event loop (async).
 
@@ -455,9 +345,10 @@ class EventLoop:
         # Do this AFTER rendering to ensure the final state is displayed
         if (
             self.app.notification_manager.is_empty()
-            and self.app.refresh_interval == 0.1
+            and self.app._notification_auto_refresh
         ):
             self.app.refresh_interval = None
+            self.app._notification_auto_refresh = False
 
         # Read input asynchronously - use short timeout if refresh_interval is set
         # This allows animations to run smoothly without requiring user input
@@ -518,105 +409,6 @@ class EventLoop:
                 # Frame completed too quickly, sleep to limit FPS
                 sleep_time = desired_frame_time - frame_time
                 await asyncio.sleep(sleep_time)
-
-    def _handle_key_event(self, input_event: Key) -> None:
-        """Handle a keyboard event (synchronous - deprecated).
-
-        .. deprecated::
-            This method is deprecated. Use :meth:`_handle_key_event_async` instead.
-
-        Parameters
-        ----------
-        input_event : Key
-            The keyboard input event
-        """
-        warnings.warn(
-            "_handle_key_event() is deprecated. "
-            "Use _handle_key_event_async() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        # Handle quit key (configurable, default Ctrl+Q)
-        quit_key = self.app.config["QUIT_KEY"]
-        if input_event.name == quit_key:
-            logger.info(f"Received {quit_key}, exiting application")
-            self.running = False
-            return
-
-        logger.debug(
-            f"Key event: {input_event.name} (modifiers={input_event.modifiers})"
-        )
-
-        # Check for ESC key to close overlays/notifications
-        if input_event.name == "escape":
-            # If there are notifications, dismiss oldest first
-            if self.app.notification_manager.notifications:
-                if self.app.notification_manager.dismiss_oldest():
-                    self.app.needs_render = True
-                    return  # Don't process event further
-
-            # Otherwise, handle normal overlay escape
-            if self.app.overlay_manager.handle_escape():
-                # Overlay was closed, trigger re-render
-                self.app.needs_render = True
-                return  # Don't process event further
-
-        # Route keyboard events to overlay if trap_focus is active
-        top_overlay = self.app.overlay_manager.get_top_overlay()
-        if top_overlay and top_overlay.trap_focus:
-            overlay_elem = top_overlay.element
-            if hasattr(overlay_elem, "handle_key"):
-                if overlay_elem.handle_key(input_event):
-                    # Overlay handled the key, trigger re-render
-                    self.app.needs_render = True
-                    return  # Don't process event further
-
-        # Create and dispatch key event
-        # Note: on_key handlers are now registered with the event system,
-        # so they will be dispatched via dispatch along with all other handlers.
-        event = KeyEvent(
-            key=input_event.name,
-            modifiers=input_event.modifiers,
-            key_obj=input_event,  # Store original Key object
-        )
-        self.app.handler_registry.dispatch(event)
-
-        # Route key to focused element if not handled by other handlers
-        # If focus is trapped in an overlay, only route to overlay elements
-        if not event.cancelled:
-            if self.app.overlay_manager.should_trap_focus():
-                # Focus is trapped - only route to focused element if it's in overlay
-                focused = self.app.focus_manager.get_focused_element()
-                if focused:
-                    handled = focused.handle_key(input_event)
-                    if handled:
-                        self.app.needs_render = True
-            else:
-                # Normal focus routing
-                self._route_key_to_focused_element(event)
-
-    def _handle_mouse_event(self, terminal_event: TerminalMouseEvent) -> None:
-        """Handle a mouse event (synchronous - deprecated).
-
-        .. deprecated::
-            This method is deprecated. Use :meth:`_handle_mouse_event_async` instead.
-
-        Parameters
-        ----------
-        terminal_event : TerminalMouseEvent
-            The mouse event from terminal layer
-        """
-        warnings.warn(
-            "_handle_mouse_event() is deprecated. "
-            "Use _handle_mouse_event_async() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        # Note: This synchronous method cannot call the async route_mouse_event
-        # Use _handle_mouse_event_async instead for full async support
-        logger.warning(
-            "Synchronous _handle_mouse_event is deprecated. Use async version."
-        )
 
     async def _handle_key_event_async(self, input_event: Key) -> None:
         """Handle a keyboard event (async).

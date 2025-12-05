@@ -356,8 +356,99 @@ class State(UserDict[str, Any]):
         ...     state['b'] = 20
         ...     state['a'] = 100  # Only this final value is used
         # Callbacks triggered once for 'a' (1 -> 100) and once for 'b' (2 -> 20)
+
+        Notes
+        -----
+        For async callbacks, this method schedules them as background tasks
+        but cannot await their completion. Use :meth:`async_batch_update` in
+        async contexts for proper async callback handling.
         """
         return self._BatchContext(self)
+
+    class _AsyncBatchContext:
+        """Async context manager for batch state updates.
+
+        This context manager properly awaits async callbacks when exiting.
+
+        Parameters
+        ----------
+        state : State
+            The state object to batch updates for
+        """
+
+        def __init__(self, state: "State") -> None:
+            self.state = state
+
+        async def __aenter__(self) -> "State":
+            """Enter batch mode."""
+            self.state._batch_mode = True
+            self.state._batch_changes = []
+            return self.state
+
+        async def __aexit__(
+            self,
+            exc_type: type | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> bool:
+            """Exit batch mode and await callbacks for all changes.
+
+            Properly awaits all async callbacks before returning.
+            """
+            self.state._batch_mode = False
+
+            # If there were any changes, trigger callbacks
+            if self.state._batch_changes and not exc_val:
+                # Get unique keys that changed (use the last old/new values)
+                changes_by_key: dict[str, tuple[Any, Any]] = {}
+                for key, old_value, new_value in self.state._batch_changes:
+                    if key not in changes_by_key:
+                        # First change for this key - record original old value
+                        changes_by_key[key] = (old_value, new_value)
+                    else:
+                        # Subsequent changes - keep original old, update new
+                        original_old, _ = changes_by_key[key]
+                        changes_by_key[key] = (original_old, new_value)
+
+                # Trigger callbacks once for each unique key that actually changed
+                for key, (old_value, new_value) in changes_by_key.items():
+                    if old_value != new_value:
+                        # Use async version to properly await callbacks
+                        await self.state._trigger_change_async(
+                            key, old_value, new_value
+                        )
+
+            self.state._batch_changes = []
+            return False  # Don't suppress exceptions
+
+    def async_batch_update(self) -> _AsyncBatchContext:
+        """Async context manager for batch state updates.
+
+        Use this in async contexts to update multiple state values while
+        suppressing intermediate callbacks. All async callbacks are properly
+        awaited when the context manager exits.
+
+        Returns
+        -------
+        _AsyncBatchContext
+            Async context manager for batch updates
+
+        Examples
+        --------
+        >>> state = State({'a': 1, 'b': 2})
+        >>> async with state.async_batch_update():
+        ...     state['a'] = 10
+        ...     state['b'] = 20
+        ...     state['a'] = 100  # Only this final value is used
+        # Callbacks awaited for 'a' (1 -> 100) and 'b' (2 -> 20)
+
+        Notes
+        -----
+        This method should be preferred over :meth:`batch_update` when in an
+        async context, as it ensures all async callbacks complete before
+        continuing execution.
+        """
+        return self._AsyncBatchContext(self)
 
     def _trigger_change(self, key: str, old_value: Any, new_value: Any) -> None:
         """Trigger change callbacks (synchronous).

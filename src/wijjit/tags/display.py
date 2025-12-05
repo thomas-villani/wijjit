@@ -17,7 +17,12 @@ from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.display.modal import ModalElement
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import get_element_marker, process_body_content
+from wijjit.tags.layout import (
+    get_element_marker,
+    parse_tag_attributes,
+    process_body_content,
+    safe_int,
+)
 
 if TYPE_CHECKING:
     pass
@@ -55,19 +60,7 @@ class TableExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtable"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtable", lineno)
 
         # Parse body (should be empty, but consume until endtable)
         node = nodes.CallBlock(
@@ -223,19 +216,7 @@ class TreeExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtree"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtree", lineno)
 
         # Parse body (should be empty, but consume until endtree)
         node = nodes.CallBlock(
@@ -409,19 +390,7 @@ class ProgressBarExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endprogressbar"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endprogressbar", lineno)
 
         # Parse body (should be empty, but consume until endprogressbar)
         node = nodes.CallBlock(
@@ -561,19 +530,7 @@ class SpinnerExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endspinner"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endspinner", lineno)
 
         # Parse body (should be empty, but consume until endspinner)
         node = nodes.CallBlock(
@@ -702,19 +659,7 @@ class LogViewExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endlogview"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endlogview", lineno)
 
         # Parse body (should be empty, but consume until endlogview)
         node = nodes.CallBlock(
@@ -800,17 +745,19 @@ class LogViewExtension(Extension):
         if isinstance(width, str) and not width.isdigit():
             element_width = 60  # Default for initial render
         else:
-            element_width = int(width)
+            element_width = safe_int(width, default=60, name="width")
 
         if isinstance(height, str) and not height.isdigit():
             element_height = 20  # Default for initial render
         else:
-            element_height = int(height)
+            element_height = safe_int(height, default=20, name="height")
 
         auto_scroll = bool(auto_scroll)
         soft_wrap = bool(soft_wrap)
         show_line_numbers = bool(show_line_numbers)
-        line_number_start = int(line_number_start)
+        line_number_start = safe_int(
+            line_number_start, default=1, name="line_number_start"
+        )
         detect_log_levels = bool(detect_log_levels)
         show_scrollbar = bool(show_scrollbar)
 
@@ -924,19 +871,7 @@ class ListViewExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endlistview"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endlistview", lineno)
 
         # Parse body (list items if not provided as attribute)
         node = nodes.CallBlock(
@@ -1139,19 +1074,7 @@ class ModalExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endmodal"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endmodal", lineno)
 
         # Parse body (modal content)
         node = nodes.CallBlock(
@@ -1297,19 +1220,7 @@ class StatusBarExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endstatusbar"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endstatusbar", lineno)
 
         # Parse body (should be empty, but consume until endstatusbar)
         node = nodes.CallBlock(
@@ -1461,19 +1372,7 @@ class TextExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtext"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtext", lineno)
 
         # Parse body (text content)
         node = nodes.CallBlock(
@@ -1576,19 +1475,7 @@ class TabExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtab"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtab", lineno)
 
         # Parse body (tab content)
         node = nodes.CallBlock(
@@ -1717,19 +1604,7 @@ class TabbedPanelExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endtabbedpanel"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endtabbedpanel", lineno)
 
         # Parse body (tab elements)
         node = nodes.CallBlock(
@@ -1892,19 +1767,7 @@ class LinkExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endlink"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endlink", lineno)
 
         # Parse body (link text)
         node = nodes.CallBlock(
@@ -2003,19 +1866,7 @@ class ContentViewExtension(Extension):
             Parsed node tree
         """
         lineno = next(parser.stream).lineno
-
-        # Parse attributes as keyword arguments
-        kwargs: list[nodes.Keyword] = []
-        while parser.stream.current.test("name") and not parser.stream.current.test(
-            "name:endcontentview"
-        ):
-            key = parser.stream.expect("name").value
-            if parser.stream.current.test("assign"):
-                parser.stream.expect("assign")
-                value = parser.parse_expression()
-                kwargs.append(nodes.Keyword(key, value, lineno=lineno))
-            else:
-                break
+        kwargs = parse_tag_attributes(parser, "endcontentview", lineno)
 
         # Parse body content
         node = nodes.CallBlock(

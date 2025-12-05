@@ -14,6 +14,8 @@ import asyncio
 import threading
 from datetime import datetime
 
+import pytest
+
 from wijjit.core.events import (
     ActionEvent,
     ChangeEvent,
@@ -246,7 +248,8 @@ class TestHandlerRegistry:
         assert h2 not in registry.handlers
         assert h3 in registry.handlers
 
-    def test_dispatch_to_global_handler(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_to_global_handler(self):
         """Test dispatching event to global handler."""
         registry = HandlerRegistry()
         called = []
@@ -259,12 +262,13 @@ class TestHandlerRegistry:
         )
 
         event = KeyEvent(key="a")
-        registry.dispatch(event)
+        await registry.dispatch_async(event)
 
         assert len(called) == 1
         assert called[0] == event
 
-    def test_dispatch_filters_by_event_type(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_filters_by_event_type(self):
         """Test that handlers only receive matching event types."""
         registry = HandlerRegistry()
         key_called = []
@@ -281,19 +285,20 @@ class TestHandlerRegistry:
 
         # Dispatch key event
         key_event = KeyEvent(key="a")
-        registry.dispatch(key_event)
+        await registry.dispatch_async(key_event)
 
         assert len(key_called) == 1
         assert len(action_called) == 0
 
         # Dispatch action event
         action_event = ActionEvent(action_id="click")
-        registry.dispatch(action_event)
+        await registry.dispatch_async(action_event)
 
         assert len(key_called) == 1
         assert len(action_called) == 1
 
-    def test_dispatch_handles_all_event_types(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_handles_all_event_types(self):
         """Test handler with no event type filter receives all events."""
         registry = HandlerRegistry()
         called = []
@@ -303,12 +308,13 @@ class TestHandlerRegistry:
 
         registry.register(callback=handler)  # No event_type filter
 
-        registry.dispatch(KeyEvent(key="a"))
-        registry.dispatch(ActionEvent(action_id="click"))
+        await registry.dispatch_async(KeyEvent(key="a"))
+        await registry.dispatch_async(ActionEvent(action_id="click"))
 
         assert len(called) == 2
 
-    def test_dispatch_respects_view_scope(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_respects_view_scope(self):
         """Test view-scoped handlers only fire for current view."""
         registry = HandlerRegistry()
         called = []
@@ -325,20 +331,21 @@ class TestHandlerRegistry:
 
         # No current view set - handler shouldn't fire
         event = KeyEvent(key="a")
-        registry.dispatch(event)
+        await registry.dispatch_async(event)
         assert len(called) == 0
 
         # Set current view to different view - shouldn't fire
         registry.current_view = "view2"
-        registry.dispatch(KeyEvent(key="b"))
+        await registry.dispatch_async(KeyEvent(key="b"))
         assert len(called) == 0
 
         # Set current view to matching view - should fire
         registry.current_view = "view1"
-        registry.dispatch(KeyEvent(key="c"))
+        await registry.dispatch_async(KeyEvent(key="c"))
         assert len(called) == 1
 
-    def test_dispatch_respects_element_scope(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_respects_element_scope(self):
         """Test element-scoped handlers only fire for matching element."""
         registry = HandlerRegistry()
         called = []
@@ -355,15 +362,16 @@ class TestHandlerRegistry:
 
         # Event with different element - shouldn't fire
         event1 = ActionEvent(action_id="click", source_element_id="btn2")
-        registry.dispatch(event1)
+        await registry.dispatch_async(event1)
         assert len(called) == 0
 
         # Event with matching element - should fire
         event2 = ActionEvent(action_id="click", source_element_id="btn1")
-        registry.dispatch(event2)
+        await registry.dispatch_async(event2)
         assert len(called) == 1
 
-    def test_dispatch_priority_ordering(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_priority_ordering(self):
         """Test handlers execute in priority order (highest first)."""
         registry = HandlerRegistry()
         order = []
@@ -383,12 +391,13 @@ class TestHandlerRegistry:
         registry.register(callback=handler1, priority=1)  # Lowest
 
         event = KeyEvent(key="a")
-        registry.dispatch(event)
+        await registry.dispatch_async(event)
 
         # Should execute in priority order: 3, 2, 1
         assert order == [3, 2, 1]
 
-    def test_dispatch_stops_on_cancelled_event(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_stops_on_cancelled_event(self):
         """Test event dispatch stops if event is cancelled."""
         registry = HandlerRegistry()
         order = []
@@ -404,13 +413,14 @@ class TestHandlerRegistry:
         registry.register(callback=handler2, priority=5)
 
         event = KeyEvent(key="a")
-        registry.dispatch(event)
+        await registry.dispatch_async(event)
 
         # Only first handler should execute
         assert order == [1]
         assert event.cancelled
 
-    def test_dispatch_element_with_element_id_attribute(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_element_with_element_id_attribute(self):
         """Test element dispatch with element_id attribute."""
         registry = HandlerRegistry()
         called = []
@@ -427,7 +437,7 @@ class TestHandlerRegistry:
 
         # Event with matching element_id
         event = ChangeEvent(element_id="input1", old_value="a", new_value="b")
-        registry.dispatch(event)
+        await registry.dispatch_async(event)
         assert len(called) == 1
 
 

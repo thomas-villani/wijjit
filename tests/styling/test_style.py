@@ -647,7 +647,16 @@ class TestParseColor:
         assert parse_color("invalid") is None
         assert parse_color("notacolor") is None
         assert parse_color("#GGG") is None  # Invalid hex
-        assert parse_color("rgb(300, 0, 0)") == (300, 0, 0)  # Out of range but parses
+        assert parse_color("rgb(300, 0, 0)") == (
+            255,
+            0,
+            0,
+        )  # Out of range values clamped to 0-255
+        assert parse_color("rgb(-10, 300, 150)") == (
+            0,
+            255,
+            150,
+        )  # Negative clamped to 0, high clamped to 255
         assert parse_color("rgb(a, b, c)") is None  # Invalid values
         assert parse_color("") is None
 

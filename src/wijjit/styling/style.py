@@ -386,6 +386,10 @@ def parse_color(color_str: str) -> tuple[int, int, int] | None:
         if len(parts) == 3:
             try:
                 r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
+                # Clamp values to valid 0-255 range
+                r = max(0, min(255, r))
+                g = max(0, min(255, g))
+                b = max(0, min(255, b))
                 return (r, g, b)
             except ValueError:
                 pass

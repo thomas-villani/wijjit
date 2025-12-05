@@ -184,9 +184,6 @@ class ContentView(ScrollableElement):
         # Dynamic sizing flag (set by template tag)
         self._dynamic_sizing: bool = False
 
-        # Store style resolver for HTML rendering
-        self._style_resolver: StyleResolver | None = None
-
     @property
     def content_type(self) -> ContentType:
         """Get the current content type.
