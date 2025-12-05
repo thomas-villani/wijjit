@@ -10,6 +10,9 @@ __version__ = "0.1.0"
 from wijjit.config import Config, DefaultConfig
 from wijjit.core.app import Wijjit
 
+# Inline rendering
+from wijjit.inline import render_inline, InlineApp
+
 # from wijjit.core.events import (
 #     ActionEvent,
 #     ChangeEvent,
@@ -63,6 +66,9 @@ __all__ = [
     "Wijjit",
     "Config",
     "DefaultConfig",
+    # Inline rendering
+    "render_inline",
+    "InlineApp",
     #     # Version
     #     "__version__",
     #     # Core
