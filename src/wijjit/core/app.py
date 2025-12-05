@@ -67,7 +67,7 @@ class Wijjit:
 
     Parameters
     ----------
-    initial_state : Optional[Dict[str, Any]]
+    initial_state : dict[str, Any] or None
         Initial state dictionary (default: empty dict)
 
     Attributes
@@ -90,7 +90,7 @@ class Wijjit:
         Keyboard and mouse input handling
     views : Dict[str, ViewConfig]
         Registered views
-    current_view : Optional[str]
+    current_view : str or None
         Name of current view
     running : bool
         Whether the app is currently running
@@ -134,13 +134,13 @@ class Wijjit:
 
         Parameters
         ----------
-        initial_state : Optional[Dict[str, Any]]
+        initial_state : dict[str, Any] or None
             Initial state dictionary
-        template_dir : Optional[str]
+        template_dir : str or None
             Template directory path (convenience parameter for TEMPLATE_DIR config)
-        enable_mouse : Optional[bool]
+        enable_mouse : bool or None
             Enable mouse support (convenience parameter for ENABLE_MOUSE config)
-        debug : Optional[bool]
+        debug : bool or None
             Enable debug mode (convenience parameter for DEBUG config)
         **config_overrides
             Additional config overrides (e.g., quit_key='q', log_level='DEBUG')
@@ -642,9 +642,9 @@ class Wijjit:
             Function to call when event occurs
         scope : HandlerScope
             Scope at which handler operates (default: GLOBAL)
-        view_name : Optional[str]
+        view_name : str or None
             View name for view-scoped handlers
-        element_id : Optional[str]
+        element_id : str or None
             Element ID for element-scoped handlers
         priority : int
             Handler priority (higher = earlier, default: 0)

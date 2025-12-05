@@ -16,9 +16,13 @@ from wijjit.core.overlay import LayerType
 from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.elements.display.modal import ModalElement
+from wijjit.elements.display.statusbar import StatusBar
+from wijjit.elements.display.tabbed_panel import TabPosition
+from wijjit.elements.display.tree import TreeIndicatorStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
     get_element_marker,
+    interleave_text_and_vnode_builders,
     parse_tag_attributes,
     process_body_content,
     safe_int,
@@ -309,8 +313,6 @@ class TreeExtension(Extension):
         show_root = bool(show_root)
 
         # Convert indicator_style string to enum
-        from wijjit.elements.display.tree import TreeIndicatorStyle
-
         indicator_style_map = {
             "triangles_large": TreeIndicatorStyle.TRIANGLES_LARGE,
             "triangles": TreeIndicatorStyle.TRIANGLES,
@@ -1306,8 +1308,6 @@ class StatusBarExtension(Extension):
 
         # Create StatusBar element - StatusBar is special because it's positioned
         # outside the normal layout flow at the bottom of the screen
-        from wijjit.elements.display.statusbar import StatusBar
-
         statusbar = StatusBar(
             id=id,
             classes=classes,
@@ -1513,12 +1513,6 @@ class TabExtension(Extension):
         parent TabbedPanel VNode. The tab content elements are collected
         via the VNode stack and become children of the TabContent VNode.
         """
-        from wijjit.core.vdom import VNodeBuilder
-        from wijjit.tags.layout import (
-            interleave_text_and_vnode_builders,
-            process_body_content,
-        )
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -1660,10 +1654,6 @@ class TabbedPanelExtension(Extension):
         Child {% tab %} tags create TabContent VNodes that become children.
         The renderer builds the TabbedPanel element from the VNode tree.
         """
-        from wijjit.core.vdom import VNodeBuilder
-        from wijjit.elements.display.tabbed_panel import TabPosition
-        from wijjit.tags.layout import get_element_marker
-
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 

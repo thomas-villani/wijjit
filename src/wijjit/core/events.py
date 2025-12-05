@@ -60,7 +60,7 @@ class Event:
 
     Parameters
     ----------
-    event_type : Optional[EventType]
+    event_type : EventType or None
         The type of event (set automatically by subclasses)
     timestamp : datetime
         When the event occurred
@@ -69,7 +69,7 @@ class Event:
 
     Attributes
     ----------
-    event_type : Optional[EventType]
+    event_type : EventType or None
         The type of event
     timestamp : datetime
         When the event occurred
@@ -101,16 +101,16 @@ class KeyEvent(Event):
         The key that was pressed
     modifiers : List[str]
         Modifier keys (ctrl, alt, shift)
-    key_obj : Optional[Any]
+    key_obj : Any or None
         The original Key object from InputHandler
 
     Attributes
     ----------
     key : str
         The key that was pressed
-    modifiers : List[str]
+    modifiers : list[str]
         Modifier keys (ctrl, alt, shift)
-    key_obj : Optional[Any]
+    key_obj : Any or None
         The original Key object from InputHandler
     """
 
@@ -133,7 +133,7 @@ class ActionEvent(Event):
     ----------
     action_id : str
         Identifier for the action
-    source_element_id : Optional[str]
+    source_element_id : str or None
         ID of the element that triggered the action
     data : Any
         Additional data associated with the action
@@ -142,7 +142,7 @@ class ActionEvent(Event):
     ----------
     action_id : str
         Identifier for the action
-    source_element_id : Optional[str]
+    source_element_id : str or None
         ID of the element that triggered the action
     data : Any
         Additional data associated with the action
@@ -235,14 +235,14 @@ class MouseEvent(Event):
     ----------
     mouse_event : TerminalMouseEvent
         The underlying terminal mouse event
-    element_id : Optional[str]
+    element_id : str or None
         ID of the element at the mouse position (if any)
 
     Attributes
     ----------
     mouse_event : TerminalMouseEvent
         The underlying terminal mouse event
-    element_id : Optional[str]
+    element_id : str or None
         ID of the element at the mouse position
     x : int
         Column position (0-based)
@@ -323,11 +323,11 @@ class Handler:
         Function to call when event is dispatched (sync or async)
     scope : HandlerScope
         Scope at which this handler operates
-    event_type : Optional[EventType]
+    event_type : EventType or None
         Type of event to handle (None for all types)
-    view_name : Optional[str]
+    view_name : str or None
         View name for view-scoped handlers
-    element_id : Optional[str]
+    element_id : str or None
         Element ID for element-scoped handlers
     priority : int
         Handler priority (higher = earlier execution)
@@ -338,11 +338,11 @@ class Handler:
         Function to call when event is dispatched
     scope : HandlerScope
         Scope at which this handler operates
-    event_type : Optional[EventType]
+    event_type : EventType or None
         Type of event to handle (None for all types)
-    view_name : Optional[str]
+    view_name : str or None
         View name for view-scoped handlers
-    element_id : Optional[str]
+    element_id : str or None
         Element ID for element-scoped handlers
     priority : int
         Handler priority (higher = earlier execution)
@@ -378,7 +378,7 @@ class HandlerRegistry:
     ----------
     handlers : List[Handler]
         List of registered handlers
-    current_view : Optional[str]
+    current_view : str or None
         Name of the current view for view-scoped handlers
     """
 
@@ -406,11 +406,11 @@ class HandlerRegistry:
             Function to call when event is dispatched (sync or async)
         scope : HandlerScope
             Scope at which this handler operates (default: GLOBAL)
-        event_type : Optional[EventType]
+        event_type : EventType or None
             Type of event to handle (None for all types)
-        view_name : Optional[str]
+        view_name : str or None
             View name for view-scoped handlers
-        element_id : Optional[str]
+        element_id : str or None
             Element ID for element-scoped handlers
         priority : int
             Handler priority (higher = earlier execution, default: 0)

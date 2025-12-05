@@ -4,6 +4,7 @@ This module provides the StyleResolver class which handles CSS-like cascade
 and pseudo-class resolution for element styling.
 """
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from wijjit.styling.style import Style
@@ -11,6 +12,38 @@ from wijjit.styling.theme import Theme
 
 if TYPE_CHECKING:
     from wijjit.elements.base import Element
+
+
+def _get_element_classes(element: "Element") -> list[str]:
+    """Safely extract CSS classes from an element.
+
+    Parameters
+    ----------
+    element : Element
+        Element to extract classes from
+
+    Returns
+    -------
+    list of str
+        List of class names, empty list if classes is None or invalid
+    """
+    if not hasattr(element, "classes") or element.classes is None:
+        return []
+
+    classes = element.classes
+
+    # Handle string (split by whitespace)
+    if isinstance(classes, str):
+        return classes.split()
+
+    # Handle iterable (but not string since we handled that above)
+    if isinstance(classes, Iterable):
+        try:
+            return [str(c) for c in classes]
+        except (TypeError, ValueError):
+            return []
+
+    return []
 
 
 class StyleResolver:
@@ -147,11 +180,12 @@ class StyleResolver:
         # Build cache key from element type, CSS classes, and state
         # Skip caching if inline_overrides provided (too dynamic)
         cache_key = None
+        element_classes = _get_element_classes(element)
         if not inline_overrides:
             # Build CSS classes key
             css_classes_key: frozenset[str] | None = None
-            if hasattr(element, "classes") and element.classes:
-                css_classes_key = frozenset(element.classes)
+            if element_classes:
+                css_classes_key = frozenset(element_classes)
 
             # Build state key from element pseudo-class state
             state_key = (
@@ -176,8 +210,8 @@ class StyleResolver:
             style = style.merge(base_style)
 
         # Apply user CSS classes (higher specificity than base type)
-        if hasattr(element, "classes") and element.classes:
-            for class_name in sorted(element.classes):  # Sort for consistency
+        if element_classes:
+            for class_name in sorted(element_classes):  # Sort for consistency
                 # Add dot prefix for CSS utility classes
                 css_style = self.theme.get_style(f".{class_name}")
                 if css_style:
@@ -187,8 +221,8 @@ class StyleResolver:
         style = self._apply_pseudo_classes(style, element, base_element_type)
 
         # Apply pseudo-classes to CSS classes
-        if hasattr(element, "classes") and element.classes:
-            for class_name in sorted(element.classes):
+        if element_classes:
+            for class_name in sorted(element_classes):
                 style = self._apply_pseudo_classes(style, element, f".{class_name}")
 
         # Cache the computed style (without inline overrides)

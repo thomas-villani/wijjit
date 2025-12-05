@@ -11,7 +11,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, Union
+from typing import Union
 
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys as PTKeys
@@ -304,7 +304,7 @@ class InputHandler:
     def __init__(
         self,
         enable_mouse: bool = False,
-        mouse_tracking_mode: Optional["MouseTrackingMode"] = None,
+        mouse_tracking_mode: "MouseTrackingMode | None" = None,
     ) -> None:
         self._input = create_input()
         self._raw_mode = None
@@ -952,7 +952,7 @@ class InputHandler:
                 return event
             # Skip mouse events and keep reading
 
-    def enable_mouse_tracking(self, mode: Optional["MouseTrackingMode"] = None) -> None:
+    def enable_mouse_tracking(self, mode: "MouseTrackingMode | None" = None) -> None:
         """Enable mouse event tracking.
 
         Sends ANSI escape sequences to enable mouse tracking in the terminal.

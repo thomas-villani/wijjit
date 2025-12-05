@@ -16,7 +16,7 @@ import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from wijjit.elements.menu import ContextMenu, DropdownMenu
 
@@ -69,13 +69,13 @@ class Overlay:
         Whether ESC key closes this overlay
     trap_focus : bool
         Whether to trap focus within this overlay
-    on_close : Optional[Callable]
+    on_close : Callable or None
         Callback when overlay is closed
     dimmed_background : bool
         Whether to dim the background behind this overlay
-    previous_focus : Optional[Element]
+    previous_focus : Element or None
         Element that had focus before this overlay opened
-    previous_focus_state : Optional[tuple]
+    previous_focus_state : tuple or None
         Saved focus manager state (elements list, current index)
     """
 
@@ -87,7 +87,7 @@ class Overlay:
     trap_focus: bool = False
     on_close: Callable[[], None] | None = None
     dimmed_background: bool = False
-    previous_focus: Optional["Element"] = None
+    previous_focus: "Element | None" = None
     previous_focus_state: tuple | None = None
 
 
@@ -178,7 +178,7 @@ class OverlayManager:
             Trap focus within this overlay (default: False)
         dimmed_background : bool
             Dim the background behind this overlay (default: False)
-        on_close : Optional[Callable]
+        on_close : Callable or None
             Callback to invoke when overlay closes
 
         Returns
@@ -259,12 +259,12 @@ class OverlayManager:
 
         Parameters
         ----------
-        overlay : Optional[Overlay]
+        overlay : Overlay or None
             Specific overlay to remove, or None to remove the topmost
 
         Returns
         -------
-        Optional[Overlay]
+        Overlay or None
             The removed overlay, or None if stack was empty
         """
         if not self.overlays:
@@ -370,7 +370,7 @@ class OverlayManager:
 
         Returns
         -------
-        Optional[Overlay]
+        Overlay or None
             Topmost overlay at position, or None
         """
         # Iterate from highest to lowest z-index
@@ -385,7 +385,7 @@ class OverlayManager:
 
         Returns
         -------
-        Optional[Overlay]
+        Overlay or None
             Topmost overlay, or None if stack is empty
         """
         return self.overlays[-1] if self.overlays else None

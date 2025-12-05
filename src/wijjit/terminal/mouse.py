@@ -176,6 +176,24 @@ class MouseEventParser:
         self._last_click_pos: tuple[int, int] | None = None
         self._last_click_button: MouseButton | None = None
 
+    def reset(self) -> None:
+        """Reset click synthesis state.
+
+        This method clears all internal state used for click and double-click
+        detection. Call this when starting a new session or when the mouse
+        state should be cleared (e.g., window focus lost, view change).
+
+        Notes
+        -----
+        This prevents stale click state from carrying over between sessions,
+        which could cause incorrect double-click detection if a click from
+        a previous session is still recorded.
+        """
+        self._last_press = None
+        self._last_click_time = None
+        self._last_click_pos = None
+        self._last_click_button = None
+
     def parse_sgr(self, data: bytes) -> MouseEvent | None:
         """Parse SGR format mouse event sequence.
 

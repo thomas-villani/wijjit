@@ -17,9 +17,16 @@ from wijjit.layout.scroll import (
     render_vertical_scrollbar,
 )
 from wijjit.logging_config import get_logger
-from wijjit.terminal.ansi import clip_to_width, visible_length, wrap_text
+from wijjit.terminal.ansi import (
+    clip_to_width,
+    strip_ansi,
+    supports_unicode,
+    visible_length,
+    wrap_text,
+)
+from wijjit.terminal.cell import Cell, get_pooled_cell
 from wijjit.terminal.input import Key
-from wijjit.terminal.mouse import MouseEvent, MouseEventType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 logger = get_logger(__name__)
 
@@ -140,8 +147,6 @@ def get_border_chars(style: BorderStyle) -> dict[str, str]:
     >>> # Returns Unicode chars if supported, ASCII otherwise
     >>> chars["tl"]  # '+' or '┌' depending on support
     """
-    from wijjit.terminal.ansi import supports_unicode
-
     if supports_unicode():
         return BORDER_CHARS_UNICODE[style]
     else:
@@ -165,7 +170,7 @@ class FrameStyle:
     content_align_v : {"top", "middle", "bottom", "stretch"}, optional
         Vertical alignment of content within frame (default: "stretch")
     scrollable : bool, optional
-        Enable scrolling for content that exceeds frame height (default: False)
+        Enable scrolling for content that exceeds frame height (default: True)
     show_scrollbar : bool, optional
         Show vertical scrollbar when scrollable (default: True)
     show_scrollbar_x : bool, optional
@@ -189,7 +194,7 @@ class FrameStyle:
     padding: tuple[int, int, int, int] = (0, 1, 0, 1)  # top, right, bottom, left
     content_align_h: Literal["left", "center", "right", "stretch"] = "stretch"
     content_align_v: Literal["top", "middle", "bottom", "stretch"] = "stretch"
-    scrollable: bool = False
+    scrollable: bool = True
     show_scrollbar: bool = True
     show_scrollbar_x: bool = True
     overflow_y: Literal["clip", "scroll", "auto"] = "auto"
@@ -332,8 +337,6 @@ class Frame(ScrollableElement):
             self.content = lines
 
         # Pre-strip ANSI codes for render optimization (avoids regex per line per frame)
-        from wijjit.terminal.ansi import strip_ansi
-
         self._stripped_content = [strip_ansi(line) for line in self.content]
 
         self._content_height = len(self.content)
@@ -1245,8 +1248,6 @@ class Frame(ScrollableElement):
         - Shift+scroll wheel: horizontal scrolling
         - Scroll over horizontal scrollbar area: horizontal scrolling
         """
-        from wijjit.terminal.mouse import MouseButton
-
         # Check if we support any scrolling
         can_scroll_v = self.style.scrollable and self.scroll_manager
         can_scroll_h = self._needs_scroll_x and self.scroll_manager_x
@@ -1426,8 +1427,6 @@ class Frame(ScrollableElement):
                 )
                 # Only render scrollbar if it needs to be shown
                 if self.style.show_scrollbar:
-                    from wijjit.terminal.cell import Cell
-
                     scrollbar_x = self.width - 2  # Right side, inside border
                     for i in range(inner_height):
                         scrollbar_char = (
@@ -1610,8 +1609,6 @@ class Frame(ScrollableElement):
         border_attrs : dict
             Border cell attributes
         """
-        from wijjit.terminal.cell import Cell
-
         if self.style.title:
             # Border with title
             title_text = f" {self.style.title} "
@@ -1677,8 +1674,6 @@ class Frame(ScrollableElement):
         border_attrs : dict
             Border cell attributes
         """
-        from wijjit.terminal.cell import Cell
-
         # Bottom-left corner
         ctx.write_cell(0, y, Cell(char=chars["bl"], **border_attrs))
 
@@ -1721,8 +1716,6 @@ class Frame(ScrollableElement):
         scrollbar_width : int
             Scrollbar width
         """
-        from wijjit.terminal.cell import get_pooled_cell
-
         # Left border (from pool)
         ctx.write_cell(0, y, get_pooled_cell(char=chars["v"], **border_attrs))
 
@@ -1782,9 +1775,6 @@ class Frame(ScrollableElement):
             Index into self._stripped_content for cached ANSI-stripped content.
             If provided and valid, avoids regex stripping on every render.
         """
-        from wijjit.terminal.ansi import strip_ansi
-        from wijjit.terminal.cell import Cell
-
         # Left border
         ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
 
@@ -1884,8 +1874,6 @@ class Frame(ScrollableElement):
         scrollbar_width_v : int
             Width of vertical scrollbar (for corner cell)
         """
-        from wijjit.terminal.cell import Cell
-
         # Left border
         ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
 

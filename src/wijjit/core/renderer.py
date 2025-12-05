@@ -8,7 +8,7 @@ import os
 import shutil
 from collections.abc import Callable
 from copy import copy
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from jinja2 import BaseLoader, DictLoader, Environment, FileSystemLoader, Template
 
@@ -328,7 +328,7 @@ class Renderer:
         context: dict[str, Any] | None = None,
         width: int | None = None,
         height: int | None = None,
-        overlay_manager: Optional["OverlayManager"] = None,
+        overlay_manager: "OverlayManager | None" = None,
         template_name: str | None = None,
     ) -> tuple[str, list[Element], "LayoutContext"]:
         """Render a template with layout engine support.
@@ -963,7 +963,7 @@ class Renderer:
         elements: list[Element],
         width: int,
         height: int,
-        root: Optional["LayoutNode"] = None,
+        root: "LayoutNode | None" = None,
         statusbar: Element | None = None,
     ) -> tuple[str, "ScreenBuffer"]:
         """Compose final output using cell-based rendering.
@@ -1390,7 +1390,7 @@ class Renderer:
         height: int,
         apply_dimming: bool = False,
         dim_factor: float = 0.6,
-        overlay_manager: Optional["OverlayManager"] = None,
+        overlay_manager: "OverlayManager | None" = None,
         force_full_redraw: bool = False,
     ) -> str:
         """Composite overlay elements on cell buffer.
@@ -1512,7 +1512,7 @@ class Renderer:
         height: int,
         apply_dimming: bool = False,
         dim_factor: float = 0.6,
-        overlay_manager: Optional["OverlayManager"] = None,
+        overlay_manager: "OverlayManager | None" = None,
         force_full_redraw: bool = False,
     ) -> str:
         """Composite overlay elements on top of base output.

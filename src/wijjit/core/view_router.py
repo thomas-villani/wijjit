@@ -35,15 +35,15 @@ class ViewConfig:
         Template string (inline template content)
     template_file : str
         Template filename to load from template_dir
-    data : Optional[Callable[..., Dict[str, Any]]]
+    data : Callable[..., dict[str, Any]] or None
         Function that returns data dict for template rendering
-    on_enter : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+    on_enter : Callable[[], None] | Callable[[], Awaitable[None]] or None
         Hook called when navigating to this view (sync or async)
-    on_exit : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+    on_exit : Callable[[], None] | Callable[[], Awaitable[None]] or None
         Hook called when navigating away from this view (sync or async)
     is_default : bool
         Whether this is the default view (shown on startup)
-    view_func : Optional[Callable | Callable[..., Awaitable]]
+    view_func : Callable | Callable[..., Awaitable] or None
         The original view function (used for lazy initialization, sync or async)
     initialized : bool
         Whether this view has been initialized
@@ -56,15 +56,15 @@ class ViewConfig:
         Template string (inline template content)
     template_file : str
         Template filename to load from template_dir
-    data : Optional[Callable[..., Dict[str, Any]]]
+    data : Callable[..., dict[str, Any]] or None
         Function that returns data dict for template rendering
-    on_enter : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+    on_enter : Callable[[], None] | Callable[[], Awaitable[None]] or None
         Hook called when navigating to this view (sync or async)
-    on_exit : Optional[Callable[[], None] | Callable[[], Awaitable[None]]]
+    on_exit : Callable[[], None] | Callable[[], Awaitable[None]] or None
         Hook called when navigating away from this view (sync or async)
     is_default : bool
         Whether this is the default view
-    view_func : Optional[Callable | Callable[..., Awaitable]]
+    view_func : Callable | Callable[..., Awaitable] or None
         The original view function (for lazy initialization, sync or async)
     initialized : bool
         Whether this view has been initialized
