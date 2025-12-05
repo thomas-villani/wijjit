@@ -2,6 +2,28 @@
 
 This module provides the foundational classes for all interactive UI elements
 in Wijjit applications.
+
+Handler Design Notes
+--------------------
+The Element class uses different signatures for key vs mouse handling:
+
+- ``handle_key(key: Key) -> bool`` is **synchronous**
+- ``handle_mouse(event: MouseEvent) -> bool`` is **async**
+
+This is intentional:
+
+1. **Key handlers are typically simple** - text insertion, cursor movement,
+   navigation. These rarely need I/O or async state updates.
+
+2. **Mouse handlers often need async operations** - clicking a button may
+   trigger an async action, drag-and-drop may need async validation,
+   context menus may load data asynchronously.
+
+3. **Performance** - Key events are high-frequency (fast typists generate
+   many events). Making them async adds overhead with little benefit.
+
+If a key handler needs async operations, it should schedule the work
+(e.g., via asyncio.create_task) rather than blocking the handler chain.
 """
 
 from __future__ import annotations
@@ -341,6 +363,9 @@ class Element(ABC):
     def handle_key(self, key: Key) -> bool:
         """Handle a key press.
 
+        This method is synchronous by design. See the module docstring for
+        the rationale behind the async/sync split between key and mouse handlers.
+
         Parameters
         ----------
         key : Key
@@ -350,6 +375,18 @@ class Element(ABC):
         -------
         bool
             True if the key was handled, False otherwise
+
+        Notes
+        -----
+        If your key handler needs to perform async operations, schedule them
+        with ``asyncio.create_task()`` rather than converting this method to
+        async. Example::
+
+            def handle_key(self, key: Key) -> bool:
+                if key.char == 's' and key.ctrl:
+                    asyncio.create_task(self._save_async())
+                    return True
+                return False
         """
         return False
 

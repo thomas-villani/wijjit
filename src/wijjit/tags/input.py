@@ -118,7 +118,7 @@ class TextInputExtension(Extension):
             try:
                 if id in state:
                     value = str(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for textinput '{id}': {e}")
 
         # Create VNode for reconciliation
@@ -417,7 +417,7 @@ class SelectExtension(Extension):
             try:
                 if id in state:
                     value = str(state[id]) if state[id] is not None else None
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for select '{id}': {e}")
 
         # Check if this element should be focused
@@ -542,7 +542,7 @@ class CheckboxExtension(Extension):
             try:
                 if id in state:
                     checked = bool(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for checkbox '{id}': {e}")
 
         # Check if this element should be focused
@@ -639,7 +639,7 @@ class RadioExtension(Extension):
                 if name in state:
                     # Check if this radio's value matches the group's selected value
                     checked = state[name] == value
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for radio '{name}': {e}")
 
         # Check if this element should be focused
@@ -732,7 +732,7 @@ class CheckboxGroupExtension(Extension):
             try:
                 if id in state:
                     selected = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(
                     f"Failed to restore state for checkbox_group '{id}': {e}"
                 )
@@ -853,7 +853,7 @@ class RadioGroupExtension(Extension):
             try:
                 if name in state:
                     selected = state[name]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for radio_group '{name}': {e}")
 
         # Ensure options is a list
@@ -1091,7 +1091,7 @@ class TextAreaExtension(Extension):
             try:
                 if id in state:
                     value = str(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for textarea '{id}': {e}")
 
         # Check if this element should be focused
@@ -1270,7 +1270,7 @@ class CodeEditorExtension(Extension):
             try:
                 if id in state:
                     value = str(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for codeeditor '{id}': {e}")
 
         # Check if this element should be focused

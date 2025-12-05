@@ -165,6 +165,11 @@ class DirtyRegionManager:
     redrawn and automatically merges overlapping or adjacent regions to
     minimize rendering overhead.
 
+    The manager limits the number of tracked regions to avoid O(n^2)
+    worst-case performance in the merging algorithm. When the region
+    count exceeds MAX_REGIONS, the manager switches to full-screen
+    dirty mode for efficiency.
+
     Attributes
     ----------
     _regions : list[DirtyRegion]
@@ -175,6 +180,13 @@ class DirtyRegionManager:
         Screen width (set when marking full screen dirty)
     _screen_height : int or None
         Screen height (set when marking full screen dirty)
+
+    Class Attributes
+    ----------------
+    MAX_REGIONS : int
+        Maximum number of regions to track before switching to full-screen
+        dirty mode. Default is 64, which provides good balance between
+        region tracking precision and merge algorithm performance.
 
     Examples
     --------
@@ -188,12 +200,17 @@ class DirtyRegionManager:
     DirtyRegion(x=0, y=0, width=15, height=5)
     """
 
+    MAX_REGIONS: int = 64
+
     def __init__(self) -> None:
         """Initialize the dirty region manager."""
         self._regions: list[DirtyRegion] = []
         self._full_screen_dirty: bool = False
         self._screen_width: int | None = None
         self._screen_height: int | None = None
+        # Track screen dimensions for overflow handling
+        self._last_screen_width: int = 80
+        self._last_screen_height: int = 24
 
     def mark_dirty(self, x: int, y: int, width: int, height: int) -> None:
         """Mark a rectangular region as dirty.
@@ -256,6 +273,9 @@ class DirtyRegionManager:
         self._full_screen_dirty = True
         self._screen_width = width
         self._screen_height = height
+        # Store for overflow handling
+        self._last_screen_width = width
+        self._last_screen_height = height
 
     def get_merged_regions(self) -> list[tuple[int, int, int, int]]:
         """Get all dirty regions as merged rectangles.
@@ -320,6 +340,10 @@ class DirtyRegionManager:
         3. Continue until no more merges are possible
         4. Add the final merged region to the list
 
+        If the number of regions exceeds MAX_REGIONS after adding, the
+        manager switches to full-screen dirty mode to avoid O(n^2)
+        worst-case performance.
+
         Parameters
         ----------
         new_region : DirtyRegion
@@ -340,6 +364,10 @@ class DirtyRegionManager:
 
         # Add the final merged region
         self._regions.append(new_region)
+
+        # Check for region overflow - switch to full screen if too many regions
+        if len(self._regions) > self.MAX_REGIONS:
+            self.mark_full_screen(self._last_screen_width, self._last_screen_height)
 
     def __repr__(self) -> str:
         """String representation of the dirty region manager.

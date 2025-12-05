@@ -394,8 +394,9 @@ def parse_color(color_str: str) -> tuple[int, int, int] | None:
             except ValueError:
                 pass
 
-    # Named colors (basic terminal colors)
+    # Named colors (CSS basic colors)
     named_colors = {
+        # Basic terminal colors
         "black": (0, 0, 0),
         "red": (255, 0, 0),
         "green": (0, 255, 0),
@@ -406,6 +407,15 @@ def parse_color(color_str: str) -> tuple[int, int, int] | None:
         "white": (255, 255, 255),
         "gray": (128, 128, 128),
         "grey": (128, 128, 128),
+        # Extended CSS colors
+        "orange": (255, 165, 0),
+        "purple": (128, 0, 128),
+        "pink": (255, 192, 203),
+        "brown": (165, 42, 42),
+        "lime": (0, 255, 0),
+        "navy": (0, 0, 128),
+        "teal": (0, 128, 128),
+        "silver": (192, 192, 192),
     }
 
     return named_colors.get(color_str)

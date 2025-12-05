@@ -286,3 +286,45 @@ class TestDirtyRegionManager:
         manager.mark_full_screen(80, 24)
         assert "full_screen" in repr(manager)
         assert "80x24" in repr(manager)
+
+    def test_max_regions_overflow(self):
+        """Test that exceeding MAX_REGIONS triggers full screen dirty."""
+        manager = DirtyRegionManager()
+        manager._last_screen_width = 100
+        manager._last_screen_height = 50
+
+        # Add more than MAX_REGIONS non-overlapping regions
+        for i in range(manager.MAX_REGIONS + 10):
+            # Space them far apart so they don't merge
+            manager.mark_dirty(i * 1000, i * 1000, 1, 1)
+
+        # Should have switched to full screen dirty
+        assert manager.is_full_screen_dirty()
+        regions = manager.get_merged_regions()
+        assert len(regions) == 1
+        assert regions[0] == (0, 0, 100, 50)
+
+    def test_max_regions_constant(self):
+        """Test that MAX_REGIONS is a reasonable value."""
+        manager = DirtyRegionManager()
+        # MAX_REGIONS should be positive and reasonable
+        assert manager.MAX_REGIONS > 0
+        assert manager.MAX_REGIONS <= 256  # Shouldn't be too large
+
+    def test_regions_stay_below_max(self):
+        """Test that regions are properly limited."""
+        manager = DirtyRegionManager()
+        manager.mark_full_screen(80, 24)  # Set screen dimensions
+        manager.clear()
+
+        # Add exactly MAX_REGIONS non-overlapping regions
+        for i in range(manager.MAX_REGIONS):
+            manager.mark_dirty(i * 1000, i * 1000, 1, 1)
+
+        # Should still be tracking individual regions
+        assert not manager.is_full_screen_dirty()
+        assert len(manager._regions) == manager.MAX_REGIONS
+
+        # Add one more - should trigger overflow
+        manager.mark_dirty(99999, 99999, 1, 1)
+        assert manager.is_full_screen_dirty()

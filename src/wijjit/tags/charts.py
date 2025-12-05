@@ -84,7 +84,7 @@ class SparklineExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create VNode for reconciliation
@@ -182,7 +182,7 @@ class BarChartExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create VNode for reconciliation
@@ -284,7 +284,7 @@ class ColumnChartExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create VNode for reconciliation
@@ -383,7 +383,7 @@ class LineChartExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create VNode for reconciliation
@@ -484,7 +484,7 @@ class GaugeExtension(Extension):
             try:
                 if id in state:
                     value = float(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Determine actual height (Gauge computes this based on style)
@@ -595,7 +595,7 @@ class HeatMapExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create VNode for reconciliation

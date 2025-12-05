@@ -218,7 +218,7 @@ class DropdownExtension(Extension):
         if visible:
             try:
                 is_visible = bool(state.get(visible, False))
-            except Exception as e:
+            except (TypeError, AttributeError) as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # Create menu items stack for nested menuitem tags
@@ -357,7 +357,7 @@ class ContextMenuExtension(Extension):
         if visible:
             try:
                 is_visible = bool(state.get(visible, False))
-            except Exception as e:
+            except (TypeError, AttributeError) as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # Create menu items stack for nested menuitem tags

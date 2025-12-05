@@ -1072,7 +1072,7 @@ class Grid(Container):
         current_row = 0
         current_col = 0
 
-        for child in self.children:
+        for child_index, child in enumerate(self.children):
             # Extract span info if wrapped
             if isinstance(child, GridSpanWrapper):
                 colspan = child.colspan
@@ -1101,8 +1101,19 @@ class Grid(Container):
                 current_col = 0
 
             if not found:
+                # Build child description for error message
+                child_desc = f"child #{child_index}"
+                if hasattr(actual_child, "element") and hasattr(
+                    actual_child.element, "id"
+                ):
+                    child_desc = (
+                        f"child #{child_index} (id='{actual_child.element.id}')"
+                    )
+                span_info = ""
+                if colspan > 1 or rowspan > 1:
+                    span_info = f" with colspan={colspan}, rowspan={rowspan}"
                 raise ValueError(
-                    f"Grid overflow: Cannot place child. "
+                    f"Grid overflow: Cannot place {child_desc}{span_info}. "
                     f"Grid has {self.rows} rows x {self.cols} cols = "
                     f"{self.rows * self.cols} cells. "
                     f"Check that child count matches grid capacity "
@@ -1446,10 +1457,23 @@ class FrameNode(Container):
     def calculate_constraints(self) -> SizeConstraints:
         """Calculate size constraints for the frame and its children.
 
+        The constraints returned include margin space. This follows the CSS
+        box model where:
+
+        - Content: The actual frame content area
+        - Padding: Space inside the frame border (handled by frame.style.padding)
+        - Border: The frame border (2 chars: 1 left + 1 right, 1 top + 1 bottom)
+        - Margin: Space outside the frame border (this class's margin attribute)
+
+        The min_width/min_height values returned include all of these components.
+        When assign_bounds() is called, the passed width/height represents the
+        total allocated space including margin, and the actual frame is positioned
+        inset by the margin amounts.
+
         Returns
         -------
         SizeConstraints
-            Size constraints for the frame
+            Size constraints for the frame, including margin space
         """
         # Calculate children constraints
         if self.content_container.children:
@@ -1511,26 +1535,37 @@ class FrameNode(Container):
         return self.constraints
 
     def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
-        """Assign absolute position and size.
+        """Assign absolute position and size to the frame.
+
+        This method handles margin application following the CSS box model.
+        The passed x, y, width, height represent the total allocated space
+        INCLUDING margin. The actual frame content is positioned inside this
+        space, inset by the margin amounts.
+
+        Coordinate flow:
+        1. Input (x, y, width, height) = Total space allocated for this element
+        2. Frame bounds = (x + margin_left, y + margin_top,
+                          width - margins, height - margins)
+        3. Inner content = Frame bounds minus border and padding
 
         Parameters
         ----------
         x : int
-            X position
+            Left edge of allocated space (margin box)
         y : int
-            Y position
+            Top edge of allocated space (margin box)
         width : int
-            Available width
+            Total allocated width including margins
         height : int
-            Available height
+            Total allocated height including margins
         """
         from wijjit.layout.bounds import Bounds
 
-        # Apply margin
+        # Extract margin values (CSS box model: margin is outermost)
         margin_top, margin_right, margin_bottom, margin_left = self.margin
 
-        # Calculate actual dimensions, respecting fixed size specifications
-        # This is important for root frames with explicit dimensions
+        # Calculate frame dimensions (inside margin, at border box)
+        # The passed width/height includes margin space
         available_width = width - margin_left - margin_right
         available_height = height - margin_top - margin_bottom
 

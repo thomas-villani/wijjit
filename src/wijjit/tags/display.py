@@ -146,7 +146,7 @@ class TableExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Ensure data is a list
@@ -332,7 +332,7 @@ class TreeExtension(Extension):
             try:
                 if id in state:
                     data = state[id]
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Build VNode
@@ -471,7 +471,7 @@ class ProgressBarExtension(Extension):
             try:
                 if id in state:
                     value = float(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Convert show_percentage to bool if provided
@@ -597,7 +597,7 @@ class SpinnerExtension(Extension):
             try:
                 if id in state:
                     active = bool(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Calculate width based on label and spinner character
@@ -778,7 +778,7 @@ class LogViewExtension(Extension):
                     # Ensure it's a list
                     if isinstance(state_lines, list):
                         lines = state_lines
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Ensure lines is a list of strings
@@ -1000,7 +1000,7 @@ class ListViewExtension(Extension):
                     # Ensure it's a list
                     if isinstance(state_items, list):
                         items = state_items
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create VNode for reconciliation - NO direct Element instantiation
@@ -1301,7 +1301,7 @@ class StatusBarExtension(Extension):
                     center = str(state[center_key])
                 if right_key in state:
                     right = str(state[right_key])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Create StatusBar element - StatusBar is special because it's positioned
@@ -1720,7 +1720,7 @@ class TabbedPanelExtension(Extension):
             try:
                 if active_tab in state:
                     active_tab_index = int(state[active_tab])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.warning(f"Failed to restore active tab state: {e}")
 
         # Add remaining props to VNode
@@ -1968,7 +1968,7 @@ class ContentViewExtension(Extension):
             try:
                 if id in state:
                     content = str(state[id])
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
         # Build VNode

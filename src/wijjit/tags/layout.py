@@ -167,6 +167,12 @@ def interleave_text_and_vnode_builders(
             elem_index = int(marker_match.group(1))
             if 0 <= elem_index < len(vnode_children):
                 result.append(vnode_children[elem_index])
+            else:
+                # Out-of-range marker - this indicates a template processing bug
+                logger.warning(
+                    f"Element marker index {elem_index} out of range "
+                    f"(0-{len(vnode_children) - 1}). Element may be missing from output."
+                )
         else:
             # This is text content
             processed_text = process_body_content(part, raw=raw)

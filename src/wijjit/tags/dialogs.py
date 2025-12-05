@@ -140,7 +140,7 @@ class ConfirmDialogExtension(Extension):
         if visible:
             try:
                 is_visible = bool(state.get(visible, False))
-            except Exception as e:
+            except (TypeError, AttributeError) as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # If not visible, don't create the dialog
@@ -308,7 +308,7 @@ class AlertDialogExtension(Extension):
         if visible:
             try:
                 is_visible = bool(state.get(visible, False))
-            except Exception as e:
+            except (TypeError, AttributeError) as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # If not visible, don't create the dialog
@@ -484,7 +484,7 @@ class TextInputDialogExtension(Extension):
         if visible:
             try:
                 is_visible = bool(state.get(visible, False))
-            except Exception as e:
+            except (TypeError, AttributeError) as e:
                 logger.warning(f"Failed to check visibility state: {e}")
 
         # If not visible, don't create the dialog

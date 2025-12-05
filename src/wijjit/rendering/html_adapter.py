@@ -10,6 +10,7 @@ output to Wijjit's Cell system with theme-based styling support.
 from __future__ import annotations
 
 import logging
+import xml.parsers.expat
 from typing import TYPE_CHECKING
 
 from prompt_toolkit.formatted_text import HTML
@@ -133,8 +134,11 @@ def html_string_to_cells(
         # Parse HTML using prompt_toolkit
         html_obj = HTML(html_str)
         formatted_text = html_obj.__pt_formatted_text__()
-    except Exception as e:
-        # If HTML parsing fails, treat as plain text
+    except (ValueError, TypeError, KeyError, xml.parsers.expat.ExpatError) as e:
+        # ValueError: malformed HTML syntax
+        # TypeError: invalid argument types
+        # KeyError: unknown style attributes
+        # ExpatError: XML/HTML parsing errors (e.g., unclosed tags)
         logger.debug(f"HTML parsing failed, treating as plain text: {e}")
         return [Cell(char=c) for c in html_str]
 
@@ -279,7 +283,7 @@ def _merge_style_to_attrs(attrs: dict, style) -> None:
 
 
 def _parse_color(color_str: str) -> tuple[int, int, int] | None:
-    """Parse a color string to RGB tuple.
+    """Parse a color string to RGB tuple for ANSI terminal colors.
 
     Parameters
     ----------
@@ -290,6 +294,17 @@ def _parse_color(color_str: str) -> tuple[int, int, int] | None:
     -------
     tuple of (int, int, int) or None
         RGB color tuple, or None if parsing failed
+
+    Notes
+    -----
+    This function uses ANSI terminal color values which are intentionally
+    different from CSS colors in style.py. For example:
+    - ANSI "red" = (128, 0, 0) - muted, terminal-standard
+    - CSS "red" = (255, 0, 0) - bright, web-standard
+
+    This distinction is important because html_adapter converts prompt_toolkit's
+    HTML output which uses ANSI-style terminal colors, while style.py handles
+    CSS themes with web-standard colors.
     """
     color_str = color_str.lower().strip()
 

@@ -6,12 +6,11 @@ and convert them to Wijjit Style objects using the tinycss2 library.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 import tinycss2
 
-from wijjit.styling.style import Style
+from wijjit.styling.style import Style, parse_color
 
 
 class CSSParser:
@@ -280,6 +279,7 @@ class CSSParser:
 
         Notes
         -----
+        Delegates to the canonical parse_color() function in style.py.
         Supports:
         - rgb(r, g, b) format
         - #RRGGBB hex format
@@ -295,57 +295,7 @@ class CSSParser:
         >>> parser._parse_color("red")
         (255, 0, 0)
         """
-        value = value.strip().lower()
-
-        # RGB format: rgb(r, g, b)
-        rgb_match = re.match(r"rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", value)
-        if rgb_match:
-            r, g, b = rgb_match.groups()
-            # Clamp values to valid 0-255 range
-            r_val = max(0, min(255, int(r)))
-            g_val = max(0, min(255, int(g)))
-            b_val = max(0, min(255, int(b)))
-            return (r_val, g_val, b_val)
-
-        # Hex format: #RRGGBB or #RGB
-        if value.startswith("#"):
-            hex_value = value[1:]
-            if len(hex_value) == 6:
-                # #RRGGBB
-                r = int(hex_value[0:2], 16)
-                g = int(hex_value[2:4], 16)
-                b = int(hex_value[4:6], 16)
-                return (r, g, b)
-            elif len(hex_value) == 3:
-                # #RGB -> #RRGGBB
-                r = int(hex_value[0] * 2, 16)
-                g = int(hex_value[1] * 2, 16)
-                b = int(hex_value[2] * 2, 16)
-                return (r, g, b)
-
-        # Named colors (basic set)
-        named_colors = {
-            "black": (0, 0, 0),
-            "white": (255, 255, 255),
-            "red": (255, 0, 0),
-            "green": (0, 255, 0),
-            "blue": (0, 0, 255),
-            "yellow": (255, 255, 0),
-            "cyan": (0, 255, 255),
-            "magenta": (255, 0, 255),
-            "gray": (128, 128, 128),
-            "grey": (128, 128, 128),
-            "orange": (255, 165, 0),
-            "purple": (128, 0, 128),
-            "pink": (255, 192, 203),
-            "brown": (165, 42, 42),
-            "lime": (0, 255, 0),
-            "navy": (0, 0, 128),
-            "teal": (0, 128, 128),
-            "silver": (192, 192, 192),
-        }
-
-        return named_colors.get(value)
+        return parse_color(value)
 
 
 def load_css_theme(filepath: str, name: str = "custom") -> dict[str, Style]:
