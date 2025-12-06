@@ -91,8 +91,6 @@ class SparklineExtension(Extension):
         vnode = VNodeBuilder("Sparkline", key=id)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("width", int(width))
-        vnode.set_prop("height", int(height))
         vnode.set_prop("style", style)
         vnode.set_prop("show_minmax", bool(show_minmax))
         vnode.set_prop("show_current", bool(show_current))
@@ -101,7 +99,8 @@ class SparklineExtension(Extension):
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
-        vnode.set_layout(width=width, height=height)
+        # set_layout auto-syncs width/height to props
+        vnode.set_layout(width=int(width), height=int(height))
 
         context.add_vnode(vnode)
 
@@ -189,8 +188,6 @@ class BarChartExtension(Extension):
         vnode = VNodeBuilder("BarChart", key=id)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("width", int(width))
-        vnode.set_prop("height", int(height))
         vnode.set_prop("bar_height", int(bar_height))
         vnode.set_prop("show_labels", bool(show_labels))
         vnode.set_prop("show_values", bool(show_values))
@@ -204,7 +201,8 @@ class BarChartExtension(Extension):
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
-        vnode.set_layout(width=width, height=height)
+        # set_layout auto-syncs width/height to props
+        vnode.set_layout(width=int(width), height=int(height))
 
         context.add_vnode(vnode)
 
@@ -291,8 +289,6 @@ class ColumnChartExtension(Extension):
         vnode = VNodeBuilder("ColumnChart", key=id)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("width", int(width))
-        vnode.set_prop("height", int(height))
         vnode.set_prop("column_width", int(column_width))
         vnode.set_prop("spacing", int(spacing))
         vnode.set_prop("show_labels", bool(show_labels))
@@ -304,7 +300,8 @@ class ColumnChartExtension(Extension):
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
-        vnode.set_layout(width=width, height=height)
+        # set_layout auto-syncs width/height to props
+        vnode.set_layout(width=int(width), height=int(height))
 
         context.add_vnode(vnode)
 
@@ -390,8 +387,6 @@ class LineChartExtension(Extension):
         vnode = VNodeBuilder("LineChart", key=id)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data)
-        vnode.set_prop("width", int(width))
-        vnode.set_prop("height", int(height))
         vnode.set_prop("style", style)
         vnode.set_prop("show_axis", bool(show_axis))
         vnode.set_prop("axis_width", int(axis_width))
@@ -402,7 +397,8 @@ class LineChartExtension(Extension):
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
-        vnode.set_layout(width=width, height=height)
+        # set_layout auto-syncs width/height to props
+        vnode.set_layout(width=int(width), height=int(height))
 
         context.add_vnode(vnode)
 
@@ -497,9 +493,6 @@ class GaugeExtension(Extension):
         vnode.set_prop("value", float(value))
         vnode.set_prop("min_value", float(min_value))
         vnode.set_prop("max_value", float(max_value))
-        vnode.set_prop("width", int(width))
-        if height is not None:
-            vnode.set_prop("height", int(height))
         vnode.set_prop("style", style)
         vnode.set_prop("show_value", bool(show_value))
         vnode.set_prop("show_minmax", bool(show_minmax))
@@ -513,7 +506,8 @@ class GaugeExtension(Extension):
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
-        vnode.set_layout(width=width, height=actual_height)
+        # set_layout auto-syncs width/height to props
+        vnode.set_layout(width=int(width), height=actual_height)
 
         context.add_vnode(vnode)
 
@@ -602,8 +596,6 @@ class HeatMapExtension(Extension):
         vnode = VNodeBuilder("HeatMap", key=id)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("width", int(width))
-        vnode.set_prop("height", int(height))
         vnode.set_prop("cell_width", int(cell_width))
         vnode.set_prop("cell_height", int(cell_height))
         vnode.set_prop("color_scale", color_scale)
@@ -621,7 +613,8 @@ class HeatMapExtension(Extension):
         if classes:
             vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
-        vnode.set_layout(width=width, height=height)
+        # set_layout auto-syncs width/height to props
+        vnode.set_layout(width=int(width), height=int(height))
 
         context.add_vnode(vnode)
 

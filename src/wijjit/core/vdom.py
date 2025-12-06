@@ -279,12 +279,27 @@ class VNodeBuilder:
     def set_layout(self, **kwargs: Any) -> None:
         """Set layout specification.
 
+        Width and height are also copied to props (if not already set) so
+        elements receive them as constructor parameters. This ensures elements
+        like ImageView that need sizing information get it automatically.
+
+        For elements that need different values for layout vs element (e.g.,
+        LogView with borders where layout includes border space), call
+        set_prop("width", ...) BEFORE set_layout() to set the element's
+        internal dimensions separately from the layout dimensions.
+
         Parameters
         ----------
         **kwargs
             Layout parameters (width, height, margin, etc.)
         """
         self.layout_spec.update(kwargs)
+        # Auto-sync sizing to props for elements that need them as constructor params
+        # Only sync if prop isn't already set (allows explicit override)
+        if "width" in kwargs and "width" not in self.props:
+            self.props["width"] = kwargs["width"]
+        if "height" in kwargs and "height" not in self.props:
+            self.props["height"] = kwargs["height"]
 
     def freeze(self) -> VNode:
         """Convert to immutable VNode tree.
