@@ -633,7 +633,8 @@ class Pager(Container):
         # Get border characters
         if self.border_style != BorderStyle.NONE:
             chars = BORDER_CHARS[self.border_style]
-            border_attrs = border_style.to_cell_attrs()
+            # note: this unused?
+            # border_attrs = border_style.to_cell_attrs()
 
             # Draw border
             ctx.draw_border(0, 0, self.width, self.height, border_style, chars)

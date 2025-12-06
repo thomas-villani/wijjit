@@ -184,6 +184,13 @@ Use Jinja2 templates with custom tags for UI elements:
 {% checkbox id="agree" label="I agree" %}{% endcheckbox %}
 {% select id="theme" options=["dark", "light"] %}{% endselect %}
 
+{# Multi-select elements - state holds lists #}
+{% select id="toppings" multiple=True %}
+  {"value": "cheese", "label": "Cheese"}
+  {"value": "pepperoni", "label": "Pepperoni"}
+{% endselect %}
+{% tree id="files" data=state.file_tree multiple=True %}{% endtree %}
+
 {# Display elements #}
 {% table data=state.users columns=["name", "email"] %}{% endtable %}
 {% tree data=state.files %}{% endtree %}
@@ -441,14 +448,14 @@ print(f"You entered: {app.state.name}")
 - **Button**: Clickable button (mouse or keyboard)
 - **Checkbox**: Single checkbox or checkbox groups
 - **Radio**: Radio button groups
-- **Select**: Dropdown select menu
+- **Select**: Dropdown select menu (supports multi-select with `multiple=True`)
 - **Link**: Clickable inline text element
 
 ### Display Components
 
 - **ContentView**: Unified content viewer (plain, ANSI, HTML, Markdown, Rich markup, code with syntax highlighting)
 - **Table**: Sortable, scrollable tables (powered by Rich)
-- **Tree**: Hierarchical tree view with expand/collapse
+- **Tree**: Hierarchical tree view with expand/collapse (supports multi-select with `multiple=True`)
 - **ListView**: Scrollable list with selection
 - **LogView**: Auto-scrolling log viewer
 - **ProgressBar**: Progress indicators (bar, dots, spinner styles)

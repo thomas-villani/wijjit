@@ -782,3 +782,308 @@ class TestTreeMethods:
         # Try to find non-existent node
         not_found = tree._find_node_by_id(tree.data, "nonexistent")
         assert not_found is None
+
+
+class TestTreeMultiSelect:
+    """Tests for Tree multi-select mode."""
+
+    def test_multi_select_create(self):
+        """Test creating a multi-select tree."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+
+        assert tree.multiple is True
+        assert len(tree.selected_node_ids) == 0
+
+    def test_multi_select_with_initial_selection(self):
+        """Test multi-select tree with initial selections."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True, selected_ids=["root", "c1"])
+        tree.expand_node("root")
+
+        assert tree.multiple is True
+        assert "root" in tree.selected_node_ids
+        assert "c1" in tree.selected_node_ids
+        assert "c2" not in tree.selected_node_ids
+
+    def test_toggle_selection(self):
+        """Test toggling selection in multi-select mode."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+
+        # Toggle to select
+        tree.toggle_selection("root")
+        assert "root" in tree.selected_node_ids
+
+        # Toggle to deselect
+        tree.toggle_selection("root")
+        assert "root" not in tree.selected_node_ids
+
+    def test_multi_select_enter_key_toggles(self):
+        """Test Enter key toggles selection in multi-select mode."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+        tree.expand_node("root")
+
+        # Start at root
+        assert tree.highlighted_index == 0
+        root_id = tree.nodes[0]["node"]["id"]
+
+        # Press Enter to select root
+        tree.handle_key(Keys.ENTER)
+        assert root_id in tree.selected_node_ids
+
+        # Press Enter again to deselect
+        tree.handle_key(Keys.ENTER)
+        assert root_id not in tree.selected_node_ids
+
+    def test_multi_select_space_key_toggles(self):
+        """Test Space key toggles selection in multi-select mode."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+
+        root_id = tree.nodes[0]["node"]["id"]
+
+        # Press Space to select
+        tree.handle_key(Keys.SPACE)
+        assert root_id in tree.selected_node_ids
+
+    def test_multi_select_multiple_nodes(self):
+        """Test selecting multiple nodes in multi-select mode."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+                {"label": "Child 3", "value": "c3"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+        tree.expand_node("root")
+
+        # Select root
+        tree.handle_key(Keys.ENTER)
+
+        # Move down and select child 1
+        tree.handle_key(Keys.DOWN)
+        tree.handle_key(Keys.ENTER)
+
+        # Move down and select child 3 (skip child 2)
+        tree.handle_key(Keys.DOWN)
+        tree.handle_key(Keys.DOWN)
+        tree.handle_key(Keys.ENTER)
+
+        # Should have root, c1, and c3 selected
+        assert len(tree.selected_node_ids) == 3
+        child1_id = tree.nodes[1]["node"]["id"]
+        child3_id = tree.nodes[3]["node"]["id"]
+        assert child1_id in tree.selected_node_ids
+        assert child3_id in tree.selected_node_ids
+
+    def test_is_selected_method(self):
+        """Test the is_selected() method."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+            ],
+        }
+
+        # Single select mode
+        tree_single = Tree(data=data, multiple=False)
+        tree_single.select_node("root")
+        assert tree_single.is_selected("root") is True
+        assert tree_single.is_selected("c1") is False
+
+        # Multi select mode
+        tree_multi = Tree(data=data, multiple=True)
+        tree_multi.toggle_selection("root")
+        tree_multi.toggle_selection("c1")
+        assert tree_multi.is_selected("root") is True
+        assert tree_multi.is_selected("c1") is True
+
+    def test_selected_ids_property(self):
+        """Test the selected_ids property getter and setter."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+
+        # Initially empty
+        assert tree.selected_ids == []
+
+        # Set values
+        tree.selected_ids = ["root", "c1"]
+        assert set(tree.selected_ids) == {"root", "c1"}
+
+        # Clear values
+        tree.selected_ids = []
+        assert tree.selected_ids == []
+
+    def test_single_select_selected_ids_property(self):
+        """Test selected_ids property in single-select mode."""
+        data = {
+            "label": "Root",
+            "value": "root",
+        }
+        tree = Tree(data=data, multiple=False)
+
+        # Initially empty
+        assert tree.selected_ids == []
+
+        # Select via property
+        tree.selected_ids = ["root"]
+        assert tree.selected_ids == ["root"]
+        assert tree.selected_node_id == "root"
+
+    def test_multi_select_on_select_callback(self):
+        """Test that on_select callback is called for each toggle."""
+        data = {
+            "label": "Root",
+            "value": "root",
+        }
+        tree = Tree(data=data, multiple=True)
+        callback_calls = []
+
+        def on_select(node):
+            callback_calls.append(node)
+
+        tree.on_select = on_select
+
+        # Toggle selection
+        tree.toggle_selection("root")
+        assert len(callback_calls) == 1
+        assert callback_calls[0]["label"] == "Root"
+
+    def test_multi_select_ephemeral_state(self):
+        """Test that ephemeral state includes selected_node_ids."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True, selected_ids=["root", "c1"])
+
+        state = tree.get_ephemeral_state()
+        assert "selected_node_ids" in state
+        assert state["selected_node_ids"] == {"root", "c1"}
+
+    def test_multi_select_restore_ephemeral_state(self):
+        """Test restoring ephemeral state for multi-select."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True)
+
+        # Simulate state from previous render
+        state = {
+            "highlighted_index": 0,
+            "selected_node_ids": {"root", "c1"},
+            "expanded_nodes": set(),
+        }
+        tree.restore_ephemeral_state(state)
+
+        assert tree.selected_node_ids == {"root", "c1"}
+
+    def test_render_multi_select_tree(self):
+        """Test rendering a multi-select tree with multiple selections."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+            ],
+        }
+        tree = Tree(
+            data=data, multiple=True, selected_ids=["root", "c1"], width=40, height=10
+        )
+        tree.set_bounds(Bounds(0, 0, 40, 10))
+        tree.expand_node("root")
+
+        output = render_element(tree, width=40, height=10)
+
+        # Should show selection markers for root and c1
+        lines = output.strip().split("\n")
+        # Check that at least 2 lines have selection markers
+        lines_with_markers = [line for line in lines if "> " in line]
+        assert len(lines_with_markers) >= 2
+
+    @pytest.mark.asyncio
+    async def test_mouse_click_toggles_in_multi_select(self):
+        """Test mouse click toggles selection in multi-select mode."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child", "value": "child"},
+            ],
+        }
+        tree = Tree(data=data, multiple=True, width=40, height=10)
+        tree.expand_node("root")
+        tree.bounds = Bounds(x=0, y=0, width=40, height=10)
+
+        # Get root ID
+        root_id = tree.nodes[0]["node"]["id"]
+
+        # Click on root to select
+        event = MouseEvent(
+            type=MouseEventType.CLICK,
+            button=MouseButton.LEFT,
+            x=10,
+            y=0,
+        )
+        result = await tree.handle_mouse(event)
+        assert result is True
+        assert root_id in tree.selected_node_ids
+
+        # Click again to deselect
+        result = await tree.handle_mouse(event)
+        assert result is True
+        assert root_id not in tree.selected_node_ids

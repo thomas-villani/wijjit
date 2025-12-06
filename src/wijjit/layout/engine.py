@@ -20,6 +20,7 @@ from typing import Literal
 from wijjit.elements.base import Element
 from wijjit.layout.bounds import Bounds, Size, parse_margin, parse_size
 from wijjit.layout.frames import Frame
+from wijjit.layout.splitpanel import SplitPanel
 from wijjit.logging_config import get_logger
 
 # Module logger
@@ -1748,14 +1749,13 @@ class SplitPanelNode(Container):
 
     def __init__(
         self,
-        split_panel: "SplitPanel",
+        split_panel: SplitPanel,
         first_child: LayoutNode | None = None,
         second_child: LayoutNode | None = None,
         width: int | str | Size | None = None,
         height: int | str | Size | None = None,
         id: str | None = None,
     ) -> None:
-        from wijjit.layout.splitpanel import SplitPanel
 
         # Default to fill if not specified
         if width is None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from wijjit.elements.base import Element, TextElement
+from wijjit.elements.base import TextElement
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.engine import ElementNode, SplitPanelNode
 from wijjit.layout.splitpanel import SplitPanel

@@ -6,6 +6,7 @@ This example demonstrates:
 - Disabled options
 - Long lists with scrolling
 - Multiple selects with state binding
+- Multi-select mode (multiple=True)
 - Box-drawing borders (single, double, rounded styles)
 - Border color changes when focused (BOLD + CYAN)
 """
@@ -19,6 +20,7 @@ app = Wijjit(
         "size": "m",
         "priority": None,
         "country": None,
+        "toppings": ["cheese", "pepperoni"],  # Multi-select initial values
         "status": "Make your selections below",
     }
 )
@@ -29,14 +31,14 @@ def main_view():
     """Main view showcasing select elements."""
     return {
         "template": """
-{% frame title="Select List Demo" border_style="single" width=100 height=32 %}
+{% frame title="Select List Demo" border_style="single" width=100 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}
     {% endvstack %}
 
     {% vstack spacing=0 %}
-      Instructions: Tab to navigate | Up/Down to browse | Enter/Space to select | Home/End for first/last
+      Instructions: Tab to navigate | Up/Down to browse | Enter/Space to select/toggle | Home/End for first/last
     {% endvstack %}
 
     {% hstack spacing=2 %}
@@ -114,6 +116,26 @@ def main_view():
     {% endhstack %}
 
     {% hstack spacing=2 %}
+      {% select id="toppings" width=35 visible_rows=6 border_style="rounded" title="Toppings (multi-select)" multiple=True %}
+        {"value": "cheese", "label": "Cheese"}
+        {"value": "pepperoni", "label": "Pepperoni"}
+        {"value": "mushrooms", "label": "Mushrooms"}
+        {"value": "onions", "label": "Onions"}
+        {"value": "peppers", "label": "Bell Peppers"}
+        {"value": "olives", "label": "Black Olives"}
+        {"value": "sausage", "label": "Italian Sausage"}
+        {"value": "bacon", "label": "Bacon"}
+      {% endselect %}
+
+      {% vstack spacing=0 width=40 %}
+        Multi-select instructions:
+        - Enter/Space toggles selection
+        - * marks selected items
+        - Multiple items can be selected
+      {% endvstack %}
+    {% endhstack %}
+
+    {% hstack spacing=2 %}
       {% button id="submit_btn" action="submit" %}Submit{% endbutton %}
       {% button id="reset_btn" action="reset" %}Reset{% endbutton %}
       {% button id="quit_btn" action="quit" %}Quit{% endbutton %}
@@ -132,6 +154,7 @@ def handle_submit(event):
     size = app.state.get("size", "")
     priority = app.state.get("priority", "")
     country = app.state.get("country", "")
+    toppings = app.state.get("toppings", [])  # Multi-select returns a list
 
     # Build status message
     parts = []
@@ -151,6 +174,9 @@ def handle_submit(event):
         parts.append(f"Priority: {priority}")
     if country:
         parts.append(f"Country: {country}")
+    if toppings:
+        # Multi-select: show all selected values
+        parts.append(f"Toppings: {', '.join(toppings)}")
 
     if parts:
         app.state["status"] = "Selected: " + ", ".join(parts)
@@ -165,6 +191,7 @@ def handle_reset(event):
     app.state["size"] = None
     app.state["priority"] = None
     app.state["country"] = None
+    app.state["toppings"] = []  # Reset multi-select to empty list
     app.state["status"] = "Form reset - make your selections"
 
 

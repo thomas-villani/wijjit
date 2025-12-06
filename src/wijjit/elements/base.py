@@ -80,6 +80,11 @@ class Element(ABC):
         Screen position and size
     element_type : ElementType
         Type of this element
+    tab_index : int or None
+        Tab order for focus navigation. Lower values receive focus first.
+        Elements with None are ordered after elements with explicit tab_index,
+        in document order. Set to -1 to exclude from tab navigation while
+        remaining focusable (can still receive focus via click or programmatic focus).
     on_double_click : callable or None
         Callback for double-click events. Signature: on_double_click(event: MouseEvent) -> None
     on_context_menu : callable or None
@@ -106,7 +111,10 @@ class Element(ABC):
     """
 
     def __init__(
-        self, id: str | None = None, classes: str | list[str] | set[str] | None = None
+        self,
+        id: str | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
     ) -> None:
         self.id = id
 
@@ -126,6 +134,7 @@ class Element(ABC):
         self.hovered = False
         self.bounds: Bounds | None = None
         self.element_type = ElementType.DISPLAY
+        self.tab_index = tab_index
         self._parent_frame_ref: weakref.ref | None = (
             None  # Weak reference to parent Frame
         )
@@ -708,7 +717,10 @@ class ScrollableElement(Element, ABC):
     """
 
     def __init__(
-        self, id: str | None = None, classes: str | list[str] | set[str] | None = None
+        self,
+        id: str | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
     ) -> None:
         """Initialize scrollable element.
 
@@ -718,8 +730,10 @@ class ScrollableElement(Element, ABC):
             Element identifier
         classes : str or list of str or set of str, optional
             CSS class names for styling
+        tab_index : int, optional
+            Tab order for focus navigation
         """
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         # Vertical scroll attributes - auto-generate from id
         self._scroll_state_key_override: str | None = None
         self.on_scroll: Callable[[int], None] | None = None
@@ -819,6 +833,8 @@ class Container(Element):
         Unique identifier
     classes : str or list of str or set of str, optional
         CSS class names for styling
+    tab_index : int, optional
+        Tab order for focus navigation
 
     Attributes
     ----------
@@ -827,9 +843,12 @@ class Container(Element):
     """
 
     def __init__(
-        self, id: str | None = None, classes: str | list[str] | set[str] | None = None
+        self,
+        id: str | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.children: list[Element] = []
 
     def add_child(self, element: Element) -> None:
@@ -899,6 +918,8 @@ class OverlayElement(Container):
         Unique identifier
     classes : str or list of str or set of str, optional
         CSS class names for styling
+    tab_index : int, optional
+        Tab order for focus navigation
     width : int, optional
         Desired width in characters
     height : int, optional
@@ -920,11 +941,12 @@ class OverlayElement(Container):
         self,
         id: str | None = None,
         classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         width: int | None = None,
         height: int | None = None,
         centered: bool = True,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.width = width
         self.height = height
         self.centered = centered

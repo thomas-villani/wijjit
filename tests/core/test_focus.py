@@ -275,3 +275,133 @@ class TestFocusManager:
 
         assert not elem1.focused
         assert elem2.focused
+
+
+class TestTabIndex:
+    """Tests for tab_index focus ordering."""
+
+    def test_elements_sorted_by_tab_index(self):
+        """Test that elements are sorted by tab_index."""
+        manager = FocusManager()
+        elem1 = FocusableElement("e1")
+        elem2 = FocusableElement("e2")
+        elem3 = FocusableElement("e3")
+
+        # Set tab indices out of order
+        elem1.tab_index = 3
+        elem2.tab_index = 1
+        elem3.tab_index = 2
+
+        manager.set_elements([elem1, elem2, elem3])
+
+        # Should be sorted: elem2 (1), elem3 (2), elem1 (3)
+        assert manager.elements[0] == elem2
+        assert manager.elements[1] == elem3
+        assert manager.elements[2] == elem1
+
+    def test_none_tab_index_after_explicit(self):
+        """Test that elements with None tab_index come after explicit indices."""
+        manager = FocusManager()
+        elem1 = FocusableElement("e1")
+        elem2 = FocusableElement("e2")
+        elem3 = FocusableElement("e3")
+        elem4 = FocusableElement("e4")
+
+        elem1.tab_index = None
+        elem2.tab_index = 2
+        elem3.tab_index = 1
+        elem4.tab_index = None
+
+        manager.set_elements([elem1, elem2, elem3, elem4])
+
+        # Expected: elem3 (1), elem2 (2), elem1 (None), elem4 (None)
+        # None elements maintain document order relative to each other
+        assert manager.elements[0] == elem3
+        assert manager.elements[1] == elem2
+        assert manager.elements[2] == elem1
+        assert manager.elements[3] == elem4
+
+    def test_negative_tab_index_excluded(self):
+        """Test that elements with tab_index=-1 are excluded from tab order."""
+        manager = FocusManager()
+        elem1 = FocusableElement("e1")
+        elem2 = FocusableElement("e2")
+        elem3 = FocusableElement("e3")
+
+        elem1.tab_index = 1
+        elem2.tab_index = -1  # Excluded from tab navigation
+        elem3.tab_index = 2
+
+        manager.set_elements([elem1, elem2, elem3])
+
+        # elem2 should be excluded from elements list
+        assert len(manager.elements) == 2
+        assert elem2 not in manager.elements
+        assert elem1 in manager.elements
+        assert elem3 in manager.elements
+
+        # But elem2 should still be in all_focusable
+        assert elem2 in manager.all_focusable
+
+    def test_zero_tab_index_valid(self):
+        """Test that tab_index=0 is valid and comes first."""
+        manager = FocusManager()
+        elem1 = FocusableElement("e1")
+        elem2 = FocusableElement("e2")
+        elem3 = FocusableElement("e3")
+
+        elem1.tab_index = 2
+        elem2.tab_index = 0  # First in order
+        elem3.tab_index = 1
+
+        manager.set_elements([elem1, elem2, elem3])
+
+        # elem2 (0) should be first
+        assert manager.elements[0] == elem2
+        assert manager.elements[1] == elem3
+        assert manager.elements[2] == elem1
+
+    def test_all_focusable_contains_excluded_elements(self):
+        """Test that all_focusable includes elements with tab_index=-1."""
+        manager = FocusManager()
+        elem1 = FocusableElement("e1")
+        elem2 = FocusableElement("e2")
+
+        elem1.tab_index = 1
+        elem2.tab_index = -1
+
+        manager.set_elements([elem1, elem2])
+
+        assert len(manager.elements) == 1
+        assert len(manager.all_focusable) == 2
+        assert elem2 in manager.all_focusable
+
+    def test_focus_by_id_after_reorder(self):
+        """Test focus is preserved by ID after tab_index reordering."""
+        manager = FocusManager()
+        elem1 = FocusableElement("e1")
+        elem2 = FocusableElement("e2")
+        elem3 = FocusableElement("e3")
+
+        elem1.tab_index = 3
+        elem2.tab_index = 1
+        elem3.tab_index = 2
+
+        manager.set_elements([elem1, elem2, elem3])
+        manager.focus_element(elem1)
+        assert elem1.focused
+
+        # Re-set elements (simulates re-render) - focus should be preserved
+        elem1_new = FocusableElement("e1")
+        elem2_new = FocusableElement("e2")
+        elem3_new = FocusableElement("e3")
+        elem1_new.tab_index = 3
+        elem2_new.tab_index = 1
+        elem3_new.tab_index = 2
+
+        manager.set_elements([elem1_new, elem2_new, elem3_new])
+
+        # Focus should be on elem1_new (same ID)
+        assert elem1_new.focused
+        assert not elem2_new.focused
+        assert not elem3_new.focused

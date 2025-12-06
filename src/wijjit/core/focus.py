@@ -1,7 +1,7 @@
 """Focus management for interactive UI elements.
 
 This module handles focus navigation between focusable elements,
-typically using Tab and Shift+Tab keys.
+typically using Tab and Shift+Tab keys, as well as arrow keys.
 """
 
 from typing import TYPE_CHECKING
@@ -16,6 +16,40 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _tab_index_sort_key(item: tuple[int, Element]) -> tuple[int, int, int]:
+    """Sort key for elements by tab_index.
+
+    Parameters
+    ----------
+    item : tuple
+        Tuple of (original_index, element)
+
+    Returns
+    -------
+    tuple
+        Sort key (group, tab_index or 0, original_index)
+
+    Notes
+    -----
+    Sorting groups:
+    - Group 0: Elements with positive tab_index (sorted by tab_index)
+    - Group 1: Elements with None tab_index (document order)
+    - Elements with tab_index = -1 are excluded from tab navigation
+    """
+    original_index, elem = item
+    tab_index = getattr(elem, "tab_index", None)
+
+    if tab_index is None:
+        # No tab_index: sort after explicit indices, in document order
+        return (1, 0, original_index)
+    elif tab_index >= 0:
+        # Positive tab_index: sort first, by tab_index value
+        return (0, tab_index, original_index)
+    else:
+        # Negative tab_index (-1): excluded from tab order, sort last
+        return (2, 0, original_index)
+
+
 class FocusManager:
     """Manages focus across UI elements.
 
@@ -25,13 +59,16 @@ class FocusManager:
     Attributes
     ----------
     elements : list
-        List of focusable elements
+        List of focusable elements (sorted by tab_index)
     current_index : int or None
         Index of currently focused element
+    all_focusable : list
+        All focusable elements including those with tab_index=-1
     """
 
     def __init__(self) -> None:
         self.elements: list[Element] = []
+        self.all_focusable: list[Element] = []
         self.current_index: int | None = None
         self.dirty_manager: DirtyRegionManager | None = None
 
@@ -39,6 +76,10 @@ class FocusManager:
         """Set the list of focusable elements.
 
         Preserves focus on the same element (by ID or index) if possible.
+        Elements are sorted by tab_index: explicit indices first (sorted
+        numerically), then elements without tab_index (document order).
+        Elements with tab_index=-1 are excluded from Tab navigation but
+        can still receive focus via click or programmatic focus.
 
         Parameters
         ----------
@@ -55,8 +96,23 @@ class FocusManager:
             if hasattr(old_elem, "id") and old_elem.id:
                 focused_id = old_elem.id
 
-        # Update elements list
-        self.elements = [elem for elem in elements if elem.focusable]
+        # Filter to focusable elements
+        focusable = [elem for elem in elements if elem.focusable]
+
+        # Store all focusable elements (for click/programmatic focus)
+        self.all_focusable = focusable
+
+        # Sort by tab_index and filter out tab_index=-1 for Tab navigation
+        indexed = list(enumerate(focusable))
+        indexed.sort(key=_tab_index_sort_key)
+
+        # Filter out elements with tab_index=-1 from tab navigation
+        self.elements = [
+            elem
+            for _, elem in indexed
+            if getattr(elem, "tab_index", None) is None
+            or getattr(elem, "tab_index", None) >= 0
+        ]
 
         # Try to restore focus
         if focused_id:
@@ -207,6 +263,7 @@ class FocusManager:
             self.elements[self.current_index].on_blur()
 
         self.elements = []
+        self.all_focusable = []
         self.current_index = None
 
     def set_focus_filter(self, allowed_elements: list[Element] | None) -> None:

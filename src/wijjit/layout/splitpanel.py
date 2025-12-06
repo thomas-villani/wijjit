@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Container, Element
 from wijjit.terminal.ansi import supports_unicode
-from wijjit.terminal.cell import Cell, get_pooled_cell
+from wijjit.terminal.cell import get_pooled_cell
 from wijjit.terminal.input import Key
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -240,18 +240,17 @@ class SplitPanel(Container):
         ValueError
             If ratio string is invalid
         """
-        try:
-            parts = ratio_str.split(":")
-            if len(parts) != 2:
-                raise ValueError(f"Invalid ratio format: {ratio_str}")
-            first = float(parts[0])
-            second = float(parts[1])
-            total = first + second
-            if total <= 0:
-                raise ValueError(f"Invalid ratio values: {ratio_str}")
-            return (first / total, second / total)
-        except Exception as e:
-            raise ValueError(f"Invalid ratio string '{ratio_str}': {e}")
+
+        parts = ratio_str.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid ratio format: {ratio_str}")
+        first = float(parts[0])
+        second = float(parts[1])
+        total = first + second
+        if total <= 0:
+            raise ValueError(f"Invalid ratio values: {ratio_str}")
+        return first / total, second / total
+
 
     def set_children(self, first: Element, second: Element) -> None:
         """Set the two child elements.

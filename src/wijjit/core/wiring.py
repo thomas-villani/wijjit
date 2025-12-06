@@ -262,20 +262,38 @@ class ElementWiringManager:
 
         # Wire up state binding if enabled
         if elem.bind and elem.id:
-            # Initialize element value from state if key exists
-            if elem.id in state:
-                elem.value = state[elem.id]
-                # Update selected_index to match the value
-                elem.selected_index = elem._find_option_index(elem.value)
+            if elem.multiple:
+                # Multi-select mode: state holds a list
+                if elem.id in state:
+                    state_value = state[elem.id]
+                    if isinstance(state_value, (list, set, tuple)):
+                        elem.selected_values = set(state_value)
+                    elif state_value is not None:
+                        elem.selected_values = {str(state_value)}
 
-            # Set up two-way binding
-            elem_id = elem.id
+                # Set up two-way binding for multi-select
+                elem_id = elem.id
 
-            def on_change_handler(old_val, new_val, eid=elem_id):
-                # Update state when element changes
-                state[eid] = new_val
+                def on_change_handler_multi(old_val, new_val, eid=elem_id):
+                    # Update state when element changes (new_val is a list)
+                    state[eid] = new_val
 
-            elem.on_change = on_change_handler
+                elem.on_change = on_change_handler_multi
+            else:
+                # Single-select mode: state holds a single value
+                if elem.id in state:
+                    elem.value = state[elem.id]
+                    # Update selected_index to match the value
+                    elem.selected_index = elem._find_option_index(elem.value)
+
+                # Set up two-way binding for single-select
+                elem_id = elem.id
+
+                def on_change_handler_single(old_val, new_val, eid=elem_id):
+                    # Update state when element changes
+                    state[eid] = new_val
+
+                elem.on_change = on_change_handler_single
 
         # Wire up highlighted_index persistence if element has the state key
         if elem.highlight_state_key:

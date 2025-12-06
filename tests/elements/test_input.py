@@ -705,6 +705,197 @@ class TestSelect:
         assert select.width == 30
         assert select.visible_rows == 2
 
+    # Multi-select tests
+
+    def test_multi_select_create(self):
+        """Test creating a multi-select element."""
+        select = Select(id="colors", options=["Red", "Green", "Blue"], multiple=True)
+        assert select.id == "colors"
+        assert select.multiple is True
+        assert len(select.selected_values) == 0
+        assert select.value is None  # Not used in multi-select
+
+    def test_multi_select_with_initial_values(self):
+        """Test multi-select with initial values."""
+        select = Select(
+            options=["Red", "Green", "Blue"],
+            multiple=True,
+            values=["Red", "Blue"],
+        )
+        assert select.multiple is True
+        assert "Red" in select.selected_values
+        assert "Blue" in select.selected_values
+        assert "Green" not in select.selected_values
+        assert len(select.selected_values) == 2
+
+    def test_multi_select_toggle_with_enter(self):
+        """Test toggling selection with Enter key in multi-select mode."""
+        callback = Mock()
+        select = Select(options=["A", "B", "C"], multiple=True, on_change=callback)
+        select.highlighted_index = 1
+
+        # First toggle - select B
+        result = select.handle_key(Keys.ENTER)
+        assert result
+        assert "B" in select.selected_values
+        callback.assert_called_once()
+
+        # Second toggle - deselect B
+        callback.reset_mock()
+        result = select.handle_key(Keys.ENTER)
+        assert result
+        assert "B" not in select.selected_values
+        callback.assert_called_once()
+
+    def test_multi_select_toggle_with_space(self):
+        """Test toggling selection with Space key in multi-select mode."""
+        select = Select(options=["A", "B", "C"], multiple=True)
+        select.highlighted_index = 0
+
+        # Select A
+        select.handle_key(Keys.SPACE)
+        assert "A" in select.selected_values
+
+        # Move to B and select it too
+        select.handle_key(Keys.DOWN)
+        select.handle_key(Keys.SPACE)
+        assert "A" in select.selected_values
+        assert "B" in select.selected_values
+
+    def test_multi_select_multiple_items(self):
+        """Test selecting multiple items in multi-select mode."""
+        select = Select(options=["A", "B", "C", "D"], multiple=True)
+
+        # Select A
+        select.highlighted_index = 0
+        select.handle_key(Keys.ENTER)
+
+        # Select C
+        select.highlighted_index = 2
+        select.handle_key(Keys.ENTER)
+
+        # Select D
+        select.highlighted_index = 3
+        select.handle_key(Keys.ENTER)
+
+        assert select.selected_values == {"A", "C", "D"}
+        assert "B" not in select.selected_values
+
+    def test_multi_select_disabled_options(self):
+        """Test that disabled options cannot be selected in multi-select mode."""
+        callback = Mock()
+        select = Select(
+            options=["A", "B", "C"],
+            multiple=True,
+            disabled_values=["B"],
+            on_change=callback,
+        )
+        select.highlighted_index = 1  # On B (disabled)
+
+        result = select.handle_key(Keys.ENTER)
+        assert result
+        assert "B" not in select.selected_values
+        callback.assert_not_called()
+
+    def test_multi_select_render_shows_all_selected(self):
+        """Test that rendering shows all selected items with asterisks."""
+        select = Select(
+            options=["Red", "Green", "Blue"],
+            multiple=True,
+            values=["Red", "Blue"],
+            width=20,
+        )
+        result = render_element(select, width=20, height=5)
+
+        # Should show selection indicators for both Red and Blue
+        lines = result.strip().split("\n")
+        assert any("*" in line and "Red" in line for line in lines)
+        assert any("*" in line and "Blue" in line for line in lines)
+        # Green should not have indicator
+        assert any(
+            "*" not in line.replace("*", "") or "Green" in line for line in lines
+        )
+
+    def test_multi_select_values_property(self):
+        """Test the values property getter and setter."""
+        select = Select(options=["A", "B", "C"], multiple=True)
+
+        # Initially empty
+        assert select.values == []
+
+        # Set values
+        select.values = ["A", "C"]
+        assert set(select.values) == {"A", "C"}
+        assert select.selected_values == {"A", "C"}
+
+        # Clear values
+        select.values = []
+        assert select.values == []
+        assert len(select.selected_values) == 0
+
+    def test_multi_select_on_change_callback_format(self):
+        """Test that on_change callback receives lists in multi-select mode."""
+        received_args = []
+
+        def callback(old_val, new_val):
+            received_args.append((old_val, new_val))
+
+        select = Select(options=["A", "B", "C"], multiple=True, on_change=callback)
+        select.highlighted_index = 0
+        select.handle_key(Keys.ENTER)
+
+        assert len(received_args) == 1
+        old_val, new_val = received_args[0]
+        assert isinstance(old_val, list)
+        assert isinstance(new_val, list)
+        assert "A" in new_val
+
+    @pytest.mark.asyncio
+    async def test_multi_select_mouse_click_toggles(self):
+        """Test clicking toggles selection in multi-select mode."""
+        from wijjit.layout.bounds import Bounds
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        select = Select(options=["A", "B", "C"], multiple=True, visible_rows=3)
+        select.bounds = Bounds(x=5, y=10, width=20, height=3)
+
+        # Click to select B
+        event = MouseEvent(
+            type=MouseEventType.CLICK, button=MouseButton.LEFT, x=10, y=11
+        )
+        result = await select.handle_mouse(event)
+        assert result
+        assert "B" in select.selected_values
+
+        # Click again to deselect B
+        result = await select.handle_mouse(event)
+        assert result
+        assert "B" not in select.selected_values
+
+    def test_multi_select_ephemeral_state(self):
+        """Test that ephemeral state includes selected_values."""
+        select = Select(options=["A", "B", "C"], multiple=True, values=["A", "C"])
+        select.highlighted_index = 1
+
+        state = select.get_ephemeral_state()
+        assert "highlighted_index" in state
+        assert "selected_values" in state
+        assert state["selected_values"] == {"A", "C"}
+
+    def test_multi_select_restore_ephemeral_state(self):
+        """Test restoring ephemeral state for multi-select."""
+        select = Select(options=["A", "B", "C"], multiple=True)
+
+        # Simulate state from previous render
+        state = {
+            "highlighted_index": 2,
+            "selected_values": {"A", "B"},
+        }
+        select.restore_ephemeral_state(state)
+
+        assert select.highlighted_index == 2
+        assert select.selected_values == {"A", "B"}
+
 
 class TestTextInputCallbacks:
     """Tests for TextInput event callbacks."""

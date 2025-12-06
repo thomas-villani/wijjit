@@ -237,6 +237,8 @@ class TreeExtension(Extension):
         caller: Callable[[], str],
         id: str | None = None,
         data: dict[str, Any] | list[Any] | None = None,
+        multiple: bool = False,
+        selected_ids: list[Any] | None = None,
         width: int | str = 40,
         height: int | str = 15,
         show_scrollbar: bool = True,
@@ -260,6 +262,10 @@ class TreeExtension(Extension):
             Element identifier
         data : dict or list, optional
             Tree data (nested dict or flat list)
+        multiple : bool
+            Enable multiple selection mode (default: False)
+        selected_ids : list, optional
+            List of initially selected node IDs (multi-select mode)
         width : int or str
             Tree width (default: 40). Can be int, "fill", "auto", or percentage
         height : int or str
@@ -340,6 +346,9 @@ class TreeExtension(Extension):
         # Build VNode
         vnode = VNodeBuilder("TreeView", key=id)
         vnode.set_prop("data", data)
+        vnode.set_prop("multiple", multiple)
+        if selected_ids is not None:
+            vnode.set_prop("selected_ids", selected_ids)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("show_root", show_root)
         vnode.set_prop("indent_size", indent_size)

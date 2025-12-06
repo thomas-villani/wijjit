@@ -16,7 +16,12 @@ from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import get_element_marker, parse_tag_attributes, safe_int
+from wijjit.tags.layout import (
+    get_element_marker,
+    normalize_element_kwargs,
+    parse_tag_attributes,
+    safe_int,
+)
 
 if TYPE_CHECKING:
     pass
@@ -97,8 +102,10 @@ class TextInputExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -131,6 +138,8 @@ class TextInputExtension(Extension):
         vnode.set_prop("width", width)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
 
         # Check if this element should be focused
         if focused_id and id and focused_id == id:
@@ -138,8 +147,7 @@ class TextInputExtension(Extension):
 
         # Add any additional properties from kwargs (e.g., max_length, style, password)
         for key, val in kwargs.items():
-            if key != "class":  # Skip 'class' as it's already handled as 'classes'
-                vnode.set_prop(key, val)
+            vnode.set_prop(key, val)
 
         # Calculate layout width including border characters based on style
         # Default style is BRACKETS which has left and right borders
@@ -220,14 +228,18 @@ class ButtonExtension(Extension):
             Action ID to dispatch when button is clicked
         classes : str, optional
             CSS-like class names for styling
+        tab_index : int, optional
+            Tab order for focus navigation
 
         Returns
         -------
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -253,6 +265,8 @@ class ButtonExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("classes", classes)
         vnode.set_prop("focused", is_focused)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
         vnode.set_layout(width=button_width, height=1)
         layout_context.add_vnode(vnode)
 
@@ -322,6 +336,8 @@ class SelectExtension(Extension):
         id: str | None = None,
         options: list[Any] | None = None,
         value: str | None = None,
+        values: list[Any] | None = None,
+        multiple: bool = False,
         width: int = 20,
         visible_rows: int = 5,
         action: str | None = None,
@@ -343,7 +359,11 @@ class SelectExtension(Extension):
         options : list, optional
             List of options (if not provided in body)
         value : str, optional
-            Initial selected value
+            Initial selected value (single-select mode)
+        values : list, optional
+            Initial selected values (multi-select mode)
+        multiple : bool
+            Enable multiple selection mode (default: False)
         width : int
             Select width (default: 20)
         visible_rows : int
@@ -358,14 +378,18 @@ class SelectExtension(Extension):
             Title to display in top border (only when border_style is set)
         classes : str, optional
             CSS-like class names for styling
+        tab_index : int, optional
+            Tab order for focus navigation
 
         Returns
         -------
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -416,7 +440,16 @@ class SelectExtension(Extension):
         if bind and id:
             try:
                 if id in state:
-                    value = str(state[id]) if state[id] is not None else None
+                    state_value = state[id]
+                    if multiple:
+                        # Multi-select: expect list/set from state
+                        if isinstance(state_value, (list, set, tuple)):
+                            values = list(state_value)
+                        elif state_value is not None:
+                            values = [str(state_value)]
+                    else:
+                        # Single-select: expect string from state
+                        value = str(state_value) if state_value is not None else None
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state for select '{id}': {e}")
 
@@ -434,7 +467,11 @@ class SelectExtension(Extension):
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Select", key=id)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
-        vnode.set_prop("value", value)
+        vnode.set_prop("multiple", multiple)
+        if multiple:
+            vnode.set_prop("values", values or [])
+        else:
+            vnode.set_prop("value", value)
         vnode.set_prop("options", cleaned_options)
         vnode.set_prop("width", width)
         vnode.set_prop("visible_rows", visible_rows)
@@ -446,6 +483,8 @@ class SelectExtension(Extension):
         vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
         vnode.set_layout(width=total_width, height=total_height)
         context.add_vnode(vnode)
 
@@ -524,8 +563,10 @@ class CheckboxExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the checkbox tag."""
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -562,6 +603,8 @@ class CheckboxExtension(Extension):
         vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
         vnode.set_layout(width=checkbox_width, height=1)
         context.add_vnode(vnode)
 
@@ -609,8 +652,10 @@ class RadioExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the radio tag."""
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -660,6 +705,8 @@ class RadioExtension(Extension):
         vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
         vnode.set_layout(width=radio_width, height=1)
         context.add_vnode(vnode)
 
@@ -711,8 +758,10 @@ class CheckboxGroupExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the checkboxgroup tag."""
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -770,6 +819,8 @@ class CheckboxGroupExtension(Extension):
         vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
         vnode.set_layout(width=total_width, height=total_height)
         context.add_vnode(vnode)
 
@@ -828,8 +879,10 @@ class RadioGroupExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the radiogroup tag."""
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -891,6 +944,8 @@ class RadioGroupExtension(Extension):
             vnode.set_prop("focused", is_focused)
             if classes is not None:
                 vnode.set_prop("classes", classes)
+            if tab_index is not None:
+                vnode.set_prop("tab_index", tab_index)
             vnode.set_layout(width=total_width, height=total_height)
             context.add_vnode(vnode)
 
@@ -1036,14 +1091,18 @@ class TextAreaExtension(Extension):
             Whether to auto-bind value to state[id] (default: True)
         classes : str, optional
             CSS-like class names for styling
+        tab_index : int, optional
+            Tab order for focus navigation
 
         Returns
         -------
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1113,6 +1172,8 @@ class TextAreaExtension(Extension):
         vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
 
         # Account for borders in layout size if present
         layout_width = width_spec
@@ -1221,14 +1282,18 @@ class CodeEditorExtension(Extension):
             Whether to auto-bind value to state[id] (default: True)
         classes : str, optional
             CSS-like class names for styling
+        tab_index : int, optional
+            Tab order for focus navigation
 
         Returns
         -------
         str
             Rendered output
         """
-        # Handle 'class' attribute
-        classes = kwargs.get("class", None)
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1294,6 +1359,8 @@ class CodeEditorExtension(Extension):
         vnode.set_prop("focused", is_focused)
         if classes is not None:
             vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
 
         # Account for borders in layout size if present
         layout_width = width_spec

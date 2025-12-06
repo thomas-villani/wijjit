@@ -53,6 +53,9 @@ Individual examples showcasing specific UI elements and components.
 - **input_dialog_demo.py** - Input dialogs
 - **centered_dialog.py** - Dialog positioning
 
+**Layout:**
+- **splitpanel_demo.py** - Resizable split panel with sidebar and form
+
 **Other:**
 - **test_markdown_tag.py** - Markdown tag testing
 
@@ -84,6 +87,7 @@ Complete mini-applications and advanced usage patterns.
 - **scrollable_minimal.py** - Minimal scrolling example
 - **frame_overflow_demo.py** - Frame sizing and overflow modes
 - **complex_layout_demo.py** - Complex nested layouts
+- **splitpanel_nested_demo.py** - Nested split panels (IDE-like three-pane layout)
 
 **Template Patterns:**
 - **template_demo.py** - Template features and patterns

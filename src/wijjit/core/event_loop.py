@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from wijjit.core.events import KeyEvent
 from wijjit.logging_config import get_logger
-from wijjit.terminal.input import Key
+from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
 
 if TYPE_CHECKING:
@@ -503,6 +503,14 @@ class EventLoop:
                     handled = focused.handle_key(input_event)
                     if handled:
                         self.app.needs_render = True
+                    elif self.app.focus_navigation_enabled:
+                        # Element didn't handle - check for arrow key focus navigation
+                        if input_event == Keys.UP or input_event == Keys.LEFT:
+                            self.app.focus_manager.focus_previous()
+                            self.app.needs_render = True
+                        elif input_event == Keys.DOWN or input_event == Keys.RIGHT:
+                            self.app.focus_manager.focus_next()
+                            self.app.needs_render = True
             else:
                 # Normal focus routing
                 self._route_key_to_focused_element(event)
@@ -563,7 +571,21 @@ class EventLoop:
             # Get the focused element
             focused_elem = self.app.focus_manager.get_focused_element()
             if focused_elem is None:
-                logger.debug("No focused element to route key to")
+                # No focused element - check if arrow keys should focus first/last
+                if self.app.focus_navigation_enabled and event.key_obj:
+                    key = event.key_obj
+                    if key == Keys.DOWN or key == Keys.RIGHT:
+                        self.app.focus_manager.focus_first()
+                        event.cancel()
+                        self.app.needs_render = True
+                        logger.debug("Arrow key focus: focused first element")
+                    elif key == Keys.UP or key == Keys.LEFT:
+                        self.app.focus_manager.focus_last()
+                        event.cancel()
+                        self.app.needs_render = True
+                        logger.debug("Arrow key focus: focused last element")
+                else:
+                    logger.debug("No focused element to route key to")
                 return
 
             logger.debug(
@@ -587,6 +609,18 @@ class EventLoop:
                 # Mark event as handled and trigger re-render
                 event.cancel()
                 self.app.needs_render = True
+            elif self.app.focus_navigation_enabled:
+                # Element didn't handle the key - check for arrow key focus navigation
+                if key == Keys.UP or key == Keys.LEFT:
+                    self.app.focus_manager.focus_previous()
+                    event.cancel()
+                    self.app.needs_render = True
+                    logger.debug("Arrow key focus: moved to previous element")
+                elif key == Keys.DOWN or key == Keys.RIGHT:
+                    self.app.focus_manager.focus_next()
+                    event.cancel()
+                    self.app.needs_render = True
+                    logger.debug("Arrow key focus: moved to next element")
 
         except Exception as e:
             self.app._handle_error("Error routing key to focused element", e)

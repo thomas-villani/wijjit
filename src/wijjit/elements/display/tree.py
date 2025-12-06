@@ -58,7 +58,7 @@ class Tree(ScrollableElement):
     This element provides a tree view display with support for:
     - Hierarchical data visualization with tree drawing characters
     - Expand/collapse functionality for nodes with children
-    - Node selection with visual indicators
+    - Node selection with visual indicators (single or multiple)
     - Scrolling for large trees
     - Mouse and keyboard interaction
 
@@ -68,6 +68,8 @@ class Tree(ScrollableElement):
         Element identifier
     data : dict or list, optional
         Tree data as nested dict or flat list
+    multiple : bool, optional
+        Enable multiple selection mode (default: False)
     width : int, optional
         Display width in columns (default: 40)
     height : int, optional
@@ -91,6 +93,8 @@ class Tree(ScrollableElement):
         Original tree data
     nodes : list of dict
         Flattened tree nodes for rendering
+    multiple : bool
+        Whether multiple selection is enabled
     width : int
         Display width
     height : int
@@ -110,7 +114,9 @@ class Tree(ScrollableElement):
     expanded_nodes : set
         Set of expanded node IDs
     selected_node_id : str or None
-        ID of currently selected node
+        ID of currently selected node (single-select mode)
+    selected_node_ids : set
+        Set of selected node IDs (multi-select mode)
     highlighted_index : int
         Index of highlighted node in visible list
     scroll_manager : ScrollManager
@@ -126,7 +132,7 @@ class Tree(ScrollableElement):
     - Up/Down: Navigate nodes
     - Left: Collapse node or move to parent
     - Right: Expand node or move to first child
-    - Enter/Space: Toggle expand/collapse
+    - Enter/Space: Toggle expand/collapse (single) or toggle selection (multiple)
     - Home/End: Jump to first/last node
     - PageUp/PageDown: Scroll by page
     """
@@ -136,6 +142,8 @@ class Tree(ScrollableElement):
         id: str | None = None,
         classes: str | list[str] | None = None,
         data: dict[str, Any] | list | None = None,
+        multiple: bool = False,
+        selected_ids: list[str] | None = None,
         width: int = 40,
         height: int = 15,
         show_scrollbar: bool = True,
@@ -164,9 +172,13 @@ class Tree(ScrollableElement):
         self._raw_data = data
         self.data = self._normalize_data(data) if data else {}
 
+        # Multi-select mode
+        self.multiple = multiple
+
         # Tree state
         self.expanded_nodes: set[str] = set()
         self.selected_node_id: str | None = None
+        self.selected_node_ids: set[str] = set(selected_ids or [])
         self.highlighted_index: int = 0
 
         # Flattened nodes for rendering
@@ -510,9 +522,12 @@ class Tree(ScrollableElement):
             self._state_dict[self.expand_state_key] = list(self.expanded_nodes)
 
     def _save_selected_state(self) -> None:
-        """Save selected node ID to app state if available."""
+        """Save selected node ID(s) to app state if available."""
         if self._state_dict is not None and self.selected_state_key:
-            self._state_dict[self.selected_state_key] = self.selected_node_id
+            if self.multiple:
+                self._state_dict[self.selected_state_key] = list(self.selected_node_ids)
+            else:
+                self._state_dict[self.selected_state_key] = self.selected_node_id
 
     def toggle_node(self, node_id: str) -> None:
         """Toggle expand/collapse state of a node.
@@ -568,7 +583,9 @@ class Tree(ScrollableElement):
             self._save_expand_state()
 
     def select_node(self, node_id: str) -> None:
-        """Select a node.
+        """Select a node (single-select mode).
+
+        In multi-select mode, use toggle_selection() instead.
 
         Parameters
         ----------
@@ -591,6 +608,80 @@ class Tree(ScrollableElement):
             node = self._find_node_by_id(self.data, node_id)
             if node:
                 self.on_select(node)
+
+    def toggle_selection(self, node_id: str) -> None:
+        """Toggle selection of a node (multi-select mode).
+
+        Parameters
+        ----------
+        node_id : str
+            ID of node to toggle
+        """
+        if node_id in self.selected_node_ids:
+            self.selected_node_ids.remove(node_id)
+        else:
+            self.selected_node_ids.add(node_id)
+        self._save_selected_state()
+
+        # Emit callback with list of selected node IDs
+        if self.on_select:
+            # In multi-select, pass the current node being toggled
+            node = self._find_node_by_id(self.data, node_id)
+            if node:
+                self.on_select(node)
+
+    def is_selected(self, node_id: str) -> bool:
+        """Check if a node is selected.
+
+        Parameters
+        ----------
+        node_id : str
+            ID of node to check
+
+        Returns
+        -------
+        bool
+            True if node is selected
+        """
+        if self.multiple:
+            return node_id in self.selected_node_ids
+        return node_id == self.selected_node_id
+
+    @property
+    def selected_ids(self) -> list[str]:
+        """Get list of selected node IDs.
+
+        In single-select mode, returns a list with one element (or empty).
+        In multi-select mode, returns all selected node IDs.
+
+        Returns
+        -------
+        list of str
+            List of selected node IDs
+        """
+        if self.multiple:
+            return list(self.selected_node_ids)
+        elif self.selected_node_id is not None:
+            return [self.selected_node_id]
+        return []
+
+    @selected_ids.setter
+    def selected_ids(self, ids: list[str] | None) -> None:
+        """Set selected node IDs.
+
+        Parameters
+        ----------
+        ids : list of str or None
+            Node IDs to select
+        """
+        if ids is None:
+            ids = []
+
+        if self.multiple:
+            self.selected_node_ids = set(ids)
+        else:
+            self.selected_node_id = ids[0] if ids else None
+        self._save_selected_state()
 
     def _find_node_by_id(self, tree: dict, node_id: str) -> dict | None:
         """Find a node in the tree by ID.
@@ -828,20 +919,25 @@ class Tree(ScrollableElement):
                         return True
             return False
 
-        # Enter or Space - toggle expand/collapse
+        # Enter or Space - toggle expand/collapse (single) or toggle selection (multiple)
         elif key == Keys.ENTER or key == Keys.SPACE:
             if 0 <= self.highlighted_index < len(self.nodes):
                 node_info = self.nodes[self.highlighted_index]
                 node_id = node_info["node"]["id"]
 
-                # Toggle if has children
-                if node_info["has_children"]:
-                    self.toggle_node(node_id)
+                if self.multiple:
+                    # Multi-select: toggle selection of the node
+                    self.toggle_selection(node_id)
                     return True
+                else:
+                    # Single-select: toggle expand if has children, otherwise select
+                    if node_info["has_children"]:
+                        self.toggle_node(node_id)
+                        return True
 
-                # Also select the node
-                self.select_node(node_id)
-                return True
+                    # Also select the node
+                    self.select_node(node_id)
+                    return True
             return False
 
         # Home - jump to top
@@ -972,8 +1068,11 @@ class Tree(ScrollableElement):
                         # Clicked on expand indicator
                         self.toggle_node(node_id)
                     else:
-                        # Clicked on node label - select it
-                        self.select_node(node_id)
+                        # Clicked on node label - select/toggle it
+                        if self.multiple:
+                            self.toggle_selection(node_id)
+                        else:
+                            self.select_node(node_id)
 
                     return True
 
@@ -993,6 +1092,9 @@ class Tree(ScrollableElement):
             "selected_node_id": self.selected_node_id,
             "expanded_nodes": set(self.expanded_nodes),  # Copy the set
         }
+        # Add multi-select state
+        if self.multiple:
+            state["selected_node_ids"] = set(self.selected_node_ids)
         if self.scroll_manager:
             state["_scroll_position"] = self.scroll_manager.state.scroll_position
         return state
@@ -1009,6 +1111,8 @@ class Tree(ScrollableElement):
             self.highlighted_index = state["highlighted_index"]
         if "selected_node_id" in state:
             self.selected_node_id = state["selected_node_id"]
+        if "selected_node_ids" in state and self.multiple:
+            self.selected_node_ids = set(state["selected_node_ids"])
         if "expanded_nodes" in state:
             self.expanded_nodes = set(state["expanded_nodes"])
             # Rebuild node list with restored expansion state
@@ -1286,7 +1390,7 @@ class Tree(ScrollableElement):
 
             node_index = visible_start + i
             is_highlighted = node_index == self.highlighted_index
-            is_selected = node_info["node"]["id"] == self.selected_node_id
+            is_selected = self.is_selected(node_info["node"]["id"])
 
             # Determine node style - highlighted takes precedence for main content
             if is_highlighted and self.focused:

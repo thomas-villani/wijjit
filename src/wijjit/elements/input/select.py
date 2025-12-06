@@ -30,7 +30,11 @@ class Select(ScrollableElement):
     options : list, optional
         List of options (strings or dicts with 'value' and 'label' keys)
     value : str, optional
-        Currently selected value
+        Currently selected value (single-select mode)
+    values : list, optional
+        List of selected values (multi-select mode)
+    multiple : bool, optional
+        Enable multiple selection mode (default: False)
     width : int, optional
         Display width for content area (default: 20).
         Note: Borders add 2 additional columns to total width when enabled.
@@ -56,10 +60,14 @@ class Select(ScrollableElement):
     ----------
     options : list
         Available options
+    multiple : bool
+        Whether multiple selection is enabled
     value : str or None
-        Currently selected value
+        Currently selected value (single-select mode)
+    selected_values : set
+        Set of selected values (multi-select mode)
     selected_index : int
-        Index of selected option (-1 if none)
+        Index of selected option (-1 if none, single-select mode)
     highlighted_index : int
         Index of highlighted option for keyboard navigation
     width : int
@@ -88,7 +96,7 @@ class Select(ScrollableElement):
 
     Navigation:
     - Up/Down: Navigate options
-    - Enter/Space: Select highlighted option
+    - Enter/Space: Select highlighted option (single) or toggle selection (multiple)
     - Home/End: Jump to first/last option
     - PageUp/PageDown: Scroll by page
     """
@@ -99,12 +107,14 @@ class Select(ScrollableElement):
         classes: str | list[str] | None = None,
         options: list[Any] | None = None,
         value: str | None = None,
+        values: list[Any] | None = None,
+        multiple: bool = False,
         width: int = 20,
         visible_rows: int = 5,
         disabled_values: list[Any] | None = None,
         placeholder: str = "No options",
         item_renderer: Callable[..., Any] | None = None,
-        on_change: Callable[[str | None, str | None], None] | None = None,
+        on_change: Callable[[Any, Any], None] | None = None,
         border_style: (
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = None,
@@ -118,10 +128,28 @@ class Select(ScrollableElement):
         self._raw_options = options or []
         self.options = self._normalize_options(self._raw_options)
 
+        # Multi-select mode
+        self.multiple = multiple
+
         # Selection state
-        self.value = value
-        self.selected_index = self._find_option_index(value)
-        self.highlighted_index = max(0, self.selected_index) if self.options else 0
+        if multiple:
+            # Multi-select: use set of selected values
+            self.selected_values: set[str] = set(values or [])
+            self.value = None
+            self.selected_index = -1
+            # Start highlight at first selected item, or 0
+            self.highlighted_index = 0
+            if self.selected_values and self.options:
+                for i, opt in enumerate(self.options):
+                    if opt["value"] in self.selected_values:
+                        self.highlighted_index = i
+                        break
+        else:
+            # Single-select: use single value
+            self.selected_values = set()
+            self.value = value
+            self.selected_index = self._find_option_index(value)
+            self.highlighted_index = max(0, self.selected_index) if self.options else 0
 
         # Display properties
         self.width = width
@@ -323,6 +351,53 @@ class Select(ScrollableElement):
         super().on_focus()
 
     @property
+    def values(self) -> list[str]:
+        """Get the selected values as a list.
+
+        In single-select mode, returns a list with one element (or empty).
+        In multi-select mode, returns all selected values.
+
+        Returns
+        -------
+        list of str
+            List of selected values
+        """
+        if self.multiple:
+            return list(self.selected_values)
+        elif self.value is not None:
+            return [self.value]
+        return []
+
+    @values.setter
+    def values(self, new_values: list[str] | None) -> None:
+        """Set selected values.
+
+        In multi-select mode, sets all selected values.
+        In single-select mode, sets the first value (if any).
+
+        Parameters
+        ----------
+        new_values : list of str or None
+            Values to select
+        """
+        if new_values is None:
+            new_values = []
+
+        if self.multiple:
+            old_values = list(self.selected_values)
+            self.selected_values = set(new_values)
+            self._emit_change(old_values, list(self.selected_values))
+        else:
+            old_value = self.value
+            if new_values:
+                self.value = new_values[0]
+                self.selected_index = self._find_option_index(self.value)
+            else:
+                self.value = None
+                self.selected_index = -1
+            self._emit_change(old_value, self.value)
+
+    @property
     def scroll_position(self) -> int:
         """Get the current scroll position.
 
@@ -369,17 +444,21 @@ class Select(ScrollableElement):
         if not self.options:
             return False
 
-        old_value = self.value
-
-        # Enter or Space - select current highlighted option
+        # Enter or Space - select (single) or toggle (multiple)
         if key == Keys.ENTER or key == Keys.SPACE:
             if 0 <= self.highlighted_index < len(self.options):
                 opt = self.options[self.highlighted_index]
                 # Check if disabled
                 if opt["value"] not in self.disabled_values:
-                    self.value = opt["value"]
-                    self.selected_index = self.highlighted_index
-                    self._emit_change(old_value, self.value)
+                    if self.multiple:
+                        # Multi-select: toggle the option
+                        self._toggle_option(opt["value"])
+                    else:
+                        # Single-select: select the option
+                        old_value = self.value
+                        self.value = opt["value"]
+                        self.selected_index = self.highlighted_index
+                        self._emit_change(old_value, self.value)
                     return True
             return True
 
@@ -535,25 +614,46 @@ class Select(ScrollableElement):
                     opt = self.options[clicked_index]
                     # Check if disabled
                     if opt["value"] not in self.disabled_values:
-                        old_value = self.value
-                        self.value = opt["value"]
-                        self.selected_index = clicked_index
                         self.highlighted_index = clicked_index
-                        self._emit_change(old_value, self.value)
+                        if self.multiple:
+                            # Multi-select: toggle the option
+                            self._toggle_option(opt["value"])
+                        else:
+                            # Single-select: select the option
+                            old_value = self.value
+                            self.value = opt["value"]
+                            self.selected_index = clicked_index
+                            self._emit_change(old_value, self.value)
                         return True
                 return True
 
         return False
 
-    def _emit_change(self, old_value: str | None, new_value: str | None) -> None:
+    def _toggle_option(self, value: str) -> None:
+        """Toggle selection of an option in multi-select mode.
+
+        Parameters
+        ----------
+        value : str
+            Value to toggle
+        """
+        old_values = list(self.selected_values)
+        if value in self.selected_values:
+            self.selected_values.remove(value)
+        else:
+            self.selected_values.add(value)
+        new_values = list(self.selected_values)
+        self._emit_change(old_values, new_values)
+
+    def _emit_change(self, old_value: Any, new_value: Any) -> None:
         """Emit change event.
 
         Parameters
         ----------
-        old_value : str or None
-            Previous value
-        new_value : str or None
-            New value
+        old_value : str, list, or None
+            Previous value (str for single, list for multiple)
+        new_value : str, list, or None
+            New value (str for single, list for multiple)
         """
         if self.on_change and old_value != new_value:
             self.on_change(old_value, new_value)
@@ -656,7 +756,11 @@ class Select(ScrollableElement):
                 option_index = visible_start + i
                 row = top_row + i
 
-                is_selected = option_index == self.selected_index
+                # Check selection based on mode
+                if self.multiple:
+                    is_selected = opt["value"] in self.selected_values
+                else:
+                    is_selected = option_index == self.selected_index
                 is_highlighted = option_index == self.highlighted_index
                 is_disabled = opt["value"] in self.disabled_values
 
@@ -810,7 +914,7 @@ class Select(ScrollableElement):
         Returns
         -------
         dict
-            Highlight and scroll state that should survive re-renders
+            Highlight, scroll, and selection state that should survive re-renders
         """
         state = {
             "highlighted_index": self.highlighted_index,
@@ -819,6 +923,10 @@ class Select(ScrollableElement):
         # Add scroll position
         if self.scroll_manager:
             state["_scroll_position"] = self.scroll_manager.state.scroll_position
+
+        # Add multi-select state
+        if self.multiple:
+            state["selected_values"] = set(self.selected_values)
 
         return state
 
@@ -838,3 +946,7 @@ class Select(ScrollableElement):
         # Restore scroll position
         if "_scroll_position" in state and self.scroll_manager:
             self.scroll_manager.scroll_to(state["_scroll_position"])
+
+        # Restore multi-select state
+        if "selected_values" in state and self.multiple:
+            self.selected_values = set(state["selected_values"])

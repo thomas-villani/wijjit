@@ -97,6 +97,39 @@ def parse_tag_attributes(
     return kwargs
 
 
+def normalize_element_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Normalize element kwargs for consistent attribute naming.
+
+    This helper handles common attribute name conversions:
+    - 'class' -> 'classes' (since 'class' is a Python keyword)
+    - 'tabindex' -> 'tab_index' (HTML-style to Python-style)
+
+    Parameters
+    ----------
+    kwargs : dict
+        Raw keyword arguments from template tag
+
+    Returns
+    -------
+    dict
+        Normalized keyword arguments
+
+    Examples
+    --------
+    >>> normalize_element_kwargs({'class': 'btn', 'tabindex': 1})
+    {'classes': 'btn', 'tab_index': 1}
+    """
+    result = {}
+    for key, val in kwargs.items():
+        if key == "class":
+            result["classes"] = val
+        elif key == "tabindex":
+            result["tab_index"] = val
+        else:
+            result[key] = val
+    return result
+
+
 def process_body_content(body_output: str, raw: bool = False) -> str:
     """Process template body content with optional whitespace stripping.
 
