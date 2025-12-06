@@ -437,8 +437,7 @@ class TestLayoutEngine:
     def test_percentage_width(self):
         """Test percentage-based width.
 
-        NOTE: Currently VStack treats percentage widths the same as fill.
-        TODO: Implement proper percentage width calculation.
+        Percentage width should be calculated as a percentage of available space.
         """
         child = ElementNode(MockElement(width=10, height=2), width="50%")
         root = VStack(children=[child])
@@ -446,9 +445,8 @@ class TestLayoutEngine:
         engine = LayoutEngine(root, width=80, height=24)
         elements = engine.layout()
 
-        # Currently percentage widths get full width (like fill)
-        # TODO: Should be 40 (50% of 80) when properly implemented
-        assert elements[0].bounds.width == 80
+        # 50% of 80 = 40
+        assert elements[0].bounds.width == 40
 
     def test_fill_width(self):
         """Test fill width behavior."""
@@ -586,17 +584,22 @@ class TestFrameLevelAlignment:
         assert child.bounds.width == 10
 
     def test_horizontal_alignment_stretch(self):
-        """Test horizontal stretch alignment in VStack (default)."""
+        """Test horizontal stretch alignment in VStack.
+
+        Note: align_h="stretch" only affects positioning, not sizing.
+        Auto-width children use their intrinsic size. Only width="fill"
+        children stretch to fill available width.
+        """
         child = ElementNode(MockElement(width=10, height=2))
         vstack = VStack(children=[child], align_h="stretch")
 
         vstack.calculate_constraints()
         vstack.assign_bounds(0, 0, 30, 10)
 
-        # Child should stretch to fill width
-        # x = 0, width = 30 (full width)
+        # Child uses intrinsic width (auto-sized children don't stretch)
+        # x = 0, width = 10 (intrinsic size)
         assert child.bounds.x == 0
-        assert child.bounds.width == 30
+        assert child.bounds.width == 10
 
     def test_vertical_alignment_top(self):
         """Test vertical top alignment in HStack."""
@@ -641,17 +644,22 @@ class TestFrameLevelAlignment:
         assert child.bounds.height == 2
 
     def test_vertical_alignment_stretch(self):
-        """Test vertical stretch alignment in HStack (default)."""
+        """Test vertical stretch alignment in HStack.
+
+        Note: align_v="stretch" only affects positioning, not sizing.
+        Auto-height children use their intrinsic size. Only height="fill"
+        children stretch to fill available height.
+        """
         child = ElementNode(MockElement(width=10, height=2))
         hstack = HStack(children=[child], align_v="stretch")
 
         hstack.calculate_constraints()
         hstack.assign_bounds(0, 0, 30, 10)
 
-        # Child should stretch to fill height
-        # y = 0, height = 10 (full height)
+        # Child uses intrinsic height (auto-sized children don't stretch)
+        # y = 0, height = 2 (intrinsic size)
         assert child.bounds.y == 0
-        assert child.bounds.height == 10
+        assert child.bounds.height == 2
 
 
 class TestVStackVerticalAlignment:

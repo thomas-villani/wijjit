@@ -49,6 +49,7 @@ from wijjit.tags.dialogs import (
 )
 from wijjit.tags.display import (
     ContentViewExtension,
+    ImageViewExtension,
     LinkExtension,
     ListViewExtension,
     LogViewExtension,
@@ -196,6 +197,8 @@ class Renderer:
                 LineChartExtension,
                 GaugeExtension,
                 HeatMapExtension,
+                # Image view
+                ImageViewExtension,
             ],
         )
 

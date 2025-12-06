@@ -2279,3 +2279,140 @@ class PagerExtension(Extension):
 
         # Return marker for text interleaving
         return get_element_marker(context)
+
+
+class ImageViewExtension(Extension):
+    """Jinja2 extension for {% imageview %} tag.
+
+    Displays an image in the terminal using colored block characters.
+
+    Syntax:
+        {% imageview src="path/to/image.png" width=40 %}{% endimageview %}
+        {% imageview src=state.image_data height=20 braille=True %}{% endimageview %}
+        {% imageview src="photo.jpg" width="50%" height="fill" %}{% endimageview %}
+        {% imageview src="logo.png" braille=True invert=True %}{% endimageview %}
+
+    Parameters:
+        src: Image source (file path, bytes, or PIL Image)
+        width: Display width (int, "auto", "fill", or "50%")
+        height: Display height (int, "auto", "fill", or "50%")
+        braille: Use braille mode for B&W rendering (default: False)
+        invert: Invert threshold in braille mode (default: False)
+        background: Background RGB tuple for transparency (default: (0,0,0))
+    """
+
+    tags = {"imageview"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the imageview tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endimageview", lineno)
+
+        node = nodes.CallBlock(
+            self.call_method("_render_imageview", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endimageview",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_imageview(
+        self,
+        caller: Callable[[], str],
+        id: str | None = None,
+        src: Any = None,
+        width: int | str = "auto",
+        height: int | str = "auto",
+        braille: bool = False,
+        invert: bool = False,
+        background: tuple[int, int, int] | None = None,
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the imageview tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        src : any
+            Image source (file path, bytes, or PIL Image)
+        width : int or str
+            Width spec: int, "auto", "fill", or "50%" (default: "auto")
+        height : int or str
+            Height spec: int, "auto", "fill", or "50%" (default: "auto")
+        braille : bool
+            Use braille mode for B&W rendering (default: False)
+        invert : bool
+            Invert the threshold in braille mode (default: False)
+        background : tuple, optional
+            Background RGB for transparency (default: (0, 0, 0))
+        bind : bool
+            Whether to auto-bind src to state[id] (default: True)
+
+        Returns
+        -------
+        str
+            Rendered output marker
+        """
+        # Handle 'class' attribute
+        classes = kwargs.get("class", None)
+
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+
+        # Store original specs for layout
+        width_spec = width
+        height_spec = height
+
+        braille = bool(braille)
+        invert = bool(invert)
+        if background is None:
+            background = (0, 0, 0)
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("imageview")
+
+        # If binding is enabled and id is in state, get src from state
+        if bind and id:
+            try:
+                if id in state:
+                    src = state[id]
+            except (KeyError, TypeError, AttributeError) as e:
+                logger.warning(f"Failed to restore ImageView state: {e}")
+
+        # Build VNode
+        vnode = VNodeBuilder("ImageView", key=id)
+        vnode.set_prop("src", src)
+        vnode.set_prop("braille", braille)
+        vnode.set_prop("invert", invert)
+        vnode.set_prop("background", background)
+        vnode.set_prop("bind", bind)
+        if classes:
+            vnode.set_prop("classes", classes)
+        vnode.set_layout(width=width_spec, height=height_spec)
+
+        context.add_vnode(vnode)
+
+        # Consume body (should be empty)
+        caller()
+
+        # Return marker for text interleaving
+        return get_element_marker(context)

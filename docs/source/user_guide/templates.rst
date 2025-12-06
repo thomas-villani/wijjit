@@ -71,7 +71,7 @@ Display & data tags
     Tail-like component for streaming logs (pairs nicely with ``state.watch`` or async generators).
 
 ``{% progressbar %}`` and ``{% spinner %}``
-    Visual indicators for background tasks; progress bars accept ``value`` (0–1 or 0–100) and ``label``.
+    Visual indicators for background tasks. Progress bars accept ``value``, ``max``, ``style`` (display style: ``filled``, ``percentage``, ``gradient``, ``custom``), and ``bar_style`` (visual preset: ``block``, ``thin``, ``thick``, ``equals``, ``arrow``, ``dots``, ``ascii``, ``hash``, ``pipe``, ``square``).
 
 ``{% markdown %}`` / ``{% code %}``
     Rich text renderers using the Markdown and Pygments stacks shipped with Wijjit. Provide ``text`` or inline body content.

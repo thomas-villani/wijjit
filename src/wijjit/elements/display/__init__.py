@@ -8,6 +8,7 @@ from wijjit.elements.display.columnchart import ColumnChart
 from wijjit.elements.display.contentview import ContentType, ContentView
 from wijjit.elements.display.gauge import Gauge
 from wijjit.elements.display.heatmap import HeatMap
+from wijjit.elements.display.image import ImageView
 from wijjit.elements.display.linechart import LineChart
 from wijjit.elements.display.link import Link
 from wijjit.elements.display.logview import LogView
@@ -28,6 +29,7 @@ __all__ = [
     "ContentView",
     "Gauge",
     "HeatMap",
+    "ImageView",
     "LineChart",
     "Link",
     "LogView",

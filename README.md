@@ -342,6 +342,42 @@ SplitPanel attributes:
 - `min_first`, `min_second`: Minimum sizes for each panel (default: 5)
 - `id`: Element ID for state persistence (ratio survives re-renders)
 
+**Pager**: Linear pagination for wizard-style interfaces
+```jinja2
+{% pager id="wizard" nav_position="bottom" show_indicator=True show_titles=True %}
+  {% page title="Welcome" %}
+    Welcome to the setup wizard!
+    Press Right arrow or click "Next >" to continue.
+  {% endpage %}
+
+  {% page title="Settings" %}
+    {% vstack spacing=1 %}
+      {% textinput id="name" placeholder="Enter your name" %}{% endtextinput %}
+      {% checkbox id="newsletter" %}Subscribe to newsletter{% endcheckbox %}
+    {% endvstack %}
+  {% endpage %}
+
+  {% page title="Complete" %}
+    Setup complete! Press 'q' to exit.
+  {% endpage %}
+{% endpager %}
+```
+
+Pager attributes:
+- `nav_position`: Navigation bar position: `"top"`, `"bottom"`, or `"both"`
+- `show_indicator`: Show "Page X of Y" indicator (default: `true`)
+- `show_titles`: Show page title in indicator (default: `false`)
+- `loop`: Wrap from last to first page (default: `false`)
+- `border_style`: Border style: `"single"`, `"double"`, `"rounded"`, `"none"`
+- `width`, `height`: Pager dimensions
+- `current_page`: Initial page index (0-based)
+
+Pager navigation:
+- Left/PgUp: Previous page
+- Right/PgDown: Next page
+- Home/End: First/Last page
+- Mouse click on Prev/Next buttons
+
 **Sizing**: Flexible size specifications
 - Fixed: `width=50` or `width="50"`
 - Fill available space: `width="fill"`
@@ -478,6 +514,7 @@ print(f"You entered: {app.state.name}")
 - **HStack**: Horizontal stack layout
 - **SplitPanel**: Resizable split panel with draggable divider
 - **TabbedPanel**: Tabbed container with keyboard/mouse navigation
+- **Pager**: Linear pagination through multiple pages with prev/next navigation
 
 ## Examples
 
@@ -520,6 +557,7 @@ Individual UI component demonstrations (20+ widgets):
 
 **Layout:**
 - `splitpanel_demo.py` - Resizable split panel with sidebar layout
+- `pager_demo.py` - Linear pagination with prev/next navigation
 
 **Dialogs:**
 - `dialog_showcase.py` - All dialog types (alert, confirm, input)

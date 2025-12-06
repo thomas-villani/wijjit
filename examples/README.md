@@ -55,6 +55,7 @@ Individual examples showcasing specific UI elements and components.
 
 **Layout:**
 - **splitpanel_demo.py** - Resizable split panel with sidebar and form
+- **pager_demo.py** - Linear pagination with prev/next navigation (wizard-style)
 
 **Other:**
 - **test_markdown_tag.py** - Markdown tag testing

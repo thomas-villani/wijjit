@@ -56,6 +56,7 @@ class ElementRegistry:
         from wijjit.elements.display.contentview import ContentView
         from wijjit.elements.display.gauge import Gauge
         from wijjit.elements.display.heatmap import HeatMap
+        from wijjit.elements.display.image import ImageView
         from wijjit.elements.display.linechart import LineChart
         from wijjit.elements.display.link import Link
         from wijjit.elements.display.list import ListView
@@ -125,6 +126,8 @@ class ElementRegistry:
             "Heatmap": HeatMap,
             "HeatMap": HeatMap,
             "Gauge": Gauge,
+            "ImageView": ImageView,
+            "Image": ImageView,  # Alias
             # Menu elements
             "MenuElement": MenuElement,
             "Menu": MenuElement,  # Alias
@@ -219,6 +222,14 @@ class ElementRegistry:
 
         factory = self._factories[vnode.type]
         props = vnode.props_dict()
+
+        # Merge layout specs (width, height, etc.) with props for elements that need them
+        # Some elements like ImageView accept width/height as constructor parameters
+        layout_spec = vnode.layout_spec_dict()
+        if layout_spec:
+            # Only include layout specs that the factory accepts as parameters
+            # This allows elements to receive width/height if they expect them
+            props = {**props, **layout_spec}
 
         # Filter props to only those accepted by the factory
         valid_props = self._filter_props_for_factory(factory, props)

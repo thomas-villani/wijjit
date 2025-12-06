@@ -558,31 +558,35 @@ class VStack(Container):
                     child.constraints.preferred_height if child.constraints else 1
                 )
 
-            # Width handling based on alignment
-            # Note: Fixed-width children should NOT be stretched even when align_h is "stretch"
-            # This ensures elements with explicit widths are respected
+            # Width handling based on child's width_spec
+            # - Fixed: Use the explicit width value
+            # - Fill: Stretch to fill available content_width
+            # - Percentage: Calculate from content_width
+            # - Auto: Use intrinsic size (preferred_width from constraints)
+            #
+            # Note: align_h="stretch" affects POSITIONING of narrower children,
+            # NOT whether auto-width children are stretched. Only "fill" children stretch.
             if child.width_spec.is_fixed:
                 # Respect the child's explicit fixed width
                 child_width = child.width_spec.value
-            elif (
-                self.align_h == "stretch"
-                or child.width_spec.is_fill
-                or child.width_spec.is_percentage
-            ):
+            elif child.width_spec.is_fill:
+                # Fill children stretch to available width
                 child_width = content_width
-                child_x = current_x
+            elif child.width_spec.is_percentage:
+                # Percentage of available width
+                child_width = int(content_width * child.width_spec.get_percentage())
             else:
+                # Auto - use intrinsic size from constraints
                 child_width = (
                     child.constraints.preferred_width
                     if child.constraints
                     else content_width
                 )
-
-            # Ensure width doesn't exceed content width
-            child_width = min(child_width, content_width)
+                # Clamp to available width
+                child_width = min(child_width, content_width)
 
             # Apply horizontal alignment if child is narrower than available space
-            if self.align_h != "stretch" and child_width < content_width:
+            if child_width < content_width:
                 if self.align_h == "center":
                     child_x = current_x + (content_width - child_width) // 2
                 elif self.align_h == "right":
@@ -803,30 +807,35 @@ class HStack(Container):
                     child.constraints.preferred_width if child.constraints else 1
                 )
 
-            # Height handling based on alignment
-            # Note: Fixed-height children should NOT be stretched even when align_v is "stretch"
-            # This ensures elements with explicit heights are respected
+            # Height handling based on child's height_spec
+            # - Fixed: Use the explicit height value
+            # - Fill: Stretch to fill available content_height
+            # - Percentage: Calculate from content_height
+            # - Auto: Use intrinsic size (preferred_height from constraints)
+            #
+            # Note: align_v="stretch" affects POSITIONING of shorter children,
+            # NOT whether auto-height children are stretched. Only "fill" children stretch.
             if child.height_spec.is_fixed:
                 # Respect the child's explicit fixed height
                 child_height = child.height_spec.value
-            elif (
-                self.align_v == "stretch"
-                or child.height_spec.is_fill
-                or child.height_spec.is_percentage
-            ):
+            elif child.height_spec.is_fill:
+                # Fill children stretch to available height
                 child_height = content_height
-                child_y = current_y
+            elif child.height_spec.is_percentage:
+                # Percentage of available height
+                child_height = int(content_height * child.height_spec.get_percentage())
             else:
+                # Auto - use intrinsic size from constraints
                 child_height = (
                     child.constraints.preferred_height
                     if child.constraints
                     else content_height
                 )
-                # Only clamp non-fixed heights to content height
+                # Clamp to available height
                 child_height = min(child_height, content_height)
 
             # Apply vertical alignment if child is shorter than available space
-            if self.align_v != "stretch" and child_height < content_height:
+            if child_height < content_height:
                 if self.align_v == "middle":
                     child_y = current_y + (content_height - child_height) // 2
                 elif self.align_v == "bottom":

@@ -160,6 +160,32 @@ LogView
 ProgressBar / Spinner
     Progress indicators for background tasks. ``progressbar`` accepts numeric ``value`` and optional ``label``; ``spinner`` animates automatically if you set ``app.refresh_interval``.
 
+    **ProgressBar** supports multiple display and visual styles:
+
+    * **Display styles** (``style`` attribute): ``filled`` (default), ``percentage``, ``gradient``, ``custom``
+    * **Bar styles** (``bar_style`` attribute): Visual presets for the progress bar characters
+
+      - ``block`` (default) - Solid Unicode block characters
+      - ``thin`` - Thin horizontal line
+      - ``thick`` - Heavy horizontal line
+      - ``equals`` - Classic ``====`` style
+      - ``arrow`` - Arrow/chevron ``>>>>`` style
+      - ``dots`` - Bullet dot characters
+      - ``ascii`` - Pure ASCII (``#`` and ``-``)
+      - ``hash`` - Hash marks with spaces
+      - ``pipe`` - Pipe characters
+      - ``square`` - Square box characters
+
+    Example with different bar styles:
+
+    .. code-block:: jinja
+
+        {% progressbar id="download" value=state.progress bar_style="equals" color="green" %}{% endprogressbar %}
+        {% progressbar id="upload" value=state.upload bar_style="arrow" style="gradient" %}{% endprogressbar %}
+        {% progressbar id="cpu" value=state.cpu bar_style="thin" %}{% endprogressbar %}
+
+    See ``examples/widgets/progress_demo.py`` for a complete demonstration of all bar styles.
+
 StatusBar
     Sticky footer for breadcrumbs, key hints, or status indicators. Combine with ``{% hstack %}`` sections to align regions left/center/right. ``examples/widgets/statusbar_demo.py`` shows how to surface view-scoped hints.
 
