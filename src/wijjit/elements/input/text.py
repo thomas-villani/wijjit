@@ -411,9 +411,14 @@ class TextInput(Element):
         else:
             resolved_style = ctx.style_resolver.resolve_style(self, "input")
 
-        # Determine display text (value or placeholder)
+        # Resolve placeholder style (used when showing placeholder text)
+        placeholder_style = ctx.style_resolver.resolve_style(self, "input.placeholder")
+
+        # Determine display text (value or placeholder) and which style to use
+        use_placeholder = not self.value
         display_text = self.value if self.value else self.placeholder
-        # use_placeholder = not self.value
+        # Use placeholder style for text when showing placeholder
+        text_style = placeholder_style if use_placeholder else resolved_style
 
         # Calculate scroll offset for long text
         scroll_offset = 0
@@ -459,10 +464,10 @@ class TextInput(Element):
                 ctx.write_text(0, 0, "[", resolved_style)
                 x_offset = 1
 
-                # Render text with cursor
-                ctx.write_text(x_offset, 0, before, resolved_style)
+                # Render text with cursor (use text_style for text content)
+                ctx.write_text(x_offset, 0, before, text_style)
                 ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(x_offset + len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(x_offset + len(before) + 1, 0, after, text_style)
                 ctx.write_text(x_offset + self.width, 0, "]", resolved_style)
 
             elif self.style == InputStyle.BOX:
@@ -470,10 +475,10 @@ class TextInput(Element):
                 ctx.write_text(0, 0, "\u251c", resolved_style)  # ├
                 x_offset = 1
 
-                # Render text with cursor
-                ctx.write_text(x_offset, 0, before, resolved_style)
+                # Render text with cursor (use text_style for text content)
+                ctx.write_text(x_offset, 0, before, text_style)
                 ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(x_offset + len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(x_offset + len(before) + 1, 0, after, text_style)
                 ctx.write_text(x_offset + self.width, 0, "\u2524", resolved_style)  # ┤
 
             elif self.style == InputStyle.BLOCK:
@@ -481,19 +486,20 @@ class TextInput(Element):
                 ctx.write_text(0, 0, "\u258c", resolved_style)  # ▌
                 x_offset = 1
 
-                # Render text with cursor
-                ctx.write_text(x_offset, 0, before, resolved_style)
+                # Render text with cursor (use text_style for text content)
+                ctx.write_text(x_offset, 0, before, text_style)
                 ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(x_offset + len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(x_offset + len(before) + 1, 0, after, text_style)
                 ctx.write_text(x_offset + self.width, 0, "\u2590", resolved_style)  # ▐
 
             elif self.style == InputStyle.UNDERLINE:
-                # text with underline
+                # text with underline (use text_style as base for underline)
                 underline_style = Style(
-                    fg_color=resolved_style.fg_color,
-                    bg_color=resolved_style.bg_color,
-                    bold=resolved_style.bold,
-                    italic=resolved_style.italic,
+                    fg_color=text_style.fg_color,
+                    bg_color=text_style.bg_color,
+                    bold=text_style.bold,
+                    italic=text_style.italic,
+                    dim=text_style.dim,
                     underline=True,
                 )
 
@@ -503,11 +509,11 @@ class TextInput(Element):
                 ctx.write_text(len(before) + 1, 0, after, underline_style)
 
             elif self.style == InputStyle.MINIMAL:
-                # Just text with styling
+                # Just text with styling (use text_style for text content)
                 # Render text with cursor
-                ctx.write_text(0, 0, before, resolved_style)
+                ctx.write_text(0, 0, before, text_style)
                 ctx.write_text(len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(len(before) + 1, 0, after, resolved_style)
+                ctx.write_text(len(before) + 1, 0, after, text_style)
 
         else:
             # Not focused or cursor out of bounds - render without cursor
@@ -516,33 +522,34 @@ class TextInput(Element):
             if self.style == InputStyle.BRACKETS:
                 ctx.write_text(0, 0, "[", resolved_style)
                 x_offset = 1
-                ctx.write_text(x_offset, 0, visible_text, resolved_style)
+                ctx.write_text(x_offset, 0, visible_text, text_style)
                 ctx.write_text(x_offset + self.width, 0, "]", resolved_style)
 
             elif self.style == InputStyle.BOX:
                 ctx.write_text(0, 0, "\u251c", resolved_style)  # ├
                 x_offset = 1
-                ctx.write_text(x_offset, 0, visible_text, resolved_style)
+                ctx.write_text(x_offset, 0, visible_text, text_style)
                 ctx.write_text(x_offset + self.width, 0, "\u2524", resolved_style)  # ┤
 
             elif self.style == InputStyle.BLOCK:
                 ctx.write_text(0, 0, "\u258c", resolved_style)  # ▌
                 x_offset = 1
-                ctx.write_text(x_offset, 0, visible_text, resolved_style)
+                ctx.write_text(x_offset, 0, visible_text, text_style)
                 ctx.write_text(x_offset + self.width, 0, "\u2590", resolved_style)  # ▐
 
             elif self.style == InputStyle.UNDERLINE:
                 underline_style = Style(
-                    fg_color=resolved_style.fg_color,
-                    bg_color=resolved_style.bg_color,
-                    bold=resolved_style.bold,
-                    italic=resolved_style.italic,
+                    fg_color=text_style.fg_color,
+                    bg_color=text_style.bg_color,
+                    bold=text_style.bold,
+                    italic=text_style.italic,
+                    dim=text_style.dim,
                     underline=True,
                 )
                 ctx.write_text(0, 0, visible_text, underline_style)
 
             elif self.style == InputStyle.MINIMAL:
-                ctx.write_text(0, 0, visible_text, resolved_style)
+                ctx.write_text(0, 0, visible_text, text_style)
 
     def get_intrinsic_size(self) -> tuple[int, int]:
         """Get the intrinsic size of the text input.

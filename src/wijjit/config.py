@@ -274,6 +274,11 @@ class DefaultConfig:
     #: https://no-color.org/
     NO_COLOR = os.environ.get("NO_COLOR") is not None
 
+    #: Global focus color override - applies to all focused elements
+    #: Format: RGB tuple like (0, 255, 255) for cyan, or None to use theme defaults
+    #: When set, this color is applied to all :focus style fg_color
+    FOCUS_COLOR = None
+
     #: Default theme to use: 'default', 'dark', 'light', or custom theme name
     DEFAULT_THEME = "default"
 

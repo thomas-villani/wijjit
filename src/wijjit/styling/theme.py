@@ -188,6 +188,10 @@ class DefaultTheme(Theme):
                 fg_color=(128, 128, 128),
                 dim=True,
             ),
+            "input.placeholder": Style(
+                fg_color=(128, 128, 128),
+                dim=True,
+            ),
             # Checkbox styles
             "checkbox": Style(
                 fg_color=(255, 255, 255),  # White
@@ -224,9 +228,11 @@ class DefaultTheme(Theme):
             # Frame styles
             "frame": Style(
                 fg_color=(200, 200, 200),
+                bg_color=(25, 25, 25),
             ),
             "frame:focus": Style(
                 fg_color=(255, 255, 255),
+                bg_color=(35, 35, 35),
                 bold=True,
             ),
             "frame.border": Style(
@@ -235,6 +241,25 @@ class DefaultTheme(Theme):
             "frame.border:focus": Style(
                 fg_color=(0, 255, 255),
                 bold=True,
+            ),
+            # Scrollbar styles
+            "scrollbar": Style(
+                fg_color=(100, 100, 100),
+            ),
+            "scrollbar:focus": Style(
+                fg_color=(0, 255, 255),
+            ),
+            "scrollbar.track": Style(
+                fg_color=(60, 60, 60),
+            ),
+            "scrollbar.track:focus": Style(
+                fg_color=(80, 80, 80),
+            ),
+            "scrollbar.thumb": Style(
+                fg_color=(150, 150, 150),
+            ),
+            "scrollbar.thumb:focus": Style(
+                fg_color=(0, 255, 255),
             ),
             # Text styles
             "text": Style(),
@@ -311,6 +336,20 @@ class DefaultTheme(Theme):
             "modal": Style(
                 fg_color=(255, 255, 255),
                 bg_color=(40, 40, 40),
+            ),
+            "modal:focus": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(50, 50, 50),
+            ),
+            "modal.border": Style(
+                fg_color=(150, 150, 150),
+            ),
+            "modal.border:focus": Style(
+                fg_color=(0, 255, 255),
+                bold=True,
+            ),
+            "modal.text": Style(
+                fg_color=(255, 255, 255),
             ),
             "modal.backdrop": Style(dim=True),
             # Notification styles
@@ -493,6 +532,10 @@ class DarkTheme(Theme):
                 bg_color=(30, 30, 50),
                 bold=True,
             ),
+            "input.placeholder": Style(
+                fg_color=(80, 80, 100),
+                dim=True,
+            ),
             # Checkbox styles
             "checkbox": Style(
                 fg_color=(255, 255, 255),  # White
@@ -541,6 +584,25 @@ class DarkTheme(Theme):
             "frame.border:focus": Style(
                 fg_color=(100, 200, 255),
                 bold=True,
+            ),
+            # Scrollbar styles
+            "scrollbar": Style(
+                fg_color=(80, 80, 100),
+            ),
+            "scrollbar:focus": Style(
+                fg_color=(100, 200, 255),
+            ),
+            "scrollbar.track": Style(
+                fg_color=(40, 40, 60),
+            ),
+            "scrollbar.track:focus": Style(
+                fg_color=(60, 60, 80),
+            ),
+            "scrollbar.thumb": Style(
+                fg_color=(120, 120, 160),
+            ),
+            "scrollbar.thumb:focus": Style(
+                fg_color=(100, 200, 255),
             ),
             # Text styles
             "text": Style(fg_color=(200, 200, 220)),
@@ -613,6 +675,20 @@ class DarkTheme(Theme):
             "modal": Style(
                 fg_color=(220, 220, 240),
                 bg_color=(30, 30, 50),
+            ),
+            "modal:focus": Style(
+                fg_color=(240, 240, 255),
+                bg_color=(40, 40, 70),
+            ),
+            "modal.border": Style(
+                fg_color=(80, 80, 120),
+            ),
+            "modal.border:focus": Style(
+                fg_color=(100, 200, 255),
+                bold=True,
+            ),
+            "modal.text": Style(
+                fg_color=(220, 220, 240),
             ),
             "modal.backdrop": Style(dim=True),
             # Notification styles
@@ -779,6 +855,10 @@ class LightTheme(Theme):
                 bg_color=(230, 230, 255),
                 underline=True,
             ),
+            "input.placeholder": Style(
+                fg_color=(150, 150, 150),
+                dim=True,
+            ),
             # Checkbox styles
             "checkbox": Style(
                 fg_color=(50, 50, 50),  # Dark gray for light background
@@ -824,6 +904,25 @@ class LightTheme(Theme):
             "frame.border:focus": Style(
                 fg_color=(0, 100, 200),
                 bold=True,
+            ),
+            # Scrollbar styles
+            "scrollbar": Style(
+                fg_color=(180, 180, 180),
+            ),
+            "scrollbar:focus": Style(
+                fg_color=(0, 100, 200),
+            ),
+            "scrollbar.track": Style(
+                fg_color=(220, 220, 220),
+            ),
+            "scrollbar.track:focus": Style(
+                fg_color=(200, 200, 200),
+            ),
+            "scrollbar.thumb": Style(
+                fg_color=(150, 150, 150),
+            ),
+            "scrollbar.thumb:focus": Style(
+                fg_color=(0, 100, 200),
             ),
             # Text styles
             "text": Style(fg_color=(0, 0, 0)),
@@ -898,6 +997,20 @@ class LightTheme(Theme):
             "modal": Style(
                 fg_color=(0, 0, 0),
                 bg_color=(245, 245, 250),
+            ),
+            "modal:focus": Style(
+                fg_color=(0, 0, 0),
+                bg_color=(235, 235, 245),
+            ),
+            "modal.border": Style(
+                fg_color=(180, 180, 180),
+            ),
+            "modal.border:focus": Style(
+                fg_color=(0, 100, 200),
+                bold=True,
+            ),
+            "modal.text": Style(
+                fg_color=(0, 0, 0),
             ),
             "modal.backdrop": Style(dim=True),
             # Notification styles
@@ -1084,6 +1197,9 @@ class HighContrastTheme(Theme):
             "input:disabled": Style(
                 fg_color=(128, 128, 128),
             ),
+            "input.placeholder": Style(
+                fg_color=(128, 128, 128),
+            ),
             # Checkbox styles - Bright colors
             "checkbox": Style(
                 fg_color=(255, 255, 255),
@@ -1131,10 +1247,12 @@ class HighContrastTheme(Theme):
             # Frame styles - Strong borders
             "frame": Style(
                 fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
                 bold=True,
             ),
             "frame:focus": Style(
                 fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
                 bold=True,
             ),
             "frame.border": Style(
@@ -1143,6 +1261,29 @@ class HighContrastTheme(Theme):
             ),
             "frame.border:focus": Style(
                 fg_color=(255, 255, 0),  # Bright yellow border
+                bold=True,
+            ),
+            # Scrollbar styles - High contrast
+            "scrollbar": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "scrollbar:focus": Style(
+                fg_color=(255, 255, 0),
+                bold=True,
+            ),
+            "scrollbar.track": Style(
+                fg_color=(128, 128, 128),
+            ),
+            "scrollbar.track:focus": Style(
+                fg_color=(192, 192, 192),
+            ),
+            "scrollbar.thumb": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "scrollbar.thumb:focus": Style(
+                fg_color=(255, 255, 0),
                 bold=True,
             ),
             # Text styles - All bold for visibility
@@ -1237,6 +1378,23 @@ class HighContrastTheme(Theme):
             "modal": Style(
                 fg_color=(255, 255, 255),
                 bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            "modal:focus": Style(
+                fg_color=(255, 255, 255),
+                bg_color=(0, 0, 0),
+                bold=True,
+            ),
+            "modal.border": Style(
+                fg_color=(255, 255, 255),
+                bold=True,
+            ),
+            "modal.border:focus": Style(
+                fg_color=(255, 255, 0),
+                bold=True,
+            ),
+            "modal.text": Style(
+                fg_color=(255, 255, 255),
                 bold=True,
             ),
             "modal.backdrop": Style(dim=True),

@@ -80,13 +80,15 @@ class ModalElement(OverlayElement):
         else:
             self.border_style = border_style
 
-        # Create frame for rendering
+        # Create frame for rendering with modal-specific styles
         style = FrameStyle(
             border_style=self.border_style,
             title=self.title,
             padding=self.padding,
         )
-        self.frame = Frame(width=width, height=height, style=style)
+        self.frame = Frame(
+            width=width, height=height, style=style, style_prefix="modal"
+        )
 
         # Content storage
         self.content_lines: list[str] = []

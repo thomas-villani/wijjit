@@ -55,16 +55,22 @@ class StyleResolver:
     - Inline style overrides
     - Style cascade and merging
     - Style caching for performance optimization
+    - Global focus color override
 
     Parameters
     ----------
     theme : Theme
         Theme to use for style resolution
+    focus_color : tuple of int, optional
+        Global focus color override (R, G, B). When set, all :focus styles
+        will have their fg_color overridden with this color.
 
     Attributes
     ----------
     theme : Theme
         Current theme
+    focus_color : tuple or None
+        Global focus color override
     _style_cache : dict
         Cache of resolved styles keyed by (base_class, css_classes_key, state_key)
 
@@ -100,8 +106,11 @@ class StyleResolver:
     (255, 255, 0)
     """
 
-    def __init__(self, theme: Theme) -> None:
+    def __init__(
+        self, theme: Theme, focus_color: tuple[int, int, int] | None = None
+    ) -> None:
         self.theme = theme
+        self.focus_color = focus_color
         # Cache for resolved styles: (base_class, css_classes_key, state_key) -> Style
         self._style_cache: dict[tuple, Style] = {}
 
@@ -196,7 +205,8 @@ class StyleResolver:
                 getattr(element, "selected", False),
             )
 
-            cache_key = (base_element_type, css_classes_key, state_key)
+            # Include focus_color in cache key since it affects style resolution
+            cache_key = (base_element_type, css_classes_key, state_key, self.focus_color)
 
             # Check cache first
             if cache_key in self._style_cache:
@@ -269,6 +279,9 @@ class StyleResolver:
             focus_style = self.theme.get_style(f"{selector}:focus")
             if focus_style:
                 style = style.merge(focus_style)
+            # Apply global focus color override if set
+            if self.focus_color is not None:
+                style = style.merge(Style(fg_color=self.focus_color))
 
         # Hover state
         if hasattr(element, "hovered") and element.hovered:
@@ -435,6 +448,30 @@ class StyleResolver:
         """
         self.theme = theme
         # Clear style cache since theme changed
+        self._style_cache.clear()
+
+    def set_focus_color(self, color: tuple[int, int, int] | None) -> None:
+        """Set the global focus color override.
+
+        Parameters
+        ----------
+        color : tuple of int or None
+            RGB color tuple (R, G, B) to use for all focused elements,
+            or None to use theme defaults
+
+        Notes
+        -----
+        When set, this color overrides the fg_color of all :focus styles.
+        The style cache is automatically cleared when the focus color changes.
+
+        Examples
+        --------
+        >>> resolver = StyleResolver(DefaultTheme())
+        >>> resolver.set_focus_color((255, 128, 0))  # Orange focus
+        >>> resolver.set_focus_color(None)  # Use theme defaults
+        """
+        self.focus_color = color
+        # Clear style cache since focus color changed
         self._style_cache.clear()
 
     def get_theme(self) -> Theme:

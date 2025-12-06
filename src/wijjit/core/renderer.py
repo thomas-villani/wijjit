@@ -216,6 +216,9 @@ class Renderer:
         # Theme management for cell-based rendering
         self.theme_manager = ThemeManager()
 
+        # Global focus color override (set from config)
+        self.focus_color: tuple[int, int, int] | None = None
+
         # Feature flag for diff rendering (now enabled by default with dirty region tracking)
         # When False, forces full screen re-renders on every frame
         # When True, only renders changed cells (more efficient with dirty region tracking)
@@ -1238,7 +1241,9 @@ class Renderer:
         """
         # Create screen buffer
         buffer = ScreenBuffer(width, height)
-        style_resolver = StyleResolver(self.theme_manager.get_theme())
+        style_resolver = StyleResolver(
+            self.theme_manager.get_theme(), focus_color=self.focus_color
+        )
 
         # Transfer dirty regions from dirty manager to buffer for diff rendering optimization
         # IMPORTANT: On first render, ALWAYS force full screen dirty regardless of what's
@@ -1708,7 +1713,9 @@ class Renderer:
                         )
 
         # Render overlays onto composite buffer
-        style_resolver = StyleResolver(self.theme_manager.get_theme())
+        style_resolver = StyleResolver(
+            self.theme_manager.get_theme(), focus_color=self.focus_color
+        )
 
         for element in overlay_elements:
             if element.bounds is None:

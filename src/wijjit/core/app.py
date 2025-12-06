@@ -199,6 +199,9 @@ class Wijjit:
         # Initialize renderer
         self.renderer = Renderer(template_dir=self.config["TEMPLATE_DIR"])
 
+        # Set global focus color override from config
+        self.renderer.focus_color = self.config.get("FOCUS_COLOR")
+
         # Load theme file if specified
         self._load_theme_file()
 

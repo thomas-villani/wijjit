@@ -231,6 +231,7 @@ class Frame(ScrollableElement):
         height: int | str,
         style: FrameStyle | None = None,
         id: str | None = None,
+        style_prefix: str = "frame",
     ) -> None:
         super().__init__(id)
         # Width/height can be strings ("fill", "auto", "50%") or ints
@@ -246,6 +247,8 @@ class Frame(ScrollableElement):
             self.height = height  # Store string for later resolution
 
         self.style = style or FrameStyle()
+        # Style prefix for theme resolution (e.g., "frame", "modal")
+        self.style_prefix = style_prefix
         self.content: list[str] = []
         # Pre-stripped content cache for render optimization (avoids regex per line per frame)
         self._stripped_content: list[str] = []
@@ -1365,18 +1368,36 @@ class Frame(ScrollableElement):
         - 'frame.title': For title text in border
         """
 
-        # Resolve styles based on state
+        # Resolve styles based on state using style_prefix (default: "frame")
+        # This allows modals to use "modal" prefix for modal-specific styles
+        prefix = self.style_prefix
         if self.focused:
-            content_style = ctx.style_resolver.resolve_style(self, "frame:focus")
-            border_style = ctx.style_resolver.resolve_style(self, "frame.border:focus")
+            content_style = ctx.style_resolver.resolve_style(self, f"{prefix}:focus")
+            border_style = ctx.style_resolver.resolve_style(
+                self, f"{prefix}.border:focus"
+            )
+            scrollbar_track_style = ctx.style_resolver.resolve_style(
+                self, "scrollbar.track:focus"
+            )
+            scrollbar_thumb_style = ctx.style_resolver.resolve_style(
+                self, "scrollbar.thumb:focus"
+            )
         else:
-            content_style = ctx.style_resolver.resolve_style(self, "frame")
-            border_style = ctx.style_resolver.resolve_style(self, "frame.border")
+            content_style = ctx.style_resolver.resolve_style(self, prefix)
+            border_style = ctx.style_resolver.resolve_style(self, f"{prefix}.border")
+            scrollbar_track_style = ctx.style_resolver.resolve_style(
+                self, "scrollbar.track"
+            )
+            scrollbar_thumb_style = ctx.style_resolver.resolve_style(
+                self, "scrollbar.thumb"
+            )
 
         # Get border characters (respects UNICODE_SUPPORT config)
         chars = get_border_chars(self.style.border_style)
         border_attrs = border_style.to_cell_attrs()
         content_attrs = content_style.to_cell_attrs()
+        scrollbar_track_attrs = scrollbar_track_style.to_cell_attrs()
+        scrollbar_thumb_attrs = scrollbar_thumb_style.to_cell_attrs()
 
         # Calculate scrollbar dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
@@ -1432,7 +1453,10 @@ class Frame(ScrollableElement):
                         scrollbar_char = (
                             scrollbar_chars[i] if i < len(scrollbar_chars) else " "
                         )
-                        cell = Cell(char=scrollbar_char, **border_attrs)
+                        # Use thumb style for thumb char, track style for track char
+                        is_thumb = scrollbar_char == "\u2588"  # Full block
+                        sb_attrs = scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
+                        cell = Cell(char=scrollbar_char, **sb_attrs)
                         ctx.write_cell(scrollbar_x, current_y, cell)
                         current_y += 1
             else:
@@ -1467,6 +1491,8 @@ class Frame(ScrollableElement):
                     scrollbar_char if self.style.show_scrollbar else None,
                     scroll_offset_x=scroll_offset_x,
                     content_index=content_idx if valid_idx else None,
+                    scrollbar_track_attrs=scrollbar_track_attrs,
+                    scrollbar_thumb_attrs=scrollbar_thumb_attrs,
                 )
                 current_y += 1
         elif self._needs_scroll_x:
@@ -1589,6 +1615,8 @@ class Frame(ScrollableElement):
                 inner_width,
                 padding_right,
                 scrollbar_width_v,
+                scrollbar_track_attrs=scrollbar_track_attrs,
+                scrollbar_thumb_attrs=scrollbar_thumb_attrs,
             )
             current_y += 1
 
@@ -1744,6 +1772,8 @@ class Frame(ScrollableElement):
         scrollbar_char: str | None = None,
         scroll_offset_x: int = 0,
         content_index: int | None = None,
+        scrollbar_track_attrs: dict | None = None,
+        scrollbar_thumb_attrs: dict | None = None,
     ) -> None:
         """Render content line using cells.
 
@@ -1774,6 +1804,10 @@ class Frame(ScrollableElement):
         content_index : int, optional
             Index into self._stripped_content for cached ANSI-stripped content.
             If provided and valid, avoids regex stripping on every render.
+        scrollbar_track_attrs : dict, optional
+            Cell attributes for scrollbar track character
+        scrollbar_thumb_attrs : dict, optional
+            Cell attributes for scrollbar thumb character
         """
         # Left border
         ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
@@ -1833,10 +1867,18 @@ class Frame(ScrollableElement):
 
         # Vertical scrollbar (if present)
         if scrollbar_char is not None:
+            # Use thumb style for thumb char, track style for track char
+            is_thumb = scrollbar_char == "\u2588"  # Full block character
+            if scrollbar_thumb_attrs is not None and is_thumb:
+                sb_attrs = scrollbar_thumb_attrs
+            elif scrollbar_track_attrs is not None and not is_thumb:
+                sb_attrs = scrollbar_track_attrs
+            else:
+                sb_attrs = border_attrs  # Fallback to border style
             ctx.write_cell(
                 1 + padding_left + inner_width + padding_right,
                 y,
-                Cell(char=scrollbar_char, **border_attrs),
+                Cell(char=scrollbar_char, **sb_attrs),
             )
 
         # Right border
@@ -1852,6 +1894,8 @@ class Frame(ScrollableElement):
         inner_width: int,
         padding_right: int,
         scrollbar_width_v: int,
+        scrollbar_track_attrs: dict | None = None,
+        scrollbar_thumb_attrs: dict | None = None,
     ) -> None:
         """Render horizontal scrollbar row using cells.
 
@@ -1873,6 +1917,10 @@ class Frame(ScrollableElement):
             Right padding
         scrollbar_width_v : int
             Width of vertical scrollbar (for corner cell)
+        scrollbar_track_attrs : dict, optional
+            Cell attributes for scrollbar track character
+        scrollbar_thumb_attrs : dict, optional
+            Cell attributes for scrollbar thumb character
         """
         # Left border
         ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
@@ -1890,9 +1938,17 @@ class Frame(ScrollableElement):
         else:
             scrollbar_str = chars["h"] * scrollbar_width
 
-        # Write scrollbar characters
+        # Write scrollbar characters with appropriate styles
         for i, char in enumerate(scrollbar_str[:scrollbar_width]):
-            ctx.write_cell(1 + padding_left + i, y, Cell(char=char, **border_attrs))
+            # Horizontal scrollbar: "=" is thumb, "-" is track
+            is_thumb = char == "="
+            if scrollbar_thumb_attrs is not None and is_thumb:
+                sb_attrs = scrollbar_thumb_attrs
+            elif scrollbar_track_attrs is not None and not is_thumb:
+                sb_attrs = scrollbar_track_attrs
+            else:
+                sb_attrs = border_attrs  # Fallback to border style
+            ctx.write_cell(1 + padding_left + i, y, Cell(char=char, **sb_attrs))
 
         # Right padding (empty space)
         for i in range(padding_right):
