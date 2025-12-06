@@ -20,6 +20,10 @@ from typing import Literal
 from wijjit.elements.base import Element
 from wijjit.layout.bounds import Bounds, Size, parse_margin, parse_size
 from wijjit.layout.frames import Frame
+from wijjit.logging_config import get_logger
+
+# Module logger
+logger = get_logger(__name__)
 
 
 class Direction(Enum):
@@ -1681,21 +1685,24 @@ class FrameNode(Container):
         ):
             elements.append(self.frame)
 
-        # Add children elements and set parent_frame reference if frame is scrollable
+        # Add children elements and set parent_frame reference for clipping
         for child in self.content_container.children:
             child_elements = child.collect_elements()
 
-            # If this frame is scrollable with children, set parent_frame on child elements
-            # Only set if not already set by a more immediate scrollable parent
-            if self.frame.style.scrollable and self.frame._has_children:
+            # Set parent_frame on all child elements for proper clipping
+            # This ensures content is clipped to frame bounds even for non-scrollable frames
+            # Only set if not already set by a more immediate parent
+            if self.frame._has_children:
                 for elem in child_elements:
                     if elem.parent_frame is None:
                         elem.parent_frame = self.frame
 
                     # Ensure scrollable child elements have scroll_state_key for persistence
                     # This allows scroll positions to survive re-renders even for unnamed elements
-                    if hasattr(elem, "scroll_state_key") and hasattr(
-                        elem, "scroll_position"
+                    if (
+                        self.frame.style.scrollable
+                        and hasattr(elem, "scroll_state_key")
+                        and hasattr(elem, "scroll_position")
                     ):
                         if not elem.scroll_state_key:
                             # Synthesize a stable key based on frame and element IDs
@@ -1704,6 +1711,234 @@ class FrameNode(Container):
                             elem.scroll_state_key = f"_scroll_{frame_id}_{elem_id}"
 
             elements.extend(child_elements)
+
+        return elements
+
+
+class SplitPanelNode(Container):
+    """Split panel container node that wraps SplitPanel objects with two children.
+
+    SplitPanelNode manages layout for resizable split panels with a divider
+    between two child areas.
+
+    Parameters
+    ----------
+    split_panel : SplitPanel
+        The SplitPanel object providing split behavior and rendering
+    first_child : LayoutNode, optional
+        First (left or top) child node
+    second_child : LayoutNode, optional
+        Second (right or bottom) child node
+    width : int, str, or Size, optional
+        Width specification (default: "fill")
+    height : int, str, or Size, optional
+        Height specification (default: "fill")
+    id : str, optional
+        Node identifier
+
+    Attributes
+    ----------
+    split_panel : SplitPanel
+        The wrapped SplitPanel object
+    first_child : LayoutNode or None
+        First child layout node
+    second_child : LayoutNode or None
+        Second child layout node
+    """
+
+    def __init__(
+        self,
+        split_panel: "SplitPanel",
+        first_child: LayoutNode | None = None,
+        second_child: LayoutNode | None = None,
+        width: int | str | Size | None = None,
+        height: int | str | Size | None = None,
+        id: str | None = None,
+    ) -> None:
+        from wijjit.layout.splitpanel import SplitPanel
+
+        # Default to fill if not specified
+        if width is None:
+            width = "fill"
+        if height is None:
+            height = "fill"
+
+        # Initialize container
+        super().__init__(
+            children=[],
+            width=width,
+            height=height,
+            spacing=0,
+            padding=0,
+            margin=0,
+            align_h="stretch",
+            align_v="stretch",
+            id=id,
+        )
+
+        self.split_panel = split_panel
+        self.first_child = first_child
+        self.second_child = second_child
+
+    def add_child(self, child: LayoutNode) -> None:
+        """Add a child node to the split panel.
+
+        Parameters
+        ----------
+        child : LayoutNode
+            Child node to add (first or second)
+
+        Notes
+        -----
+        First call sets first_child, second call sets second_child.
+        Additional calls are ignored with a warning.
+        """
+        if self.first_child is None:
+            self.first_child = child
+        elif self.second_child is None:
+            self.second_child = child
+        else:
+            logger.warning(
+                "SplitPanelNode already has 2 children, ignoring additional child"
+            )
+
+    def calculate_constraints(self) -> SizeConstraints:
+        """Calculate size constraints for the split panel and its children.
+
+        Returns
+        -------
+        SizeConstraints
+            Size constraints for the split panel
+        """
+        # Calculate constraints for both children
+        first_constraints = SizeConstraints(min_width=0, min_height=0)
+        second_constraints = SizeConstraints(min_width=0, min_height=0)
+
+        if self.first_child:
+            first_constraints = self.first_child.calculate_constraints()
+        if self.second_child:
+            second_constraints = self.second_child.calculate_constraints()
+
+        # Calculate total constraints based on orientation
+        if self.split_panel.orientation == "horizontal":
+            # Side by side: widths add (plus divider), heights take max
+            min_width = (
+                first_constraints.min_width
+                + second_constraints.min_width
+                + 1  # Divider
+            )
+            min_height = max(
+                first_constraints.min_height, second_constraints.min_height
+            )
+            preferred_width = (
+                first_constraints.preferred_width
+                + second_constraints.preferred_width
+                + 1
+            )
+            preferred_height = max(
+                first_constraints.preferred_height, second_constraints.preferred_height
+            )
+        else:
+            # Stacked: widths take max, heights add (plus divider)
+            min_width = max(first_constraints.min_width, second_constraints.min_width)
+            min_height = (
+                first_constraints.min_height
+                + second_constraints.min_height
+                + 1  # Divider
+            )
+            preferred_width = max(
+                first_constraints.preferred_width, second_constraints.preferred_width
+            )
+            preferred_height = (
+                first_constraints.preferred_height
+                + second_constraints.preferred_height
+                + 1
+            )
+
+        # Respect fixed width/height specifications
+        if self.width_spec.is_fixed:
+            min_width = self.width_spec.value
+            preferred_width = self.width_spec.value
+
+        if self.height_spec.is_fixed:
+            min_height = self.height_spec.value
+            preferred_height = self.height_spec.value
+
+        self.constraints = SizeConstraints(
+            min_width=min_width,
+            min_height=min_height,
+            preferred_width=preferred_width,
+            preferred_height=preferred_height,
+        )
+        return self.constraints
+
+    def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
+        """Assign absolute position and size to the split panel and children.
+
+        Parameters
+        ----------
+        x : int
+            Left edge position
+        y : int
+            Top edge position
+        width : int
+            Total width
+        height : int
+            Total height
+        """
+        from wijjit.layout.bounds import Bounds
+
+        # Set bounds for this node and the split panel element
+        self.bounds = Bounds(x, y, width, height)
+        self.split_panel.bounds = Bounds(x, y, width, height)
+
+        # Calculate child sizes using the split panel's ratio
+        if self.split_panel.orientation == "horizontal":
+            available = width
+        else:
+            available = height
+
+        first_size, second_size, divider_pos = self.split_panel._calculate_sizes(
+            available
+        )
+
+        # Store calculated sizes in split panel for rendering
+        self.split_panel._first_size = first_size
+        self.split_panel._second_size = second_size
+        self.split_panel._divider_pos = divider_pos
+
+        # Assign bounds to children based on orientation
+        if self.split_panel.orientation == "horizontal":
+            # Side by side
+            if self.first_child and not self.split_panel.first_collapsed:
+                self.first_child.assign_bounds(x, y, first_size, height)
+            if self.second_child and not self.split_panel.second_collapsed:
+                self.second_child.assign_bounds(
+                    x + divider_pos + 1, y, second_size, height
+                )
+        else:
+            # Stacked
+            if self.first_child and not self.split_panel.first_collapsed:
+                self.first_child.assign_bounds(x, y, width, first_size)
+            if self.second_child and not self.split_panel.second_collapsed:
+                self.second_child.assign_bounds(
+                    x, y + divider_pos + 1, width, second_size
+                )
+
+    def collect_elements(self) -> list[Element]:
+        """Collect split panel and all child elements.
+
+        Returns
+        -------
+        list of Element
+            SplitPanel element plus all child elements
+        """
+        elements = [self.split_panel]
+
+        if self.first_child and not self.split_panel.first_collapsed:
+            elements.extend(self.first_child.collect_elements())
+        if self.second_child and not self.split_panel.second_collapsed:
+            elements.extend(self.second_child.collect_elements())
 
         return elements
 

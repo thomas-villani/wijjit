@@ -82,6 +82,7 @@ from wijjit.tags.layout import (
     HStackExtension,
     LayoutContext,
     RowspanExtension,
+    SplitPanelExtension,
     VStackExtension,
 )
 from wijjit.tags.menu import (
@@ -155,6 +156,7 @@ class Renderer:
                 GridExtension,
                 ColspanExtension,
                 RowspanExtension,
+                SplitPanelExtension,
                 TextInputExtension,
                 ButtonExtension,
                 CheckboxExtension,
@@ -774,6 +776,61 @@ class Renderer:
             frame_node.content_container = content_container
             return frame_node
 
+        elif vnode.type == "SplitPanel":
+            # Build SplitPanel from VNode tree with two children
+            from wijjit.layout.engine import SplitPanelNode
+            from wijjit.layout.splitpanel import SplitPanel
+
+            # Get props from VNode
+            props = vnode.props_dict()
+            layout_dict = vnode.layout_spec_dict()
+
+            # Parse dimensions
+            width_spec = layout_dict.get("width", "fill")
+            height_spec = layout_dict.get("height", "fill")
+
+            # Check if we have a reconciled SplitPanel with same key (for state preservation)
+            if vnode.key and vnode.key in reconciled_map:
+                # Reuse reconciled SplitPanel element (preserves ratio/collapse state)
+                split_panel = reconciled_map[vnode.key]
+                logger.debug(f"Reused reconciled SplitPanel {vnode.key}")
+            else:
+                # Create new SplitPanel element
+                split_panel = SplitPanel(
+                    orientation=props.get("orientation", "horizontal"),
+                    ratio=props.get("ratio", "50:50"),
+                    resizable=props.get("resizable", True),
+                    min_first=props.get("min_first", 5),
+                    min_second=props.get("min_second", 5),
+                    collapsible=props.get("collapsible", "none"),
+                    divider_style=props.get("divider_style", "single"),
+                    id=vnode.key,
+                )
+                # Add to reconciled_map so it can be reused on next render
+                if vnode.key:
+                    reconciled_map[vnode.key] = split_panel
+                logger.debug(f"Created new SplitPanel {vnode.key}")
+
+            # Create SplitPanelNode
+            split_node = SplitPanelNode(
+                split_panel=split_panel,
+                width=width_spec,
+                height=height_spec,
+                id=vnode.key,
+            )
+
+            # Build children (should be exactly 2)
+            for child_vnode in vnode.children:
+                child_node = self._build_layout_tree_from_vnode(
+                    child_vnode,
+                    reconciled_map,
+                    state_dict,
+                    root_frame_found=root_frame_found,
+                )
+                split_node.add_child(child_node)
+
+            return split_node
+
         elif vnode.type == "TabbedPanel":
             # Build TabbedPanel from VNode tree with TabContent children
             from wijjit.elements.base import TextElement
@@ -1210,61 +1267,65 @@ class Renderer:
 
             if hasattr(element, "parent_frame") and element.parent_frame is not None:
                 # Walk up the parent_frame chain, accumulating scroll offsets
-                # and using the most immediate scrollable parent for clipping
+                # and using the most immediate parent for clipping
                 parent = element.parent_frame
                 accumulated_scroll = 0
 
                 while parent is not None:
+                    # Accumulate scroll offset from scrollable parents
                     if parent.style.scrollable and parent._needs_scroll:
                         accumulated_scroll += parent.get_scroll_offset()
 
-                        # Use the most immediate (innermost) scrollable parent for clip region
-                        # The clip region should be adjusted by the outer scroll offset
-                        if clip_region is None and parent.bounds is not None:
-                            padding_top, padding_right, padding_bottom, padding_left = (
-                                parent.style.padding
-                            )
+                    # Set clip region from the most immediate (innermost) parent frame
+                    # This ensures content is always clipped to frame bounds, even for
+                    # non-scrollable frames (e.g., inside split panels)
+                    if clip_region is None and parent.bounds is not None:
+                        padding_top, padding_right, padding_bottom, padding_left = (
+                            parent.style.padding
+                        )
 
-                            # Account for scrollbar width if present
-                            scrollbar_width = (
-                                1
-                                if parent.style.show_scrollbar and parent._needs_scroll
-                                else 0
-                            )
+                        # Account for scrollbar width if present
+                        scrollbar_width = (
+                            1
+                            if parent.style.show_scrollbar and parent._needs_scroll
+                            else 0
+                        )
 
-                            # Calculate the parent's scroll-adjusted Y position
-                            # (outer scroll offsets affect where this parent is drawn)
+                        # Calculate the parent's scroll-adjusted Y position
+                        # (outer scroll offsets affect where this parent is drawn)
+                        outer_scroll = accumulated_scroll
+                        if parent.style.scrollable and parent._needs_scroll:
                             outer_scroll = (
                                 accumulated_scroll - parent.get_scroll_offset()
                             )
 
-                            # Calculate clip region (visible content area inside frame)
-                            clip_x = (
-                                parent.bounds.x + 1 + padding_left
-                            )  # +1 for left border
-                            clip_y = (
-                                parent.bounds.y - outer_scroll + 1 + padding_top
-                            )  # +1 for top border
-                            clip_width = (
-                                parent.bounds.width
-                                - 2  # Left and right borders
-                                - padding_left
-                                - padding_right
-                                - scrollbar_width
-                            )
-                            clip_height = (
-                                parent.bounds.height
-                                - 2  # Top and bottom borders
-                                - padding_top
-                                - padding_bottom
-                            )
+                        # Calculate clip region (visible content area inside frame)
+                        clip_x = (
+                            parent.bounds.x + 1 + padding_left
+                        )  # +1 for left border
+                        clip_y = (
+                            parent.bounds.y - outer_scroll + 1 + padding_top
+                        )  # +1 for top border
+                        clip_width = (
+                            parent.bounds.width
+                            - 2  # Left and right borders
+                            - padding_left
+                            - padding_right
+                            - scrollbar_width
+                        )
+                        clip_height = (
+                            parent.bounds.height
+                            - 2  # Top and bottom borders
+                            - padding_top
+                            - padding_bottom
+                        )
 
-                            clip_region = Bounds(
-                                x=clip_x,
-                                y=clip_y,
-                                width=max(1, clip_width),
-                                height=max(1, clip_height),
-                            )
+                        clip_region = Bounds(
+                            x=clip_x,
+                            y=clip_y,
+                            width=max(1, clip_width),
+                            height=max(1, clip_height),
+                        )
 
                     # Move up to the next parent in the chain
                     parent = getattr(parent, "parent_frame", None)

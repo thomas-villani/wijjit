@@ -1296,3 +1296,144 @@ class RowspanExtension(Extension):
         layout_context.pop_vnode()
 
         return get_element_marker(layout_context)
+
+
+class SplitPanelExtension(Extension):
+    """Jinja2 extension for {% splitpanel %} tag.
+
+    Syntax:
+        {% splitpanel orientation="horizontal" ratio="50:50" resizable=true
+                      min_first=5 min_second=5 collapsible="none" id="my_split" %}
+            {% frame %}First panel{% endframe %}
+            {% frame %}Second panel{% endframe %}
+        {% endsplitpanel %}
+
+    The splitpanel takes exactly **two direct children** - any element type
+    is allowed (frame, textarea, another splitpanel, etc.).
+    """
+
+    tags = {"splitpanel"}
+
+    def parse(self, parser: Parser) -> nodes.CallBlock:
+        """Parse the splitpanel tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endsplitpanel", lineno)
+
+        # Parse body
+        node = nodes.CallBlock(
+            self.call_method("_render_splitpanel", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endsplitpanel",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return cast(nodes.CallBlock, node)
+
+    def _render_splitpanel(
+        self,
+        caller: Callable[[], str],
+        orientation: str = "horizontal",
+        ratio: str = "50:50",
+        resizable: bool = True,
+        min_first: int = 5,
+        min_second: int = 5,
+        collapsible: str = "none",
+        divider_style: str = "single",
+        width: int | str = "fill",
+        height: int | str = "fill",
+        id: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Render the splitpanel tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        orientation : str
+            "horizontal" (side-by-side) or "vertical" (stacked). Default: "horizontal"
+        ratio : str
+            Initial size ratio like "50:50" or "30:70". Default: "50:50"
+        resizable : bool
+            Allow drag-to-resize. Default: True
+        min_first : int
+            Minimum size for first panel. Default: 5
+        min_second : int
+            Minimum size for second panel. Default: 5
+        collapsible : str
+            Which panels can collapse: "none", "first", "second", "both". Default: "none"
+        divider_style : str
+            Style of divider: "single", "double", "dashed", "thick". Default: "single"
+        width : int or str
+            Width specification. Default: "fill"
+        height : int or str
+            Height specification. Default: "fill"
+        id : str, optional
+            Element ID for state binding
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        layout_context = render_ctx.layout_context
+
+        # Parse attributes
+        width_parsed = parse_size_attr(width)
+        height_parsed = parse_size_attr(height)
+        min_first_int = safe_int(min_first, default=5, name="min_first")
+        min_second_int = safe_int(min_second, default=5, name="min_second")
+
+        # Create VNode builder for reconciliation
+        vnode = VNodeBuilder("SplitPanel", key=id)
+        vnode.set_prop("orientation", orientation)
+        vnode.set_prop("ratio", ratio)
+        vnode.set_prop("resizable", resizable)
+        vnode.set_prop("min_first", min_first_int)
+        vnode.set_prop("min_second", min_second_int)
+        vnode.set_prop("collapsible", collapsible)
+        vnode.set_prop("divider_style", divider_style)
+        vnode.set_layout(
+            width=width_parsed,
+            height=height_parsed,
+        )
+        layout_context.push_vnode(vnode)
+
+        # Render body - nested elements will add themselves via push_vnode/add_vnode
+        body_output = caller()
+
+        # Get the children (should be exactly 2)
+        vnode_children = vnode.children
+
+        if vnode_children:
+            # Interleave to preserve order
+            interleaved = interleave_text_and_vnode_builders(
+                body_output, vnode_children, False, layout_context
+            )
+            # Filter to only element vnodes (ignore text-only vnodes)
+            element_children = [c for c in interleaved if c.type != "TextElement"]
+            if len(element_children) != 2:
+                logger.warning(
+                    f"splitpanel should contain exactly 2 children, "
+                    f"got {len(element_children)}"
+                )
+            vnode.children = element_children  # Only keep element children
+
+        # Pop VNode from stack
+        layout_context.pop_vnode()
+
+        # Return marker for text interleaving
+        return get_element_marker(layout_context)

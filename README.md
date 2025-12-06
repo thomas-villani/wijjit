@@ -303,6 +303,38 @@ Wijjit provides flexible layout containers:
 {% endhstack %}
 ```
 
+**SplitPanel**: Resizable split panel with draggable divider
+```jinja2
+{# Horizontal split (side-by-side panels) #}
+{% splitpanel orientation="horizontal" ratio="30:70" id="main_split" %}
+  {% frame title="Sidebar" %}
+    Navigation content
+  {% endframe %}
+  {% frame title="Main" %}
+    Main content
+  {% endframe %}
+{% endsplitpanel %}
+
+{# Vertical split (stacked panels) #}
+{% splitpanel orientation="vertical" ratio="60:40" collapsible="first" %}
+  {% frame title="Editor" %}
+    Code here
+  {% endframe %}
+  {% frame title="Terminal" %}
+    Output here
+  {% endframe %}
+{% endsplitpanel %}
+```
+
+SplitPanel attributes:
+- `orientation`: `"horizontal"` (side-by-side) or `"vertical"` (stacked)
+- `ratio`: Initial size ratio like `"50:50"` or `"30:70"`
+- `resizable`: Allow drag-to-resize (default: `true`)
+- `collapsible`: Which panels can collapse: `"none"`, `"first"`, `"second"`, `"both"`
+- `divider_style`: Divider appearance: `"single"`, `"double"`, `"dashed"`, `"thick"`
+- `min_first`, `min_second`: Minimum sizes for each panel (default: 5)
+- `id`: Element ID for state persistence (ratio survives re-renders)
+
 **Sizing**: Flexible size specifications
 - Fixed: `width=50` or `width="50"`
 - Fill available space: `width="fill"`
@@ -437,11 +469,12 @@ print(f"You entered: {app.state.name}")
 - **Frame**: Container with borders, titles, padding, and scrolling
 - **VStack**: Vertical stack layout
 - **HStack**: Horizontal stack layout
+- **SplitPanel**: Resizable split panel with draggable divider
 - **TabbedPanel**: Tabbed container with keyboard/mouse navigation
 
 ## Examples
 
-The `examples/` directory contains **61 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
+The `examples/` directory contains **63 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
 
@@ -478,6 +511,9 @@ Individual UI component demonstrations (20+ widgets):
 - `statusbar_demo.py` - Status bar component
 - `notification_demo.py` - Toast notifications
 
+**Layout:**
+- `splitpanel_demo.py` - Resizable split panel with sidebar layout
+
 **Dialogs:**
 - `dialog_showcase.py` - All dialog types (alert, confirm, input)
 - `alert_dialog_demo.py` - Alert messages
@@ -500,6 +536,7 @@ Complete applications and advanced patterns:
 
 **Layout & Design:**
 - `complex_layout_demo.py` - Nested layouts and sizing
+- `splitpanel_nested_demo.py` - Nested split panels (IDE-like three-pane layout)
 - `scroll_demo.py`, `scrollable_minimal.py`, `scrollable_children_demo.py` - Scrolling patterns
 - `frame_overflow_demo.py` - Frame sizing modes and overflow
 - `login_form.py` - Login UI with validation
@@ -606,7 +643,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ State management with change detection and watchers
 - ✅ Async/await support for event handlers and callbacks
 - ✅ Template rendering with Jinja2
-- ✅ Layout engine (VStack, HStack, Frame)
+- ✅ Layout engine (VStack, HStack, Frame, SplitPanel)
 - ✅ All input elements (TextInput, TextArea, CodeEditor, Button, Checkbox, Radio, Select)
 - ✅ All display elements (ContentView, Table, Tree, ListView, LogView, Progress, Spinner, Notification)
 - ✅ Data visualization (BarChart, LineChart, ColumnChart, Gauge, HeatMap, Sparkline)
@@ -618,7 +655,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 61 working examples
+- ✅ 63 working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations
@@ -679,7 +716,7 @@ Not recommended for:
 - **README.md** (this file) - Overview and quick start
 - **CLAUDE.md** - Development guide and architecture
 - **docs/** - Full Sphinx documentation (build with `cd docs && make html`)
-- **examples/** - 58 working examples
+- **examples/** - 63 working examples
 - **tests/** - Comprehensive test suite showing usage patterns
 
 Build the documentation locally:
