@@ -589,6 +589,11 @@ class CheckboxExtension(Extension):
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
 
+        # Get label from body content if not specified via label attribute
+        body_content = caller().strip()
+        if not label and body_content:
+            label = body_content
+
         # Checkbox width: "[X] " (4 chars) + label length
         checkbox_width = 4 + len(label)
 
@@ -607,9 +612,6 @@ class CheckboxExtension(Extension):
             vnode.set_prop("tab_index", tab_index)
         vnode.set_layout(width=checkbox_width, height=1)
         context.add_vnode(vnode)
-
-        # Consume body (should be empty)
-        caller()
 
         # Return marker for text interleaving
         return get_element_marker(context)

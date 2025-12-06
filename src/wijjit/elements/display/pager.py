@@ -1038,6 +1038,12 @@ class Pager(Container):
                 content_width = width - 2  # -2 for borders
                 content_height = height - 2  # -2 for borders
 
+                # Assign bounds to content_container to compute proper layout
+                # This is essential for HStack children to have correct x positions
+                content.content_container.assign_bounds(
+                    content_x, content_y, content_width, content_height
+                )
+
                 scroll_offset = (
                     frame.get_scroll_offset()
                     if hasattr(frame, "get_scroll_offset")
@@ -1130,27 +1136,41 @@ class Pager(Container):
                 else:
                     # Render other elements (buttons, inputs, etc.)
                     if hasattr(element, "get_intrinsic_size"):
-                        _, element_height = element.get_intrinsic_size()
+                        elem_width, element_height = element.get_intrinsic_size()
                     else:
+                        elem_width = available_width
                         element_height = 1
 
-                    # Set bounds on element
-                    element.bounds = Bounds(
-                        x=start_x,
-                        y=current_y,
-                        width=available_width,
-                        height=element_height,
-                    )
+                    # Use pre-computed bounds if available (from assign_bounds),
+                    # otherwise set bounds based on vertical stacking position.
+                    # This is important for HStack children which have horizontal
+                    # positions computed by the layout engine.
+                    if element.bounds is not None:
+                        # Use layout-computed bounds, but adjust y for scroll
+                        elem_x = element.bounds.x
+                        elem_y = element.bounds.y - scroll_offset
+                        elem_width = element.bounds.width
+                        element_height = element.bounds.height
+                    else:
+                        # Fallback: compute bounds for vertical stacking
+                        elem_x = start_x
+                        elem_y = current_y
+                        element.bounds = Bounds(
+                            x=elem_x,
+                            y=elem_y,
+                            width=available_width,
+                            height=element_height,
+                        )
 
                     # Only render if visible
                     if (
-                        current_y + element_height > start_y
-                        and current_y < start_y + available_height
+                        elem_y + element_height > start_y
+                        and elem_y < start_y + available_height
                     ):
-                        rel_x = start_x - ctx.bounds.x
-                        rel_y = current_y - ctx.bounds.y
+                        rel_x = elem_x - ctx.bounds.x
+                        rel_y = elem_y - ctx.bounds.y
                         elem_ctx = ctx.sub_context(
-                            rel_x, rel_y, available_width, element_height
+                            rel_x, rel_y, elem_width, element_height
                         )
                         element.render_to(elem_ctx)
 

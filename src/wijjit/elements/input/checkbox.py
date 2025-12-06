@@ -148,6 +148,28 @@ class Checkbox(Element):
 
         return False
 
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic (preferred) size of the checkbox.
+
+        Returns
+        -------
+        tuple[int, int]
+            (width, height) based on checkbox box and label text
+        """
+        # Checkbox box character width
+        if supports_unicode():
+            box_width = 1  # Unicode checkbox is 1 character
+        else:
+            box_width = 3  # ASCII "[X]" is 3 characters
+
+        # Calculate total width: box + space + label
+        if self.label:
+            width = box_width + 1 + len(self.label)
+        else:
+            width = box_width
+
+        return (width, 1)
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render checkbox using cell-based rendering.
 

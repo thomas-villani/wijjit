@@ -11,12 +11,37 @@ from wijjit.elements.base import Element, ElementType
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.terminal.ansi import clip_to_width
 
+# Bar style presets: (unicode_fill, unicode_empty, ascii_fill, ascii_empty)
+BAR_STYLES: dict[str, tuple[str, str, str, str]] = {
+    # Default block style - solid blocks
+    "block": ("\u2588", "\u2591", "#", "-"),
+    # Thin horizontal line
+    "thin": ("\u2500", "\u2508", "-", "."),
+    # Thick/heavy horizontal line
+    "thick": ("\u2501", "\u2509", "=", "-"),
+    # Classic equals sign style
+    "equals": ("=", " ", "=", " "),
+    # Arrow/chevron style
+    "arrow": (">", " ", ">", " "),
+    # Dot style using middle dot
+    "dots": ("\u2022", "\u00b7", "*", "."),
+    # Pure ASCII style
+    "ascii": ("#", "-", "#", "-"),
+    # Hash/pound style
+    "hash": ("#", " ", "#", " "),
+    # Pipe style
+    "pipe": ("|", " ", "|", " "),
+    # Square brackets style
+    "square": ("\u25a0", "\u25a1", "#", "-"),
+}
+
 
 class ProgressBar(Element):
     """Progress bar element for displaying progress of operations.
 
     This element provides a visual progress indicator with support for:
     - Multiple display styles (filled bar, percentage only, gradient, custom)
+    - Multiple bar styles (block, thin, thick, equals, arrow, dots, ascii, etc.)
     - Optional coloring
     - Customizable fill and empty characters
     - Percentage display
@@ -33,14 +58,18 @@ class ProgressBar(Element):
         Display width in columns (default: 40)
     style : str, optional
         Display style: "filled", "percentage", "gradient", "custom" (default: "filled")
+    bar_style : str, optional
+        Visual bar style preset: "block", "thin", "thick", "equals", "arrow",
+        "dots", "ascii", "hash", "pipe", "square" (default: "block").
+        Sets default fill_char and empty_char values.
     color : str, optional
         Color name for the progress bar (default: None)
     show_percentage : bool, optional
         Whether to show percentage text (default: True for filled/gradient, False for percentage style)
     fill_char : str, optional
-        Character for filled portion (default: block character)
+        Character for filled portion. Overrides bar_style if specified.
     empty_char : str, optional
-        Character for empty portion (default: light shade character)
+        Character for empty portion. Overrides bar_style if specified.
 
     Attributes
     ----------
@@ -52,6 +81,8 @@ class ProgressBar(Element):
         Display width
     style : str
         Display style
+    bar_style : str
+        Visual bar style preset
     color : str or None
         Color name
     show_percentage : bool
@@ -70,6 +101,18 @@ class ProgressBar(Element):
         max: float = 100,
         width: int = 40,
         style: Literal["filled", "percentage", "gradient", "custom"] = "filled",
+        bar_style: Literal[
+            "block",
+            "thin",
+            "thick",
+            "equals",
+            "arrow",
+            "dots",
+            "ascii",
+            "hash",
+            "pipe",
+            "square",
+        ] = "block",
         color: str | None = None,
         show_percentage: bool | None = None,
         fill_char: str | None = None,
@@ -84,6 +127,7 @@ class ProgressBar(Element):
         self.max = float(max)
         self.width = width
         self.style = style
+        self.bar_style = bar_style
         self.color = color
 
         # Default show_percentage based on style
@@ -92,19 +136,19 @@ class ProgressBar(Element):
         else:
             self.show_percentage = show_percentage
 
-        # Default characters based on unicode support
+        # Get bar style preset characters
         from wijjit.terminal.ansi import supports_unicode
 
+        preset = BAR_STYLES.get(bar_style, BAR_STYLES["block"])
+        unicode_fill, unicode_empty, ascii_fill, ascii_empty = preset
+
+        # Use bar_style preset, but allow fill_char/empty_char to override
         if supports_unicode():
-            self.fill_char = (
-                fill_char if fill_char is not None else "\u2588"
-            )  # Full block
-            self.empty_char = (
-                empty_char if empty_char is not None else "\u2591"
-            )  # Light shade
+            self.fill_char = fill_char if fill_char is not None else unicode_fill
+            self.empty_char = empty_char if empty_char is not None else unicode_empty
         else:
-            self.fill_char = fill_char if fill_char is not None else "#"
-            self.empty_char = empty_char if empty_char is not None else "-"
+            self.fill_char = fill_char if fill_char is not None else ascii_fill
+            self.empty_char = empty_char if empty_char is not None else ascii_empty
 
         # Template metadata
         self.action: str | None = None

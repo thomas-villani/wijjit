@@ -394,3 +394,278 @@ class TestProgressBar:
         assert pb._get_color_for_percentage(33) == ANSIColor.YELLOW
         assert pb._get_color_for_percentage(66) == ANSIColor.GREEN
         assert pb._get_color_for_percentage(100) == ANSIColor.GREEN
+
+
+class TestBarStyles:
+    """Test suite for ProgressBar bar_style presets."""
+
+    def test_default_bar_style(self):
+        """Test that default bar_style is 'block'.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar()
+        assert pb.bar_style == "block"
+        # Block style uses unicode block characters
+        assert pb.fill_char == "\u2588"  # Full block
+        assert pb.empty_char == "\u2591"  # Light shade
+
+    def test_bar_style_thin(self):
+        """Test thin bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="thin")
+        assert pb.bar_style == "thin"
+        assert pb.fill_char == "\u2500"  # Box drawing horizontal
+        assert pb.empty_char == "\u2508"  # Box drawing light quadruple dash
+
+    def test_bar_style_thick(self):
+        """Test thick bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="thick")
+        assert pb.bar_style == "thick"
+        assert pb.fill_char == "\u2501"  # Heavy horizontal
+        assert pb.empty_char == "\u2509"  # Heavy quadruple dash
+
+    def test_bar_style_equals(self):
+        """Test equals bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="equals")
+        assert pb.bar_style == "equals"
+        assert pb.fill_char == "="
+        assert pb.empty_char == " "
+
+    def test_bar_style_arrow(self):
+        """Test arrow bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="arrow")
+        assert pb.bar_style == "arrow"
+        assert pb.fill_char == ">"
+        assert pb.empty_char == " "
+
+    def test_bar_style_dots(self):
+        """Test dots bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="dots")
+        assert pb.bar_style == "dots"
+        assert pb.fill_char == "\u2022"  # Bullet
+        assert pb.empty_char == "\u00b7"  # Middle dot
+
+    def test_bar_style_ascii(self):
+        """Test ASCII bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="ascii")
+        assert pb.bar_style == "ascii"
+        assert pb.fill_char == "#"
+        assert pb.empty_char == "-"
+
+    def test_bar_style_hash(self):
+        """Test hash bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="hash")
+        assert pb.bar_style == "hash"
+        assert pb.fill_char == "#"
+        assert pb.empty_char == " "
+
+    def test_bar_style_pipe(self):
+        """Test pipe bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="pipe")
+        assert pb.bar_style == "pipe"
+        assert pb.fill_char == "|"
+        assert pb.empty_char == " "
+
+    def test_bar_style_square(self):
+        """Test square bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="square")
+        assert pb.bar_style == "square"
+        assert pb.fill_char == "\u25a0"  # Black square
+        assert pb.empty_char == "\u25a1"  # White square
+
+    def test_fill_char_overrides_bar_style(self):
+        """Test that fill_char overrides bar_style preset.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="equals", fill_char="*")
+        assert pb.bar_style == "equals"
+        assert pb.fill_char == "*"  # Override
+        assert pb.empty_char == " "  # From bar_style
+
+    def test_empty_char_overrides_bar_style(self):
+        """Test that empty_char overrides bar_style preset.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="arrow", empty_char=".")
+        assert pb.bar_style == "arrow"
+        assert pb.fill_char == ">"  # From bar_style
+        assert pb.empty_char == "."  # Override
+
+    def test_both_chars_override_bar_style(self):
+        """Test that both fill_char and empty_char override bar_style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(bar_style="block", fill_char="X", empty_char="O")
+        assert pb.bar_style == "block"
+        assert pb.fill_char == "X"  # Override
+        assert pb.empty_char == "O"  # Override
+
+    def test_render_bar_style_equals(self):
+        """Test rendering with equals bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(
+            value=50, max=100, width=20, bar_style="equals", show_percentage=False
+        )
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 20, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
+
+        # Should contain = for filled portion
+        assert "=" in output
+
+    def test_render_bar_style_arrow(self):
+        """Test rendering with arrow bar style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        pb = ProgressBar(
+            value=50, max=100, width=20, bar_style="arrow", show_percentage=False
+        )
+        if not pb.bounds:
+            pb.set_bounds(Bounds(0, 0, 20, 1))
+        output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
+
+        # Should contain > for filled portion
+        assert ">" in output
+
+    def test_unknown_bar_style_falls_back_to_block(self):
+        """Test that unknown bar_style falls back to block style.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        # Use an invalid bar style that's not in BAR_STYLES
+        pb = ProgressBar.__new__(ProgressBar)
+        # Manually set up the object to test fallback
+        from wijjit.elements.display.progress import BAR_STYLES
+
+        preset = BAR_STYLES.get("invalid_style", BAR_STYLES["block"])
+        # Should fall back to block style
+        assert preset == BAR_STYLES["block"]

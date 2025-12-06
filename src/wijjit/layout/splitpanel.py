@@ -251,7 +251,6 @@ class SplitPanel(Container):
             raise ValueError(f"Invalid ratio values: {ratio_str}")
         return first / total, second / total
 
-
     def set_children(self, first: Element, second: Element) -> None:
         """Set the two child elements.
 

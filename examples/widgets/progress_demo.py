@@ -1,7 +1,8 @@
 """Progress indicator demo showcasing all features.
 
 This example demonstrates:
-- Progress bars with multiple styles (filled, gradient, percentage, custom)
+- Progress bars with multiple display styles (filled, gradient, percentage, custom)
+- Progress bars with multiple bar styles (block, thin, thick, equals, arrow, etc.)
 - Spinners with different animation styles
 - State-driven updates
 - Auto-refresh for animations
@@ -19,6 +20,9 @@ app = Wijjit(
         "download_progress": 0,
         "upload_progress": 0,
         "cpu_usage": 65,
+        "memory_usage": 42,
+        "disk_io": 80,
+        "network": 25,
         "loading": False,
         "processing": False,
         "status": "Ready",
@@ -31,7 +35,7 @@ def main_view():
     """Main view showcasing progress indicators."""
     return {
         "template": """
-{% frame title="Progress Indicators Demo" border_style="double" width=90 height=40 %}
+{% frame title="Progress Indicators Demo" border_style="double" width=120 height=50 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}
@@ -42,31 +46,48 @@ def main_view():
     {% endvstack %}
 
     {% vstack spacing=1 %}
-      Download Progress (Filled Bar - Green):
+      Download Progress (Block Bar Style - Default):
       {% progressbar id="download_progress" value=state.download_progress max=100
-                     width=70 style="filled" color="green" show_percentage=True %}
+                     width=70 style="filled" bar_style="block" color="green" show_percentage=True %}
       {% endprogressbar %}
     {% endvstack %}
 
     {% vstack spacing=1 %}
-      Upload Progress (Gradient - Auto Color):
+      Upload Progress (Thin Bar Style + Gradient):
       {% progressbar id="upload_progress" value=state.upload_progress max=100
-                     width=70 style="gradient" show_percentage=True %}
+                     width=70 style="gradient" bar_style="thin" show_percentage=True %}
       {% endprogressbar %}
     {% endvstack %}
 
     {% vstack spacing=1 %}
-      CPU Usage (Custom Characters):
+      CPU Usage (Equals Bar Style):
       {% progressbar id="cpu_usage" value=state.cpu_usage max=100
-                     width=70 style="custom" fill_char="=" empty_char=" "
+                     width=70 style="filled" bar_style="equals"
                      color="cyan" show_percentage=True %}
       {% endprogressbar %}
     {% endvstack %}
 
     {% vstack spacing=1 %}
-      Percentage Only Style:
-      {% progressbar id="download_progress_pct" value=state.download_progress max=100
-                     width=70 style="percentage" color="yellow" %}
+      Memory (Arrow Bar Style):
+      {% progressbar id="memory_usage" value=state.memory_usage max=100
+                     width=70 style="filled" bar_style="arrow"
+                     color="magenta" show_percentage=True %}
+      {% endprogressbar %}
+    {% endvstack %}
+
+    {% vstack spacing=1 %}
+      Disk I/O (Dots Bar Style):
+      {% progressbar id="disk_io" value=state.disk_io max=100
+                     width=70 style="filled" bar_style="dots"
+                     color="yellow" show_percentage=True %}
+      {% endprogressbar %}
+    {% endvstack %}
+
+    {% vstack spacing=1 %}
+      Network (ASCII Bar Style):
+      {% progressbar id="network" value=state.network max=100
+                     width=70 style="filled" bar_style="ascii"
+                     color="blue" show_percentage=True %}
       {% endprogressbar %}
     {% endvstack %}
 
@@ -184,6 +205,10 @@ def handle_reset(event):
     """Reset all progress and spinners."""
     app.state["download_progress"] = 0
     app.state["upload_progress"] = 0
+    app.state["cpu_usage"] = 65
+    app.state["memory_usage"] = 42
+    app.state["disk_io"] = 80
+    app.state["network"] = 25
     app.state["loading"] = False
     app.state["processing"] = False
     app.refresh_interval = None  # Disable auto-refresh

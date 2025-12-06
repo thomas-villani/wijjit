@@ -380,9 +380,21 @@ class ProgressBarExtension(Extension):
 
     Syntax:
         {% progressbar id="download" value=state.progress max=100
-                       width=40 style="filled" color="green"
-                       show_percentage=True %}
+                       width=40 style="filled" bar_style="block"
+                       color="green" show_percentage=True %}
         {% endprogressbar %}
+
+    Bar styles:
+        block (default) - Solid block characters
+        thin - Thin horizontal line
+        thick - Thick/heavy horizontal line
+        equals - Classic equals sign style
+        arrow - Arrow/chevron style
+        dots - Dot characters
+        ascii - Pure ASCII (# and -)
+        hash - Hash marks
+        pipe - Pipe characters
+        square - Square box characters
     """
 
     tags = {"progressbar"}
@@ -421,6 +433,7 @@ class ProgressBarExtension(Extension):
         max: float | int = 100,
         width: int = 40,
         style: Literal["filled", "percentage", "gradient", "custom"] | str = "filled",
+        bar_style: str = "block",
         color: str | None = None,
         show_percentage: bool | None = None,
         fill_char: str | None = None,
@@ -444,14 +457,17 @@ class ProgressBarExtension(Extension):
             Progress bar width (default: 40)
         style : str
             Display style: "filled", "percentage", "gradient", "custom" (default: "filled")
+        bar_style : str
+            Visual bar style preset: "block", "thin", "thick", "equals", "arrow",
+            "dots", "ascii", "hash", "pipe", "square" (default: "block")
         color : str, optional
             Color name for the bar (default: None)
         show_percentage : bool, optional
             Whether to show percentage text (default: auto based on style)
         fill_char : str, optional
-            Character for filled portion (default: block character)
+            Character for filled portion. Overrides bar_style if specified.
         empty_char : str, optional
-            Character for empty portion (default: light shade character)
+            Character for empty portion. Overrides bar_style if specified.
         bind : bool
             Whether to auto-bind value to state[id] (default: True)
 
@@ -494,6 +510,7 @@ class ProgressBarExtension(Extension):
         vnode.set_prop("value", value)
         vnode.set_prop("max", max_val)
         vnode.set_prop("style", style)
+        vnode.set_prop("bar_style", bar_style)
         if color:
             vnode.set_prop("color", color)
         if show_percentage is not None:
