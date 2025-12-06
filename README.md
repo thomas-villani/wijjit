@@ -183,6 +183,9 @@ Use Jinja2 templates with custom tags for UI elements:
 {% button action="submit" %}Submit{% endbutton %}
 {% checkbox id="agree" label="I agree" %}{% endcheckbox %}
 {% select id="theme" options=["dark", "light"] %}{% endselect %}
+{% slider id="volume" min=0 max=100 value=50 %}{% endslider %}
+{% toggle id="dark_mode" label="Dark Mode" %}{% endtoggle %}
+{% status status="success" label="Connected" %}{% endstatus %}
 
 {# Multi-select elements - state holds lists #}
 {% select id="toppings" multiple=True %}
@@ -485,6 +488,8 @@ print(f"You entered: {app.state.name}")
 - **Checkbox**: Single checkbox or checkbox groups
 - **Radio**: Radio button groups
 - **Select**: Dropdown select menu (supports multi-select with `multiple=True`)
+- **Slider**: Numeric input with draggable handle (supports int/float modes)
+- **Toggle**: Boolean switch with visual indicator (single/dual label modes)
 - **Link**: Clickable inline text element
 
 ### Display Components
@@ -496,6 +501,7 @@ print(f"You entered: {app.state.name}")
 - **LogView**: Auto-scrolling log viewer
 - **ProgressBar**: Progress indicators (bar, dots, spinner styles)
 - **Spinner**: Animated loading indicators
+- **StatusIndicator**: Colored status indicator with extensible presets (error, warning, success, info, etc.)
 - **Notification**: Toast-style notifications with auto-dismiss
 
 ### Data Visualization Components
@@ -518,7 +524,7 @@ print(f"You entered: {app.state.name}")
 
 ## Examples
 
-The `examples/` directory contains **63 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
+The `examples/` directory contains **66 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
 
@@ -542,6 +548,9 @@ Individual UI component demonstrations (20+ widgets):
 - `radio_demo.py` - Radio button groups with multiple examples
 - `select_demo.py`, `dropdown_demo.py` - Dropdown selection menus
 - `textarea_demo.py` - Multi-line text input with selection
+- `slider_demo.py` - Numeric sliders (integer and float modes)
+- `toggle_demo.py` - Toggle switches (single and dual label modes)
+- `status_indicator_demo.py` - Status indicators with color presets
 
 **Display Elements:**
 - `table_demo.py` - Sortable data tables with Rich integration
@@ -700,7 +709,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 63 working examples
+- ✅ 66 working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations

@@ -1379,3 +1379,199 @@ class CodeEditorExtension(Extension):
 
         # Return marker for text interleaving
         return get_element_marker(context)
+
+
+class SliderExtension(Extension):
+    """Jinja2 extension for {% slider %} tag.
+
+    Syntax:
+        {% slider id="volume" min=0 max=100 value=50 %}{% endslider %}
+        {% slider id="opacity" min=0.0 max=1.0 step=0.1 float_mode=True %}{% endslider %}
+        {% slider id="brightness" label="Brightness" width=30 %}{% endslider %}
+    """
+
+    tags = {"slider"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the slider tag."""
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endslider", lineno)
+
+        node = nodes.CallBlock(
+            self.call_method("_render_slider", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endslider",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_slider(
+        self,
+        caller: Any,
+        id: str | None = None,
+        min: float = 0,
+        max: float = 100,
+        value: float | None = None,
+        step: float = 1,
+        width: int = 20,
+        float_mode: bool = False,
+        label: str | None = None,
+        show_value: bool = True,
+        action: str | None = None,
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the slider tag."""
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
+
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
+
+        width = safe_int(width, default=20, name="width")
+        min_val = float(min)
+        max_val = float(max)
+        step_val = float(step)
+
+        if value is None:
+            value = min_val
+        else:
+            value = float(value)
+
+        if id is None:
+            id = context.generate_id("slider")
+
+        if bind and id:
+            try:
+                if id in state:
+                    value = float(state[id])
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
+                logger.warning(f"Failed to restore state for slider '{id}': {e}")
+
+        is_focused = focused_id and id and focused_id == id
+
+        caller()
+
+        layout_width = width + 2
+        if label:
+            layout_width += len(label) + 1
+        if show_value:
+            if float_mode:
+                layout_width += 1 + len(f"{max_val:.1f}")
+            else:
+                layout_width += 1 + len(str(int(max_val)))
+
+        vnode = VNodeBuilder("Slider", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("min_val", min_val)
+        vnode.set_prop("max_val", max_val)
+        vnode.set_prop("value", value)
+        vnode.set_prop("step", step_val)
+        vnode.set_prop("width", width)
+        vnode.set_prop("float_mode", bool(float_mode))
+        vnode.set_prop("label", label)
+        vnode.set_prop("show_value", bool(show_value))
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
+        vnode.set_layout(width=layout_width, height=1)
+        context.add_vnode(vnode)
+
+        return get_element_marker(context)
+
+
+class ToggleExtension(Extension):
+    """Jinja2 extension for {% toggle %} tag.
+
+    Syntax:
+        {% toggle id="dark_mode" label="Dark Mode" %}{% endtoggle %}
+        {% toggle id="notifications" checked=True %}{% endtoggle %}
+        {% toggle id="sound" label_mode="dual" on_label="ON" off_label="OFF" %}{% endtoggle %}
+    """
+
+    tags = {"toggle"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the toggle tag."""
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endtoggle", lineno)
+
+        node = nodes.CallBlock(
+            self.call_method("_render_toggle", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endtoggle",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_toggle(
+        self,
+        caller: Any,
+        id: str | None = None,
+        checked: bool = False,
+        label: str | None = None,
+        on_label: str = "ON",
+        off_label: str = "OFF",
+        label_mode: Literal["single", "dual"] = "single",
+        action: str | None = None,
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the toggle tag."""
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
+
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
+
+        if id is None:
+            id = context.generate_id("toggle")
+
+        if bind and id:
+            try:
+                if id in state:
+                    checked = bool(state[id])
+            except (KeyError, TypeError, AttributeError) as e:
+                logger.warning(f"Failed to restore state for toggle '{id}': {e}")
+
+        is_focused = focused_id and id and focused_id == id
+
+        caller()
+
+        if label_mode == "dual":
+            layout_width = len(off_label) + 1 + 6 + 1 + len(on_label)
+        else:
+            layout_width = 5
+            if label:
+                layout_width += 1 + len(label)
+
+        vnode = VNodeBuilder("Toggle", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("checked", bool(checked))
+        vnode.set_prop("label", label)
+        vnode.set_prop("on_label", on_label)
+        vnode.set_prop("off_label", off_label)
+        vnode.set_prop("label_mode", label_mode)
+        vnode.set_prop("action", action)
+        vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
+        vnode.set_layout(width=layout_width, height=1)
+        context.add_vnode(vnode)
+
+        return get_element_marker(context)

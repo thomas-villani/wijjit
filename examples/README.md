@@ -29,6 +29,9 @@ Individual examples showcasing specific UI elements and components.
 - **select_demo.py** - Select dropdowns with various options
 - **dropdown_demo.py** - Dropdown menus with keyboard shortcuts
 - **textarea_demo.py** - Multi-line text editor with selection & clipboard
+- **slider_demo.py** - Numeric sliders (integer and float modes, keyboard and mouse)
+- **toggle_demo.py** - Toggle switches (single and dual label modes)
+- **status_indicator_demo.py** - Status indicators with color presets and custom statuses
 
 **Data Display:**
 - **table_demo.py** - Sortable tables with scrolling

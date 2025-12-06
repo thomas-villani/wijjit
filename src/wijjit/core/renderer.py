@@ -59,6 +59,7 @@ from wijjit.tags.display import (
     ProgressBarExtension,
     SpinnerExtension,
     StatusBarExtension,
+    StatusIndicatorExtension,
     TabbedPanelExtension,
     TabExtension,
     TableExtension,
@@ -73,8 +74,10 @@ from wijjit.tags.input import (
     RadioExtension,
     RadioGroupExtension,
     SelectExtension,
+    SliderExtension,
     TextAreaExtension,
     TextInputExtension,
+    ToggleExtension,
 )
 from wijjit.tags.layout import (
     ColspanExtension,
@@ -199,6 +202,11 @@ class Renderer:
                 HeatMapExtension,
                 # Image view
                 ImageViewExtension,
+                # New input elements
+                SliderExtension,
+                ToggleExtension,
+                # Status indicator
+                StatusIndicatorExtension,
             ],
         )
 

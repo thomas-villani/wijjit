@@ -68,6 +68,7 @@ class ElementRegistry:
         # Chart elements
         from wijjit.elements.display.sparkline import Sparkline
         from wijjit.elements.display.spinner import Spinner
+        from wijjit.elements.display.status_indicator import StatusIndicator
         from wijjit.elements.display.statusbar import StatusBar
 
         # Note: TabbedPanel is intentionally NOT imported here.
@@ -80,7 +81,9 @@ class ElementRegistry:
         from wijjit.elements.input.code_editor import CodeEditor
         from wijjit.elements.input.radio import Radio, RadioGroup
         from wijjit.elements.input.select import Select
+        from wijjit.elements.input.slider import Slider
         from wijjit.elements.input.text import TextArea, TextInput
+        from wijjit.elements.input.toggle import Toggle
 
         # Menu elements
         from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
@@ -100,8 +103,12 @@ class ElementRegistry:
             "Radio": Radio,
             "RadioGroup": RadioGroup,
             "Select": Select,
+            "Slider": Slider,
+            "Toggle": Toggle,
             "CodeEditor": CodeEditor,
             # Display elements
+            "StatusIndicator": StatusIndicator,
+            "Status": StatusIndicator,  # Alias
             "Table": Table,
             "TreeView": Tree,
             "Tree": Tree,

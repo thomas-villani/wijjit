@@ -76,6 +76,53 @@ Link
 
     See ``examples/widgets/html_demo.py`` for usage examples alongside HTMLViewer.
 
+Slider
+    Numeric input with draggable handle (:mod:`wijjit.elements.input.slider`). Supports both integer and float modes, keyboard navigation (Left/Right arrows, Home/End), and mouse interaction (click to set, drag to adjust).
+
+    Key attributes:
+
+    * ``min`` - Minimum value (default: 0)
+    * ``max`` - Maximum value (default: 100)
+    * ``value`` - Initial value (defaults to min)
+    * ``step`` - Increment for keyboard navigation (default: 1)
+    * ``width`` - Track width in characters (default: 20)
+    * ``float_mode`` - Return float instead of int (default: ``False``)
+    * ``label`` - Optional label before slider
+    * ``show_value`` - Display current value after slider (default: ``True``)
+
+    .. code-block:: jinja
+
+       {# Integer slider #}
+       {% slider id="volume" min=0 max=100 value=50 %}{% endslider %}
+
+       {# Float slider with decimal step #}
+       {% slider id="opacity" min=0.0 max=1.0 step=0.1 float_mode=True label="Opacity" %}{% endslider %}
+
+    See ``examples/widgets/slider_demo.py`` for integer and float slider examples.
+
+Toggle
+    Boolean switch with visual indicator (:mod:`wijjit.elements.input.toggle`). Provides clearer on/off feedback than a checkbox with colored block characters. Supports single label mode (label after switch) and dual label mode (labels on both sides).
+
+    Key attributes:
+
+    * ``checked`` - Initial state (default: ``False``)
+    * ``label`` - Label text for single mode
+    * ``label_mode`` - ``single`` (default) or ``dual``
+    * ``on_label`` - "On" text for dual mode (default: "ON")
+    * ``off_label`` - "Off" text for dual mode (default: "OFF")
+
+    Colors are themeable via CSS: ``toggle.on``, ``toggle.off``, ``toggle:focus``.
+
+    .. code-block:: jinja
+
+       {# Single mode: switch + label #}
+       {% toggle id="dark_mode" label="Dark Mode" %}{% endtoggle %}
+
+       {# Dual mode: OFF [switch] ON #}
+       {% toggle id="theme" label_mode="dual" off_label="Light" on_label="Dark" %}{% endtoggle %}
+
+    See ``examples/widgets/toggle_demo.py`` for single and dual mode examples.
+
 Special behaviors:
 
 * ``bind=False`` lets you manage the value manually (useful for derived or formatted inputs).
@@ -156,6 +203,34 @@ ListView
 
 LogView
     Tail-like streaming buffer with manual/auto-scroll toggles. Supports severity coloring and timestamp columns. Pair it with background tasks to watch long-running jobs.
+
+StatusIndicator
+    Colored status indicator with extensible presets (:mod:`wijjit.elements.display.status_indicator`). Displays a colored circle (or other shape) to indicate status. Non-interactive display element perfect for dashboards and system status displays.
+
+    Built-in statuses: ``error`` (red), ``warning`` (yellow), ``success`` (green), ``info`` (blue), ``pending`` (cyan), ``active`` (bright green), ``inactive`` (dim), ``disabled`` (gray).
+
+    Key attributes:
+
+    * ``status`` - Status name (default: ``info``)
+    * ``label`` - Optional label text after indicator
+    * ``indicator_style`` - Shape: ``filled`` (default), ``hollow``, ``square``, ``ascii``
+    * ``custom_statuses`` - Dict to add/override status colors
+
+    .. code-block:: jinja
+
+       {# Built-in statuses #}
+       {% status status="success" label="Connected" %}{% endstatus %}
+       {% status status="error" label="Failed" %}{% endstatus %}
+       {% status status="warning" label="Degraded" %}{% endstatus %}
+
+       {# Custom status with color #}
+       {% status status="processing" custom_statuses={"processing": "magenta"} label="Working..." %}{% endstatus %}
+
+       {# Different indicator styles #}
+       {% status status="info" indicator_style="hollow" label="Hollow" %}{% endstatus %}
+       {% status status="info" indicator_style="square" label="Square" %}{% endstatus %}
+
+    See ``examples/widgets/status_indicator_demo.py`` for a complete dashboard example.
 
 ProgressBar / Spinner
     Progress indicators for background tasks. ``progressbar`` accepts numeric ``value`` and optional ``label``; ``spinner`` animates automatically if you set ``app.refresh_interval``.

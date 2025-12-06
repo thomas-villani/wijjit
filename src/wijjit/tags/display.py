@@ -2416,3 +2416,65 @@ class ImageViewExtension(Extension):
 
         # Return marker for text interleaving
         return get_element_marker(context)
+
+
+class StatusIndicatorExtension(Extension):
+    """Jinja2 extension for {% status %} tag.
+
+    Syntax:
+        {% status status="success" label="Connected" %}{% endstatus %}
+        {% status status="error" %}{% endstatus %}
+        {% status status="custom" custom_statuses={"custom": "magenta"} %}{% endstatus %}
+    """
+
+    tags = {"status", "status_indicator"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the status tag."""
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endstatus", lineno)
+
+        node = nodes.CallBlock(
+            self.call_method("_render_status", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(
+                ("name:endstatus", "name:endstatus_indicator"), drop_needle=True
+            ),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_status(
+        self,
+        caller: Any,
+        id: str | None = None,
+        status: str = "info",
+        label: str | None = None,
+        custom_statuses: dict | None = None,
+        indicator_style: str = "filled",
+        **kwargs: Any,
+    ) -> str:
+        """Render the status indicator tag."""
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+
+        if id is None:
+            id = context.generate_id("status")
+
+        caller()
+
+        layout_width = 1
+        if label:
+            layout_width += 1 + len(label)
+
+        vnode = VNodeBuilder("StatusIndicator", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("status", status)
+        vnode.set_prop("label", label)
+        vnode.set_prop("custom_statuses", custom_statuses)
+        vnode.set_prop("indicator_style", indicator_style)
+        vnode.set_layout(width=layout_width, height=1)
+        context.add_vnode(vnode)
+
+        return get_element_marker(context)

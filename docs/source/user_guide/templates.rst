@@ -53,6 +53,12 @@ All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``stat
 ``{% select %}``
     Dropdown input with optional search/filtering. Provide ``options`` and ``empty_option`` text for placeholder entries.
 
+``{% slider %}…{% endslider %}``
+    Numeric input with draggable handle (:class:`wijjit.elements.input.slider.Slider`). Supports keyboard (Left/Right/Home/End) and mouse drag. Attributes: ``id``, ``min``, ``max``, ``value``, ``step``, ``width``, ``float_mode`` (returns float if True), ``label``, ``show_value``, ``bind``.
+
+``{% toggle %}…{% endtoggle %}``
+    Boolean switch with visual indicator (:class:`wijjit.elements.input.toggle.Toggle`). Clearer on/off feedback than checkbox. Attributes: ``id``, ``checked``, ``label``, ``label_mode`` (``single`` or ``dual``), ``on_label``, ``off_label``, ``bind``. Colors themeable via ``toggle.on``, ``toggle.off``, ``toggle:focus`` CSS.
+
 Each input element stores its ``id`` on the underlying element so focus, state binding, and change events work automatically. To opt out of binding (for read-only inputs), set ``bind=False`` and manage the value manually via wiring helpers.
 
 Display & data tags
@@ -72,6 +78,9 @@ Display & data tags
 
 ``{% progressbar %}`` and ``{% spinner %}``
     Visual indicators for background tasks. Progress bars accept ``value``, ``max``, ``style`` (display style: ``filled``, ``percentage``, ``gradient``, ``custom``), and ``bar_style`` (visual preset: ``block``, ``thin``, ``thick``, ``equals``, ``arrow``, ``dots``, ``ascii``, ``hash``, ``pipe``, ``square``).
+
+``{% status %}…{% endstatus %}``
+    Colored status indicator (:class:`wijjit.elements.display.status_indicator.StatusIndicator`). Non-interactive display for dashboards. Built-in statuses: ``error``, ``warning``, ``success``, ``info``, ``pending``, ``active``, ``inactive``, ``disabled``. Attributes: ``status``, ``label``, ``indicator_style`` (``filled``, ``hollow``, ``square``, ``ascii``), ``custom_statuses`` (dict to add/override colors).
 
 ``{% markdown %}`` / ``{% code %}``
     Rich text renderers using the Markdown and Pygments stacks shipped with Wijjit. Provide ``text`` or inline body content.
