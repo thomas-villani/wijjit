@@ -58,6 +58,126 @@ Dynamic styling
 * Toggle pseudo-classes manually – custom elements can set ``self.focused``/``self.hovered`` to trigger ``:focus``/``:hover`` styles.
 * Dark/light switching – store the current theme name in ``state.theme`` and call ``app.renderer.set_theme(THEMES[state.theme])`` whenever it changes.
 
+Built-in style classes
+----------------------
+
+The theme system provides comprehensive style classes for all elements. Here are the key ones:
+
+**Frame styles**::
+
+    frame              # Base frame content
+    frame:focus        # Focused frame content
+    frame.border       # Frame border characters
+    frame.border:focus # Focused frame border
+
+**Scrollbar styles**::
+
+    scrollbar          # Base scrollbar
+    scrollbar:focus    # Scrollbar when parent is focused
+    scrollbar.track    # Scrollbar track character
+    scrollbar.track:focus
+    scrollbar.thumb    # Scrollbar thumb (position indicator)
+    scrollbar.thumb:focus
+
+**Modal styles** (separate from frame for customization)::
+
+    modal              # Modal content background
+    modal:focus        # Focused modal
+    modal.border       # Modal border
+    modal.border:focus # Focused modal border
+    modal.text         # Modal text content
+    modal.backdrop     # Semi-transparent backdrop
+
+**Input styles**::
+
+    input              # Text input base
+    input:focus        # Focused input
+    input:disabled     # Disabled input
+    input.placeholder  # Placeholder text (dim gray)
+
+**Button styles**::
+
+    button             # Base button
+    button:focus       # Focused button
+    button:hover       # Hovered button (mouse)
+    button:disabled    # Disabled button
+
+Global focus color
+------------------
+
+You can set a global focus color that overrides all element focus styles:
+
+.. code-block:: python
+
+    # Set a consistent focus color for all elements
+    app.config['FOCUS_COLOR'] = (255, 128, 0)  # Orange
+
+    # Or use the default cyan
+    app.config['FOCUS_COLOR'] = (0, 255, 255)
+
+    # Reset to theme defaults
+    app.config['FOCUS_COLOR'] = None
+
+This is particularly useful for:
+
+* Accessibility – ensure high-visibility focus indicators
+* Branding – match focus color to your application's accent color
+* Consistency – same focus color across light/dark themes
+
+Scrollbar theming
+-----------------
+
+Scrollbars in frames and text areas use dedicated styles that respond to focus state:
+
+.. code-block:: python
+
+    from wijjit.styling.theme import Theme
+    from wijjit.styling.style import Style
+
+    custom_theme = Theme("custom", {
+        # Track (the background line)
+        "scrollbar.track": Style(fg_color=(60, 60, 60)),
+        "scrollbar.track:focus": Style(fg_color=(80, 80, 80)),
+
+        # Thumb (the position indicator)
+        "scrollbar.thumb": Style(fg_color=(150, 150, 150)),
+        "scrollbar.thumb:focus": Style(fg_color=(0, 255, 255)),  # Cyan when focused
+    })
+
+Scrollbars can be hidden while keeping scroll functionality:
+
+.. code-block:: jinja
+
+    {% frame scrollable=True show_scrollbar=False %}
+        Content scrolls but no scrollbar visible
+    {% endframe %}
+
+Modal vs Frame styles
+---------------------
+
+Modals use their own style prefix (``modal.*``) rather than inheriting frame styles. This allows independent customization:
+
+.. code-block:: python
+
+    # Frames use frame.* styles
+    "frame.border": Style(fg_color=(100, 100, 100)),
+    "frame.border:focus": Style(fg_color=(0, 255, 255)),
+
+    # Modals use modal.* styles (different colors)
+    "modal.border": Style(fg_color=(150, 150, 150)),
+    "modal.border:focus": Style(fg_color=(255, 200, 0)),  # Gold border for modals
+
+Placeholder text styling
+------------------------
+
+Input placeholders are styled separately from input text, appearing dimmed:
+
+.. code-block:: python
+
+    "input.placeholder": Style(fg_color=(128, 128, 128), dim=True)
+
+This is automatically applied when an input shows placeholder text (when empty).
+
 Advanced theming tips
 ---------------------
 

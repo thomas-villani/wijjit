@@ -224,8 +224,28 @@ HIDE_CURSOR
 
    app.config['HIDE_CURSOR'] = False  # Keep cursor visible
 
-Colors & Theming (6 options)
+Colors & Theming (7 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FOCUS_COLOR
+^^^^^^^^^^^
+
+:Type: ``tuple`` of 3 ``int`` or ``None``
+:Default: ``None``
+:Description: Global focus color override (R, G, B). When set, all focused elements use this foreground color instead of theme defaults.
+
+.. code-block:: python
+
+   app.config['FOCUS_COLOR'] = (0, 255, 255)    # Cyan focus (default theme color)
+   app.config['FOCUS_COLOR'] = (255, 128, 0)    # Orange focus
+   app.config['FOCUS_COLOR'] = (0, 255, 0)      # Green focus
+   app.config['FOCUS_COLOR'] = None             # Use theme defaults
+
+This is useful for:
+
+* Ensuring consistent focus indication across all themes
+* Accessibility (high-visibility focus colors)
+* Branding (matching focus color to app accent color)
 
 NO_COLOR
 ^^^^^^^^
