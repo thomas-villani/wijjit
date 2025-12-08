@@ -38,6 +38,18 @@ class Direction(Enum):
 HAlign = Literal["left", "center", "right", "stretch"]
 VAlign = Literal["top", "middle", "bottom", "stretch"]
 
+# Type alias for justify-content options (flexbox-style)
+JustifyContent = Literal[
+    "flex-start",
+    "flex-end",
+    "center",
+    "space-between",
+    "space-around",
+    "space-evenly",
+    "left",
+    "right",  # Aliases for flex-start/flex-end
+]
+
 
 @dataclass
 class SizeConstraints:
@@ -77,6 +89,28 @@ class SizeConstraints:
             self.preferred_width = self.min_width
         if self.preferred_height is None:
             self.preferred_height = self.min_height
+
+
+@dataclass
+class LayoutRow:
+    """Represents a single row in a wrapped HStack layout.
+
+    Used internally by HStack when wrap=True to track which children
+    are in each row and their collective dimensions.
+
+    Attributes
+    ----------
+    children : list of LayoutNode
+        Child nodes in this row
+    total_width : int
+        Sum of children widths in this row (excluding gaps)
+    max_height : int
+        Maximum height among children in this row
+    """
+
+    children: list["LayoutNode"]
+    total_width: int
+    max_height: int
 
 
 class LayoutNode(ABC):
@@ -603,7 +637,8 @@ class VStack(Container):
 class HStack(Container):
     """Horizontal stacking container.
 
-    Arranges children horizontally with optional spacing.
+    Arranges children horizontally with optional spacing. Supports flexbox-style
+    features including content justification and wrapping.
 
     Parameters
     ----------
@@ -614,7 +649,7 @@ class HStack(Container):
     height : int, str, or Size, optional
         Height specification (default: "auto")
     spacing : int, optional
-        Spacing between children (default: 0)
+        Spacing between children (default: 0). Acts as column_gap fallback.
     padding : int, optional
         Padding around children (default: 0)
     margin : int or tuple of int, optional
@@ -623,8 +658,25 @@ class HStack(Container):
         Horizontal alignment of children (default: "stretch")
     align_v : {"top", "middle", "bottom", "stretch"}, optional
         Vertical alignment of children (default: "stretch")
+    justify : str, optional
+        Main axis distribution mode (default: "flex-start").
+        Options: "flex-start", "flex-end", "center", "space-between",
+        "space-around", "space-evenly", "left", "right"
+    wrap : bool, optional
+        If True, children wrap to next row when exceeding width (default: False)
+    row_gap : int, optional
+        Space between rows when wrapping (default: 0)
+    column_gap : int, optional
+        Space between columns. Overrides spacing if provided.
     id : str, optional
         Node identifier
+
+    Notes
+    -----
+    When any child has width="fill", the justify setting is ignored and
+    fill children expand to consume remaining space instead.
+
+    When wrap=True with fill children, fill is treated as auto-sized.
     """
 
     def __init__(
@@ -637,17 +689,338 @@ class HStack(Container):
         margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
+        justify: JustifyContent = "flex-start",
+        wrap: bool = False,
+        row_gap: int | None = None,
+        column_gap: int | None = None,
         id: str | None = None,
     ) -> None:
         super().__init__(
             children, width, height, spacing, padding, margin, align_h, align_v, id
         )
+        # Normalize justify aliases
+        if justify == "left":
+            justify = "flex-start"
+        elif justify == "right":
+            justify = "flex-end"
+
+        # Backward compatibility: map align_h to justify when justify not explicitly set
+        # This allows existing code using align_h="center" or align_h="right" to work
+        if justify == "flex-start" and align_h in ("center", "right", "left"):
+            if align_h == "center":
+                justify = "center"
+            elif align_h == "right":
+                justify = "flex-end"
+            # "left" stays as "flex-start"
+
+        self.justify: JustifyContent = justify
+        self.wrap = wrap
+        # column_gap takes precedence over spacing
+        self.column_gap = column_gap if column_gap is not None else spacing
+        self.row_gap = row_gap if row_gap is not None else 0
+
+    def _distribute_space(self, total_space: int, num_gaps: int) -> list[int]:
+        """Distribute space into gaps, handling integer remainders.
+
+        Remainders are distributed to earlier gaps to avoid visible unevenness.
+
+        Parameters
+        ----------
+        total_space : int
+            Total space to distribute
+        num_gaps : int
+            Number of gaps to distribute into
+
+        Returns
+        -------
+        list of int
+            List of gap sizes
+        """
+        if num_gaps <= 0:
+            return []
+        base_gap = total_space // num_gaps
+        remainder = total_space % num_gaps
+        return [base_gap + (1 if i < remainder else 0) for i in range(num_gaps)]
+
+    def _get_child_width(
+        self, child: LayoutNode, content_width: int, fill_width_each: int = 0
+    ) -> int:
+        """Get width for a child based on its width_spec.
+
+        Parameters
+        ----------
+        child : LayoutNode
+            Child node
+        content_width : int
+            Available content width
+        fill_width_each : int
+            Width to assign to each fill child (0 if not computed)
+
+        Returns
+        -------
+        int
+            Child width
+        """
+        if child.width_spec.is_fill:
+            # In wrap mode, treat fill as auto
+            if self.wrap:
+                return child.constraints.preferred_width if child.constraints else 1
+            return fill_width_each
+        elif child.width_spec.is_fixed:
+            return child.width_spec.value
+        elif child.width_spec.is_percentage:
+            return int(content_width * child.width_spec.get_percentage())
+        else:
+            return child.constraints.preferred_width if child.constraints else 1
+
+    def _get_child_height(
+        self, child: LayoutNode, row_height: int, content_height: int
+    ) -> int:
+        """Get height for a child based on its height_spec.
+
+        Parameters
+        ----------
+        child : LayoutNode
+            Child node
+        row_height : int
+            Height of the current row (max of children in row)
+        content_height : int
+            Total available content height
+
+        Returns
+        -------
+        int
+            Child height
+        """
+        if child.height_spec.is_fixed:
+            return child.height_spec.value
+        elif child.height_spec.is_fill:
+            return row_height if self.wrap else content_height
+        elif child.height_spec.is_percentage:
+            return int(content_height * child.height_spec.get_percentage())
+        else:
+            height = child.constraints.preferred_height if child.constraints else 1
+            return min(height, row_height if self.wrap else content_height)
+
+    def _compute_rows(self, content_width: int) -> list[LayoutRow]:
+        """Distribute children into rows based on available width.
+
+        Only used when wrap=True.
+
+        Parameters
+        ----------
+        content_width : int
+            Available width for content
+
+        Returns
+        -------
+        list of LayoutRow
+            List of rows with their children and dimensions
+
+        Notes
+        -----
+        total_width in LayoutRow is the sum of children widths only (no gaps).
+        This is what _apply_justify expects.
+        """
+        rows: list[LayoutRow] = []
+        current_row_children: list[LayoutNode] = []
+        current_row_width_with_gaps = 0
+        current_row_children_width = 0  # Sum of child widths only (no gaps)
+
+        for child in self.children:
+            child_width = self._get_child_width(child, content_width, 0)
+            gap = self.column_gap if current_row_children else 0
+
+            # Check if child fits in current row (using width with gaps)
+            if (
+                current_row_children
+                and current_row_width_with_gaps + gap + child_width > content_width
+            ):
+                # Finalize current row
+                max_height = max(
+                    (c.constraints.preferred_height if c.constraints else 1)
+                    for c in current_row_children
+                )
+                rows.append(
+                    LayoutRow(
+                        children=current_row_children,
+                        total_width=current_row_children_width,  # Children only, no gaps
+                        max_height=max_height,
+                    )
+                )
+                # Start new row
+                current_row_children = [child]
+                current_row_width_with_gaps = child_width
+                current_row_children_width = child_width
+            else:
+                current_row_children.append(child)
+                current_row_width_with_gaps += gap + child_width
+                current_row_children_width += child_width
+
+        # Add final row
+        if current_row_children:
+            max_height = max(
+                (c.constraints.preferred_height if c.constraints else 1)
+                for c in current_row_children
+            )
+            rows.append(
+                LayoutRow(
+                    children=current_row_children,
+                    total_width=current_row_children_width,  # Children only, no gaps
+                    max_height=max_height,
+                )
+            )
+
+        return rows
+
+    def _apply_justify(
+        self,
+        children: list[LayoutNode],
+        total_children_width: int,
+        x_start: int,
+        available_width: int,
+        content_width: int,
+        fill_width_each: int,
+    ) -> list[tuple[int, LayoutNode]]:
+        """Calculate x positions for children based on justify mode.
+
+        Parameters
+        ----------
+        children : list of LayoutNode
+            Children to position
+        total_children_width : int
+            Sum of all children widths (excluding gaps)
+        x_start : int
+            Starting x position
+        available_width : int
+            Available width for positioning
+        content_width : int
+            Content width for child width calculations
+        fill_width_each : int
+            Width for each fill child
+
+        Returns
+        -------
+        list of tuple
+            List of (x_position, child) tuples
+        """
+        num_children = len(children)
+        if num_children == 0:
+            return []
+
+        # Calculate total space including gaps
+        total_gap_width = self.column_gap * (num_children - 1)
+        content_with_gaps = total_children_width + total_gap_width
+        free_space = max(0, available_width - content_with_gaps)
+
+        positions: list[tuple[int, LayoutNode]] = []
+        current_x = x_start
+
+        if self.justify == "flex-start":
+            # Pack at start (default)
+            for child in children:
+                positions.append((current_x, child))
+                child_width = self._get_child_width(
+                    child, content_width, fill_width_each
+                )
+                current_x += child_width + self.column_gap
+
+        elif self.justify == "flex-end":
+            # Pack at end
+            current_x = x_start + free_space
+            for child in children:
+                positions.append((current_x, child))
+                child_width = self._get_child_width(
+                    child, content_width, fill_width_each
+                )
+                current_x += child_width + self.column_gap
+
+        elif self.justify == "center":
+            # Center the group
+            current_x = x_start + free_space // 2
+            for child in children:
+                positions.append((current_x, child))
+                child_width = self._get_child_width(
+                    child, content_width, fill_width_each
+                )
+                current_x += child_width + self.column_gap
+
+        elif self.justify == "space-between":
+            # First at start, last at end, equal space between
+            if num_children == 1:
+                positions.append((x_start, children[0]))
+            else:
+                gaps = self._distribute_space(free_space, num_children - 1)
+                for i, child in enumerate(children):
+                    positions.append((current_x, child))
+                    child_width = self._get_child_width(
+                        child, content_width, fill_width_each
+                    )
+                    extra_gap = gaps[i] if i < len(gaps) else 0
+                    current_x += child_width + self.column_gap + extra_gap
+
+        elif self.justify == "space-around":
+            # Equal space around each item (half space at edges)
+            if num_children == 0:
+                return []
+            # Each item gets equal space around it
+            # Total gaps = 2 * num_children (one before and one after each)
+            # Edge gaps are half of inter-item gaps
+            total_half_gaps = num_children * 2
+            half_gap_sizes = self._distribute_space(free_space, total_half_gaps)
+            # First edge gap
+            current_x = x_start + half_gap_sizes[0] if half_gap_sizes else x_start
+            for i, child in enumerate(children):
+                positions.append((current_x, child))
+                child_width = self._get_child_width(
+                    child, content_width, fill_width_each
+                )
+                # After each child: half_gap[2*i+1] + column_gap + half_gap[2*i+2]
+                after_idx = 2 * i + 1
+                before_next_idx = 2 * i + 2
+                after_gap = (
+                    half_gap_sizes[after_idx] if after_idx < len(half_gap_sizes) else 0
+                )
+                before_next = (
+                    half_gap_sizes[before_next_idx]
+                    if before_next_idx < len(half_gap_sizes)
+                    else 0
+                )
+                current_x += child_width + self.column_gap + after_gap + before_next
+
+        elif self.justify == "space-evenly":
+            # Equal space between all items including edges
+            num_gaps = num_children + 1
+            gaps = self._distribute_space(free_space, num_gaps)
+            current_x = x_start + (gaps[0] if gaps else 0)
+            for i, child in enumerate(children):
+                positions.append((current_x, child))
+                child_width = self._get_child_width(
+                    child, content_width, fill_width_each
+                )
+                extra_gap = gaps[i + 1] if i + 1 < len(gaps) else 0
+                current_x += child_width + self.column_gap + extra_gap
+
+        else:
+            # Fallback to flex-start
+            for child in children:
+                positions.append((current_x, child))
+                child_width = self._get_child_width(
+                    child, content_width, fill_width_each
+                )
+                current_x += child_width + self.column_gap
+
+        return positions
 
     def calculate_constraints(self) -> SizeConstraints:
         """Calculate constraints for horizontal stack.
 
-        Width is the sum of children widths plus spacing.
+        Width is the sum of children widths plus column_gap.
         Height is the maximum of children heights.
+
+        When wrap=True:
+        - min_width is the widest single child (must fit at least one)
+        - preferred_width is single-row width (no wrapping needed)
 
         Returns
         -------
@@ -670,19 +1043,22 @@ class HStack(Container):
         # Calculate children constraints first
         child_constraints = [child.calculate_constraints() for child in self.children]
 
-        # Width: sum of children plus spacing
+        # Width: sum of children plus column_gap
         # For children with width=fill, use min_width instead of preferred_width
-        # to avoid inflating the parent
+        # to avoid inflating the parent (unless wrap mode, where fill=auto)
         total_width = 0
+        max_child_width = 0
         for i, child in enumerate(self.children):
             constraint = child_constraints[i]
-            if child.width_spec.is_fill:
-                # Fill children contribute only their minimum
-                total_width += constraint.min_width
+            if child.width_spec.is_fill and not self.wrap:
+                # Fill children contribute only their minimum (non-wrap mode)
+                child_width = constraint.min_width
             else:
-                # Fixed/auto children contribute their preferred size
-                total_width += constraint.preferred_width
-        total_width += self.spacing * (len(self.children) - 1)
+                # Fixed/auto children (or fill in wrap mode) use preferred size
+                child_width = constraint.preferred_width
+            total_width += child_width
+            max_child_width = max(max_child_width, child_width)
+        total_width += self.column_gap * (len(self.children) - 1)
 
         # Height: max of children
         # For children with height=fill, use min_height instead of preferred_height
@@ -698,21 +1074,35 @@ class HStack(Container):
             max_child_height = max(max_child_height, height)
 
         # Add padding and margins
-        min_width = total_width + 2 * self.padding + margin_left + margin_right
-        min_height = max_child_height + 2 * self.padding + margin_top + margin_bottom
+        preferred_content_width = (
+            total_width + 2 * self.padding + margin_left + margin_right
+        )
+        min_content_height = (
+            max_child_height + 2 * self.padding + margin_top + margin_bottom
+        )
+
+        # For wrap mode, min_width only needs to fit widest single child
+        if self.wrap:
+            min_content_width = (
+                max_child_width + 2 * self.padding + margin_left + margin_right
+            )
+        else:
+            min_content_width = preferred_content_width
 
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
             min_width = self.width_spec.value
             preferred_width = self.width_spec.value
         else:
-            preferred_width = min_width
+            min_width = min_content_width
+            preferred_width = preferred_content_width
 
         if self.height_spec.is_fixed:
             min_height = self.height_spec.value
             preferred_height = self.height_spec.value
         else:
-            preferred_height = min_height
+            min_height = min_content_height
+            preferred_height = min_content_height
 
         self.constraints = SizeConstraints(
             min_width=min_width,
@@ -724,6 +1114,8 @@ class HStack(Container):
 
     def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
         """Assign bounds to container and position children horizontally.
+
+        Supports flexbox-style justify and wrap modes.
 
         Parameters
         ----------
@@ -747,106 +1139,185 @@ class HStack(Container):
         # Calculate available space for children (after margins and padding)
         content_width = width - 2 * self.padding - margin_left - margin_right
         content_height = height - 2 * self.padding - margin_top - margin_bottom
-        content_width -= self.spacing * (len(self.children) - 1)
 
-        # Count fill children
+        # Content area start position
+        content_x = x + margin_left + self.padding
+        content_y = y + margin_top + self.padding
+
+        # Check for fill children (disables justify in non-wrap mode)
+        fill_children = [c for c in self.children if c.width_spec.is_fill]
+        has_fill_children = bool(fill_children) and not self.wrap
+
+        if self.wrap:
+            # Multi-row wrapped layout
+            self._assign_bounds_wrapped(
+                content_x, content_y, content_width, content_height
+            )
+        elif has_fill_children:
+            # Fill children present - use legacy behavior (ignore justify)
+            self._assign_bounds_with_fill(
+                content_x, content_y, content_width, content_height
+            )
+        else:
+            # Single row with justify
+            self._assign_bounds_justified(
+                content_x, content_y, content_width, content_height
+            )
+
+    def _assign_bounds_with_fill(
+        self, content_x: int, content_y: int, content_width: int, content_height: int
+    ) -> None:
+        """Assign bounds when fill children are present (legacy behavior).
+
+        Fill children expand to consume remaining width. Justify is ignored.
+
+        Parameters
+        ----------
+        content_x : int
+            Content area X start
+        content_y : int
+            Content area Y start
+        content_width : int
+            Available content width
+        content_height : int
+            Available content height
+        """
+        # Calculate widths
         fill_children = [c for c in self.children if c.width_spec.is_fill]
         fixed_children = [c for c in self.children if not c.width_spec.is_fill]
 
-        # Calculate fixed widths
         fixed_width = sum(
             c.constraints.preferred_width if c.constraints else 0
             for c in fixed_children
         )
 
-        # Distribute remaining width to fill children
-        remaining_width = max(0, content_width - fixed_width)
+        # Subtract gaps from available width for fill distribution
+        available_for_children = content_width - self.column_gap * (
+            len(self.children) - 1
+        )
+        remaining_width = max(0, available_for_children - fixed_width)
         fill_width_each = remaining_width // len(fill_children) if fill_children else 0
 
-        # Calculate horizontal alignment offset
-        # If align_h is not "stretch", we need to position the group of children
-        if self.align_h != "stretch" and not fill_children:
-            # Calculate total width of all children
-            total_children_width = fixed_width
-            total_with_spacing = total_children_width + self.spacing * (
-                len(self.children) - 1
-            )
-
-            # Calculate empty space and offset
-            if total_with_spacing < content_width + self.spacing * (
-                len(self.children) - 1
-            ):
-                actual_content_width = content_width + self.spacing * (
-                    len(self.children) - 1
-                )
-                empty_space = actual_content_width - total_with_spacing
-                if self.align_h == "center":
-                    horizontal_offset = empty_space // 2
-                elif self.align_h == "right":
-                    horizontal_offset = empty_space
-                else:  # "left"
-                    horizontal_offset = 0
-            else:
-                horizontal_offset = 0
-        else:
-            horizontal_offset = 0
-
-        # Position children (offset by margins and horizontal alignment)
-        current_x = x + margin_left + self.padding + horizontal_offset
-        current_y = y + margin_top + self.padding
+        current_x = content_x
 
         for child in self.children:
-            if child.width_spec.is_fill:
-                child_width = fill_width_each
-            elif child.width_spec.is_fixed:
-                child_width = child.width_spec.value
-            elif child.width_spec.is_percentage:
-                child_width = int(content_width * child.width_spec.get_percentage())
-            else:
-                child_width = (
-                    child.constraints.preferred_width if child.constraints else 1
-                )
+            child_width = self._get_child_width(child, content_width, fill_width_each)
+            child_height = self._get_child_height(child, content_height, content_height)
 
-            # Height handling based on child's height_spec
-            # - Fixed: Use the explicit height value
-            # - Fill: Stretch to fill available content_height
-            # - Percentage: Calculate from content_height
-            # - Auto: Use intrinsic size (preferred_height from constraints)
-            #
-            # Note: align_v="stretch" affects POSITIONING of shorter children,
-            # NOT whether auto-height children are stretched. Only "fill" children stretch.
-            if child.height_spec.is_fixed:
-                # Respect the child's explicit fixed height
-                child_height = child.height_spec.value
-            elif child.height_spec.is_fill:
-                # Fill children stretch to available height
-                child_height = content_height
-            elif child.height_spec.is_percentage:
-                # Percentage of available height
-                child_height = int(content_height * child.height_spec.get_percentage())
-            else:
-                # Auto - use intrinsic size from constraints
-                child_height = (
-                    child.constraints.preferred_height
-                    if child.constraints
-                    else content_height
-                )
-                # Clamp to available height
-                child_height = min(child_height, content_height)
-
-            # Apply vertical alignment if child is shorter than available space
-            if child_height < content_height:
-                if self.align_v == "middle":
-                    child_y = current_y + (content_height - child_height) // 2
-                elif self.align_v == "bottom":
-                    child_y = current_y + (content_height - child_height)
-                else:  # "top" or default
-                    child_y = current_y
-            else:
-                child_y = current_y
+            # Apply vertical alignment
+            child_y = self._apply_align_v(content_y, child_height, content_height)
 
             child.assign_bounds(current_x, child_y, child_width, child_height)
-            current_x += child_width + self.spacing
+            current_x += child_width + self.column_gap
+
+    def _assign_bounds_justified(
+        self, content_x: int, content_y: int, content_width: int, content_height: int
+    ) -> None:
+        """Assign bounds for single-row layout with justify.
+
+        Parameters
+        ----------
+        content_x : int
+            Content area X start
+        content_y : int
+            Content area Y start
+        content_width : int
+            Available content width
+        content_height : int
+            Available content height
+        """
+        # Calculate total children width
+        total_children_width = sum(
+            self._get_child_width(c, content_width, 0) for c in self.children
+        )
+
+        # Get positioned children from justify
+        positions = self._apply_justify(
+            self.children,
+            total_children_width,
+            content_x,
+            content_width,
+            content_width,
+            0,  # No fill width
+        )
+
+        for child_x, child in positions:
+            child_width = self._get_child_width(child, content_width, 0)
+            child_height = self._get_child_height(child, content_height, content_height)
+
+            # Apply vertical alignment
+            child_y = self._apply_align_v(content_y, child_height, content_height)
+
+            child.assign_bounds(child_x, child_y, child_width, child_height)
+
+    def _assign_bounds_wrapped(
+        self, content_x: int, content_y: int, content_width: int, content_height: int
+    ) -> None:
+        """Assign bounds for multi-row wrapped layout.
+
+        Parameters
+        ----------
+        content_x : int
+            Content area X start
+        content_y : int
+            Content area Y start
+        content_width : int
+            Available content width
+        content_height : int
+            Available content height
+        """
+        rows = self._compute_rows(content_width)
+        current_y = content_y
+
+        for row in rows:
+            # Get positioned children from justify for this row
+            positions = self._apply_justify(
+                row.children,
+                row.total_width,
+                content_x,
+                content_width,
+                content_width,
+                0,  # No fill width in wrap mode
+            )
+
+            for child_x, child in positions:
+                child_width = self._get_child_width(child, content_width, 0)
+                child_height = self._get_child_height(
+                    child, row.max_height, content_height
+                )
+
+                # Apply vertical alignment within the row
+                child_y = self._apply_align_v(current_y, child_height, row.max_height)
+
+                child.assign_bounds(child_x, child_y, child_width, child_height)
+
+            current_y += row.max_height + self.row_gap
+
+    def _apply_align_v(
+        self, base_y: int, child_height: int, available_height: int
+    ) -> int:
+        """Apply vertical alignment to get child Y position.
+
+        Parameters
+        ----------
+        base_y : int
+            Base Y position (top of available space)
+        child_height : int
+            Height of the child
+        available_height : int
+            Available height in the row/container
+
+        Returns
+        -------
+        int
+            Y position for the child
+        """
+        if child_height < available_height:
+            if self.align_v == "middle":
+                return base_y + (available_height - child_height) // 2
+            elif self.align_v == "bottom":
+                return base_y + (available_height - child_height)
+        return base_y
 
 
 @dataclass

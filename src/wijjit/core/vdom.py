@@ -394,6 +394,12 @@ class LayoutSpec:
     is_container: bool = False
     container_type: str | None = None  # "vstack", "hstack", "frame"
 
+    # HStack flexbox-specific
+    justify: str | None = None  # "flex-start", "flex-end", "center", etc.
+    wrap: bool = False
+    row_gap: int | None = None
+    column_gap: int | None = None
+
     # Frame-specific
     border_style: str | None = None
     title: str | None = None

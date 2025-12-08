@@ -678,6 +678,11 @@ class HStackExtension(Extension):
         margin: int | str | tuple[int, ...] = 0,
         align_h: str = "stretch",
         align_v: str = "stretch",
+        justify: str = "flex-start",
+        wrap: bool = False,
+        gap: int | None = None,
+        row_gap: int | None = None,
+        column_gap: int | None = None,
         raw: bool = False,
         id: str | None = None,
         **kwargs: Any,
@@ -693,7 +698,7 @@ class HStackExtension(Extension):
         height : int or str
             Height specification (default: "auto")
         spacing : int
-            Spacing between children
+            Spacing between children (legacy, use column_gap instead)
         padding : int or str or tuple
             Padding around children (uniform or tuple: top, right, bottom, left)
         padding_top : int, optional
@@ -710,6 +715,18 @@ class HStackExtension(Extension):
             Horizontal alignment of children
         align_v : str
             Vertical alignment of children
+        justify : str
+            Main axis distribution mode (default: "flex-start").
+            Options: "flex-start", "flex-end", "center", "space-between",
+            "space-around", "space-evenly"
+        wrap : bool
+            If True, children wrap to next row when exceeding width
+        gap : int, optional
+            Shorthand for both row_gap and column_gap
+        row_gap : int, optional
+            Space between rows when wrapping
+        column_gap : int, optional
+            Space between columns (overrides spacing)
         raw : bool, optional
             If True, preserve whitespace in body content. If False, dedent and strip (default: False)
         id : str, optional
@@ -738,6 +755,11 @@ class HStackExtension(Extension):
             )
         )
 
+        # Resolve gap shorthand
+        # gap sets both row_gap and column_gap if they aren't explicitly set
+        resolved_row_gap = row_gap if row_gap is not None else gap
+        resolved_column_gap = column_gap if column_gap is not None else gap
+
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("HStack", key=id)
         vnode.set_layout(
@@ -748,6 +770,10 @@ class HStackExtension(Extension):
             margin=margin_parsed,
             align_h=align_h,
             align_v=align_v,
+            justify=justify,
+            wrap=wrap,
+            row_gap=resolved_row_gap,
+            column_gap=resolved_column_gap,
         )
         layout_context.push_vnode(vnode)
 

@@ -1145,6 +1145,287 @@ class TestNestedScrollableFrames:
         assert parent.id == "scrollable_inner"
 
 
+class TestHStackFlexbox:
+    """Tests for flexbox-style features in HStack (justify, wrap, gap)."""
+
+    # === Justify Tests ===
+
+    def test_justify_flex_start_default(self):
+        """Test default flex-start justify packs children at start."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="flex-start")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        assert child1.bounds.x == 0
+        assert child2.bounds.x == 10
+
+    def test_justify_flex_end(self):
+        """Test flex-end justify packs children at end."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="flex-end")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # Children at end: 50 - 20 = 30 offset
+        assert child1.bounds.x == 30
+        assert child2.bounds.x == 40
+
+    def test_justify_center(self):
+        """Test center justify centers children."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="center")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # 50 - 20 = 30 free, offset = 15
+        assert child1.bounds.x == 15
+        assert child2.bounds.x == 25
+
+    def test_justify_space_between(self):
+        """Test space-between distributes space between children."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        child3 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2, child3], justify="space-between")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # 50 - 30 = 20 free, 2 gaps, 10 each
+        assert child1.bounds.x == 0
+        assert child2.bounds.x == 20
+        assert child3.bounds.x == 40
+
+    def test_justify_space_between_single_child(self):
+        """Test space-between with single child positions at start."""
+        child = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child], justify="space-between")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        assert child.bounds.x == 0
+
+    def test_justify_space_around(self):
+        """Test space-around distributes space around children."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="space-around")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # 50 - 20 = 30 free, 4 half-gaps (2 per child)
+        # Each half-gap = 30/4 = 7 (remainder 2 distributed to first gaps)
+        # Half-gaps: [8, 8, 7, 7]
+        # child1.x = 8 (first half-gap)
+        # child2.x = 8 + 10 + 8 + 7 = 33 (gap before + child + gap after + gap before next)
+        assert child1.bounds.x == 8
+        assert child2.bounds.x == 33
+
+    def test_justify_space_evenly(self):
+        """Test space-evenly distributes space evenly including edges."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="space-evenly")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # 50 - 20 = 30 free, 3 gaps, 10 each
+        assert child1.bounds.x == 10
+        assert child2.bounds.x == 30
+
+    def test_justify_with_column_gap(self):
+        """Test justify works with column_gap."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="center", column_gap=5)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 55, 10)
+
+        # Total width with gap: 10 + 5 + 10 = 25
+        # Free space: 55 - 25 = 30, offset = 15
+        assert child1.bounds.x == 15
+        assert child2.bounds.x == 30  # 15 + 10 + 5
+
+    # === Wrap Tests ===
+
+    def test_wrap_single_row_fits(self):
+        """Test wrap=True with children that fit in single row."""
+        children = [ElementNode(MockElement(width=10, height=2)) for _ in range(3)]
+        hstack = HStack(children=children, wrap=True)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # All children should be in one row
+        assert all(c.bounds.y == 0 for c in children)
+
+    def test_wrap_creates_multiple_rows(self):
+        """Test wrap=True wraps children when they exceed width."""
+        children = [ElementNode(MockElement(width=15, height=2)) for _ in range(4)]
+        hstack = HStack(children=children, wrap=True)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 40, 20)
+
+        # First two in row 0 (15 + 15 = 30 fits in 40)
+        assert children[0].bounds.y == 0
+        assert children[1].bounds.y == 0
+        # Next two in row 1
+        assert children[2].bounds.y == 2
+        assert children[3].bounds.y == 2
+
+    def test_wrap_with_row_gap(self):
+        """Test row_gap adds space between wrapped rows."""
+        children = [ElementNode(MockElement(width=15, height=2)) for _ in range(4)]
+        hstack = HStack(children=children, wrap=True, row_gap=3)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 40, 20)
+
+        # Row 0 at y=0
+        assert children[0].bounds.y == 0
+        # Row 1 at y = 2 (row height) + 3 (gap) = 5
+        assert children[2].bounds.y == 5
+
+    def test_wrap_with_column_gap(self):
+        """Test column_gap adds space between children in rows."""
+        children = [ElementNode(MockElement(width=10, height=2)) for _ in range(3)]
+        hstack = HStack(children=children, wrap=True, column_gap=5)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        assert children[0].bounds.x == 0
+        assert children[1].bounds.x == 15  # 10 + 5
+        assert children[2].bounds.x == 30  # 15 + 10 + 5
+
+    def test_wrap_with_varying_heights(self):
+        """Test wrap handles children with different heights."""
+        child1 = ElementNode(MockElement(width=15, height=2))
+        child2 = ElementNode(MockElement(width=15, height=5))
+        child3 = ElementNode(MockElement(width=15, height=3))
+        hstack = HStack(children=[child1, child2, child3], wrap=True)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 35, 20)
+
+        # Row 0: child1, child2 - max height is 5
+        assert child1.bounds.y == 0
+        assert child2.bounds.y == 0
+        # Row 1: child3 - at y=5
+        assert child3.bounds.y == 5
+
+    def test_wrap_with_justify(self):
+        """Test wrap combined with justify mode."""
+        children = [ElementNode(MockElement(width=10, height=2)) for _ in range(4)]
+        hstack = HStack(children=children, wrap=True, justify="center")
+
+        hstack.calculate_constraints()
+        # Use width=25 so only 2 children fit per row (10+10=20 < 25, but 10+10+10=30 > 25)
+        hstack.assign_bounds(0, 0, 25, 20)
+
+        # Row 0: 2 children, width=20, centered in 25 -> offset = (25-20)//2 = 2
+        assert children[0].bounds.x == 2
+        assert children[1].bounds.x == 12  # 2 + 10
+        # Row 1: 2 children, same centering
+        assert children[2].bounds.x == 2
+        assert children[3].bounds.x == 12
+
+    # === Gap Tests ===
+
+    def test_backward_compat_spacing_as_column_gap(self):
+        """Test existing spacing attribute works as column_gap."""
+        children = [ElementNode(MockElement(width=10, height=2)) for _ in range(3)]
+        hstack = HStack(children=children, spacing=5)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        assert children[0].bounds.x == 0
+        assert children[1].bounds.x == 15  # 10 + 5
+        assert children[2].bounds.x == 30  # 15 + 10 + 5
+
+    def test_column_gap_overrides_spacing(self):
+        """Test column_gap takes precedence over spacing."""
+        children = [ElementNode(MockElement(width=10, height=2)) for _ in range(3)]
+        hstack = HStack(children=children, spacing=5, column_gap=2)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        assert children[0].bounds.x == 0
+        assert children[1].bounds.x == 12  # 10 + 2
+        assert children[2].bounds.x == 24  # 12 + 10 + 2
+
+    # === Edge Case Tests ===
+
+    def test_justify_with_fill_children_ignored(self):
+        """Test that justify is ignored when fill children present."""
+        elem1 = MockElement(width=10, height=2)
+        elem1._dynamic_sizing = True
+        child1 = ElementNode(elem1, width="fill")
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], justify="space-between")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # Fill child should take remaining space, justify ignored
+        assert child1.bounds.width == 40  # 50 - 10
+        assert child2.bounds.width == 10
+
+    def test_wrap_constraints_min_width(self):
+        """Test wrap mode sets min_width to widest child."""
+        child1 = ElementNode(MockElement(width=20, height=2))
+        child2 = ElementNode(MockElement(width=30, height=2))
+        child3 = ElementNode(MockElement(width=15, height=2))
+        hstack = HStack(children=[child1, child2, child3], wrap=True)
+
+        constraints = hstack.calculate_constraints()
+
+        # min_width should be widest child (30)
+        assert constraints.min_width == 30
+        # preferred_width should be sum (single row)
+        assert constraints.preferred_width == 65  # 20 + 30 + 15
+
+    def test_align_h_backward_compat_center(self):
+        """Test align_h='center' still works (maps to justify='center')."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], align_h="center")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # Should be centered like justify="center"
+        assert child1.bounds.x == 15
+        assert child2.bounds.x == 25
+
+    def test_align_h_backward_compat_right(self):
+        """Test align_h='right' still works (maps to justify='flex-end')."""
+        child1 = ElementNode(MockElement(width=10, height=2))
+        child2 = ElementNode(MockElement(width=10, height=2))
+        hstack = HStack(children=[child1, child2], align_h="right")
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 50, 10)
+
+        # Should be right-aligned like justify="flex-end"
+        assert child1.bounds.x == 30
+        assert child2.bounds.x == 40
+
+
 class TestGrid:
     """Tests for Grid container."""
 

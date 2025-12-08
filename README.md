@@ -305,13 +305,36 @@ Wijjit provides flexible layout containers:
 {% endvstack %}
 ```
 
-**HStack**: Horizontal stack
+**HStack**: Horizontal stack with flexbox-style features
 ```jinja2
 {% hstack spacing=2 align_v="middle" %}
   {% button %}Left{% endbutton %}
   {% button %}Right{% endbutton %}
 {% endhstack %}
+
+{# Flexbox justify modes - use width="fill" so hstack expands to container #}
+{% hstack justify="space-between" width="fill" %}
+  {% button %}Start{% endbutton %}
+  {% button %}End{% endbutton %}
+{% endhstack %}
+
+{# Wrap items to multiple rows #}
+{% hstack wrap=True gap=1 justify="center" width="fill" %}
+  {% for tag in tags %}
+    {% button %}{{ tag }}{% endbutton %}
+  {% endfor %}
+{% endhstack %}
 ```
+
+HStack attributes:
+- `spacing`: Gap between children (alias for `column_gap`)
+- `justify`: Distribution mode: `"flex-start"`, `"flex-end"`, `"center"`, `"space-between"`, `"space-around"`, `"space-evenly"`
+- `wrap`: Allow children to wrap to next row when exceeding width (default: `false`)
+- `column_gap`: Space between columns
+- `row_gap`: Space between rows when wrapping
+- `gap`: Shorthand for both `row_gap` and `column_gap`
+- `align_v`: Vertical alignment within row: `"top"`, `"middle"`, `"bottom"`, `"stretch"`
+- `width`: Set to `"fill"` when using justify modes (required for justify to have space to distribute)
 
 **SplitPanel**: Resizable split panel with draggable divider
 ```jinja2

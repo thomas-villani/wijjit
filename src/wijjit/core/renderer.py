@@ -609,6 +609,10 @@ class Renderer:
                 margin=layout_spec.margin or 0,
                 align_h=layout_spec.align_h or "stretch",
                 align_v=layout_spec.align_v or "stretch",
+                justify=getattr(layout_spec, "justify", None) or "flex-start",
+                wrap=getattr(layout_spec, "wrap", False) or False,
+                row_gap=getattr(layout_spec, "row_gap", None),
+                column_gap=getattr(layout_spec, "column_gap", None),
             )
             for child_vnode in vnode.children:
                 child_node = self._build_layout_tree_from_vnode(
