@@ -4,6 +4,7 @@ Tests the integration of autocomplete with TextInput element, template tags,
 wiring manager, and the Wijjit application.
 """
 
+import pytest
 
 from wijjit import Wijjit
 from wijjit.autocomplete import (
@@ -278,6 +279,58 @@ class TestAutocompleteKeyHandling:
         assert "apple" in elem._autocomplete_state.suggestions
         assert "apricot" in elem._autocomplete_state.suggestions
         assert "banana" not in elem._autocomplete_state.suggestions
+
+
+class TestAsyncCompleterErrorHandling:
+    """Test error handling in async completers."""
+
+    @pytest.mark.asyncio
+    async def test_async_completer_error_closes_popup(self):
+        """Async completer errors should close popup gracefully."""
+        from wijjit.autocomplete.completer import AsyncCompleter
+
+        async def failing_callback(
+            prefix: str, context: dict | None = None
+        ) -> list[str]:
+            raise RuntimeError("Simulated network error")
+
+        completer = AsyncCompleter(failing_callback)
+        elem = TextInput(id="test", value="a", completer=completer)
+        elem.cursor_pos = 1
+
+        # Set up state as if autocomplete was triggered
+        elem._autocomplete_state.prefix = "a"
+        elem._autocomplete_state.is_open = True
+
+        # Call the async fetch method directly (normally called via create_task)
+        await elem._fetch_suggestions_async("a")
+
+        # Should gracefully close autocomplete, not crash
+        assert elem._autocomplete_state.is_open is False
+
+    @pytest.mark.asyncio
+    async def test_async_completer_error_ignored_if_prefix_changed(self):
+        """Errors should be ignored if user has typed more."""
+        from wijjit.autocomplete.completer import AsyncCompleter
+
+        async def failing_callback(
+            prefix: str, context: dict | None = None
+        ) -> list[str]:
+            raise RuntimeError("Simulated network error")
+
+        completer = AsyncCompleter(failing_callback)
+        elem = TextInput(id="test", value="abc", completer=completer)
+        elem.cursor_pos = 3
+
+        # Simulate: user typed "a", async fetch started, but user typed more
+        elem._autocomplete_state.prefix = "abc"  # User has typed more
+        elem._autocomplete_state.is_open = True
+
+        # Call with old prefix "a" (simulating delayed response)
+        await elem._fetch_suggestions_async("a")
+
+        # Popup should still be open (error ignored because prefix changed)
+        assert elem._autocomplete_state.is_open is True
 
 
 class TestCallbackCompleterIntegration:

@@ -222,6 +222,88 @@ def get_word_boundaries(text: str, cursor_pos: int) -> tuple[int, int]:
     return (start, end)
 
 
+def filter_suggestions(
+    words: list[str],
+    prefix: str,
+    case_sensitive: bool = False,
+    match_anywhere: bool = False,
+    max_suggestions: int | None = None,
+) -> list[str]:
+    """Filter a word list based on a prefix.
+
+    This is the shared matching logic used by WordCompleter and StateCompleter
+    to filter suggestions based on a prefix string.
+
+    Parameters
+    ----------
+    words : list of str
+        List of words to filter.
+    prefix : str
+        The prefix to match against.
+    case_sensitive : bool, optional
+        Whether matching is case-sensitive (default: False).
+    match_anywhere : bool, optional
+        If True, matches substring anywhere in word instead of just prefix
+        (default: False).
+    max_suggestions : int or None, optional
+        Maximum number of suggestions to return. None means no limit.
+
+    Returns
+    -------
+    list of str
+        Matching words, filtered and optionally limited.
+
+    Examples
+    --------
+    Basic prefix matching:
+
+    >>> filter_suggestions(["apple", "apricot", "banana"], "ap")
+    ['apple', 'apricot']
+
+    Case-insensitive matching (default):
+
+    >>> filter_suggestions(["Apple", "APRICOT", "banana"], "ap")
+    ['Apple', 'APRICOT']
+
+    Case-sensitive matching:
+
+    >>> filter_suggestions(["Apple", "apricot", "APPLE"], "ap", case_sensitive=True)
+    ['apricot']
+
+    Match anywhere in word:
+
+    >>> filter_suggestions(["pineapple", "apple", "banana"], "apple", match_anywhere=True)
+    ['pineapple', 'apple']
+
+    With max suggestions:
+
+    >>> filter_suggestions(["a1", "a2", "a3", "a4"], "a", max_suggestions=2)
+    ['a1', 'a2']
+    """
+    if not prefix:
+        return []
+
+    compare_prefix = prefix if case_sensitive else prefix.lower()
+
+    matches = []
+    for word in words:
+        if not isinstance(word, str):
+            continue
+
+        compare_word = word if case_sensitive else word.lower()
+
+        if match_anywhere:
+            if compare_prefix in compare_word:
+                matches.append(word)
+        else:
+            if compare_word.startswith(compare_prefix):
+                matches.append(word)
+
+    if max_suggestions is not None:
+        return matches[:max_suggestions]
+    return matches
+
+
 def split_into_words(text: str) -> list[tuple[str, int, int]]:
     """Split text into words with their positions.
 

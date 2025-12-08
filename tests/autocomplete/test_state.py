@@ -1,6 +1,5 @@
 """Tests for autocomplete state management."""
 
-
 from wijjit.autocomplete.state import AutocompleteState
 
 
@@ -75,19 +74,19 @@ class TestAutocompleteState:
         state.move_highlight(-1)
         assert state.highlighted_index == 0
 
-    def test_move_highlight_wraps_at_bottom(self):
-        """Test highlight wraps from bottom to top."""
+    def test_move_highlight_clamps_at_bottom(self):
+        """Test highlight clamps at bottom (no wrap)."""
         state = AutocompleteState(suggestions=["a", "b", "c"], highlighted_index=2)
 
         state.move_highlight(1)
-        assert state.highlighted_index == 0
+        assert state.highlighted_index == 2  # Stays at bottom
 
-    def test_move_highlight_wraps_at_top(self):
-        """Test highlight wraps from top to bottom."""
+    def test_move_highlight_clamps_at_top(self):
+        """Test highlight clamps at top (no wrap)."""
         state = AutocompleteState(suggestions=["a", "b", "c"], highlighted_index=0)
 
         state.move_highlight(-1)
-        assert state.highlighted_index == 2
+        assert state.highlighted_index == 0  # Stays at top
 
     def test_move_highlight_empty_suggestions(self):
         """Test moving highlight with empty suggestions does nothing."""
@@ -99,36 +98,16 @@ class TestAutocompleteState:
         state.move_highlight(-1)
         assert state.highlighted_index == 0
 
-    def test_move_highlight_clamped_down(self):
-        """Test clamped highlight at bottom."""
-        state = AutocompleteState(suggestions=["a", "b", "c"], highlighted_index=2)
-
-        state.move_highlight_clamped(1)
-        assert state.highlighted_index == 2  # Stays at bottom
-
-        state.move_highlight_clamped(5)
-        assert state.highlighted_index == 2  # Still at bottom
-
-    def test_move_highlight_clamped_up(self):
-        """Test clamped highlight at top."""
-        state = AutocompleteState(suggestions=["a", "b", "c"], highlighted_index=0)
-
-        state.move_highlight_clamped(-1)
-        assert state.highlighted_index == 0  # Stays at top
-
-        state.move_highlight_clamped(-5)
-        assert state.highlighted_index == 0  # Still at top
-
-    def test_move_highlight_clamped_large_jump(self):
-        """Test clamped highlight with large jump."""
+    def test_move_highlight_large_jump(self):
+        """Test highlight with large jump is clamped."""
         state = AutocompleteState(suggestions=["a", "b", "c", "d", "e"])
         state.highlighted_index = 2
 
-        state.move_highlight_clamped(10)
-        assert state.highlighted_index == 4
+        state.move_highlight(10)
+        assert state.highlighted_index == 4  # Clamped to last
 
-        state.move_highlight_clamped(-10)
-        assert state.highlighted_index == 0
+        state.move_highlight(-10)
+        assert state.highlighted_index == 0  # Clamped to first
 
     def test_selected_suggestion(self):
         """Test selected_suggestion property."""

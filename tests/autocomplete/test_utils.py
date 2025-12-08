@@ -1,6 +1,5 @@
 """Tests for autocomplete utilities."""
 
-
 from wijjit.autocomplete.utils import (
     get_word_at_cursor,
     get_word_boundaries,

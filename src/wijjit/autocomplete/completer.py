@@ -26,6 +26,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from wijjit.autocomplete.utils import filter_suggestions
+
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
 
@@ -204,23 +206,13 @@ class WordCompleter(Completer):
         list of str
             Matching words, up to max_suggestions.
         """
-        if not prefix:
-            return []
-
-        compare_prefix = prefix if self.config.case_sensitive else prefix.lower()
-
-        matches = []
-        for word in self.words:
-            compare_word = word if self.config.case_sensitive else word.lower()
-
-            if self.config.match_anywhere:
-                if compare_prefix in compare_word:
-                    matches.append(word)
-            else:
-                if compare_word.startswith(compare_prefix):
-                    matches.append(word)
-
-        return matches[: self.config.max_suggestions]
+        return filter_suggestions(
+            self.words,
+            prefix,
+            case_sensitive=self.config.case_sensitive,
+            match_anywhere=self.config.match_anywhere,
+            max_suggestions=self.config.max_suggestions,
+        )
 
 
 class CallbackCompleter(Completer):
@@ -454,22 +446,10 @@ class StateCompleter(Completer):
         if not words or not isinstance(words, list):
             return []
 
-        if not prefix:
-            return []
-
-        compare_prefix = prefix if self.config.case_sensitive else prefix.lower()
-
-        matches = []
-        for word in words:
-            if not isinstance(word, str):
-                continue
-            compare_word = word if self.config.case_sensitive else word.lower()
-
-            if self.config.match_anywhere:
-                if compare_prefix in compare_word:
-                    matches.append(word)
-            else:
-                if compare_word.startswith(compare_prefix):
-                    matches.append(word)
-
-        return matches[: self.config.max_suggestions]
+        return filter_suggestions(
+            words,
+            prefix,
+            case_sensitive=self.config.case_sensitive,
+            match_anywhere=self.config.match_anywhere,
+            max_suggestions=self.config.max_suggestions,
+        )

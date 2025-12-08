@@ -14,8 +14,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from wijjit.autocomplete.state import AutocompleteState
 from wijjit.elements.base import Element, ElementType
+from wijjit.layout.frames import BORDER_CHARS
 from wijjit.layout.scroll import ScrollManager
+from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
 
 if TYPE_CHECKING:
@@ -30,21 +33,20 @@ class AutocompletePopup(Element):
     It supports keyboard navigation (Up/Down/PageUp/PageDown/Home/End),
     mouse click selection, and automatic scrolling for long lists.
 
+    The popup uses an AutocompleteState as the single source of truth for
+    suggestions and highlighted index, avoiding duplicate state management.
+
     Parameters
     ----------
-    suggestions : list of str
-        List of suggestion strings to display.
+    state : AutocompleteState
+        Reference to the autocomplete state (single source of truth).
     max_visible : int, optional
         Maximum number of suggestions visible at once (default: 10).
-    highlighted_index : int, optional
-        Initially highlighted suggestion index (default: 0).
 
     Attributes
     ----------
-    suggestions : list of str
-        Current list of suggestions.
-    highlighted_index : int
-        Index of currently highlighted suggestion.
+    state : AutocompleteState
+        Reference to the shared autocomplete state.
     max_visible : int
         Maximum visible suggestions.
     scroll_manager : ScrollManager
@@ -52,9 +54,11 @@ class AutocompletePopup(Element):
 
     Examples
     --------
-    Create a popup with suggestions:
+    Create a popup with state:
 
-    >>> popup = AutocompletePopup(["apple", "apricot", "banana"])
+    >>> state = AutocompleteState()
+    >>> state.suggestions = ["apple", "apricot", "banana"]
+    >>> popup = AutocompletePopup(state)
     >>> popup.highlighted_index
     0
     >>> popup.selected_suggestion
@@ -67,31 +71,35 @@ class AutocompletePopup(Element):
     'apricot'
     """
 
-    # Border characters for popup
-    BORDER_CHARS = {
-        "tl": "\u250c",  # Top-left corner
-        "tr": "\u2510",  # Top-right corner
-        "bl": "\u2514",  # Bottom-left corner
-        "br": "\u2518",  # Bottom-right corner
-        "h": "\u2500",  # Horizontal line
-        "v": "\u2502",  # Vertical line
-    }
-
     def __init__(
         self,
-        suggestions: list[str] | None = None,
+        state: AutocompleteState,
         max_visible: int = 10,
-        highlighted_index: int = 0,
     ) -> None:
         super().__init__()
-        self.suggestions = suggestions or []
+        self.state = state
         self.max_visible = max_visible
-        self.highlighted_index = highlighted_index
         self.element_type = ElementType.SELECTABLE
         self.focusable = False  # Focus stays on input!
 
         # Initialize scroll manager
         self._update_scroll_manager()
+
+    # Properties that delegate to state for backward compatibility
+    @property
+    def suggestions(self) -> list[str]:
+        """Get suggestions from state."""
+        return self.state.suggestions
+
+    @property
+    def highlighted_index(self) -> int:
+        """Get highlighted index from state."""
+        return self.state.highlighted_index
+
+    @highlighted_index.setter
+    def highlighted_index(self, value: int) -> None:
+        """Set highlighted index in state."""
+        self.state.highlighted_index = value
 
     def _update_scroll_manager(self) -> None:
         """Update scroll manager based on current suggestions."""
@@ -103,20 +111,16 @@ class AutocompletePopup(Element):
             initial_position=0,
         )
 
-    def update_suggestions(self, suggestions: list[str]) -> None:
-        """Update the suggestion list.
+    def sync_from_state(self) -> None:
+        """Synchronize scroll manager with current state.
 
-        Parameters
-        ----------
-        suggestions : list of str
-            New list of suggestions.
+        Call this after state.suggestions changes to update the scroll manager.
 
         Notes
         -----
-        Resets highlighted index to 0 and scroll position to top.
+        The popup now uses AutocompleteState as the source of truth, so this
+        method only needs to update the scroll manager when suggestions change.
         """
-        self.suggestions = suggestions
-        self.highlighted_index = 0
         self._update_scroll_manager()
 
     def get_intrinsic_size(self) -> tuple[int, int]:
@@ -136,7 +140,8 @@ class AutocompletePopup(Element):
             return (20, 3)  # Minimum size with border
 
         # Width: longest suggestion + 2 for padding + 2 for border
-        max_len = max(len(s) for s in self.suggestions)
+        # Use visible_length() to handle ANSI escape codes correctly
+        max_len = max(visible_length(s) for s in self.suggestions)
         width = min(max_len + 4, 50)  # Cap at 50 chars
 
         # Height: visible suggestions + 2 for border
@@ -171,14 +176,14 @@ class AutocompletePopup(Element):
         # Clear background
         ctx.clear(item_style)
 
-        # Draw border
+        # Draw border (using shared BORDER_CHARS from wijjit.layout.frames)
         ctx.draw_border(
             0,
             0,
             ctx.bounds.width,
             ctx.bounds.height,
             border_style,
-            self.BORDER_CHARS,
+            BORDER_CHARS["single"],  # Use single-line border style
         )
 
         if not self.suggestions:

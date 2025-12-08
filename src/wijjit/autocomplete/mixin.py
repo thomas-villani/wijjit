@@ -12,6 +12,7 @@ AutocompleteMixin
 from __future__ import annotations
 
 import asyncio
+import shutil
 from typing import TYPE_CHECKING
 
 from wijjit.autocomplete.completer import AsyncCompleter, Completer
@@ -122,6 +123,7 @@ class AutocompleteMixin:
         # If popup is open, handle navigation and selection
         if state.is_open:
             # Navigation keys - delegate to popup
+            # Note: popup now references state directly, no manual sync needed
             if key in (
                 Keys.UP,
                 Keys.DOWN,
@@ -132,7 +134,6 @@ class AutocompleteMixin:
             ):
                 if self._autocomplete_popup:
                     self._autocomplete_popup.handle_key(key)
-                    state.highlighted_index = self._autocomplete_popup.highlighted_index
                 return True
 
             # Selection keys
@@ -282,13 +283,29 @@ class AutocompleteMixin:
         ----------
         prefix : str
             The word prefix to complete.
+
+        Notes
+        -----
+        Errors are caught and logged to prevent unhandled task exceptions.
+        The autocomplete popup is closed on error to avoid stale state.
         """
         if not self.completer:
             return
-        suggestions = await self.completer.get_suggestions_async(prefix)
-        # Verify prefix hasn't changed while we were fetching
-        if self._autocomplete_state.prefix == prefix:
-            self._show_suggestions(suggestions)
+        try:
+            suggestions = await self.completer.get_suggestions_async(prefix)
+            # Verify prefix hasn't changed while we were fetching
+            if self._autocomplete_state.prefix == prefix:
+                self._show_suggestions(suggestions)
+        except Exception as e:
+            # Log error and close autocomplete to avoid stale state
+            import logging
+
+            logging.getLogger(__name__).debug(
+                "Autocomplete fetch failed for prefix '%s': %s", prefix, e
+            )
+            # Close autocomplete if prefix still matches (user hasn't moved on)
+            if self._autocomplete_state.prefix == prefix:
+                self._close_autocomplete()
 
     def _show_suggestions(self, suggestions: list[str]) -> None:
         """Display suggestions in the popup.
@@ -304,15 +321,18 @@ class AutocompleteMixin:
             self._close_autocomplete()
             return
 
+        # Update state (single source of truth)
         state.suggestions = suggestions
         state.highlighted_index = 0
         state.is_open = True
 
         # Create or update popup
         if self._autocomplete_popup:
-            self._autocomplete_popup.update_suggestions(suggestions)
+            # Popup references state directly, just sync scroll manager
+            self._autocomplete_popup.sync_from_state()
         else:
-            self._autocomplete_popup = AutocompletePopup(suggestions)
+            # Create popup with reference to state
+            self._autocomplete_popup = AutocompletePopup(state)
             self._position_popup()
             # Push to overlay manager if available
             if self._overlay_manager:
@@ -322,7 +342,13 @@ class AutocompleteMixin:
                 )
 
     def _position_popup(self) -> None:
-        """Position the popup below the input element."""
+        """Position the popup relative to the input element.
+
+        Positions the popup below the input by default, but adjusts if
+        it would render off-screen:
+        - Flips above the input if too close to bottom edge
+        - Shifts left if too close to right edge
+        """
         from wijjit.layout.bounds import Bounds
 
         if not self._autocomplete_popup or not self.bounds:
@@ -330,6 +356,11 @@ class AutocompleteMixin:
 
         popup = self._autocomplete_popup
         popup_width, popup_height = popup.get_intrinsic_size()
+
+        # Get terminal dimensions for bounds checking
+        term_size = shutil.get_terminal_size()
+        term_width = term_size.columns
+        term_height = term_size.lines
 
         # Position below the input, aligned with word start
         # For TextInput: word_start maps to x position within the input
@@ -339,8 +370,22 @@ class AutocompleteMixin:
         )
         y = self.bounds.y + self.bounds.height
 
-        # TODO: Flip above if off-screen bottom
-        # TODO: Shift left if off-screen right
+        # Check if popup would go off bottom of screen
+        if y + popup_height > term_height:
+            # Flip above the input
+            y = self.bounds.y - popup_height
+            # If still off-screen (input near top), clamp to top
+            if y < 0:
+                y = 0
+
+        # Check if popup would go off right of screen
+        if x + popup_width > term_width:
+            # Shift left to fit
+            x = term_width - popup_width
+
+        # Ensure popup doesn't go off left edge
+        if x < 0:
+            x = 0
 
         popup.bounds = Bounds(x=x, y=y, width=popup_width, height=popup_height)
 

@@ -72,13 +72,13 @@ class AutocompleteState:
         self.prefix = ""
 
     def move_highlight(self, direction: int) -> None:
-        """Move highlight up or down.
+        """Move highlight up or down with clamping.
 
         Parameters
         ----------
         direction : int
             Direction to move: negative for up, positive for down.
-            The value wraps around at the list boundaries.
+            Movement is clamped at list boundaries (no wrap-around).
 
         Examples
         --------
@@ -91,36 +91,14 @@ class AutocompleteState:
         >>> state.move_highlight(-1)  # Move up
         >>> state.highlighted_index
         0
-        >>> state.move_highlight(-1)  # Wrap to bottom
-        >>> state.highlighted_index
-        2
-        """
-        if not self.suggestions:
-            return
-        self.highlighted_index = (self.highlighted_index + direction) % len(
-            self.suggestions
-        )
-
-    def move_highlight_clamped(self, direction: int) -> None:
-        """Move highlight with clamping (no wrap-around).
-
-        Parameters
-        ----------
-        direction : int
-            Direction to move: negative for up, positive for down.
-            Movement is clamped at list boundaries.
-
-        Examples
-        --------
-        >>> state = AutocompleteState()
-        >>> state.suggestions = ["a", "b", "c"]
-        >>> state.highlighted_index = 0
-        >>> state.move_highlight_clamped(-1)  # Try to move up at top
+        >>> state.move_highlight(-1)  # Stays at top (clamped)
         >>> state.highlighted_index
         0
-        >>> state.move_highlight_clamped(5)  # Move down past end
-        >>> state.highlighted_index
-        2
+
+        Notes
+        -----
+        Uses clamping behavior (stops at boundaries) rather than wrapping.
+        This is consistent with standard dropdown/autocomplete UX patterns.
         """
         if not self.suggestions:
             return
