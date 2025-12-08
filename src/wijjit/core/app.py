@@ -20,6 +20,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from wijjit.autocomplete.completer import Completer
 from wijjit.config import Config, DefaultConfig
 from wijjit.core.event_loop import EventLoop
 from wijjit.core.events import (
@@ -253,6 +254,9 @@ class Wijjit:
 
         # View state (delegated to ViewRouter, kept for backward compatibility)
         self.current_view_params: dict[str, Any] = {}
+
+        # Autocomplete completers registry
+        self.completers: dict[str, Completer] = {}
 
         # Application state
         self.running = False
@@ -1663,6 +1667,38 @@ class Wijjit:
         if result:
             self.needs_render = True
         return result
+
+    def register_completer(self, name: str, completer: Completer) -> None:
+        """Register an autocomplete completer by name.
+
+        Completers registered here can be referenced in templates using the
+        `autocomplete` attribute on text inputs.
+
+        Parameters
+        ----------
+        name : str
+            Name to register the completer under. Use "#element_id" to
+            auto-wire to specific elements with that ID.
+        completer : Completer
+            The completer instance to register.
+
+        Examples
+        --------
+        Register a word completer for a specific element:
+
+        >>> from wijjit.autocomplete import WordCompleter
+        >>> app.register_completer("#search", WordCompleter(["apple", "banana"]))
+
+        Register a named completer that can be used by multiple inputs:
+
+        >>> app.register_completer("fruits", WordCompleter(["apple", "banana"]))
+
+        Then in template:
+
+        >>> {% textinput id="search" autocomplete=True %}{% endtextinput %}
+        >>> {% textinput id="fruit" autocomplete="fruits" %}{% endtextinput %}
+        """
+        self.completers[name] = completer
 
     def _add_fps_overlay(self, output: str) -> str:
         """Add FPS counter overlay to output.

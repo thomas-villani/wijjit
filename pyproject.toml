@@ -1,6 +1,6 @@
 [project]
 name = "wijjit"
-version = "0.1.0"
+version = "0.1.0a"
 description = "A declarative TUI framework for Python - Flask for the Console"
 readme = "README.md"
 license = {text = "MIT"}

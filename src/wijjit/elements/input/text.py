@@ -5,11 +5,14 @@ user interfaces. TextInput handles single-line input with cursor editing, while
 TextArea supports multi-line editing with scrolling and text selection.
 """
 
+from __future__ import annotations
+
 import threading
 from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
+from wijjit.autocomplete.mixin import AutocompleteMixin
 from wijjit.elements.base import Element, ElementType
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -25,6 +28,7 @@ from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
+    from wijjit.autocomplete.completer import Completer
     from wijjit.styling.style import Style
 
 
@@ -49,7 +53,7 @@ class InputStyle(Enum):
     MINIMAL = auto()  # text with styling only
 
 
-class TextInput(Element):
+class TextInput(AutocompleteMixin, Element):
     """Text input field element.
 
     Parameters
@@ -66,6 +70,8 @@ class TextInput(Element):
         Maximum input length
     style : InputStyle, optional
         Visual style for input rendering (default: BRACKETS)
+    completer : Completer, optional
+        Autocomplete completer for suggestions
 
     Attributes
     ----------
@@ -103,6 +109,8 @@ class TextInput(Element):
         width: int = 20,
         max_length: int | None = None,
         style: InputStyle = InputStyle.BRACKETS,
+        completer: Completer | None = None,
+        autocomplete: list[str] | str | bool | Completer | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
@@ -113,6 +121,13 @@ class TextInput(Element):
         self.width = width
         self.max_length = max_length
         self.style = style
+
+        # Autocomplete support
+        # completer is the resolved Completer instance
+        # _autocomplete_spec stores the raw autocomplete value for deferred resolution
+        self.completer = completer
+        self._autocomplete_spec = autocomplete
+        self._init_autocomplete()
 
         # Callbacks for value changes and actions
         self.on_change: Callable[[str, str], None] | None = (
@@ -186,6 +201,10 @@ class TextInput(Element):
         bool
             True if key was handled
         """
+        # Check autocomplete first - it may consume the key
+        if self._handle_autocomplete_key(key):
+            return True
+
         old_value = self.value
 
         # Enter key - trigger action/submit
@@ -370,7 +389,7 @@ class TextInput(Element):
         return False
 
     def _emit_change(self, old_value: str, new_value: str) -> None:
-        """Emit change event.
+        """Emit change event and update autocomplete.
 
         Parameters
         ----------
@@ -381,6 +400,9 @@ class TextInput(Element):
         """
         if self.on_change is not None and old_value != new_value:
             self.on_change(old_value, new_value)
+
+        # Update autocomplete suggestions after text changes
+        self._handle_autocomplete_after_edit()
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render text input using cell-based rendering (NEW API).
@@ -2821,7 +2843,7 @@ class TextArea(Element):
 
             return (actual_row, actual_col)
 
-    def render_to(self, ctx: "PaintContext") -> None:
+    def render_to(self, ctx: PaintContext) -> None:
         """Render textarea using cell-based rendering (NEW API).
 
         Parameters
@@ -2873,7 +2895,7 @@ class TextArea(Element):
             self._render_to_content(ctx, content_style, 0, 0, self.width, self.height)
 
     def _render_to_with_border(
-        self, ctx: "PaintContext", content_style: "Style", border_style: "Style"
+        self, ctx: PaintContext, content_style: Style, border_style: Style
     ) -> None:
         """Render textarea with border using cells.
 
@@ -2963,8 +2985,8 @@ class TextArea(Element):
 
     def _render_to_content(
         self,
-        ctx: "PaintContext",
-        content_style: "Style",
+        ctx: PaintContext,
+        content_style: Style,
         start_x: int,
         start_y: int,
         width: int,

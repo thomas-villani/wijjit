@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from wijjit.autocomplete.resolver import resolve_autocomplete
 from wijjit.core.events import HandlerScope
 from wijjit.elements.display.link import Link
 from wijjit.elements.display.tree import Tree
@@ -194,6 +195,20 @@ class ElementWiringManager:
                 state[eid] = new_val
 
             elem.on_change = on_change_handler
+
+        # Resolve autocomplete spec to completer if needed
+        if elem._autocomplete_spec is not None and elem.completer is None:
+            elem.completer = resolve_autocomplete(
+                elem._autocomplete_spec,
+                elem.id,
+                self.app,
+            )
+            # Clear the spec after resolution
+            elem._autocomplete_spec = None
+
+        # Inject overlay manager for autocomplete popup display
+        if elem.completer is not None:
+            elem._overlay_manager = self.app.overlay_manager
 
     def _wire_textarea(self, elem: TextArea, state: State) -> None:
         """Wire TextArea callbacks.

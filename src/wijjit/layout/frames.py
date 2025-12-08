@@ -1455,7 +1455,9 @@ class Frame(ScrollableElement):
                         )
                         # Use thumb style for thumb char, track style for track char
                         is_thumb = scrollbar_char == "\u2588"  # Full block
-                        sb_attrs = scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
+                        sb_attrs = (
+                            scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
+                        )
                         cell = Cell(char=scrollbar_char, **sb_attrs)
                         ctx.write_cell(scrollbar_x, current_y, cell)
                         current_y += 1

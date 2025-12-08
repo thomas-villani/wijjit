@@ -206,7 +206,12 @@ class StyleResolver:
             )
 
             # Include focus_color in cache key since it affects style resolution
-            cache_key = (base_element_type, css_classes_key, state_key, self.focus_color)
+            cache_key = (
+                base_element_type,
+                css_classes_key,
+                state_key,
+                self.focus_color,
+            )
 
             # Check cache first
             if cache_key in self._style_cache:

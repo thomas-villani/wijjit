@@ -5,6 +5,8 @@ including text inputs, text areas, buttons, selects, checkboxes, and
 radio buttons.
 """
 
+from __future__ import annotations
+
 import json
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -24,7 +26,7 @@ from wijjit.tags.layout import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from wijjit.autocomplete.completer import Completer
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -74,6 +76,7 @@ class TextInputExtension(Extension):
         value: str = "",
         action: str | None = None,
         bind: bool = True,
+        autocomplete: list[str] | str | bool | Completer | None = None,
         **kwargs: Any,
     ) -> str:
         """Render the textinput tag.
@@ -94,6 +97,14 @@ class TextInputExtension(Extension):
             Action ID to dispatch when Enter is pressed
         bind : bool
             Whether to auto-bind value to state[id] (default: True)
+        autocomplete : list, str, bool, Completer, or None
+            Autocomplete configuration. Can be:
+            - None/False: Disabled (default)
+            - list: Word list to use for suggestions
+            - "state.key": Reference to state key containing word list
+            - "name": Name of registered completer in app.completers
+            - True: Auto-wire by element ID lookup in app.completers
+            - Completer: Direct completer instance
         classes : str, optional
             CSS-like class names for styling
 
@@ -140,6 +151,10 @@ class TextInputExtension(Extension):
             vnode.set_prop("classes", classes)
         if tab_index is not None:
             vnode.set_prop("tab_index", tab_index)
+
+        # Pass autocomplete spec for resolution in wiring phase
+        if autocomplete is not None:
+            vnode.set_prop("autocomplete", autocomplete)
 
         # Check if this element should be focused
         if focused_id and id and focused_id == id:

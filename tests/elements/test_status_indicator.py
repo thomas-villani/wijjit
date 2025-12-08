@@ -1,6 +1,5 @@
 """Tests for StatusIndicator element."""
 
-
 from tests.helpers import render_element
 from wijjit.elements.display.status_indicator import (
     DEFAULT_STATUSES,

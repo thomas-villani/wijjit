@@ -184,6 +184,7 @@ class Keys:
     # Additional control keys
     CTRL_D = Key("ctrl+d", KeyType.CONTROL, "\x04")
     CTRL_Z = Key("ctrl+z", KeyType.CONTROL, "\x1a")
+    CTRL_SPACE = Key("ctrl+space", KeyType.CONTROL, "\x00")
 
 
 # Multi-byte escape sequence mappings for special keys
@@ -214,6 +215,7 @@ SINGLE_CHAR_KEYS = {
     "\x7f": Keys.BACKSPACE,
     "\x08": Keys.BACKSPACE,  # Alternative backspace
     " ": Keys.SPACE,
+    "\x00": Keys.CTRL_SPACE,  # Ctrl+Space (NUL character)
     "\x03": Keys.CTRL_C,
     "\x04": Keys.CTRL_D,
     "\x1a": Keys.CTRL_Z,
@@ -239,6 +241,7 @@ PROMPT_TOOLKIT_KEY_MAP = {
     PTKeys.ControlC: Keys.CTRL_C,
     PTKeys.ControlD: Keys.CTRL_D,
     PTKeys.ControlZ: Keys.CTRL_Z,
+    PTKeys.ControlAt: Keys.CTRL_SPACE,  # Ctrl+Space (Ctrl+@ = NUL)
     # Control+navigation keys
     PTKeys.ControlHome: Key("ctrl+home", KeyType.SPECIAL),
     PTKeys.ControlEnd: Key("ctrl+end", KeyType.SPECIAL),
@@ -638,10 +641,27 @@ class InputHandler:
                 return mapped_key
 
             # Check for control characters
-            if key_press.key.startswith("c-") and len(key_press.key) == 3:
-                ctrl_letter = key_press.key[2]
-                char = chr(ord(ctrl_letter) - ord("a") + 1)
-                return Key(f"ctrl+{ctrl_letter}", KeyType.CONTROL, char)
+            if key_press.key.startswith("c-"):
+                # Handle Ctrl+Space (c-@ or c-space)
+                if key_press.key in ("c-@", "c-space"):
+                    return Keys.CTRL_SPACE
+                # Handle standard control keys
+                ctrl_part = key_press.key[2:]
+                if len(ctrl_part) == 1:
+                    # Single character control key
+                    ctrl_letter = ctrl_part
+                    # Only calculate control char for letters a-z
+                    if ctrl_letter.isalpha():
+                        char = chr(ord(ctrl_letter.lower()) - ord("a") + 1)
+                    else:
+                        # For non-letters (/, @, etc.), use the character itself
+                        char = ctrl_letter
+                    return Key(f"ctrl+{ctrl_letter}", KeyType.CONTROL, char)
+                else:
+                    # Multi-character control key (e.g., c-space, c-left)
+                    return Key(
+                        f"ctrl+{ctrl_part}", KeyType.CONTROL, key_press.data or ""
+                    )
 
             # Regular character
             if key_press.data:
@@ -868,10 +888,27 @@ class InputHandler:
                 return mapped_key
 
             # Check for control characters
-            if key_press.key.startswith("c-") and len(key_press.key) == 3:
-                ctrl_letter = key_press.key[2]
-                char = chr(ord(ctrl_letter) - ord("a") + 1)
-                return Key(f"ctrl+{ctrl_letter}", KeyType.CONTROL, char)
+            if key_press.key.startswith("c-"):
+                # Handle Ctrl+Space (c-@ or c-space)
+                if key_press.key in ("c-@", "c-space"):
+                    return Keys.CTRL_SPACE
+                # Handle standard control keys
+                ctrl_part = key_press.key[2:]
+                if len(ctrl_part) == 1:
+                    # Single character control key
+                    ctrl_letter = ctrl_part
+                    # Only calculate control char for letters a-z
+                    if ctrl_letter.isalpha():
+                        char = chr(ord(ctrl_letter.lower()) - ord("a") + 1)
+                    else:
+                        # For non-letters (/, @, etc.), use the character itself
+                        char = ctrl_letter
+                    return Key(f"ctrl+{ctrl_letter}", KeyType.CONTROL, char)
+                else:
+                    # Multi-character control key (e.g., c-space, c-left)
+                    return Key(
+                        f"ctrl+{ctrl_part}", KeyType.CONTROL, key_press.data or ""
+                    )
 
             # Regular character
             if key_press.data:

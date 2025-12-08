@@ -373,6 +373,13 @@ class DefaultTheme(Theme):
                 fg_color=(255, 255, 255),
                 bg_color=(200, 0, 0),
             ),
+            # Autocomplete styles
+            "autocomplete.border": Style(fg_color=(100, 100, 100)),
+            "autocomplete.item": Style(fg_color=(255, 255, 255), bg_color=(30, 30, 30)),
+            "autocomplete.item:highlighted": Style(
+                fg_color=(0, 0, 0), bg_color=(0, 255, 255)
+            ),
+            "autocomplete.scrollbar": Style(fg_color=(150, 150, 150)),
             # Menu styles
             "menu": Style(fg_color=(255, 255, 255)),
             "menu:focus": Style(fg_color=(255, 255, 255)),
@@ -712,6 +719,13 @@ class DarkTheme(Theme):
                 fg_color=(255, 255, 255),
                 bg_color=(200, 40, 40),
             ),
+            # Autocomplete styles
+            "autocomplete.border": Style(fg_color=(80, 80, 100)),
+            "autocomplete.item": Style(fg_color=(200, 200, 220), bg_color=(20, 20, 30)),
+            "autocomplete.item:highlighted": Style(
+                fg_color=(0, 0, 0), bg_color=(100, 200, 255)
+            ),
+            "autocomplete.scrollbar": Style(fg_color=(120, 120, 160)),
             # Menu styles
             "menu": Style(fg_color=(200, 200, 220)),
             "menu:focus": Style(fg_color=(220, 220, 255)),
@@ -1034,6 +1048,13 @@ class LightTheme(Theme):
                 fg_color=(255, 255, 255),
                 bg_color=(255, 100, 100),
             ),
+            # Autocomplete styles
+            "autocomplete.border": Style(fg_color=(180, 180, 180)),
+            "autocomplete.item": Style(fg_color=(0, 0, 0), bg_color=(250, 250, 250)),
+            "autocomplete.item:highlighted": Style(
+                fg_color=(255, 255, 255), bg_color=(0, 100, 200)
+            ),
+            "autocomplete.scrollbar": Style(fg_color=(150, 150, 150)),
             # Menu styles
             "menu": Style(fg_color=(0, 0, 0)),
             "menu:focus": Style(fg_color=(0, 0, 0)),
@@ -1424,6 +1445,15 @@ class HighContrastTheme(Theme):
                 bg_color=(255, 0, 0),  # Bright red
                 bold=True,
             ),
+            # Autocomplete styles
+            "autocomplete.border": Style(fg_color=(255, 255, 255), bold=True),
+            "autocomplete.item": Style(
+                fg_color=(255, 255, 255), bg_color=(0, 0, 0), bold=True
+            ),
+            "autocomplete.item:highlighted": Style(
+                fg_color=(0, 0, 0), bg_color=(255, 255, 0), bold=True
+            ),
+            "autocomplete.scrollbar": Style(fg_color=(255, 255, 255), bold=True),
             # Menu styles
             "menu": Style(fg_color=(255, 255, 255), bold=True),
             "menu:focus": Style(fg_color=(255, 255, 255), bold=True),
