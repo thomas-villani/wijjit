@@ -1590,3 +1590,169 @@ class ToggleExtension(Extension):
         context.add_vnode(vnode)
 
         return get_element_marker(context)
+
+
+class DataGridExtension(Extension):
+    """Jinja2 extension for {% datagrid %} tag.
+
+    Syntax:
+        {% datagrid id="my_grid" data=grid_data columns=["Name", "Age", "City"]
+                    width=60 height=15 %}
+        {% enddatagrid %}
+
+        {% datagrid id="inventory" data=items
+                    columns=[
+                        {"key": "name", "label": "Product", "width": 20},
+                        {"key": "qty", "label": "Qty", "width": 8},
+                        {"key": "price", "label": "Price", "width": 10}
+                    ]
+                    show_row_numbers=True %}
+        {% enddatagrid %}
+    """
+
+    tags = {"datagrid"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the datagrid tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "enddatagrid", lineno)
+
+        node = nodes.CallBlock(
+            self.call_method("_render_datagrid", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:enddatagrid",), drop_needle=True),
+        ).set_lineno(lineno)
+
+        return node
+
+    def _render_datagrid(
+        self,
+        caller: Any,
+        id: str | None = None,
+        data: list[list[str]] | None = None,
+        columns: list[str] | list[dict[str, Any]] | None = None,
+        width: int = 60,
+        height: int = 15,
+        show_row_numbers: bool = True,
+        editable: bool = True,
+        border_style: str = "single",
+        show_scrollbar: bool = True,
+        bind: bool = True,
+        **kwargs: Any,
+    ) -> str:
+        """Render the datagrid tag.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content
+        id : str, optional
+            Element identifier
+        data : list of list of str, optional
+            2D grid data (rows x columns)
+        columns : list of str or list of dict, optional
+            Column definitions. Can be simple strings (headers) or dicts with
+            "key", "label", and "width" keys.
+        width : int
+            Total display width (default: 60)
+        height : int
+            Total display height (default: 15)
+        show_row_numbers : bool
+            Show row numbers on left side (default: True)
+        editable : bool
+            Whether cells can be edited (default: True)
+        border_style : str
+            Border style: "single", "double", "rounded", etc. (default: "single")
+        show_scrollbar : bool
+            Whether to show scrollbars when content overflows (default: True)
+        bind : bool
+            Whether to auto-bind data to state[id] (default: True)
+        classes : str, optional
+            CSS-like class names for styling
+        tab_index : int, optional
+            Tab order for focus navigation
+
+        Returns
+        -------
+        str
+            Rendered output
+        """
+        # Normalize kwargs (handles class->classes, tabindex->tab_index)
+        kwargs = normalize_element_kwargs(kwargs)
+        classes = kwargs.pop("classes", None)
+        tab_index = kwargs.pop("tab_index", None)
+
+        # Get layout context from RenderContext
+        render_ctx = get_render_context()
+        context = render_ctx.layout_context
+        state = render_ctx.state
+        focused_id = render_ctx.focused_id
+
+        # Convert numeric parameters
+        width = safe_int(width, default=60, name="width")
+        height = safe_int(height, default=15, name="height")
+
+        # Auto-generate ID if not provided
+        if id is None:
+            id = context.generate_id("datagrid")
+
+        # Consume body (typically empty for datagrid)
+        caller()
+
+        # If binding is enabled and id is provided, try to get data from state
+        if bind and id:
+            try:
+                if id in state:
+                    state_data = state[id]
+                    if isinstance(state_data, list):
+                        data = state_data
+            except (KeyError, TypeError, AttributeError) as e:
+                logger.warning(f"Failed to restore state for datagrid '{id}': {e}")
+
+        # Ensure data is a list
+        if data is None:
+            data = []
+
+        # Ensure columns is a list
+        if columns is None:
+            columns = []
+
+        # Check if this element should be focused
+        is_focused = focused_id and id and focused_id == id
+
+        # Create VNode for reconciliation
+        vnode = VNodeBuilder("DataGrid", key=id)
+        vnode.set_prop("id", id)
+        vnode.set_prop("data", data)
+        vnode.set_prop("columns", columns)
+        vnode.set_prop("width_spec", width)
+        vnode.set_prop("height_spec", height)
+        vnode.set_prop("show_row_numbers", bool(show_row_numbers))
+        vnode.set_prop("editable", bool(editable))
+        vnode.set_prop("border_style", border_style)
+        vnode.set_prop("show_scrollbar", bool(show_scrollbar))
+        vnode.set_prop("bind", bind)
+        vnode.set_prop("focused", is_focused)
+
+        if classes is not None:
+            vnode.set_prop("classes", classes)
+        if tab_index is not None:
+            vnode.set_prop("tab_index", tab_index)
+
+        # Set layout dimensions
+        vnode.set_layout(width=width, height=height)
+        context.add_vnode(vnode)
+
+        return get_element_marker(context)

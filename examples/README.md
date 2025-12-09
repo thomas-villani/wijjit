@@ -32,6 +32,7 @@ Individual examples showcasing specific UI elements and components.
 - **slider_demo.py** - Numeric sliders (integer and float modes, keyboard and mouse)
 - **toggle_demo.py** - Toggle switches (single and dual label modes)
 - **status_indicator_demo.py** - Status indicators with color presets and custom statuses
+- **datagrid_demo.py** - Spreadsheet-like data entry with VisiCalc/Lotus 1-2-3 style editing
 
 **Data Display:**
 - **table_demo.py** - Sortable tables with scrolling

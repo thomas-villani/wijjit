@@ -7,6 +7,7 @@ TextArea, and CodeEditor.
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.code_editor import CodeEditor, SyntaxHighlighter
+from wijjit.elements.input.datagrid import DataGrid
 from wijjit.elements.input.highlighting import (
     DEFAULT_THEME,
     get_available_themes,
@@ -21,6 +22,7 @@ __all__ = [
     "Checkbox",
     "CheckboxGroup",
     "CodeEditor",
+    "DataGrid",
     "DEFAULT_THEME",
     "InputStyle",
     "RadioGroup",

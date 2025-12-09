@@ -71,6 +71,7 @@ from wijjit.tags.input import (
     CheckboxExtension,
     CheckboxGroupExtension,
     CodeEditorExtension,
+    DataGridExtension,
     RadioExtension,
     RadioGroupExtension,
     SelectExtension,
@@ -205,6 +206,7 @@ class Renderer:
                 # New input elements
                 SliderExtension,
                 ToggleExtension,
+                DataGridExtension,
                 # Status indicator
                 StatusIndicatorExtension,
             ],

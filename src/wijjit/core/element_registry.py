@@ -79,6 +79,7 @@ class ElementRegistry:
         from wijjit.elements.input.button import Button
         from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
         from wijjit.elements.input.code_editor import CodeEditor
+        from wijjit.elements.input.datagrid import DataGrid
         from wijjit.elements.input.radio import Radio, RadioGroup
         from wijjit.elements.input.select import Select
         from wijjit.elements.input.slider import Slider
@@ -106,6 +107,7 @@ class ElementRegistry:
             "Slider": Slider,
             "Toggle": Toggle,
             "CodeEditor": CodeEditor,
+            "DataGrid": DataGrid,
             # Display elements
             "StatusIndicator": StatusIndicator,
             "Status": StatusIndicator,  # Alias

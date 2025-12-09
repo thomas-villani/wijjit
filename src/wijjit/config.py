@@ -401,6 +401,15 @@ class DefaultConfig:
     HTML_CONTENT = False
 
     # ============================================================
+    # PROCESS CONTROL
+    # ============================================================
+
+    #: Enable Ctrl+Z suspend/background support (Linux/Unix only)
+    #: When enabled, pressing Ctrl+Z will suspend the app to the background
+    #: and 'fg' command will resume it. On Windows, this option is ignored.
+    ENABLE_SUSPEND = True
+
+    # ============================================================
     # ACCESSIBILITY
     # ============================================================
 

@@ -41,6 +41,67 @@ CodeEditor
        :pyobject: main_view
        :caption: ``examples/widgets/code_editor_demo.py`` - syntax highlighting with theme switching
 
+DataGrid
+    Spreadsheet-like data entry element (:mod:`wijjit.elements.input.datagrid`). Implements VisiCalc/Lotus 1-2-3 style editing with an entry line at the top for data input. Supports keyboard navigation (arrow keys, Tab, Enter), mouse interaction (click cells, scroll), and automatic state binding.
+
+    Key attributes:
+
+    * ``data`` - 2D list of cell values (list of rows)
+    * ``columns`` - List of column headers (strings or dicts with ``key``, ``label``, ``width``)
+    * ``width`` / ``height`` - Grid dimensions in characters
+    * ``show_row_numbers`` - Display row numbers on the left (default: ``True``)
+    * ``editable`` - Allow cell editing (default: ``True``)
+    * ``show_scrollbar`` - Show scrollbars when content exceeds viewport (default: ``True``)
+
+    Navigation:
+
+    * **Arrow keys** - Move between cells
+    * **Tab / Shift+Tab** - Move to next/previous cell
+    * **Enter** - Confirm edit and move down, or start editing current cell
+    * **Escape** - Cancel current edit
+    * **Mouse click** - Select cell, double-click to edit
+    * **Mouse scroll** - Scroll through large datasets
+
+    Data formats (input and output):
+
+    * **List of lists** - Default format: ``[["A", "B"], ["C", "D"]]``
+    * **List of dicts** - Each row as a dict: ``[{"name": "John", "age": 30}, ...]``
+    * **pandas DataFrame** - Automatically converts to/from DataFrames (pandas optional)
+
+    .. code-block:: jinja
+
+       {% datagrid id="spreadsheet" width=60 height=15 %}
+           columns:
+             - {key: "name", label: "Name", width: 20}
+             - {key: "price", label: "Price", width: 10}
+             - {key: "qty", label: "Quantity", width: 10}
+           data:
+             - ["Widget", "9.99", "100"]
+             - ["Gadget", "19.99", "50"]
+       {% enddatagrid %}
+
+    Working with DataGrid state:
+
+    .. code-block:: python
+
+       # Get data as list of lists (default)
+       data = app.state["spreadsheet"]
+
+       # Get data as list of dicts
+       from wijjit.elements.input.datagrid import DataGrid
+       grid = app.get_element("spreadsheet")
+       data_as_dicts = grid.get_data_as_dicts()
+
+       # Get data as pandas DataFrame (if pandas available)
+       df = grid.get_data_as_dataframe()
+
+       # Set data from various formats
+       grid.set_data([["A", "B"], ["C", "D"]])  # list of lists
+       grid.set_data([{"col1": "A", "col2": "B"}])  # list of dicts
+       grid.set_data(pandas_df)  # DataFrame
+
+    See ``examples/widgets/datagrid_demo.py`` for a complete inventory management example with add/delete row functionality.
+
 Button
     Clickable action trigger (:mod:`wijjit.elements.input.button`). Attributes: ``variant`` (``primary``, ``secondary``, ``danger``), ``icon``, ``disabled``. Useful for both primary actions and inline icon buttons. Remember that ``action`` ids participate in handler routing—keep them short verbs (``save``, ``cancel``) and reuse them across views to share behavior.
 

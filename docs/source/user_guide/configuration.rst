@@ -224,6 +224,30 @@ HIDE_CURSOR
 
    app.config['HIDE_CURSOR'] = False  # Keep cursor visible
 
+Process Control (1 option)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ENABLE_SUSPEND
+^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``True``
+:Description: Enable Ctrl+Z suspend/background support on Unix-like systems (Linux, macOS, BSD). When enabled, pressing Ctrl+Z will properly suspend the application to the background, and ``fg`` will resume it. On Windows, this option is ignored.
+
+.. code-block:: python
+
+   app.config['ENABLE_SUSPEND'] = False  # Disable Ctrl+Z suspend
+
+.. tip::
+   When suspended with Ctrl+Z, Wijjit automatically:
+
+   1. Saves terminal state (alternate screen, cursor, mouse tracking)
+   2. Restores normal terminal so you can use the shell
+   3. On resume (``fg``), restores TUI state and triggers a re-render
+
+.. note::
+   This feature only works on Unix-like systems. On Windows, job control signals are not available.
+
 Colors & Theming (7 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

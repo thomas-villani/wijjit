@@ -39,6 +39,7 @@ from wijjit.core.notification_manager import NotificationManager
 from wijjit.core.overlay import LayerType, Overlay, OverlayManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
+from wijjit.core.suspend import SuspendManager
 from wijjit.core.view_router import ViewConfig, ViewRouter
 from wijjit.core.wiring import ElementWiringManager
 from wijjit.elements.base import Element
@@ -250,6 +251,7 @@ class Wijjit:
         self._executor: ThreadPoolExecutor | None = None
         self.event_loop = EventLoop(self, executor=None)
         self.mouse_router = MouseEventRouter(self)
+        self.suspend_manager = SuspendManager(self)
         self.wiring_manager = ElementWiringManager(self)
 
         # View state (delegated to ViewRouter, kept for backward compatibility)

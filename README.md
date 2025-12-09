@@ -23,6 +23,7 @@ applications. We built this library to bring the syntactic elegance of Flask's d
 - **Layout System**: Flexible frames with stacks (vertical/horizontal), scrolling, and sizing options
 - **Mouse Support**: Click buttons, scroll content, and interact with elements
 - **Inline Rendering**: Output styled UI to terminal scrollback without alternate screen
+- **Job Control**: Ctrl+Z suspend/resume support on Unix systems (Linux, macOS)
 - **ANSI-Aware**: Proper handling of colors and styling throughout
 
 ## Installation
@@ -507,6 +508,7 @@ print(f"You entered: {app.state.name}")
 - **TextInput**: Single-line text input with cursor editing
 - **TextArea**: Multi-line text input with scrolling
 - **CodeEditor**: Syntax-highlighted code editor (500+ languages, multiple themes)
+- **DataGrid**: Spreadsheet-like data entry with VisiCalc/Lotus 1-2-3 style entry line
 - **Button**: Clickable button (mouse or keyboard)
 - **Checkbox**: Single checkbox or checkbox groups
 - **Radio**: Radio button groups
@@ -547,7 +549,7 @@ print(f"You entered: {app.state.name}")
 
 ## Examples
 
-The `examples/` directory contains **66 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
+The `examples/` directory contains **67 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
 
@@ -558,6 +560,7 @@ Introductory examples demonstrating core concepts:
 - `mouse_demo.py` - Mouse interaction (clicks, hovers, scrolling)
 - `debug_keys.py` - Key event debugging tool
 - `alignment_demo.py` - Content alignment in layouts
+- `suspend_demo.py` - Ctrl+Z suspend/background (Linux/macOS)
 - `inline_demo.py` - One-shot inline rendering to scrollback
 - `inline_progress_demo.py` - Interactive progress with `InlineApp`
 - `inline_input_demo.py` - Interactive forms with keyboard input
@@ -729,10 +732,11 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Scrolling system with scrollbars (vertical and horizontal)
 - ✅ Modal/overlay system with dialogs
 - ✅ Inline rendering (render_inline, InlineApp with keyboard input)
+- ✅ Job control with Ctrl+Z suspend/resume (Unix)
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 66 working examples
+- ✅ 67 working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations

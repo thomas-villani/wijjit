@@ -181,6 +181,11 @@ class EventLoop:
                 self.app.input_handler.enable_mouse_tracking()
                 logger.debug("Enabled mouse tracking")
 
+            # Register suspend handlers for Ctrl+Z support (Unix only)
+            if self.app.config.get("ENABLE_SUSPEND", True):
+                if self.app.suspend_manager.register():
+                    logger.debug("Registered suspend handlers")
+
             # Render initial view
             logger.info(f"Rendering initial view: '{self.app.current_view}'")
             self.app._render()
@@ -222,6 +227,9 @@ class EventLoop:
 
         finally:
             logger.info("Exiting application, cleaning up")
+            # Unregister suspend handlers before terminal cleanup
+            self.app.suspend_manager.unregister()
+            logger.debug("Unregistered suspend handlers")
             # Show cursor before exiting
             self.app.screen_manager.show_cursor()
             logger.debug("Shown cursor")
