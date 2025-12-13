@@ -127,8 +127,8 @@ class ContentView(ScrollableElement):
         theme: str = "monokai",
         show_line_numbers: bool = False,
         line_number_start: int = 1,
-        width: int = 60,
-        height: int = 20,
+        width: int | str = 60,
+        height: int | str = 20,
         show_scrollbar: bool = True,
         border_style: str = "single",
         title: str | None = None,
@@ -138,7 +138,7 @@ class ContentView(ScrollableElement):
         self.focusable = True  # Focusable for keyboard scrolling
 
         # Content and type
-        self.content = content
+        self._content = content
         self._content_type = self._resolve_content_type(content_type)
 
         # Code-specific options
@@ -147,9 +147,19 @@ class ContentView(ScrollableElement):
         self.show_line_numbers = show_line_numbers
         self.line_number_start = line_number_start
 
-        # Display properties
-        self.width = width
-        self.height = height
+        # Dynamic sizing flag - detect "fill" or other string values
+        self._dynamic_sizing: bool = isinstance(width, str) or isinstance(height, str)
+
+        # Display properties - convert string specs to sensible defaults
+        # These will be updated by set_bounds() when layout is computed
+        if isinstance(width, str):
+            self.width = 60  # Default until layout sets actual size
+        else:
+            self.width = width
+        if isinstance(height, str):
+            self.height = 20  # Default until layout sets actual size
+        else:
+            self.height = height
         self.show_scrollbar = show_scrollbar
         self.border_style = border_style
         self.title = title
@@ -181,9 +191,6 @@ class ContentView(ScrollableElement):
         self.action: str | None = None
         self.bind: bool = True
 
-        # Dynamic sizing flag (set by template tag)
-        self._dynamic_sizing: bool = False
-
     @property
     def content_type(self) -> ContentType:
         """Get the current content type.
@@ -207,6 +214,41 @@ class ContentView(ScrollableElement):
         new_type = self._resolve_content_type(value)
         if new_type != self._content_type:
             self._content_type = new_type
+            self._render_content()
+            content_count = (
+                len(self.rendered_cells)
+                if self._uses_cells
+                else len(self.rendered_lines)
+            )
+            self.scroll_manager.update_content_size(content_count)
+
+    @property
+    def content(self) -> str:
+        """Get the current content.
+
+        Returns
+        -------
+        str
+            Current content string
+        """
+        return self._content
+
+    @content.setter
+    def content(self, value: str) -> None:
+        """Set the content and update scroll manager.
+
+        When content is changed dynamically, this setter ensures the scroll
+        manager is updated with the new content size.
+
+        Parameters
+        ----------
+        value : str
+            New content string
+        """
+        if value != self._content:
+            self._content = value
+            # Clear cache to force re-render
+            self._render_cache_key = None
             self._render_content()
             content_count = (
                 len(self.rendered_cells)
@@ -407,10 +449,12 @@ class ContentView(ScrollableElement):
         content_type : str or ContentType, optional
             New content type (if None, keeps current type)
         """
-        self.content = content
+        self._content = content
         if content_type is not None:
             self._content_type = self._resolve_content_type(content_type)
 
+        # Clear cache to force re-render
+        self._render_cache_key = None
         self._render_content()
 
         content_count = (

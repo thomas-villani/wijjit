@@ -88,7 +88,7 @@ def main_view():
     return {
         "template": """
 {% frame border="double" title="ContentView Demo - Press Tab to navigate, Ctrl+Q to quit" %}
-  {% hstack spacing=1 %}
+  {% hstack spacing=1 width="fill" %}
     {% vstack width="50%" %}
       {% contentview id="plain" content_type="plain" title="Plain Text" height=10 %}
 {{ plain_content }}

@@ -503,6 +503,79 @@ class TestContentViewSetContent:
         assert view.content_type == ContentType.MARKDOWN
 
 
+class TestContentViewDynamicContent:
+    """Tests for ContentView dynamic content updates via property setter."""
+
+    def test_content_property_setter_updates_scroll_manager(self):
+        """Test that setting content via property updates scroll manager.
+
+        Verifies
+        --------
+        - Content is updated
+        - Scroll manager content_size is updated
+        - Rendered lines are updated
+        """
+        # Create view with short content
+        view = ContentView(content="Line 1", content_type="plain", height=5)
+        initial_content_size = view.scroll_manager.state.content_size
+        assert initial_content_size == 1
+
+        # Set new content with more lines via property
+        view.content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5"
+        assert view.content == "Line 1\nLine 2\nLine 3\nLine 4\nLine 5"
+        assert view.scroll_manager.state.content_size == 5
+        assert len(view.rendered_lines) == 5
+
+    def test_content_property_setter_shrink_content(self):
+        """Test that setting shorter content updates scroll manager.
+
+        Verifies
+        --------
+        - Scroll manager content_size is reduced
+        - Rendered lines are reduced
+        """
+        # Create view with long content
+        long_content = "\n".join([f"Line {i}" for i in range(20)])
+        view = ContentView(content=long_content, content_type="plain", height=5)
+        assert view.scroll_manager.state.content_size == 20
+
+        # Set shorter content
+        view.content = "Short"
+        assert view.scroll_manager.state.content_size == 1
+        assert len(view.rendered_lines) == 1
+
+    def test_content_property_setter_same_value_no_update(self):
+        """Test that setting same content doesn't trigger re-render.
+
+        Verifies
+        --------
+        - No unnecessary re-render when content is unchanged
+        """
+        view = ContentView(content="Same", content_type="plain")
+        cache_key_before = view._render_cache_key
+
+        # Set same content
+        view.content = "Same"
+        # Cache key should not change (no re-render needed)
+        assert view._render_cache_key == cache_key_before
+
+    def test_content_property_setter_clears_cache(self):
+        """Test that setting new content clears render cache.
+
+        Verifies
+        --------
+        - Render cache is cleared when content changes
+        - New content is rendered
+        """
+        view = ContentView(content="Original", content_type="plain")
+        original_cache_key = view._render_cache_key
+
+        # Set new content
+        view.content = "New content"
+        # Cache key should be different (re-render occurred)
+        assert view._render_cache_key != original_cache_key
+
+
 class TestContentViewClasses:
     """Tests for ContentView CSS class support."""
 
