@@ -111,6 +111,8 @@ class TextInput(AutocompleteMixin, Element):
         style: InputStyle = InputStyle.BRACKETS,
         completer: Completer | None = None,
         autocomplete: list[str] | str | bool | Completer | None = None,
+        action: str | None = None,
+        bind: bool = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
@@ -121,6 +123,10 @@ class TextInput(AutocompleteMixin, Element):
         self.width = width
         self.max_length = max_length
         self.style = style
+
+        # Action ID and bind settings
+        self.action = action
+        self.bind = bind
 
         # Autocomplete support
         # completer is the resolved Completer instance
@@ -141,10 +147,6 @@ class TextInput(AutocompleteMixin, Element):
         self.on_file_path_paste: Callable[[list[str]], bool] | None = (
             None  # (paths) -> True to prevent paste, False to allow
         )
-
-        # Action ID and bind settings (set by template extension)
-        self.action: str | None = None
-        self.bind: bool = True
 
     def _detect_file_paths(self, text: str) -> list[str]:
         """Detect file paths in pasted text.
@@ -673,6 +675,8 @@ class TextArea(Element):
         border_style: (
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = "single",
+        action: str | None = None,
+        bind: bool = True,
     ):
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
@@ -688,6 +692,10 @@ class TextArea(Element):
 
         # Border style (normalize string to enum)
         self.border_style = self._normalize_border_style(border_style)
+
+        # Action ID and bind settings
+        self.action = action
+        self.bind = bind
 
         # Text content storage
         self.lines: list[str] = [""]  # Start with one empty line
@@ -727,10 +735,6 @@ class TextArea(Element):
             None  # (paths) -> True to prevent paste, False to allow
         )
         self.on_scroll_x: Callable[[int], None] | None = None
-
-        # Action settings (set by template extension)
-        self.action: str | None = None
-        self.bind: bool = True
 
         # Dynamic sizing flag (set by template tag)
         self._dynamic_sizing: bool = False
