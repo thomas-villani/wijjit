@@ -28,6 +28,7 @@ If a key handler needs async operations, it should schedule the work
 
 from __future__ import annotations
 
+import asyncio
 import weakref
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -40,6 +41,54 @@ from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 if TYPE_CHECKING:
     from wijjit.layout.bounds import Bounds
     from wijjit.rendering.paint_context import PaintContext
+
+
+def invoke_callback(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Invoke a callback, handling both sync and async functions.
+
+    If the callback is async (returns a coroutine), it will be scheduled
+    on the event loop via asyncio.create_task(). The result will be returned
+    asynchronously and any exceptions will be logged.
+
+    Parameters
+    ----------
+    callback : Callable
+        The callback function to invoke (sync or async)
+    *args : Any
+        Positional arguments to pass to the callback
+    **kwargs : Any
+        Keyword arguments to pass to the callback
+
+    Returns
+    -------
+    Any
+        The return value from sync callbacks, or None for async callbacks
+        (since they're scheduled as tasks)
+
+    Examples
+    --------
+    >>> def sync_handler(value):
+    ...     print(f"Got {value}")
+    >>> invoke_callback(sync_handler, "hello")
+    Got hello
+
+    >>> async def async_handler(value):
+    ...     await asyncio.sleep(0.1)
+    ...     print(f"Got {value}")
+    >>> invoke_callback(async_handler, "hello")  # Schedules task, returns None
+    """
+    result = callback(*args, **kwargs)
+    if asyncio.iscoroutine(result):
+        # Schedule async callback on event loop
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(result)
+        except RuntimeError:
+            # No running loop - this shouldn't happen in normal Wijjit usage
+            # but handle gracefully by just running it
+            asyncio.run(result)
+        return None
+    return result
 
 
 class ElementType(Enum):

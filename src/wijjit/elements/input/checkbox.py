@@ -8,7 +8,7 @@ Supports keyboard and mouse interaction, custom styling, and change callbacks.
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.terminal.ansi import (
     supports_unicode,
@@ -103,7 +103,7 @@ class Checkbox(Element):
             New checked state
         """
         if self.on_change and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
@@ -122,7 +122,7 @@ class Checkbox(Element):
         if key == Keys.SPACE or key == Keys.ENTER:
             self.toggle()
             if key == Keys.ENTER and self.on_action:
-                self.on_action()
+                invoke_callback(self.on_action)
             return True
 
         return False
@@ -395,7 +395,7 @@ class CheckboxGroup(Element):
     def _emit_change(self, old_values: list, new_values: list[Any]) -> None:
         """Emit change event."""
         if self.on_change and old_values != new_values:
-            self.on_change(old_values, new_values)
+            invoke_callback(self.on_change, old_values, new_values)
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input."""
@@ -406,7 +406,7 @@ class CheckboxGroup(Element):
         if key == Keys.SPACE or key == Keys.ENTER:
             self.toggle_option(self.highlighted_index)
             if key == Keys.ENTER and self.on_action:
-                self.on_action()
+                invoke_callback(self.on_action)
             return True
 
         # Navigation
@@ -444,7 +444,7 @@ class CheckboxGroup(Element):
             New highlighted index
         """
         if self.on_highlight_change:
-            self.on_highlight_change(new_index)
+            invoke_callback(self.on_highlight_change, new_index)
 
     async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input."""

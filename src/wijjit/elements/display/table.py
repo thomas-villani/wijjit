@@ -13,7 +13,7 @@ import rich.box
 from rich.console import Console
 from rich.table import Table as RichTable
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -336,7 +336,7 @@ class Table(ScrollableElement):
 
         # Emit callback
         if self.on_sort:
-            self.on_sort(self.sort_column, self.sort_direction)
+            invoke_callback(self.on_sort, self.sort_column, self.sort_direction)
 
     def _apply_sort(self) -> None:
         """Apply current sort settings to data."""
@@ -378,7 +378,9 @@ class Table(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -388,7 +390,9 @@ class Table(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -396,14 +400,18 @@ class Table(ScrollableElement):
         elif key == Keys.HOME:
             self.scroll_manager.scroll_to(0)
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # End - jump to bottom
         elif key == Keys.END:
             self.scroll_manager.scroll_to_bottom()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # Page Up
@@ -412,7 +420,9 @@ class Table(ScrollableElement):
             self.scroll_manager.page_up()
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -422,7 +432,9 @@ class Table(ScrollableElement):
             self.scroll_manager.page_down()
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -447,7 +459,9 @@ class Table(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -456,7 +470,9 @@ class Table(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -485,7 +501,7 @@ class Table(ScrollableElement):
                 if column_key:
                     # Fire header click callback
                     if self.on_header_click:
-                        self.on_header_click(column_key)
+                        invoke_callback(self.on_header_click, column_key)
 
                     # Also trigger sort if sortable
                     if self.sortable:
@@ -507,19 +523,26 @@ class Table(ScrollableElement):
                     # Handle double-click
                     if is_double:
                         if self.on_row_double_click:
-                            self.on_row_double_click(actual_row_index, row_data)
+                            invoke_callback(
+                                self.on_row_double_click, actual_row_index, row_data
+                            )
                         return True
 
                     # Handle single click
                     if self.on_row_click:
-                        self.on_row_click(actual_row_index, row_data)
+                        invoke_callback(self.on_row_click, actual_row_index, row_data)
 
                     # Handle cell click
                     if self.on_cell_click:
                         column_key = self._get_column_at_x(relative_x)
                         if column_key:
                             cell_value = str(row_data.get(column_key, ""))
-                            self.on_cell_click(actual_row_index, column_key, cell_value)
+                            invoke_callback(
+                                self.on_cell_click,
+                                actual_row_index,
+                                column_key,
+                                cell_value,
+                            )
 
                     return True
 

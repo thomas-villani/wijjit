@@ -8,7 +8,7 @@ mouse interaction, search filtering, and customizable styling.
 from collections.abc import Callable
 from typing import Any, Literal
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager
 from wijjit.rendering.paint_context import PaintContext
@@ -700,7 +700,7 @@ class Select(ScrollableElement):
             New value (str for single, list for multiple)
         """
         if self.on_change and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
     def _emit_highlight_change(self, new_index: int) -> None:
         """Emit highlight change event.
@@ -711,12 +711,12 @@ class Select(ScrollableElement):
             New highlighted index
         """
         if self.on_highlight_change:
-            self.on_highlight_change(new_index)
+            invoke_callback(self.on_highlight_change, new_index)
 
     def _emit_scroll_change(self) -> None:
         """Emit scroll position change event."""
         if self.on_scroll:
-            self.on_scroll(self.scroll_manager.state.scroll_position)
+            invoke_callback(self.on_scroll, self.scroll_manager.state.scroll_position)
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the select element using cell-based rendering (NEW API).

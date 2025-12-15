@@ -8,7 +8,7 @@ group can be selected at a time. Supports keyboard and mouse interaction.
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.terminal.ansi import (
     supports_unicode,
@@ -126,7 +126,7 @@ class Radio(Element):
             New checked state
         """
         if self.on_change and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
@@ -146,7 +146,7 @@ class Radio(Element):
             self.select()
             # Also trigger action on Enter
             if key == Keys.ENTER and self.on_action:
-                self.on_action()
+                invoke_callback(self.on_action)
             return True
 
         # Arrow keys for navigation within group
@@ -427,7 +427,7 @@ class RadioGroup(Element):
     def _emit_change(self, old_value: str | None, new_value: str | None) -> None:
         """Emit change event."""
         if self.on_change and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input."""
@@ -442,7 +442,7 @@ class RadioGroup(Element):
         # Enter - trigger action
         elif key == Keys.ENTER:
             if self.on_action:
-                self.on_action()
+                invoke_callback(self.on_action)
             return True
 
         # Navigation with auto-selection
@@ -484,7 +484,7 @@ class RadioGroup(Element):
             New highlighted index
         """
         if self.on_highlight_change:
-            self.on_highlight_change(new_index)
+            invoke_callback(self.on_highlight_change, new_index)
 
     async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input."""

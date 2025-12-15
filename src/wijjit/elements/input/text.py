@@ -13,7 +13,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Literal
 
 from wijjit.autocomplete.mixin import AutocompleteMixin
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
@@ -210,9 +210,9 @@ class TextInput(AutocompleteMixin, Element):
         # Enter key - trigger action/submit
         if key == Keys.ENTER:
             if self.on_submit:
-                self.on_submit(self.value)
+                invoke_callback(self.on_submit, self.value)
             if self.on_action:
-                self.on_action()
+                invoke_callback(self.on_action)
             return True
 
         # Character input
@@ -399,7 +399,7 @@ class TextInput(AutocompleteMixin, Element):
             New value
         """
         if self.on_change is not None and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
         # Update autocomplete suggestions after text changes
         self._handle_autocomplete_after_edit()
@@ -930,7 +930,7 @@ class TextArea(Element):
         # Emit change event
         new_value = self.get_value()
         if self.on_change and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
     def rewrap_content(self, new_width: int | None = None) -> None:
         """Explicitly re-wrap all content to a new width.
@@ -1050,7 +1050,7 @@ class TextArea(Element):
             New value
         """
         if self.on_change and old_value != new_value:
-            self.on_change(old_value, new_value)
+            invoke_callback(self.on_change, old_value, new_value)
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
@@ -1088,9 +1088,9 @@ class TextArea(Element):
         # Ctrl+Enter - submit (trigger action without inserting newline)
         elif key.name == "ctrl+enter":
             if self.on_submit:
-                self.on_submit(self.get_value())
+                invoke_callback(self.on_submit, self.get_value())
             if self.on_action:
-                self.on_action()
+                invoke_callback(self.on_action)
             return True
 
         # Enter key - replaces selection or creates new line

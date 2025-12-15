@@ -9,7 +9,7 @@ from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
@@ -572,12 +572,12 @@ class Tree(ScrollableElement):
             # Collapse
             self.expanded_nodes.remove(node_id)
             if self.on_collapse:
-                self.on_collapse(node_id)
+                invoke_callback(self.on_collapse, node_id)
         else:
             # Expand
             self.expanded_nodes.add(node_id)
             if self.on_expand:
-                self.on_expand(node_id)
+                invoke_callback(self.on_expand, node_id)
 
         # Rebuild flattened nodes
         self._rebuild_nodes()
@@ -594,7 +594,7 @@ class Tree(ScrollableElement):
         if node_id not in self.expanded_nodes:
             self.expanded_nodes.add(node_id)
             if self.on_expand:
-                self.on_expand(node_id)
+                invoke_callback(self.on_expand, node_id)
             self._rebuild_nodes()
             self._save_expand_state()
 
@@ -609,7 +609,7 @@ class Tree(ScrollableElement):
         if node_id in self.expanded_nodes:
             self.expanded_nodes.remove(node_id)
             if self.on_collapse:
-                self.on_collapse(node_id)
+                invoke_callback(self.on_collapse, node_id)
             self._rebuild_nodes()
             self._save_expand_state()
 
@@ -638,7 +638,7 @@ class Tree(ScrollableElement):
             # Find the actual node data
             node = self._find_node_by_id(self.data, node_id)
             if node:
-                self.on_select(node)
+                invoke_callback(self.on_select, node)
 
     def toggle_selection(self, node_id: str) -> None:
         """Toggle selection of a node (multi-select mode).
@@ -659,7 +659,7 @@ class Tree(ScrollableElement):
             # In multi-select, pass the current node being toggled
             node = self._find_node_by_id(self.data, node_id)
             if node:
-                self.on_select(node)
+                invoke_callback(self.on_select, node)
 
     def is_selected(self, node_id: str) -> bool:
         """Check if a node is selected.
@@ -877,7 +877,9 @@ class Tree(ScrollableElement):
                     self.scroll_manager.scroll_to(self.highlighted_index)
                     self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -895,7 +897,9 @@ class Tree(ScrollableElement):
                     )
                     self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -978,7 +982,9 @@ class Tree(ScrollableElement):
             self.scroll_manager.scroll_to(0)
             self._save_scroll_state()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # End - jump to bottom
@@ -988,7 +994,9 @@ class Tree(ScrollableElement):
             self.scroll_manager.scroll_to_bottom()
             self._save_scroll_state()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # Page Up
@@ -1001,7 +1009,9 @@ class Tree(ScrollableElement):
             self._save_highlight_state()
             self._save_scroll_state()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # Page Down
@@ -1016,7 +1026,9 @@ class Tree(ScrollableElement):
             self._save_highlight_state()
             self._save_scroll_state()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         return False
@@ -1041,7 +1053,9 @@ class Tree(ScrollableElement):
             if old_pos != self.scroll_manager.state.scroll_position:
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -1051,7 +1065,9 @@ class Tree(ScrollableElement):
             if old_pos != self.scroll_manager.state.scroll_position:
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 

@@ -13,10 +13,11 @@ The Wijjit class provides a Flask-like API with view decorators and
 declarative UI patterns.
 """
 
+import asyncio
 import shutil
 import sys
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -1318,6 +1319,9 @@ class Wijjit:
     ) -> None:
         """Dispatch an action event to registered action handlers.
 
+        Supports both sync and async handlers. Async handlers are scheduled
+        on the event loop.
+
         Parameters
         ----------
         action_id : str
@@ -1337,9 +1341,15 @@ class Wijjit:
                 # Create action event with optional data
                 action_event = ActionEvent(action_id=action_id, data=data)
 
-            # Call the handler
+            # Call the handler (supports both sync and async)
+            handler = self._action_handlers[action_id]
             try:
-                self._action_handlers[action_id](action_event)
+                result = handler(action_event)
+                # If handler is async, schedule it on the event loop
+                if asyncio.iscoroutine(result):
+                    asyncio.create_task(
+                        self._run_async_action_handler(action_id, result)
+                    )
             except Exception as e:
                 self._handle_error(f"Error in action handler '{action_id}'", e)
 
@@ -1347,6 +1357,25 @@ class Wijjit:
             self.needs_render = True
         else:
             logger.warning(f"Action handler not found: '{action_id}'")
+
+    async def _run_async_action_handler(
+        self, action_id: str, coro: Coroutine[Any, Any, Any]
+    ) -> None:
+        """Run an async action handler and handle errors.
+
+        Parameters
+        ----------
+        action_id : str
+            The action ID (for error reporting)
+        coro : Coroutine
+            The coroutine to await
+        """
+        try:
+            await coro
+            # Trigger re-render after async handler completes
+            self.needs_render = True
+        except Exception as e:
+            self._handle_error(f"Error in async action handler '{action_id}'", e)
 
     def show_modal(
         self,
