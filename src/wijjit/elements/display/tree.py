@@ -170,7 +170,7 @@ class Tree(ScrollableElement):
 
         # Tree data
         self._raw_data = data
-        self.data = self._normalize_data(data) if data else {}
+        self._data = self._normalize_data(data) if data else {}
 
         # Multi-select mode
         self.multiple = multiple
@@ -389,6 +389,37 @@ class Tree(ScrollableElement):
             if root_node
             else {"id": "root", "label": "Root", "value": "root", "children": []}
         )
+
+    @property
+    def data(self) -> dict:
+        """Get the normalized tree data.
+
+        Returns
+        -------
+        dict
+            Normalized tree data with 'id', 'label', 'value', 'children' keys
+        """
+        return self._data
+
+    @data.setter
+    def data(self, value: dict[str, Any] | list | None) -> None:
+        """Set tree data and rebuild nodes.
+
+        When data is updated dynamically (e.g., from state binding during
+        reconciliation), this setter ensures the nodes are rebuilt and the
+        scroll manager's content size is updated.
+
+        Parameters
+        ----------
+        value : dict or list or None
+            New tree data (nested dict or flat list)
+        """
+        self._raw_data = value
+        self._data = self._normalize_data(value) if value else {}
+
+        # Rebuild flattened nodes list (this also updates scroll_manager)
+        if hasattr(self, "scroll_manager"):
+            self._rebuild_nodes()
 
     def _rebuild_nodes(self) -> None:
         """Rebuild flattened nodes list based on current expansion state.

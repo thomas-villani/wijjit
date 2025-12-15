@@ -130,7 +130,7 @@ class ListView(ScrollableElement):
 
         # Content and display properties
         self._raw_items = items or []
-        self.items = self._normalize_items(self._raw_items)
+        self._items = self._normalize_items(self._raw_items)
         self.width = width
         self.height = height
         self.bullet = bullet
@@ -245,6 +245,40 @@ class ListView(ScrollableElement):
                 normalized.append({"label": str(item), "details": None})
 
         return normalized
+
+    @property
+    def items(self) -> list[dict]:
+        """Get the normalized items list.
+
+        Returns
+        -------
+        list of dict
+            Normalized items with 'label' and 'details' keys
+        """
+        return self._items
+
+    @items.setter
+    def items(self, value: list[Any]) -> None:
+        """Set items and update scroll manager.
+
+        When items are updated dynamically (e.g., from state binding during
+        reconciliation), this setter ensures the scroll manager's content size
+        is updated after re-rendering.
+
+        Parameters
+        ----------
+        value : list
+            New items (strings, tuples, or dicts)
+        """
+        self._raw_items = value or []
+        self._items = self._normalize_items(self._raw_items)
+
+        # Re-render content with new items
+        self._render_content()
+
+        # Update scroll manager content size if it exists
+        if hasattr(self, "scroll_manager"):
+            self.scroll_manager.update_content_size(len(self.rendered_lines))
 
     def _get_bullet_char(self, index: int) -> str:
         """Get bullet character for an item.

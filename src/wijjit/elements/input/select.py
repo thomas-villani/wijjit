@@ -126,7 +126,7 @@ class Select(ScrollableElement):
 
         # Normalize options to internal format
         self._raw_options = options or []
-        self.options = self._normalize_options(self._raw_options)
+        self._options = self._normalize_options(self._raw_options)
 
         # Multi-select mode
         self.multiple = multiple
@@ -227,6 +227,50 @@ class Select(ScrollableElement):
     def highlight_state_key(self, value: str | None) -> None:
         """Set an explicit highlight state key."""
         self._highlight_state_key_override = value
+
+    @property
+    def options(self) -> list[dict]:
+        """Get the normalized options list.
+
+        Returns
+        -------
+        list of dict
+            Normalized options with 'value' and 'label' keys
+        """
+        return self._options
+
+    @options.setter
+    def options(self, value: list[Any]) -> None:
+        """Set options and update scroll manager.
+
+        When options are updated dynamically (e.g., from state binding during
+        reconciliation), this setter ensures the scroll manager's content size
+        is updated and the highlighted index is clamped to valid range.
+
+        Parameters
+        ----------
+        value : list
+            New options (strings or dicts with 'value' and 'label' keys)
+        """
+        self._raw_options = value or []
+        self._options = self._normalize_options(self._raw_options)
+
+        # Update scroll manager content size if it exists
+        if hasattr(self, "scroll_manager"):
+            self.scroll_manager.content_size = len(self._options)
+
+            # Clamp highlighted_index to valid range
+            if self._options:
+                self.highlighted_index = min(
+                    self.highlighted_index, len(self._options) - 1
+                )
+            else:
+                self.highlighted_index = 0
+
+            # Reset scroll position if it exceeds new max
+            max_scroll = max(0, len(self._options) - self.visible_rows)
+            if self.scroll_manager.state.scroll_position > max_scroll:
+                self.scroll_manager.scroll_to(max_scroll)
 
     def _normalize_border_style(
         self, style: BorderStyle | Literal["single", "double", "rounded"] | None

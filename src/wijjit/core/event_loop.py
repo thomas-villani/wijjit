@@ -480,11 +480,41 @@ class EventLoop:
             key_obj=input_event,  # Store original Key object
         )
 
+        # Check if we should skip view-scoped handlers for text input
+        # When an INPUT element (TextInput, TextArea) is focused, plain character keys
+        # should go directly to the element, not to view-scoped handlers.
+        # This prevents 's' key handlers from firing when typing 's' in a text field.
+        # Ctrl+, Alt+, and special keys still go through handlers for shortcuts.
+        skip_view_handlers_for_input = False
+        focused_elem = self.app.focus_manager.get_focused_element()
+        if focused_elem is not None and input_event.is_char:
+            # Check if focused element is an INPUT type (TextInput, TextArea)
+            from wijjit.elements.base import ElementType
+
+            if (
+                hasattr(focused_elem, "element_type")
+                and focused_elem.element_type == ElementType.INPUT
+            ):
+                # Plain character with no Ctrl/Alt modifiers - skip view handlers
+                has_modifier = (
+                    "ctrl" in input_event.modifiers or "alt" in input_event.modifiers
+                )
+                if not has_modifier:
+                    skip_view_handlers_for_input = True
+                    logger.debug(
+                        f"Skipping view handlers for '{input_event.name}' - "
+                        f"INPUT element is focused"
+                    )
+
         # Block global key handlers when a modal with trap_focus is active
         # This prevents hotkeys (like 's', 'e', 'n', etc.) from firing while dialog is open
         # Exception: Tab/Shift+Tab must always be dispatched for focus cycling within modals
         is_tab_key = input_event.name in ("tab", "shift+tab")
-        if not self.app.overlay_manager.should_trap_focus() or is_tab_key:
+        if skip_view_handlers_for_input:
+            # Skip view-scoped handlers, but still dispatch to global/element handlers
+            # We handle this by going directly to element routing below
+            pass
+        elif not self.app.overlay_manager.should_trap_focus() or is_tab_key:
             # No modal trapping focus, OR it's Tab key for focus cycling
             await self.app.handler_registry.dispatch_async(
                 event, executor=self.executor
