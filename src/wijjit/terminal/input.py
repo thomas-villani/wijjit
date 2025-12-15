@@ -234,7 +234,9 @@ PROMPT_TOOLKIT_KEY_MAP = {
     PTKeys.PageDown: Keys.PAGE_DOWN,
     PTKeys.Delete: Keys.DELETE,
     PTKeys.Enter: Keys.ENTER,
+    PTKeys.ControlM: Keys.ENTER,  # Ctrl+M is Enter (carriage return)
     PTKeys.Tab: Keys.TAB,
+    PTKeys.ControlI: Keys.TAB,  # Ctrl+I is Tab
     PTKeys.BackTab: Keys.BACKTAB,
     PTKeys.Escape: Keys.ESCAPE,
     PTKeys.Backspace: Keys.BACKSPACE,
