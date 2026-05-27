@@ -1038,6 +1038,12 @@ class Pager(Container):
                 content_width = width - 2  # -2 for borders
                 content_height = height - 2  # -2 for borders
 
+                # Compute size constraints bottom-up before assigning bounds.
+                # Without this, every child's `.constraints` is None and
+                # assign_bounds defaults each to height 1, collapsing multi-line
+                # text and nested containers so siblings overlap.
+                content.content_container.calculate_constraints()
+
                 # Assign bounds to content_container to compute proper layout
                 # This is essential for HStack children to have correct x positions
                 content.content_container.assign_bounds(

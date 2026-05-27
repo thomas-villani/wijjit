@@ -513,3 +513,77 @@ class TestPager:
         # No frame in cache yet
         result = pager._get_active_frame()
         assert result is None
+
+
+class TestPagerMixedContentLayout:
+    """Regression test for a page that interleaves text and block elements.
+
+    A page whose content mixes raw text with block elements (a vstack of a
+    text input, checkboxes, and buttons) used to overlap: the pager assigned
+    bounds without first running the constraint pass, so every child defaulted
+    to height 1. Multi-line text and nested containers collapsed to one row and
+    the following siblings drew on top of them. The fix calls
+    ``calculate_constraints()`` before ``assign_bounds()`` so child heights are
+    correct. This test drives the real render path and asserts the vertical
+    ordering is preserved with no collisions.
+    """
+
+    TEMPLATE = """
+    {% frame title="Mixed" border_style="single" %}
+      {% pager id="pg" width=70 height=16 %}
+        {% page title="Form" %}
+INTRO_LINE_ONE
+INTRO_LINE_TWO
+
+{% vstack spacing=1 %}
+  {% textinput id="who" placeholder="NAME_FIELD" width=30 %}{% endtextinput %}
+  {% hstack spacing=2 %}
+    {% checkbox id="opt" %}CHECK_LABEL{% endcheckbox %}
+  {% endhstack %}
+  {% hstack spacing=2 %}
+    {% button action="go" %}DO_IT{% endbutton %}
+  {% endhstack %}
+{% endvstack %}
+
+CLOSING_LINE
+        {% endpage %}
+      {% endpager %}
+    {% endframe %}
+    """
+
+    def _row_of(self, lines: list[str], needle: str) -> int:
+        """Return the index of the first row containing ``needle``."""
+        for i, line in enumerate(lines):
+            if needle in line:
+                return i
+        raise AssertionError(f"{needle!r} not found in:\n" + "\n".join(lines))
+
+    def test_text_and_block_elements_do_not_overlap(self):
+        """Each landmark lands on its own row in top-to-bottom source order."""
+        from wijjit import Wijjit
+        from wijjit.testing.harness import WijjitHarness
+
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": self.TEMPLATE})
+
+        with WijjitHarness(app, size=(80, 24)) as harness:
+            harness.tick(frames=1)
+            lines = harness.screen().split("\n")
+
+        intro1 = self._row_of(lines, "INTRO_LINE_ONE")
+        intro2 = self._row_of(lines, "INTRO_LINE_TWO")
+        field = self._row_of(lines, "NAME_FIELD")
+        check = self._row_of(lines, "CHECK_LABEL")
+        button = self._row_of(lines, "DO_IT")
+        closing = self._row_of(lines, "CLOSING_LINE")
+
+        # Strictly increasing rows => source order preserved, nothing overlaps.
+        rows = [intro1, intro2, field, check, button, closing]
+        assert rows == sorted(rows), f"rows out of order: {rows}"
+        assert len(set(rows)) == len(rows), f"two landmarks share a row: {rows}"
+
+        # The two intro lines are adjacent (multi-line text not collapsed).
+        assert intro2 == intro1 + 1
+
+        # The closing text sits below the button (was drawn above it before fix).
+        assert closing > button

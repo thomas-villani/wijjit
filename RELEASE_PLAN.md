@@ -86,12 +86,18 @@ Use the Phase 1 harness to reproduce and regression-test each.
 - [ ] **Render order / dirty marking:** progress bars stop spinners;
       spinner stop leaves `k...` artifacts (dirty-mark on shrink);
       view-switch latency (`statusbar_demo`, `event_patterns_demo`).
-- [ ] **Display:** `table_demo` button placement; scrollbar focus color;
-      `Pager` page-5 checkboxes show no text.
+- [ ] **Display:** `table_demo` button placement; scrollbar focus color.
   - [x] table header-click sort: hit-testing assumed equal-width columns, but
         Rich sizes columns to content, so clicks mapped to the wrong column.
         Now captures the real column boundaries from the rendered top border
         each frame (`Table._get_column_at_x`); regression tests added.
+  - [x] `Pager` page-5 "checkboxes show no text": symptom did not reproduce;
+        the real defect was mixed text + block-element overlap on that page.
+        The pager assigned child bounds without first running the constraint
+        pass, so children defaulted to height 1 and collapsed. Fixed by calling
+        `calculate_constraints()` before `assign_bounds()`; regression test
+        added. (Residual: `_render_children` dual-coordinate flow noted in
+        `etc/issues.md` for a future cleanup; no current failing case.)
 - [ ] **Layout polish:** `complex_layout_demo`, `error_handling_demo` cleanup.
   - [x] Suspected frame title-border 1-column discrepancy: investigated, not a
         bug (borders align at every width; regression test added).
