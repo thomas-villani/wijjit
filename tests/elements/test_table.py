@@ -470,3 +470,57 @@ class TestColumnHitTesting:
         await table.handle_mouse(event)
 
         assert table.sort_column == "y"
+
+
+class TestScrollbarFocusColor:
+    """Regression tests for the table scrollbar changing color on focus.
+
+    The scrollbar previously resolved ``table.scrollbar`` / ``table.scrollbar:
+    focus`` style classes that no theme defines, so it was always unstyled and
+    never changed on focus. It now resolves the shared ``scrollbar.thumb`` /
+    ``scrollbar.track`` classes (focus-aware) that frames use, so a focused
+    table's scrollbar picks up the focus accent color.
+    """
+
+    THUMB = "█"  # full block glyph used for the scrollbar thumb
+
+    def _scrollbar_cells(self, focused: bool):
+        """Render a scrollable table and return its scrollbar-column cells."""
+        from wijjit.layout.bounds import Bounds
+        from wijjit.rendering.paint_context import PaintContext
+        from wijjit.styling.resolver import StyleResolver
+        from wijjit.styling.theme import DefaultTheme
+        from wijjit.terminal.screen_buffer import ScreenBuffer
+
+        data = [{"n": f"row{i}", "v": str(i)} for i in range(30)]
+        table = Table(data=data, columns=["n", "v"], width=24, height=10)
+        table.focused = focused
+        table.set_bounds(Bounds(0, 0, 24, 10))
+        assert table.scroll_manager.state.is_scrollable  # precondition
+
+        buffer = ScreenBuffer(width=30, height=10)
+        ctx = PaintContext(buffer, StyleResolver(DefaultTheme()), Bounds(0, 0, 24, 10))
+        table.render_to(ctx)
+        # Scrollbar occupies the rightmost in-table column (table_width - 1).
+        return [buffer.get_cell(23, y) for y in range(10)]
+
+    def test_scrollbar_thumb_is_styled_when_unfocused(self):
+        """Unfocused scrollbar thumb still carries the base (non-None) color."""
+        cells = self._scrollbar_cells(focused=False)
+        thumbs = [c for c in cells if c.char == self.THUMB]
+        assert thumbs, "no scrollbar thumb rendered"
+        assert all(c.fg_color is not None for c in thumbs)
+
+    def test_scrollbar_thumb_color_changes_on_focus(self):
+        """Focusing the table recolors the scrollbar thumb (focus accent)."""
+        unfocused = self._scrollbar_cells(focused=False)
+        focused = self._scrollbar_cells(focused=True)
+
+        unfocused_thumb = next(c for c in unfocused if c.char == self.THUMB)
+        focused_thumb = next(c for c in focused if c.char == self.THUMB)
+
+        assert focused_thumb.fg_color is not None
+        assert focused_thumb.fg_color != unfocused_thumb.fg_color, (
+            "scrollbar thumb color did not change on focus: "
+            f"{unfocused_thumb.fg_color} -> {focused_thumb.fg_color}"
+        )

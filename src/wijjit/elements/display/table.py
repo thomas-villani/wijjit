@@ -7,7 +7,7 @@ various box styles. Ideal for displaying structured data in terminal interfaces.
 
 from collections.abc import Callable
 from io import StringIO
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import rich.box
 from rich.console import Console
@@ -755,21 +755,24 @@ class Table(ScrollableElement):
 
         # Generate scrollbar if needed
         scrollbar_chars = []
-        scrollbar_attrs = {}
+        scrollbar_thumb_attrs: dict[str, Any] = {}
+        scrollbar_track_attrs: dict[str, Any] = {}
         if needs_scrollbar:
             scrollbar_chars = render_vertical_scrollbar(
                 self.scroll_manager.state, self.height
             )
-            # Resolve scrollbar style based on focus state
-            if self.focused:
-                scrollbar_style = ctx.style_resolver.resolve_style(
-                    self, "table.scrollbar:focus"
-                )
-            else:
-                scrollbar_style = ctx.style_resolver.resolve_style(
-                    self, "table.scrollbar"
-                )
-            scrollbar_attrs = scrollbar_style.to_cell_attrs()
+            # Resolve the shared scrollbar thumb/track styles (focus-aware), the
+            # same classes frames use, so a focused table's scrollbar picks up
+            # the focus accent color. (The old "table.scrollbar" classes do not
+            # exist in any theme, so the scrollbar was always unstyled.)
+            thumb_class = "scrollbar.thumb:focus" if self.focused else "scrollbar.thumb"
+            track_class = "scrollbar.track:focus" if self.focused else "scrollbar.track"
+            scrollbar_thumb_attrs = ctx.style_resolver.resolve_style(
+                self, thumb_class
+            ).to_cell_attrs()
+            scrollbar_track_attrs = ctx.style_resolver.resolve_style(
+                self, track_class
+            ).to_cell_attrs()
 
         # Convert each line from ANSI to cells and write to buffer
         for y, line in enumerate(lines):
@@ -789,8 +792,11 @@ class Table(ScrollableElement):
             # Add scrollbar character if needed
             if needs_scrollbar:
                 scrollbar_char = scrollbar_chars[y] if y < len(scrollbar_chars) else " "
+                # Thumb cells use the full block glyph; everything else is track.
+                is_thumb = scrollbar_char == "\u2588"
+                sb_attrs = scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
                 ctx.buffer.set_cell(
                     ctx.bounds.x + table_width,
                     ctx.bounds.y + y,
-                    Cell(char=scrollbar_char, **scrollbar_attrs),
+                    Cell(char=scrollbar_char, **sb_attrs),
                 )
