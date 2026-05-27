@@ -29,15 +29,27 @@ applications. We built this library to bring the syntactic elegance of Flask's d
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/wijjit.git
+# From PyPI
+pip install wijjit
+
+# Optional extras
+pip install "wijjit[images]"   # ImageView / ASCII image rendering (Pillow)
+```
+
+> Wijjit is currently in pre-release. Until 0.1.0 is published, install the
+> latest alpha with `pip install --pre wijjit`, or install from source below.
+
+### From source (development)
+
+```bash
+git clone https://github.com/thomas-villani/wijjit.git
 cd wijjit
 
 # Install in development mode with uv (recommended)
 uv sync --all-extras
 
 # Or with pip
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ## Quick Start

@@ -1,6 +1,6 @@
 [project]
 name = "wijjit"
-version = "0.1.0a"
+dynamic = ["version"]
 description = "A declarative TUI framework for Python - Flask for the Console"
 readme = "README.md"
 license = {text = "MIT"}
@@ -43,10 +43,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tvillani/wijjit"
+Homepage = "https://github.com/thomas-villani/wijjit"
 Documentation = "https://wijjit.readthedocs.io"
-Repository = "https://github.com/tvillani/wijjit"
-Issues = "https://github.com/tvillani/wijjit/issues"
+Repository = "https://github.com/thomas-villani/wijjit"
+Issues = "https://github.com/thomas-villani/wijjit/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -71,6 +71,12 @@ images = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/wijjit/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wijjit"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
