@@ -45,10 +45,7 @@ EXCLUDED: dict[str, str] = {
 }
 
 # Known-broken demos (tracked in etc/issues.md). Remove the entry once fixed.
-XFAIL: dict[str, str] = {
-    "advanced/executor_demo.py": "calls non-existent app.configure() (etc/issues.md)",
-    "widgets/charts_demo.py": "renders a blank initial screen",
-}
+XFAIL: dict[str, str] = {}
 
 # Deterministic, content-stable demos that get a full initial-screen golden.
 # (Excludes anything that reads the live filesystem, writes logs, or animates.)

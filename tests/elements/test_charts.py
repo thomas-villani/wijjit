@@ -417,6 +417,27 @@ class TestGauge:
         assert linear.style == "linear"
         assert arc.style == "arc"
 
+    def test_gauge_auto_height_returns_integer_intrinsic_size(self):
+        """A non-integer height spec ("auto"/None) must auto-calculate to an int.
+
+        The layout layer can sync a string height spec onto the element; the
+        gauge must still report integer dimensions or VStack constraint
+        summation raises ``TypeError`` (charts_demo blank-render regression).
+        """
+        for height in (None, "auto"):
+            linear = Gauge(value=50, style="linear", height=height)
+            assert isinstance(linear.height, int)
+            assert linear.get_intrinsic_size() == (linear.width, linear.height)
+
+            labeled = Gauge(value=50, style="linear", label="CPU", height=height)
+            assert labeled.height == 3
+
+            arc = Gauge(value=50, style="arc", height=height)
+            assert arc.height == 5
+
+        # An explicit integer height is preserved.
+        assert Gauge(value=50, height=7).height == 7
+
     def test_gauge_render(self):
         """Test gauge rendering."""
         gauge = Gauge(value=75, width=20, height=3)

@@ -15,6 +15,14 @@ from wijjit.logging_config import get_logger
 # Get logger for this module
 logger = get_logger(__name__)
 
+# Maximum depth of re-entrant change notification. A sync ``on_change`` /
+# ``watch`` callback that writes back to state re-triggers notification; a few
+# levels are legitimate (derived state), but an unbounded cycle (e.g. a global
+# callback that logs every change *into* state) would otherwise recurse until
+# the interpreter crashes. Past this depth we log once and stop, turning a hard
+# hang into a diagnosable error.
+_MAX_NOTIFY_DEPTH = 50
+
 
 class State(UserDict[str, Any]):
     """Application state with change detection.
@@ -78,6 +86,9 @@ class State(UserDict[str, Any]):
         object.__setattr__(
             self, "_batch_changes", []
         )  # Queue of (key, old_value, new_value) during batch mode
+        object.__setattr__(
+            self, "_notify_depth", 0
+        )  # Re-entrant notification depth guard (see _MAX_NOTIFY_DEPTH)
 
         # Validate keys don't conflict with dict methods
         if data:
@@ -478,6 +489,39 @@ class State(UserDict[str, Any]):
             self._batch_changes.append((key, old_value, new_value))
             return
 
+        # Guard against unbounded re-entrant notification (a sync callback that
+        # keeps writing back to state). Log once at the threshold and stop.
+        if self._notify_depth >= _MAX_NOTIFY_DEPTH:
+            if self._notify_depth == _MAX_NOTIFY_DEPTH:
+                logger.error(
+                    "State change notification exceeded max depth "
+                    f"({_MAX_NOTIFY_DEPTH}) at key '{key}'. A change callback is "
+                    "likely writing back to state in a cycle; stopping to avoid "
+                    "infinite recursion."
+                )
+            return
+
+        self._notify_depth += 1
+        try:
+            self._dispatch_change(key, old_value, new_value)
+        finally:
+            self._notify_depth -= 1
+
+    def _dispatch_change(self, key: str, old_value: Any, new_value: Any) -> None:
+        """Invoke global callbacks and key watchers for a change.
+
+        Separated from :meth:`_trigger_change` so the re-entrancy depth guard
+        wraps the actual dispatch.
+
+        Parameters
+        ----------
+        key : str
+            The state key that changed.
+        old_value : Any
+            The previous value.
+        new_value : Any
+            The new value.
+        """
         # Trigger global change callbacks
         for callback in self._change_callbacks:
             try:

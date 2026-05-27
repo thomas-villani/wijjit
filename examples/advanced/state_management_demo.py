@@ -43,7 +43,9 @@ state_history = []
 def log_state_change(key, old_value, new_value):
     """Log all state changes (synchronous callback).
 
-    This is a global callback that fires for ANY state change.
+    This is a global callback that fires for ANY state change. Because writing
+    to state below itself triggers on_change, we must ignore our own
+    ``change_log`` writes - otherwise the callback would re-enter indefinitely.
 
     Parameters
     ----------
@@ -54,6 +56,10 @@ def log_state_change(key, old_value, new_value):
     new_value : Any
         The new value
     """
+    # Ignore the log's own updates to avoid unbounded re-entrant notification.
+    if key == "change_log":
+        return
+
     timestamp = datetime.now().strftime("%H:%M:%S")
     entry = f"[{timestamp}] {key}: {old_value} → {new_value}"
 

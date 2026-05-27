@@ -54,12 +54,26 @@ on a text snapshot of the screen, with no real TTY. **Met.**
 Grouped by likely root cause (from `etc/issues.md` / `etc/issues-sorted.md`).
 Use the Phase 1 harness to reproduce and regression-test each.
 
-- [ ] **Functional crashes/hangs (highest priority):**
-  - [ ] `executor_demo` crashes: calls non-existent `app.configure(...)`
-        (API: add/rename, or fix the demo).
-  - [ ] `state_management_demo` hangs on the increment button.
-  - [ ] `form_demo` / `error_handling_demo`: "[Missing element: TextElement]"
-        on certain actions / JSON error paths (element factory/error path).
+- [x] **Functional crashes/hangs (highest priority):**
+  - [x] `executor_demo` crashes: called non-existent `app.configure(...)` with
+        wrong key names. Fixed the demo to pass `run_sync_in_executor` /
+        `executor_max_workers` via the constructor (the executor is built in
+        `__init__`).
+  - [x] `state_management_demo` hung on increment: a global `on_change` callback
+        wrote `change_log` back into state, re-triggering itself unbounded.
+        Fixed the demo (ignore its own `change_log` writes) and hardened `State`
+        with a re-entrant-notification depth guard so this footgun logs an error
+        instead of crashing.
+  - [x] `form_demo` / `error_handling_demo` "[Missing element: TextElement]":
+        root cause was a reconciler key collision. Text nodes use positional
+        `text_N` keys; when conditional content appears, a key created in one
+        subtree was deleted by a stale old-vnode in the next subtree during the
+        same pass. Fixed by tracking keys created in the current pass and
+        refusing to evict them on delete.
+  - [x] `charts_demo` blank render (found via the harness sweep): `Gauge`
+        auto-height returned the string `"auto"`, so VStack constraint
+        summation hit `int += str`. `Gauge` now auto-calculates an integer
+        height for any non-int spec.
 - [ ] **Scrolling / clip / overflow:** nested hstack/vstack/frame scroll
       glitches; parent-frame false scrollbars when content fits; scrollbar
       overlap; `frame_overflow_demo` modes look identical.

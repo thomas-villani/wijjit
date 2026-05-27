@@ -2,7 +2,7 @@
 
 This example demonstrates configuring the ThreadPoolExecutor for
 running synchronous handlers without blocking the UI:
-- app.configure() method
+- run_sync_in_executor / executor_max_workers constructor config
 - Running sync handlers in executor
 - Preventing UI blocking with long operations
 - Thread pool configuration
@@ -18,20 +18,19 @@ import time
 
 from wijjit import Wijjit
 
-# Create app
+# Create app, configuring the ThreadPoolExecutor for sync handlers via the
+# constructor. The executor is built during __init__ from these config keys, so
+# they must be passed here (config_overrides are upper-cased to config keys:
+# run_sync_in_executor -> RUN_SYNC_IN_EXECUTOR, etc.). This keeps the UI
+# responsive during blocking I/O in synchronous handlers.
 app = Wijjit(
     initial_state={
         "status": "Ready",
         "execution_mode": "Direct (blocking)",
         "operation_log": [],
         "operation_count": 0,
-    }
-)
-
-# Configure app to use ThreadPoolExecutor for sync handlers
-# This prevents blocking the UI during I/O operations
-app.configure(
-    run_sync_handlers_in_executor=True,
+    },
+    run_sync_in_executor=True,
     executor_max_workers=4,  # 4 worker threads
 )
 
@@ -127,7 +126,7 @@ def main_view():
         {% frame title="Executor Info" border_style="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Configuration:
-            • run_sync_handlers_in_executor: True
+            • run_sync_in_executor: True
             • executor_max_workers: 4 threads
             • Mode: Non-blocking execution
 
@@ -393,9 +392,9 @@ if __name__ == "__main__":
     print("to prevent UI blocking during synchronous operations.")
     print()
     print("Configuration:")
-    print("  app.configure(")
-    print("      run_sync_handlers_in_executor=True,")
-    print("      executor_max_workers=4")
+    print("  app = Wijjit(")
+    print("      run_sync_in_executor=True,")
+    print("      executor_max_workers=4,")
     print("  )")
     print()
     print("Benefits:")

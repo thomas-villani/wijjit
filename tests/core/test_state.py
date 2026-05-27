@@ -415,3 +415,40 @@ class TestState:
         assert state["items_list"] == []
         assert state["my_keys"] == {}
         assert state["data_values"] == 123
+
+
+class TestReentrancyGuard:
+    """Tests for the re-entrant change-notification depth guard."""
+
+    def test_cyclic_callback_does_not_recurse_forever(self):
+        """A callback that writes back to state must not crash the interpreter."""
+        from wijjit.core.state import _MAX_NOTIFY_DEPTH
+
+        state = State({"x": 0, "log": []})
+        invocations = []
+
+        def cyclic(key, old, new):
+            invocations.append(key)
+            # Writing state re-triggers notification (the footgun).
+            state["log"] = (state.get("log") or []) + [key]
+
+        state.on_change(cyclic)
+        state["x"] = 1  # Would previously recurse until a RecursionError.
+
+        # Bounded by the depth guard rather than unbounded.
+        assert len(invocations) <= _MAX_NOTIFY_DEPTH + 1
+        assert state["x"] == 1
+
+    def test_shallow_derived_state_still_propagates(self):
+        """Legitimate derived-state chains (a -> b) keep working."""
+        state = State({"a": 0, "b": 0})
+        state.watch("a", lambda k, o, n: state.__setitem__("b", n * 2))
+        state["a"] = 5
+        assert state["b"] == 10
+
+    def test_depth_resets_after_dispatch(self):
+        """The depth counter returns to zero after a normal change."""
+        state = State({"a": 0})
+        state.on_change(lambda k, o, n: None)
+        state["a"] = 1
+        assert state._notify_depth == 0

@@ -224,18 +224,22 @@ class TestReconcilerPatch:
         assert "btn" in reconciler._element_cache
 
     def test_patch_delete_calls_on_unmount(self):
-        """DELETE should call on_unmount() on removed element."""
+        """DELETE should call on_unmount() on removed element.
+
+        Deletion happens in a *later* reconcile pass than creation; the
+        in-pass guard (which protects a freshly-created key from a sibling's
+        stale delete) only suppresses eviction within a single pass.
+        """
         registry = MockRegistry()
         reconciler = Reconciler(registry)
 
-        # First create an element
+        # Pass 1: create the element.
         vnode = VNode.create("Button", key="btn", props={"label": "OK"})
-        create_diff = DiffResult(DiffType.CREATE, None, vnode)
-        element = reconciler._patch(create_diff)
+        reconciler.reconcile(None, vnode)
+        element = reconciler._element_cache["btn"]
 
-        # Then delete it
-        delete_diff = DiffResult(DiffType.DELETE, vnode, None)
-        reconciler._patch(delete_diff)
+        # Pass 2: the element is gone from the new tree -> delete + unmount.
+        reconciler.reconcile(vnode, None)
 
         assert element.unmount_called
         assert "btn" not in reconciler._element_cache

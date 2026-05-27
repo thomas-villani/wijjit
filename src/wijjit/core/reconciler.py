@@ -100,6 +100,10 @@ class Reconciler:
     def __init__(self, registry: ElementRegistry) -> None:
         self.registry = registry
         self._element_cache: dict[str, Element] = {}
+        # Keys whose cache entry was created during the current reconcile pass.
+        # Used to stop a stale delete in one subtree from clobbering an element
+        # a sibling subtree just created under the same (positional) key.
+        self._created_this_pass: set[str] = set()
         self._all_elements: list[Element] = (
             []
         )  # Track ALL created elements, not just cached
@@ -125,8 +129,9 @@ class Reconciler:
             - root_element: Root Element of the tree (None if new_tree is None)
             - flat_element_list: Flattened list of all Elements for event handling
         """
-        # Reset element collection for this reconciliation pass
+        # Reset per-pass tracking
         self._all_elements = []
+        self._created_this_pass = set()
 
         # Phase 1: Diff the trees
         diff = self._diff(old_tree, new_tree)
@@ -358,14 +363,23 @@ class Reconciler:
 
         # Cache by key if available
         if vnode.key:
-            # Warn about duplicate keys (indicates a bug in the template)
-            if vnode.key in self._element_cache:
-                logger.warning(
-                    f"Duplicate element key '{vnode.key}' detected! "
-                    f"This will cause the previous element with this key to be replaced. "
-                    f"Element type: {vnode.type}"
-                )
+            # A key may already hold an element from the previous tree that is
+            # being displaced (e.g. positional text keys shifting when
+            # conditional content appears). Unmount the displaced element so it
+            # does not leak, but only warn for an in-pass collision, which would
+            # indicate a genuine duplicate-key bug in the template.
+            existing = self._element_cache.get(vnode.key)
+            if existing is not None and existing is not element:
+                if vnode.key in self._created_this_pass:
+                    logger.warning(
+                        f"Duplicate element key '{vnode.key}' detected! "
+                        f"This will cause the previous element with this key to "
+                        f"be replaced. Element type: {vnode.type}"
+                    )
+                elif hasattr(existing, "on_unmount"):
+                    existing.on_unmount()
             self._element_cache[vnode.key] = element
+            self._created_this_pass.add(vnode.key)
 
         # Track ALL created elements (not just cached ones)
         self._all_elements.append(element)
@@ -397,8 +411,14 @@ class Reconciler:
         if vnode is None:
             return
 
-        # Remove from cache
-        if vnode.key and vnode.key in self._element_cache:
+        # Remove from cache - but never evict an entry a sibling subtree just
+        # created under this (positional) key during the same pass; doing so
+        # would drop a live element and surface "[Missing element]" placeholders.
+        if (
+            vnode.key
+            and vnode.key in self._element_cache
+            and vnode.key not in self._created_this_pass
+        ):
             element = self._element_cache.pop(vnode.key)
 
             # Call unmount lifecycle

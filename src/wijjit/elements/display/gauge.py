@@ -103,7 +103,7 @@ class Gauge(Element):
         min_value: float = 0,
         max_value: float = 100,
         width: int = 20,
-        height: int | None = None,
+        height: int | str | None = None,
         style: Literal["linear", "arc"] = "linear",
         show_value: bool = True,
         show_minmax: bool = False,
@@ -135,14 +135,16 @@ class Gauge(Element):
         self.label = label
         self.unit = unit
 
-        # Auto-calculate height based on style if not specified
-        if height is None:
-            if style == "arc":
-                self.height = 5
-            else:
-                self.height = 3 if label else 2
-        else:
+        # Auto-calculate height based on style unless an explicit integer is
+        # given. The layout layer may pass a non-integer height spec such as
+        # "auto" (synced from set_layout); treat anything but an int as
+        # auto so get_intrinsic_size() always returns integer dimensions.
+        if isinstance(height, int):
             self.height = height
+        elif style == "arc":
+            self.height = 5
+        else:
+            self.height = 3 if label else 2
 
         # Template metadata
         self.action: str | None = None
