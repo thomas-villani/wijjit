@@ -1258,3 +1258,64 @@ class TestFrameBodyTextOverflow:
         clip_col = "\n".join(column(ln, 4, 34) for ln in body)
         wrap_col = "\n".join(column(ln, 72, 102) for ln in body)
         assert clip_col != wrap_col, "CLIP and WRAP panes still render identically"
+
+
+class TestNestedScrollableClipping:
+    """Regression tests for clipping children of a scrollable parent frame.
+
+    A child scrolled out of a scrollable parent used to keep painting at its
+    absolute position - even outside the parent's bottom border - because the
+    renderer clipped each element to only its innermost frame. Now the element
+    is clipped to the intersection of every *scrolling* ancestor's viewport, so
+    scrolled-out content is hidden and visible content stays inside the parent.
+    """
+
+    TEMPLATE = """
+    {% frame id="par" title="Parent" width=40 height=9 scrollable=true %}
+      {% vstack spacing=0 %}
+        {% frame title="A" width="fill" height=4 %}AAA_BODY{% endframe %}
+        {% frame title="B" width="fill" height=4 %}BBB_BODY{% endframe %}
+        {% frame title="C" width="fill" height=4 %}CCC_BODY{% endframe %}
+      {% endvstack %}
+    {% endframe %}
+    """
+
+    def _app(self):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": self.TEMPLATE})
+        return app
+
+    def test_scrolled_out_child_is_not_painted_outside_parent(self):
+        """At scroll 0 the third child is hidden and nothing paints below the frame."""
+        from wijjit.testing.harness import WijjitHarness
+
+        with WijjitHarness(self._app(), size=(46, 14)) as harness:
+            harness.tick(frames=1)
+            lines = harness.screen().split("\n")
+
+        # The parent frame is 9 rows tall (rows 0..8); rows 9+ must be blank.
+        below = "".join(lines[9:])
+        assert "CCC_BODY" not in below, "scrolled-out child painted below the parent"
+        assert below.strip() == "", "content leaked below the parent frame"
+        # The third child is scrolled out of view entirely at the top.
+        visible = "\n".join(lines[:9])
+        assert "CCC_BODY" not in visible
+
+    def test_scrolling_reveals_lower_child_within_parent(self):
+        """Scrolling down reveals the lower child and clips the upper one, all
+        inside the parent frame."""
+        from wijjit.testing.harness import WijjitHarness
+
+        with WijjitHarness(self._app(), size=(46, 14)) as harness:
+            harness.tick(frames=1)
+            for _ in range(4):
+                harness.scroll(10, 4, "down")
+            harness.tick(frames=2)
+            lines = harness.screen().split("\n")
+
+        visible = "\n".join(lines[:9])
+        assert "CCC_BODY" in visible, "lower child not revealed after scrolling"
+        # Still nothing painted below the parent frame.
+        assert "".join(lines[9:]).strip() == ""

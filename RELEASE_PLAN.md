@@ -86,6 +86,16 @@ Use the Phase 1 harness to reproduce and regression-test each.
         clip/visible/scroll/auto (keeps logical lines). CLIP and WRAP now
         render differently; unspecified frames are unchanged. Regression tests
         added. (VISIBLE still mirrors CLIP visually - deferred.)
+  - [x] Scrolled-out children escaped the parent viewport: the renderer clipped
+        each element to only its innermost frame, and the parent_frame chain
+        broke at intermediate non-element frames. Now clips to the intersection
+        of the innermost frame plus any *scrolling* ancestor, and links nested
+        frames into the chain structurally. Regression tests added.
+  - [ ] Scrollbar-overlaps-child-borders (deferred): re-laying children to
+        reserve the scrollbar column regressed grid_demo (inner frame border is
+        drawn by a separate pass from its content). Needs reconciling the clip's
+        scrollbar reservation with the two-pass border rendering. See
+        `etc/issues.md`.
 - [ ] **Modal / focus / key routing:** modals should block app hotkeys
       (except quit); avoid double-key-to-focus; swallow keys that opened a
       dialog. (Many already fixed - re-verify with the harness.)

@@ -1280,79 +1280,100 @@ class Renderer:
             if element.bounds is None:
                 continue
 
-            # Check if element is inside a scrollable frame
-            # Walk up the parent_frame chain and accumulate scroll offsets from ALL
-            # scrollable ancestors (not just the immediate parent). This matches
-            # how _render_frames_to_buffer accumulates scroll offsets.
+            # Check if element is inside one or more frames (scrollable or not).
+            # Walk the FULL parent_frame chain so the element is clipped to the
+            # intersection of every ancestor frame's visible content area, and
+            # offset by the total scroll of all scrollable ancestors. Clipping to
+            # only the innermost frame let a child that was scrolled out of an
+            # OUTER frame paint outside it.
             scroll_offset = 0
             clip_region = None
+            skip_element = False
 
-            if hasattr(element, "parent_frame") and element.parent_frame is not None:
-                # Walk up the parent_frame chain, accumulating scroll offsets
-                # and using the most immediate parent for clipping
+            if getattr(element, "parent_frame", None) is not None:
+                # Collect the ancestor frame chain, innermost first.
+                frame_chain = []
                 parent = element.parent_frame
-                accumulated_scroll = 0
-
                 while parent is not None:
-                    # Accumulate scroll offset from scrollable parents
-                    if parent.style.scrollable and parent._needs_scroll:
-                        accumulated_scroll += parent.get_scroll_offset()
-
-                    # Set clip region from the most immediate (innermost) parent frame
-                    # This ensures content is always clipped to frame bounds, even for
-                    # non-scrollable frames (e.g., inside split panels)
-                    if clip_region is None and parent.bounds is not None:
-                        padding_top, padding_right, padding_bottom, padding_left = (
-                            parent.style.padding
-                        )
-
-                        # Account for scrollbar width if present
-                        scrollbar_width = (
-                            1
-                            if parent.style.show_scrollbar and parent._needs_scroll
-                            else 0
-                        )
-
-                        # Calculate the parent's scroll-adjusted Y position
-                        # (outer scroll offsets affect where this parent is drawn)
-                        outer_scroll = accumulated_scroll
-                        if parent.style.scrollable and parent._needs_scroll:
-                            outer_scroll = (
-                                accumulated_scroll - parent.get_scroll_offset()
-                            )
-
-                        # Calculate clip region (visible content area inside frame)
-                        clip_x = (
-                            parent.bounds.x + 1 + padding_left
-                        )  # +1 for left border
-                        clip_y = (
-                            parent.bounds.y - outer_scroll + 1 + padding_top
-                        )  # +1 for top border
-                        clip_width = (
-                            parent.bounds.width
-                            - 2  # Left and right borders
-                            - padding_left
-                            - padding_right
-                            - scrollbar_width
-                        )
-                        clip_height = (
-                            parent.bounds.height
-                            - 2  # Top and bottom borders
-                            - padding_top
-                            - padding_bottom
-                        )
-
-                        clip_region = Bounds(
-                            x=clip_x,
-                            y=clip_y,
-                            width=max(1, clip_width),
-                            height=max(1, clip_height),
-                        )
-
-                    # Move up to the next parent in the chain
+                    frame_chain.append(parent)
                     parent = getattr(parent, "parent_frame", None)
 
-                scroll_offset = accumulated_scroll
+                # Walk outermost -> innermost, accumulating the scroll contributed
+                # by frames *outer* than the one being processed (a frame's own
+                # scroll offset moves its children, not itself).
+                #
+                # Only the innermost frame (base clip, preserving historical
+                # behavior) and any ancestor that *actually scrolls*
+                # (_needs_scroll) contribute to the clip. A non-scrolling
+                # ancestor is left out so child frames that slightly overflow a
+                # static parent keep rendering as before; the multi-level
+                # intersection exists to stop content scrolled out of an outer
+                # scrollable frame from painting outside it.
+                innermost_frame = frame_chain[0] if frame_chain else None
+                outer_scroll = 0
+                for frame in reversed(frame_chain):
+                    contributes_clip = frame is innermost_frame or (
+                        frame.style.scrollable and frame._needs_scroll
+                    )
+                    if frame.bounds is not None and contributes_clip:
+                        padding_top, padding_right, padding_bottom, padding_left = (
+                            frame.style.padding
+                        )
+                        scrollbar_width = (
+                            1
+                            if frame.style.show_scrollbar and frame._needs_scroll
+                            else 0
+                        )
+                        # This frame's visible content rect, at its on-screen
+                        # position (shifted up by the scroll of outer frames).
+                        rect = Bounds(
+                            x=frame.bounds.x + 1 + padding_left,  # +1 left border
+                            y=frame.bounds.y - outer_scroll + 1 + padding_top,
+                            width=max(
+                                1,
+                                frame.bounds.width
+                                - 2  # left + right borders
+                                - padding_left
+                                - padding_right
+                                - scrollbar_width,
+                            ),
+                            height=max(
+                                1,
+                                frame.bounds.height
+                                - 2  # top + bottom borders
+                                - padding_top
+                                - padding_bottom,
+                            ),
+                        )
+                        if clip_region is None:
+                            clip_region = rect
+                        else:
+                            # Intersect with the running clip; empty => the
+                            # element is entirely hidden by an ancestor frame.
+                            ix = max(clip_region.x, rect.x)
+                            iy = max(clip_region.y, rect.y)
+                            ix2 = min(
+                                clip_region.x + clip_region.width, rect.x + rect.width
+                            )
+                            iy2 = min(
+                                clip_region.y + clip_region.height,
+                                rect.y + rect.height,
+                            )
+                            if ix2 <= ix or iy2 <= iy:
+                                skip_element = True
+                                break
+                            clip_region = Bounds(
+                                x=ix, y=iy, width=ix2 - ix, height=iy2 - iy
+                            )
+
+                    # A frame's own scroll shifts the frames nested inside it.
+                    if frame.style.scrollable and frame._needs_scroll:
+                        outer_scroll += frame.get_scroll_offset()
+
+                scroll_offset = outer_scroll
+
+            if skip_element:
+                continue
 
             # Adjust element bounds for scroll offset
             adjusted_bounds = Bounds(

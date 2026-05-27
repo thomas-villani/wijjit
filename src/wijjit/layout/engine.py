@@ -2170,9 +2170,15 @@ class FrameNode(Container):
         for child in self.content_container.children:
             child_elements = child.collect_elements()
 
-            # Set parent_frame on all child elements for proper clipping
-            # This ensures content is clipped to frame bounds even for non-scrollable frames
-            # Only set if not already set by a more immediate parent
+            # Set parent_frame on all child elements for proper clipping.
+            # This ensures content is clipped to frame bounds even for
+            # non-scrollable frames.
+            #
+            # The element-level scroll_state_key synthesis below stays driven by
+            # the flat child_elements list; the parent_frame *chain* is built
+            # structurally (see _link_child_frames after the loop) so a nested
+            # frame that is not itself a collected element still links into the
+            # chain.
             if self.frame._has_children:
                 for elem in child_elements:
                     if elem.parent_frame is None:
@@ -2193,7 +2199,38 @@ class FrameNode(Container):
 
             elements.extend(child_elements)
 
+        # Link nested child FRAMES into the parent_frame chain. A nested frame
+        # that is not itself a collected element (no id/content/scroll) is not
+        # in child_elements, so the loop above never sets its parent_frame; its
+        # descendants would then clip only to it and could paint outside this
+        # outer frame when scrolled. Set it structurally from the current layout
+        # tree (unconditional, so it is rebuilt cleanly each render rather than
+        # walking the possibly-stale parent_frame chain on reused elements).
+        if self.frame._has_children:
+            self._link_child_frames(self.content_container)
+
         return elements
+
+    def _link_child_frames(self, node: LayoutNode) -> None:
+        """Set parent_frame on nested child frames reachable without crossing
+        another frame.
+
+        Recurses through plain containers (vstack/hstack) but stops at each
+        nested :class:`FrameNode`, whose own ``collect_elements`` links the
+        frames nested inside it. This builds the full frame chain level by
+        level for correct multi-frame clipping.
+
+        Parameters
+        ----------
+        node : LayoutNode
+            Subtree to scan (typically this frame's content container).
+        """
+        for child in getattr(node, "children", []):
+            if isinstance(child, FrameNode):
+                child.frame.parent_frame = self.frame
+                # Do not descend: child's interior links to child.frame.
+            elif isinstance(child, Container):
+                self._link_child_frames(child)
 
 
 class SplitPanelNode(Container):
