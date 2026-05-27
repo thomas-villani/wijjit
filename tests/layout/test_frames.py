@@ -2,7 +2,7 @@
 
 import pytest
 
-from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
+from wijjit.layout.frames import BorderStyle, Frame, FrameStyle, get_border_chars
 from wijjit.terminal.input import Key, KeyType
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -1087,3 +1087,86 @@ class TestFrameHorizontalScrolling:
         # Max width should be from the longest line
         assert frame._content_width > 20
         assert frame._needs_scroll_x is True
+
+
+class TestFrameBorderAlignment:
+    """Regression tests for top/content/bottom border column alignment.
+
+    A titled frame draws its top border via a separate code path from the
+    body and bottom border (the title is inset with corner padding). A past
+    bug report claimed the top-right corner of a titled frame sat one column
+    past the body edge ("title-border width discrepancy"). Investigation
+    showed the borders actually align in both the string (`render`) and
+    cell-based (`render_to`) paths at every width - the apparent mismatch was
+    trailing-whitespace differences in piped terminal output. These tests lock
+    the alignment in so a real regression can't slip back in unnoticed.
+    """
+
+    BORDER_CORNERS = frozenset("┌┐└┘│")
+
+    def _right_border_col(self, line: str) -> int:
+        """Return the column of the right-most border glyph in a line."""
+        cols = [i for i, ch in enumerate(line) if ch in self.BORDER_CORNERS]
+        assert cols, f"line has no border glyph: {line!r}"
+        return cols[-1]
+
+    @pytest.mark.parametrize("width", range(10, 45))
+    @pytest.mark.parametrize("title", ["Login", "X", "A Longer Title"])
+    def test_titled_frame_borders_align_cell_path(self, width, title):
+        """Top, content, and bottom borders share one right-edge column."""
+        from tests.helpers import render_element
+
+        style = FrameStyle(
+            border_style=BorderStyle.SINGLE, title=title, scrollable=False
+        )
+        frame = Frame(width=width, height=5, style=style)
+        frame.set_content("body")
+
+        output = render_element(frame, width=width + 5, height=5)
+        lines = output.split("\n")
+
+        top = self._right_border_col(lines[0])
+        content = self._right_border_col(lines[2])
+        bottom = self._right_border_col(lines[4])
+        assert top == content == bottom, (
+            f"border misalignment at width={width} title={title!r}: "
+            f"top={top} content={content} bottom={bottom}"
+        )
+        # The right border should land on the frame's last column.
+        assert top == width - 1
+
+    @pytest.mark.parametrize("width", range(12, 40))
+    def test_scrollable_titled_frame_borders_align(self, width):
+        """A scrollbar column must not push the body border past the title."""
+        from tests.helpers import render_element
+
+        style = FrameStyle(
+            border_style=BorderStyle.SINGLE,
+            title="Scroll",
+            scrollable=True,
+            show_scrollbar=True,
+        )
+        frame = Frame(width=width, height=8, style=style)
+        frame.set_content("\n".join(f"line {i}" for i in range(40)))
+
+        output = render_element(frame, width=width + 5, height=8)
+        lines = output.split("\n")
+
+        top = self._right_border_col(lines[0])
+        content = self._right_border_col(lines[3])
+        bottom = self._right_border_col(lines[7])
+        assert top == content == bottom == width - 1, (
+            f"scrollable border misalignment at width={width}: "
+            f"top={top} content={content} bottom={bottom}"
+        )
+
+    def test_string_path_top_matches_bottom_width(self):
+        """The deprecated string `render` path is also balanced."""
+        style = FrameStyle(border_style=BorderStyle.SINGLE, title="Login")
+        chars = get_border_chars(BorderStyle.SINGLE)
+        for width in (20, 21, 30):
+            frame = Frame(width=width, height=4, style=style)
+            frame.set_content("body")
+            top = frame._render_top_border(chars)
+            bottom = frame._render_bottom_border(chars)
+            assert len(top) == len(bottom) == width

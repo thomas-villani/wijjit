@@ -45,9 +45,12 @@ The biggest dev-velocity gap is the inability to drive a running app and
 **Acceptance:** an agent can script keys/clicks against any example and assert
 on a text snapshot of the screen, with no real TTY. **Met.**
 
-> The sweep already surfaced two bugs not previously listed: `charts_demo`
-> renders a blank initial screen, and framed output has a 1-column title-border
-> width discrepancy (top-right corner sits one cell past the body edge).
+> The sweep surfaced two issues not previously listed, both now resolved:
+> `charts_demo` rendered a blank initial screen (fixed - see Phase 2 crashers),
+> and a suspected 1-column title-border width discrepancy that turned out **not**
+> to be a bug - the borders align at every width in both render paths; the
+> apparent mismatch was trailing-whitespace differences in piped output. Locked
+> in with `tests/layout/test_frames.py::TestFrameBorderAlignment`.
 
 ## Phase 2 - Fix outstanding demo bugs (-> 0.1.0b1)
 
@@ -86,6 +89,8 @@ Use the Phase 1 harness to reproduce and regression-test each.
 - [ ] **Display:** table header-click sort; `table_demo` button placement;
       scrollbar focus color; `Pager` page-5 checkboxes show no text.
 - [ ] **Layout polish:** `complex_layout_demo`, `error_handling_demo` cleanup.
+  - [x] Suspected frame title-border 1-column discrepancy: investigated, not a
+        bug (borders align at every width; regression test added).
 
 **Acceptance:** all `examples/` run without crashes; `etc/issues.md` open items
 closed or explicitly deferred with rationale; harness regression tests added.
