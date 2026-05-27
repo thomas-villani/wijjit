@@ -79,7 +79,13 @@ Use the Phase 1 harness to reproduce and regression-test each.
         height for any non-int spec.
 - [ ] **Scrolling / clip / overflow:** nested hstack/vstack/frame scroll
       glitches; parent-frame false scrollbars when content fits; scrollbar
-      overlap; `frame_overflow_demo` modes look identical.
+      overlap.
+  - [x] `frame_overflow_demo` modes looked identical: a text-only frame body
+        wrapped regardless of `overflow_x`. The frame tag's `overflow_x` now
+        defaults to None (body text wraps by default) but honors an explicit
+        clip/visible/scroll/auto (keeps logical lines). CLIP and WRAP now
+        render differently; unspecified frames are unchanged. Regression tests
+        added. (VISIBLE still mirrors CLIP visually - deferred.)
 - [ ] **Modal / focus / key routing:** modals should block app hotkeys
       (except quit); avoid double-key-to-focus; swallow keys that opened a
       dialog. (Many already fixed - re-verify with the harness.)

@@ -861,7 +861,7 @@ class FrameExtension(Extension):
         align_v: str = "stretch",
         content_align_h: str = "stretch",
         content_align_v: str = "stretch",
-        overflow_x: str = "clip",
+        overflow_x: str | None = None,
         scrollable: bool = False,
         show_scrollbar: bool = True,
         show_scrollbar_x: bool = True,
@@ -896,7 +896,10 @@ class FrameExtension(Extension):
         content_align_v : str, optional
             Vertical alignment of content within frame (default: "stretch")
         overflow_x : str, optional
-            Horizontal overflow mode: "clip", "visible", "wrap", "scroll", or "auto" (default: "clip")
+            Horizontal overflow mode: "clip", "visible", "wrap", "scroll", or
+            "auto". When unspecified (the default), frame body text wraps to the
+            frame width; an explicit value is honored, so "clip"/"visible" keep
+            logical lines instead of reflowing.
             - "scroll": Enable horizontal scrolling with scrollbar
             - "auto": Enable horizontal scrolling only when content exceeds width
         scrollable : bool, optional
@@ -979,6 +982,14 @@ class FrameExtension(Extension):
         else:
             overflow_y = "clip"
 
+        # overflow_x defaults to None (unspecified). Frame body text wraps by
+        # default; an explicit overflow_x is honored. Resolve the effective mode
+        # for the frame element (None -> "clip", the historical default), and
+        # remember whether the caller left it unspecified so body text keeps
+        # wrapping unless an explicit non-"wrap" mode was requested.
+        overflow_x_unspecified = overflow_x is None
+        effective_overflow_x = "clip" if overflow_x is None else overflow_x
+
         # Create VNode builder for reconciliation
         # The renderer will create the actual Frame element from these props
         vnode = VNodeBuilder("Frame", key=id)
@@ -987,7 +998,7 @@ class FrameExtension(Extension):
         vnode.set_prop("scrollable", scrollable)
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("show_scrollbar_x", show_scrollbar_x)
-        vnode.set_prop("overflow_x", overflow_x)
+        vnode.set_prop("overflow_x", effective_overflow_x)
         vnode.set_prop("overflow_y", overflow_y)
         vnode.set_layout(
             width=width_parsed,
@@ -1016,7 +1027,13 @@ class FrameExtension(Extension):
                 text_vnode = VNodeBuilder("TextElement", key=text_key)
                 text_vnode.set_prop("id", text_key)
                 text_vnode.set_prop("text", processed_text)
-                text_vnode.set_prop("wrap", not raw)
+                # Body text wraps by default; honor an explicit overflow_x.
+                # Only "wrap" reflows - clip/visible/scroll/auto keep logical
+                # lines so the frame's own overflow handling takes effect.
+                wrap_body = (not raw) and (
+                    overflow_x_unspecified or effective_overflow_x == "wrap"
+                )
+                text_vnode.set_prop("wrap", wrap_body)
                 text_vnode.set_layout(width="auto", height="auto")
                 vnode.add_child(text_vnode)
         elif vnode_children:

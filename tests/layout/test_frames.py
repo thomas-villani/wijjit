@@ -1170,3 +1170,91 @@ class TestFrameBorderAlignment:
             top = frame._render_top_border(chars)
             bottom = frame._render_bottom_border(chars)
             assert len(top) == len(bottom) == width
+
+
+class TestFrameBodyTextOverflow:
+    """Regression tests for body text honoring a frame's overflow_x.
+
+    A frame whose body is plain text turns that text into a child TextElement.
+    The element's ``wrap`` flag previously ignored the frame's ``overflow_x``,
+    so clip/visible/wrap all reflowed identically (e.g. frame_overflow_demo's
+    three panes looked the same). Body text now wraps by default but honors an
+    explicit overflow_x: only "wrap" reflows; clip/visible/scroll/auto keep
+    logical lines so the frame's own overflow handling applies.
+    """
+
+    LONG_LINE = (
+        "This is a deliberately long single line of body text used to "
+        "exercise wrapping behavior inside a frame."
+    )
+
+    def _body_text_element(self, template: str):
+        """Render a template and return the frame's child TextElement."""
+        from wijjit import Wijjit
+        from wijjit.elements.base import TextElement
+        from wijjit.testing.harness import WijjitHarness
+
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": template})
+        with WijjitHarness(app, size=(60, 14)) as harness:
+            harness.tick(frames=1)
+            cache = app.renderer._reconciler._element_cache
+        texts = [v for v in cache.values() if isinstance(v, TextElement)]
+        assert len(texts) == 1, f"expected one text child, got {len(texts)}"
+        return texts[0]
+
+    def _template(self, overflow_attr: str) -> str:
+        return (
+            '{% frame title="T" width=40 height=10 '
+            + overflow_attr
+            + " %}\n"
+            + self.LONG_LINE
+            + "\n{% endframe %}"
+        )
+
+    def test_unspecified_overflow_x_wraps_by_default(self):
+        """A frame with no overflow_x keeps wrapping body text (unchanged)."""
+        text = self._body_text_element(self._template(""))
+        assert text.wrap is True
+
+    def test_explicit_wrap_wraps(self):
+        """overflow_x="wrap" wraps body text."""
+        text = self._body_text_element(self._template('overflow_x="wrap"'))
+        assert text.wrap is True
+
+    def test_explicit_clip_does_not_wrap(self):
+        """overflow_x="clip" keeps logical lines (no reflow)."""
+        text = self._body_text_element(self._template('overflow_x="clip"'))
+        assert text.wrap is False
+
+    def test_explicit_visible_does_not_wrap(self):
+        """overflow_x="visible" keeps logical lines (no reflow)."""
+        text = self._body_text_element(self._template('overflow_x="visible"'))
+        assert text.wrap is False
+
+    def test_clip_and_wrap_panes_differ_in_demo(self):
+        """End-to-end: frame_overflow_demo's CLIP and WRAP panes now differ."""
+        from pathlib import Path
+
+        from wijjit.testing import load_example_app
+        from wijjit.testing.harness import WijjitHarness
+
+        repo_root = Path(__file__).resolve().parents[2]
+        demo = repo_root / "examples" / "advanced" / "frame_overflow_demo.py"
+        app = load_example_app(demo)
+        with WijjitHarness(app, size=(110, 28)) as harness:
+            harness.tick(frames=1)
+            lines = harness.screen().split("\n")
+
+        # The three inner panes are separated by "  " gaps between frame borders.
+        # Compare the CLIP (first) and WRAP (third) columns over the content rows.
+        def column(line: str, start: int, end: int) -> str:
+            return line[start:end]
+
+        # Content rows sit between the inner frame top (row 3) and bottom.
+        body = [ln for ln in lines[4:18] if "│" in ln]
+        assert body, "no inner frame body rows found"
+        # CLIP pane is the left third, WRAP pane the right third.
+        clip_col = "\n".join(column(ln, 4, 34) for ln in body)
+        wrap_col = "\n".join(column(ln, 72, 102) for ln in body)
+        assert clip_col != wrap_col, "CLIP and WRAP panes still render identically"
