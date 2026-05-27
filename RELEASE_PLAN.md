@@ -86,12 +86,16 @@ Use the Phase 1 harness to reproduce and regression-test each.
 - [ ] **Render order / dirty marking:** progress bars stop spinners;
       spinner stop leaves `k...` artifacts (dirty-mark on shrink);
       view-switch latency (`statusbar_demo`, `event_patterns_demo`).
-- [ ] **Display:** `table_demo` button placement (demo-config, see below).
+- [x] **Display:** done.
   - [x] table scrollbar focus color: the table resolved non-existent
         `table.scrollbar` style classes, so the scrollbar was always unstyled
         and never changed on focus. Now resolves the shared `scrollbar.thumb`/
         `scrollbar.track` (+ `:focus`) classes frames use, so a focused table's
         scrollbar picks up the focus accent. Regression tests added.
+  - [x] `table_demo` button placement: demo-config tightening - sized the table
+        to its data (height 19) and the frame to its content (height 29) so the
+        buttons sit directly below the table with no wasted space. Golden
+        regenerated.
   - [x] table header-click sort: hit-testing assumed equal-width columns, but
         Rich sizes columns to content, so clicks mapped to the wrong column.
         Now captures the real column boundaries from the rendered top border
