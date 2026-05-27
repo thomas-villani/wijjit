@@ -1,0 +1,30 @@
+┌─ Select List Demo ───────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                 █│
+│  Make your selections below                                                                     █│
+│                                                                                                 █│
+│  Instructions: Tab to navigate | Up/Down to browse | Enter/Space to select/toggle | Home/End    █│
+│                                                                                                 █│
+│  ┌─ Color ──────────────────────┐  ╭─ Size ───────────────────────╮                             █│
+│  │  Red                         │  │  Extra Small                 │                             █│
+│  │  Green                       │  │  Small                       │                             █│
+│  │ *Blue                        │  │ *Medium                      │                             █│
+│  │  Yellow                      │  │  Large                       │                             █│
+│  │  Purple                      │  │  Extra Large                 │                             █│
+│  └──────────────────────────────┘  ╰──────────────────────────────╯                             █│
+│                                                                                                 █│
+│  ╔═ Priority ═══════════════════╗  ┌─ Country ──────────────────────────────┐                   █│
+│  ║  Critical                    ║  │  Afghanistan                           │                   █│
+│  ║  High                        ║  │  Albania                               │                   █│
+│  ║  Medium                      ║  │  Algeria                               │                   █│
+│  ║  Low                         ║  │  Argentina                             │                   █│
+│  ║  None                        ║  │  Australia                             │                   █│
+│  ╚══════════════════════════════╝  │  Austria                               │                   █│
+│                                    │  Belgium                               │                   █│
+│                                    │  Brazil                                │                   █│
+│                                    └────────────────────────────────────────┘                   ││
+│                                                                                                 ││
+│  ╭─ Toppings (multi-select) ─────────╮  Multi-select instructions:                              ││
+│  │ *Cheese                           │  - Enter/Space toggles selection                         ││
+│  │ *Pepperoni                        │  - * marks selected items                                ││
+│  │  Mushrooms                        │  - Multiple items can be selected                        ││
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘

@@ -1,0 +1,30 @@
+╔═ Checkbox Demo ════════════════════════════════════════════════════╗                              
+║                                                                    ║                              
+║  Please review and submit the form                                 ║                              
+║                                                                    ║                              
+║  Individual Checkboxes:                                            ║                              
+║  ☐ Subscribe to newsletter                                         ║                              
+║  ☐ I agree to the terms and conditions                             ║                              
+║                                                                    ║                              
+║  Email Preferences (Multiple Selection):                           ║                              
+║                                                                    ║                              
+║  ☐ Email notifications                                             ║                              
+║                                                                    ║                              
+║  ☐ Product updates                                                 ║                              
+║                                                                    ║                              
+║  ☐ Marketing emails                                                ║                              
+║                                                                    ║                              
+║  < Submit >  < Reset >  < Quit >                                   ║                              
+║                                                                    ║                              
+║  Controls: [Tab/Shift+Tab] Navigate | [Space] Toggle | [q] Quit    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+║                                                                    ║                              
+╚════════════════════════════════════════════════════════════════════╝                              
+                                                                                                    
+                                                                                                    

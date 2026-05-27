@@ -335,9 +335,7 @@ class WijjitHarness:
         WijjitHarness
             ``self``, for chaining.
         """
-        event_type = (
-            MouseEventType.DOUBLE_CLICK if count >= 2 else MouseEventType.CLICK
-        )
+        event_type = MouseEventType.DOUBLE_CLICK if count >= 2 else MouseEventType.CLICK
         self._input.enqueue(
             MouseEvent(event_type, _MOUSE_BUTTONS[button], x, y, click_count=count)
         )
@@ -517,6 +515,9 @@ class WijjitHarness:
         cfg["MAX_FPS"] = None
         cfg["RENDER_THROTTLE_MS"] = 0
         cfg["ENABLE_MOUSE"] = self._enable_mouse
+        # Pin Unicode rendering so snapshots are deterministic across platforms
+        # (box-drawing characters would otherwise depend on terminal detection).
+        cfg["UNICODE_SUPPORT"] = True
 
     def _patch_terminal_size(self) -> None:
         self._orig_get_size = shutil.get_terminal_size

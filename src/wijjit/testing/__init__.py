@@ -17,6 +17,17 @@ Example
 ...     print(h.screen())
 """
 
+from wijjit.testing.examples import (
+    ExampleLoadError,
+    discover_examples,
+    load_example_app,
+)
 from wijjit.testing.harness import ScriptedInputHandler, WijjitHarness
 
-__all__ = ["WijjitHarness", "ScriptedInputHandler"]
+__all__ = [
+    "WijjitHarness",
+    "ScriptedInputHandler",
+    "load_example_app",
+    "discover_examples",
+    "ExampleLoadError",
+]

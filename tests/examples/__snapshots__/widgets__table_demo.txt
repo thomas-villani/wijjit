@@ -1,0 +1,30 @@
+╔═ Table Demo - User Directory ════════════════════════════════════════════════════════════════════╗
+║                                                                                                  ║
+║  Welcome to Table Demo! Scroll with mouse wheel or arrow keys. Click headers to sort.            ║
+║                                                                                                  ║
+║  Instructions: Press TAB to focus table | Use Up/Down/PageUp/PageDown to scroll | Mouse wheel    ║
+║                                                                                                  ║
+║  ┌───────────────────────────┬────────────────────────────────────┬──────────────────┬────────┐  ║
+║  │ name                      │ email                              │ status           │ age    │  ║
+║  ├───────────────────────────┼────────────────────────────────────┼──────────────────┼────────┤  ║
+║  │ Alice Johnson             │ alice@example.com                  │ Active           │ 28     │  ║
+║  │ Bob Smith                 │ bob@example.com                    │ Inactive         │ 34     │  ║
+║  │ Carol White               │ carol@example.com                  │ Active           │ 42     │  ║
+║  │ David Brown               │ david@example.com                  │ Active           │ 31     │  ║
+║  │ Eve Davis                 │ eve@example.com                    │ Pending          │ 25     │  ║
+║  │ Frank Miller              │ frank@example.com                  │ Active           │ 39     │  ║
+║  │ Grace Wilson              │ grace@example.com                  │ Inactive         │ 29     │  ║
+║  │ Henry Moore               │ henry@example.com                  │ Active           │ 45     │  ║
+║  │ Ivy Taylor                │ ivy@example.com                    │ Active           │ 33     │  ║
+║  │ Jack Anderson             │ jack@example.com                   │ Pending          │ 27     │  ║
+║  │ Kate Thomas               │ kate@example.com                   │ Active           │ 36     │  ║
+║  │ Leo Jackson               │ leo@example.com                    │ Active           │ 41     │  ║
+║  │ Mia Martin                │ mia@example.com                    │ Inactive         │ 30     │  ║
+║  │ Noah Lee                  │ noah@example.com                   │ Active           │ 38     │  ║
+║  │ Olivia Harris             │ olivia@example.com                 │ Active           │ 26     │  ║
+║  └───────────────────────────┴────────────────────────────────────┴──────────────────┴────────┘  ║
+║                                                                                                  ║
+║                                                                                                  ║
+║  < Add User >  < Clear Table >  < Reset Table >  < Quit >                                        ║
+║                                                                                                  ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════╝

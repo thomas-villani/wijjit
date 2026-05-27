@@ -1,0 +1,46 @@
+# Line-ending policy
+#
+# The repository stores LF and checks out LF in the working tree on every
+# platform. This matches CI (Linux/macOS) and stops Git's "LF will be replaced
+# by CRLF" warnings on Windows caused by core.autocrlf. Override per-type below
+# only where a tool genuinely requires CRLF.
+
+* text=auto eol=lf
+
+# Source and text formats (explicit for clearer diffs/merges)
+*.py     text eol=lf
+*.pyi    text eol=lf
+*.txt    text eol=lf
+*.md     text eol=lf
+*.rst    text eol=lf
+*.toml   text eol=lf
+*.cfg    text eol=lf
+*.ini    text eol=lf
+*.json   text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.css    text eol=lf
+*.html   text eol=lf
+*.j2     text eol=lf
+*.jinja  text eol=lf
+*.jinja2 text eol=lf
+*.sh     text eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+*.ps1    text eol=crlf
+
+# Binary assets: never normalize, never diff as text
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.whl    binary
+*.gz     binary
+*.tar    binary
+*.zip    binary
+*.pdf    binary
+*.woff   binary
+*.woff2  binary

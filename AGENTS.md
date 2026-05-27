@@ -59,6 +59,22 @@ with WijjitHarness(app, size=(80, 24)) as h:
     h.assert_text("Welcome")
 ```
 
+**Driving the examples headlessly:** `wijjit.testing.load_example_app(path)`
+execs any demo and returns its (un-run) `Wijjit` app, so you can drive it through
+the harness. The CLI prints a demo's screen without a TTY - ideal for inspecting
+a visual bug:
+
+```bash
+.venv/Scripts/python.exe -m wijjit.testing examples/advanced/login_form.py \
+    --size 100x30 --keys "tab,type:admin,tab,type:secret,enter" --ansi
+```
+
+`tests/examples/test_examples_render.py` exercises every driveable example
+(non-blank smoke assert) plus curated initial-screen text goldens (regenerate
+with `pytest --golden-update`). Four inline-subsystem / raw-terminal demos and a
+couple of `Renderer`-only diagnostics are not harness-driveable and are skipped
+there with reasons.
+
 ### Code Quality (CI gates)
 
 ```bash

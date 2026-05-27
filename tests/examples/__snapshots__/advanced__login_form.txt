@@ -1,0 +1,30 @@
+┌─ Login ────────────────────────────────────────┐                                                  
+│                                                │                                                  
+│  Please enter your credentials                 │                                                  
+│  Username:                                     │                                                  
+│                                                │                                                  
+│  [Enter username                ]              │                                                  
+│                                                │                                                  
+│  Password:                                     │                                                  
+│                                                │                                                  
+│  [Enter password                ]              │                                                  
+│                                                │                                                  
+│  < Login >  < Clear >  < Quit >                │                                                  
+│                                                │                                                  
+│                                                │                                                  
+└────────────────────────────────────────────────┘                                                  
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    

@@ -29,15 +29,25 @@ The biggest dev-velocity gap is the inability to drive a running app and
 - [x] Public test API: `wijjit.testing.WijjitHarness(app, size=(80,24))` with
       `.press`/`.type`/`.key`/`.click`/`.scroll`/`.tick`/`.screen`/
       `.assert_text`/`.find_text` (+ `tests/testing/test_harness.py`).
-- [ ] Pytest fixtures + golden/snapshot helpers for every example.
-- [ ] (Optional) A CLI to launch any example in headless mode and print the
-      screen, for quick agent-driven iteration.
+- [x] Example loader: `wijjit.testing.load_example_app(path)` execs a demo with
+      `__name__ == "__main__"` (and neutralized `sys.argv`) while patching
+      `Wijjit.run` to capture the instance instead of blocking. Handles both
+      module-level and `main()`-local apps. `discover_examples()` enumerates them.
+- [x] Pytest coverage for every example: `tests/examples/test_examples_render.py`
+      loads + renders all 62 driveable demos (non-blank smoke assert) plus a
+      curated set of initial-screen text goldens (regenerate with
+      `pytest --golden-update`). 8 non-harness demos skipped with reasons; known
+      bugs marked `xfail`.
+- [x] Headless CLI: `python -m wijjit.testing <example.py> [--size WxH]
+      [--keys "tab,type:admin,enter,click:10,6,tick:3"] [--ansi]` loads, drives,
+      and prints the screen for quick agent-driven iteration.
 
 **Acceptance:** an agent can script keys/clicks against any example and assert
-on a text snapshot of the screen, with no real TTY.
+on a text snapshot of the screen, with no real TTY. **Met.**
 
-> See the harness discussion in the session notes; this is the enabler for
-> Phase 2.
+> The sweep already surfaced two bugs not previously listed: `charts_demo`
+> renders a blank initial screen, and framed output has a 1-column title-border
+> width discrepancy (top-right corner sits one cell past the body edge).
 
 ## Phase 2 - Fix outstanding demo bugs (-> 0.1.0b1)
 
