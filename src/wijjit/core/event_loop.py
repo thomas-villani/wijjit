@@ -227,6 +227,21 @@ class EventLoop:
 
         finally:
             logger.info("Exiting application, cleaning up")
+
+            # Cancel any pending async tasks spawned from state callbacks so they
+            # don't leak or block shutdown.
+            pending_tasks = [
+                t
+                for t in asyncio.all_tasks()
+                if t is not asyncio.current_task() and not t.done()
+            ]
+            if pending_tasks:
+                logger.debug(f"Cancelling {len(pending_tasks)} pending task(s)")
+                for task in pending_tasks:
+                    task.cancel()
+                # Wait for cancellations to complete
+                await asyncio.gather(*pending_tasks, return_exceptions=True)
+
             # Unregister suspend handlers before terminal cleanup
             self.app.suspend_manager.unregister()
             logger.debug("Unregistered suspend handlers")

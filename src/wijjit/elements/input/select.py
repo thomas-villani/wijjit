@@ -257,7 +257,7 @@ class Select(ScrollableElement):
 
         # Update scroll manager content size if it exists
         if hasattr(self, "scroll_manager"):
-            self.scroll_manager.content_size = len(self._options)
+            self.scroll_manager.update_content_size(len(self._options))
 
             # Clamp highlighted_index to valid range
             if self._options:
@@ -745,7 +745,6 @@ class Select(ScrollableElement):
         - 'select.option:disabled': Disabled option style
         - 'select.placeholder': Placeholder text style (empty state)
         """
-
         # Get visible range from scroll manager
         visible_start, visible_end = self.scroll_manager.get_visible_range()
         visible_options = self.options[visible_start:visible_end]
