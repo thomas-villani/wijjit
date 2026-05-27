@@ -44,6 +44,21 @@ Tests live under `tests/{layer}/test_{module}.py`. There are also
 snapshot tests (syrupy). Use `@pytest.mark.asyncio` (or rely on
 `asyncio_mode = "auto"`) for async tests.
 
+**Headless harness:** `wijjit.testing.WijjitHarness` drives a real app without
+a TTY - it feeds scripted keys/mouse through the actual event-loop dispatch and
+exposes the rendered screen as text/ANSI. Use it to reproduce and regression-
+test visual/interaction bugs:
+
+```python
+from wijjit.testing import WijjitHarness
+with WijjitHarness(app, size=(80, 24)) as h:
+    h.press("tab"); h.type("admin"); h.press("enter")
+    h.click(10, 6)            # routed through mouse_router
+    h.tick(frames=3)          # advance spinner/animation frames
+    print(h.screen())         # plain text;  h.screen_ansi() for styling
+    h.assert_text("Welcome")
+```
+
 ### Code Quality (CI gates)
 
 ```bash
@@ -258,7 +273,8 @@ behavioral bugs tracked in `etc/issues.md` - see `RELEASE_PLAN.md`.
 - `mypy --strict` not yet clean (~480 errors).
 - ~13 demo bugs open (scrolling/clip, modal key-swallowing, table sort,
   spinner+progress interaction, some layout/missing-element issues).
-- No interactive test harness for driving/observing a running app (planned).
+- Headless test harness exists (`wijjit.testing.WijjitHarness`); per-example
+  snapshot fixtures and a headless example CLI are still TODO.
 - Sphinx docs scaffold exists but the build emits many warnings.
 - No virtual scrolling for very large datasets.
 - Some Unicode may render imperfectly on Windows.

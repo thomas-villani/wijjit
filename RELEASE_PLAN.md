@@ -21,16 +21,14 @@ Versioning toward release: `0.1.0a1` (now) -> `0.1.0b1` (after Phase 2) ->
 The biggest dev-velocity gap is the inability to drive a running app and
 "see" the output. This blocks fixing the visual demo bugs efficiently.
 
-- [ ] Headless driver: run an app with a scripted/synthetic input source
-      (inject `KeyEvent`/`MouseEvent`) instead of prompt_toolkit, and a fixed
-      terminal size. Reuse the existing `ScreenBuffer` and the `HEADLESS`
-      config flag (currently a no-op).
-- [ ] Buffer-to-text snapshot: dump the rendered `ScreenBuffer` to plain text
-      (and optionally an ANSI string) so output is inspectable by humans and
-      agents. Build on `tests/e2e/helpers.py`, `tests/golden/`, and syrupy.
-- [ ] Public test API, e.g. `WijjitHarness(app, size=(80,24))` with
-      `.render() -> str`, `.press("tab")`, `.click(x, y)`, `.type("...")`,
-      `.snapshot()`, `.find_text(...)`.
+- [x] Headless driver: `ScriptedInputHandler` feeds queued `Key`/`MouseEvent`
+      through the real `EventLoop._process_frame_async()` dispatch; fixed
+      terminal size via patched `shutil.get_terminal_size`.
+- [x] Buffer-to-text/ANSI snapshot: `WijjitHarness.screen()` (plain text) and
+      `.screen_ansi()` (styled), read from the renderer's displayed buffer.
+- [x] Public test API: `wijjit.testing.WijjitHarness(app, size=(80,24))` with
+      `.press`/`.type`/`.key`/`.click`/`.scroll`/`.tick`/`.screen`/
+      `.assert_text`/`.find_text` (+ `tests/testing/test_harness.py`).
 - [ ] Pytest fixtures + golden/snapshot helpers for every example.
 - [ ] (Optional) A CLI to launch any example in headless mode and print the
       screen, for quick agent-driven iteration.
