@@ -379,3 +379,94 @@ class TestTableClickCallbacks:
         assert table.on_row_double_click is None
         assert table.on_cell_click is None
         assert table.on_header_click is None
+
+
+class TestColumnHitTesting:
+    """Regression tests for header/cell click hit-testing (column mapping).
+
+    Rich sizes table columns to their content, so columns are seldom equal
+    width. A prior bug used an equal-width estimate to map an x-position to a
+    column, so clicking a wide column's header could sort a different (narrow)
+    column. The fix captures the real column boundaries from the rendered top
+    border each frame; these tests pin the mapping to the rendered layout.
+    """
+
+    # Deliberately unequal content widths: a wide first column followed by two
+    # narrow ones - the case an equal-width estimate gets wrong.
+    UNEQUAL_DATA = [
+        {"name": "Alexander the Great", "x": "1", "y": "9"},
+        {"name": "Bo", "x": "2", "y": "8"},
+    ]
+    COLUMNS = ["name", "x", "y"]
+
+    def _render(self, table: Table, width: int) -> None:
+        """Render the table so its column boundaries get captured."""
+        table.set_bounds(Bounds(0, 0, width, table.height))
+        render_element(table, width=width, height=table.height)
+
+    def test_boundaries_match_rendered_top_border(self):
+        """Captured boundaries equal the junctions in the rendered top border."""
+        table = Table(data=self.UNEQUAL_DATA, columns=self.COLUMNS, width=50, height=8)
+        self._render(table, 50)
+
+        output = render_element(table, width=50, height=8)
+        top = output.split("\n")[0]
+        junctions = [i for i, ch in enumerate(top) if ch in "┌┬┐╔╦╗╭╮┏┳┓+"]
+
+        assert table._column_boundaries == junctions
+        # One boundary per column edge: left border, 2 junctions, right border.
+        assert len(table._column_boundaries) == len(self.COLUMNS) + 1
+
+    def test_midpoint_of_each_column_maps_to_that_column(self):
+        """The visual center of every column maps back to that column's key."""
+        table = Table(data=self.UNEQUAL_DATA, columns=self.COLUMNS, width=50, height=8)
+        self._render(table, 50)
+
+        bounds = table._column_boundaries
+        for i, key in enumerate(self.COLUMNS):
+            midpoint = (bounds[i] + bounds[i + 1]) // 2
+            assert table._get_column_at_x(midpoint) == key, (
+                f"column {key!r} center x={midpoint} mapped to "
+                f"{table._get_column_at_x(midpoint)!r}"
+            )
+
+    def test_equal_width_estimate_would_mismap(self):
+        """Guard: confirm the scenario actually defeats an equal-width guess.
+
+        Without the rendered boundaries the old estimate mislabels at least one
+        column center, so this regression test is exercising a real difference
+        (not a layout that happens to be equal-width anyway).
+        """
+        table = Table(data=self.UNEQUAL_DATA, columns=self.COLUMNS, width=50, height=8)
+        self._render(table, 50)
+
+        real = table._column_boundaries
+        midpoints = [(real[i] + real[i + 1]) // 2 for i in range(len(self.COLUMNS))]
+
+        # Temporarily clear the captured boundaries to force the fallback.
+        table._column_boundaries = []
+        fallback = [table._get_column_at_x(mx) for mx in midpoints]
+        assert fallback != self.COLUMNS  # equal-width guess gets it wrong
+
+    @pytest.mark.asyncio
+    async def test_header_click_sorts_visually_correct_column(self):
+        """End-to-end: clicking a column header sorts that column, not another."""
+        table = Table(
+            data=self.UNEQUAL_DATA,
+            columns=self.COLUMNS,
+            width=50,
+            height=8,
+            sortable=True,
+        )
+        self._render(table, 50)
+
+        bounds = table._column_boundaries
+        # Click the center of the last ("y") column header row (relative_y == 1).
+        last = len(self.COLUMNS) - 1
+        midpoint = (bounds[last] + bounds[last + 1]) // 2
+        event = MouseEvent(
+            type=MouseEventType.CLICK, button=MouseButton.LEFT, x=midpoint, y=1
+        )
+        await table.handle_mouse(event)
+
+        assert table.sort_column == "y"

@@ -137,6 +137,13 @@ class Table(ScrollableElement):
         self.sort_column: str | None = None
         self.sort_direction: Literal["asc", "desc"] = "asc"
 
+        # Actual per-column boundary x-positions (table-relative), captured from
+        # the rendered Rich output each frame. Used for accurate header/cell
+        # click hit-testing because Rich auto-sizes columns to content rather
+        # than evenly. Empty until the first render_to(); _get_column_at_x()
+        # falls back to an equal-width estimate when this is unavailable.
+        self._column_boundaries: list[int] = []
+
         # Calculate viewport height for data rows
         # Rich table uses: top border (1) + header (1 if shown) + separator (1 if header) + bottom border (1)
         # So for data rows: height - 2 (borders) - 2 (header + separator if shown)
@@ -549,6 +556,39 @@ class Table(ScrollableElement):
         # Fall back to base class for on_double_click/on_context_menu
         return await super().handle_mouse(event)
 
+    # Box-drawing horizontal fill characters used by Rich's top border. Any
+    # other non-space glyph in the border row is a corner or column junction,
+    # i.e. a column boundary.
+    _BORDER_FILL_CHARS = frozenset(" -─═━╌╍┄┅┈┉")
+
+    def _extract_column_boundaries(self, border_line: str) -> list[int]:
+        """Extract column boundary x-positions from a rendered top border.
+
+        Parameters
+        ----------
+        border_line : str
+            The table's rendered top border line (e.g. ``"┌────┬────┐"``).
+
+        Returns
+        -------
+        list[int]
+            Ascending x-positions (table-relative) of the left border, every
+            inter-column junction, and the right border. Empty if the line
+            holds no recognizable boundary glyphs.
+
+        Notes
+        -----
+        Rich sizes columns to their content, so columns are seldom equal width.
+        The corners and junctions of the top border mark the true column
+        boundaries and align with the vertical separators in every row, so they
+        give an exact map from an x-position to a column for click handling.
+        """
+        return [
+            i
+            for i, char in enumerate(border_line)
+            if char not in self._BORDER_FILL_CHARS
+        ]
+
     def _get_column_at_x(self, x: int) -> str | None:
         """Determine which column is at the given x position.
 
@@ -560,18 +600,34 @@ class Table(ScrollableElement):
         Returns
         -------
         str or None
-            Column key at position, or None if outside columns
+            Column key at position, or None if outside columns or on a
+            column separator
+
+        Notes
+        -----
+        Prefers the actual column boundaries captured from the most recent
+        render (``self._column_boundaries``), which reflect Rich's
+        content-based column widths. Falls back to an equal-width estimate
+        only when no render has happened yet.
         """
         if not self.columns:
             return None
 
-        # Account for left border (1 char)
-        content_x = x - 1
+        # Preferred path: use the real boundaries from the last render. The
+        # i-th column spans the open interval between boundary[i] and
+        # boundary[i + 1]; a click exactly on a separator maps to no column.
+        boundaries = self._column_boundaries
+        if len(boundaries) >= 2:
+            for i in range(len(boundaries) - 1):
+                if boundaries[i] < x < boundaries[i + 1] and i < len(self.columns):
+                    return self.columns[i]["key"]
+            return None
+
+        # Fallback (pre-first-render): assume evenly distributed columns.
+        content_x = x - 1  # Account for left border (1 char)
         if content_x < 0:
             return None
 
-        # Calculate column widths
-        # If no explicit widths, distribute evenly
         needs_scrollbar = (
             self.show_scrollbar and self.scroll_manager.state.is_scrollable
         )
@@ -584,10 +640,8 @@ class Table(ScrollableElement):
         total_padding = padding_per_col * len(self.columns)
         content_width = available_width - total_padding
 
-        # Calculate per-column width (simplified: equal distribution)
         col_width = max(1, content_width // len(self.columns))
 
-        # Find column at x position
         current_x = 0
         for col in self.columns:
             col_total_width = col_width + padding_per_col
@@ -686,6 +740,12 @@ class Table(ScrollableElement):
 
         # Split into lines
         lines = output.rstrip("\n").split("\n")
+
+        # Capture actual column boundaries from the rendered top border so
+        # header/cell click hit-testing matches Rich's content-based column
+        # widths (which are rarely equal). See _get_column_at_x().
+        if lines:
+            self._column_boundaries = self._extract_column_boundaries(lines[0])
 
         # Pad or trim to exact height
         if len(lines) < self.height:

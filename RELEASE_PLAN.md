@@ -86,8 +86,12 @@ Use the Phase 1 harness to reproduce and regression-test each.
 - [ ] **Render order / dirty marking:** progress bars stop spinners;
       spinner stop leaves `k...` artifacts (dirty-mark on shrink);
       view-switch latency (`statusbar_demo`, `event_patterns_demo`).
-- [ ] **Display:** table header-click sort; `table_demo` button placement;
-      scrollbar focus color; `Pager` page-5 checkboxes show no text.
+- [ ] **Display:** `table_demo` button placement; scrollbar focus color;
+      `Pager` page-5 checkboxes show no text.
+  - [x] table header-click sort: hit-testing assumed equal-width columns, but
+        Rich sizes columns to content, so clicks mapped to the wrong column.
+        Now captures the real column boundaries from the rendered top border
+        each frame (`Table._get_column_at_x`); regression tests added.
 - [ ] **Layout polish:** `complex_layout_demo`, `error_handling_demo` cleanup.
   - [x] Suspected frame title-border 1-column discrepancy: investigated, not a
         bug (borders align at every width; regression test added).
