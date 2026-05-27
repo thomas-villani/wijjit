@@ -34,7 +34,6 @@ HARNESS_SIZE = (100, 30)
 # Examples that are not driveable by the standard Wijjit event-loop harness.
 # Mapped to the reason they are skipped.
 EXCLUDED: dict[str, str] = {
-    "advanced/complex_layout_demo.py": "Renderer diagnostic, builds no Wijjit app",
     "advanced/scroll_demo.py": "raw ScreenManager demo with a blocking input loop",
     "advanced/template_demo.py": "Renderer diagnostic, builds no Wijjit app",
     "basic/debug_keys.py": "raw blocking keyboard-input loop",

@@ -7,24 +7,31 @@ This demo showcases:
 - Multiple element types with different sizing behaviors
 - Text wrapping and positioning
 - Real-world dashboard-like layout
+
+Run with: python examples/advanced/complex_layout_demo.py
+Press 'q' to quit.
 """
 
-from wijjit.core.renderer import Renderer
+from wijjit import Wijjit
+
+app = Wijjit()
 
 
-def main():
-    """Demonstrate complex nested layout with various sizing options."""
-
-    # Create a dashboard-like layout
-    template = """
-{% frame title="Dashboard - Complex Layout Demo" border_style="double" width=120 height=40 %}
+@app.view("main", default=True)
+def dashboard():
+    """Dashboard-like view with three levels of nested layout."""
+    return {
+        "template": """
+{% frame title="Dashboard - Complex Layout Demo" border_style="double"
+         width="fill" height="fill" %}
   {% vstack spacing=1 padding=1 %}
 
-    {# Top section: Three side-by-side panels with fill height #}
-    {% hstack spacing=2 height=fill %}
+    {# Top section: three side-by-side panels with fill height #}
+    {% hstack spacing=2 width=fill height=fill %}
 
-      {# Left panel: Markdown documentation (fills available space) #}
-      {% markdown border_style="rounded" title="Documentation" %}
+      {# Left panel: markdown documentation (fills available space) #}
+      {% contentview content_type="markdown" border_style="rounded"
+                     title="Documentation" width=fill height=fill %}
 # Welcome to Wijjit!
 
 This is a **markdown** viewer that automatically fills available space.
@@ -33,11 +40,11 @@ This is a **markdown** viewer that automatically fills available space.
 - Dynamic sizing with `width=fill` and `height=fill`
 - Nested layouts with vstacks and hstacks
 - Text wrapping and formatting
-      {% endmarkdown %}
+      {% endcontentview %}
 
       {# Middle panel: VStack with mixed content #}
       {% vstack spacing=1 width=40 %}
-        {% frame border_style="single" title="Status" %}
+        {% frame border_style="single" title="Status" height=6 %}
           System: Online
           CPU: 45%
           Memory: 2.1GB / 8GB
@@ -53,9 +60,9 @@ This is a **markdown** viewer that automatically fills available space.
         {% endframe %}
       {% endvstack %}
 
-      {# Right panel: Another VStack with different sizing #}
+      {# Right panel: another VStack with different sizing #}
       {% vstack spacing=1 width=30 %}
-        {% frame border_style="single" title="Quick Stats" %}
+        {% frame border_style="single" title="Quick Stats" height=6 %}
           Users: 1,234
           Active: 89
           Tasks: 42
@@ -68,18 +75,18 @@ This is a **markdown** viewer that automatically fills available space.
 
     {% endhstack %}
 
-    {# Middle section: Horizontal bar with buttons (auto height) #}
+    {# Middle section: horizontal bar with buttons (auto height) #}
     {% hstack spacing=2 %}
-      {% button %}[R] Refresh{% endbutton %}
-      {% button %}[S] Settings{% endbutton %}
-      {% button %}[H] Help{% endbutton %}
-      {% button %}[Q] Quit{% endbutton %}
+      {% button action="noop" %}[R] Refresh{% endbutton %}
+      {% button action="noop" %}[S] Settings{% endbutton %}
+      {% button action="noop" %}[H] Help{% endbutton %}
+      {% button action="quit" %}[Q] Quit{% endbutton %}
     {% endhstack %}
 
-    {# Bottom section: Two-column layout with different widths #}
-    {% hstack spacing=2 height=8 %}
+    {# Bottom section: two-column layout with different widths #}
+    {% hstack spacing=2 width=fill height=8 %}
 
-      {# Left: 70% width - command output #}
+      {# Left: wide column - command output #}
       {% vstack width=80 %}
         {% frame border_style="single" title="Command Output" height=fill %}
           $ python app.py
@@ -90,76 +97,36 @@ This is a **markdown** viewer that automatically fills available space.
         {% endframe %}
       {% endvstack %}
 
-      {# Right: 30% width - quick actions #}
+      {# Right: narrow column - quick actions #}
       {% vstack spacing=1 %}
         Actions:
-        {% button %}Deploy{% endbutton %}
-        {% button %}Rollback{% endbutton %}
-        {% button %}Monitor{% endbutton %}
+        {% button action="noop" %}Deploy{% endbutton %}
+        {% button action="noop" %}Rollback{% endbutton %}
+        {% button action="noop" %}Monitor{% endbutton %}
       {% endvstack %}
 
     {% endhstack %}
 
-    {# Footer: Status bar (auto height, wraps naturally) #}
-    Status: Ready | Mode: Development | Connection: Secure | Press [?] for help
+    {# Footer: status bar (auto height, wraps naturally) #}
+    Status: Ready | Mode: Development | Connection: Secure | Press [q] to quit
 
   {% endvstack %}
 {% endframe %}
-"""
+""",
+        "data": {},
+    }
 
-    try:
-        # Create renderer
-        renderer = Renderer()
 
-        # Render the complex layout
-        output, elements, _ = renderer.render_with_layout(
-            template, context={}, width=120, height=40
-        )
+@app.on_action("noop")
+def handle_noop(event):
+    """Decorative buttons - no action in this layout demo."""
 
-        # Print element bounds for debugging
-        print("=== Element Bounds ===")
-        for elem in elements:
-            elem_type = elem.__class__.__name__
-            print(f"{elem_type:20s} {elem.bounds}")
 
-        print("\n" + "=" * 120)
-        print("=== Complex Layout Rendering ===")
-        print("=" * 120 + "\n")
-
-        # Save to file to avoid Windows encoding issues
-        with open("complex_layout_output.txt", "w", encoding="utf-8") as f:
-            f.write(output)
-        print("Layout saved to: complex_layout_output.txt")
-
-        # Also print a simple ASCII version of structure
-        print("\nLayout Structure:")
-        for line in output.split("\n")[:5]:
-            try:
-                print(line)
-            except UnicodeEncodeError:
-                print("[Box drawing characters - see file]")
-                break
-
-        # Print some insights
-        print("\n" + "=" * 120)
-        print("=== Layout Insights ===")
-        print("=" * 120)
-        print(f"Total elements rendered: {len(elements)}")
-        print(f"Output size: {len(output.split(chr(10)))} lines × 120 columns")
-        print("\nLayout Features Demonstrated:")
-        print("  • Nested VStacks and HStacks (3 levels deep)")
-        print("  • Fill sizing: Markdown and TextArea expand to fill space")
-        print("  • Auto sizing: Buttons and text size to content")
-        print("  • Fixed sizing: Specific width/height for panels")
-        print("  • Text wrapping: Footer text wraps naturally")
-        print("  • Mixed content: Frames, markdown, textarea, buttons, and text")
-
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-
-        traceback.print_exc()
+@app.on_action("quit")
+def handle_quit(event):
+    """Quit the application."""
+    app.quit()
 
 
 if __name__ == "__main__":
-    main()
+    app.run()

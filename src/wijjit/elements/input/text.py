@@ -677,6 +677,7 @@ class TextArea(Element):
         ) = "single",
         action: str | None = None,
         bind: bool = True,
+        dynamic_sizing: bool = False,
     ):
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
@@ -736,8 +737,10 @@ class TextArea(Element):
         )
         self.on_scroll_x: Callable[[int], None] | None = None
 
-        # Dynamic sizing flag (set by template tag)
-        self._dynamic_sizing: bool = False
+        # Dynamic sizing flag. Set by the template tag when width/height is a
+        # non-numeric spec ("fill"/"auto"/percentage); the element itself is
+        # constructed with numeric dimensions, so the spec intent arrives here.
+        self._dynamic_sizing: bool = dynamic_sizing
 
         # Set initial value if provided
         if value:
@@ -801,13 +804,21 @@ class TextArea(Element):
             return None
         if isinstance(style, BorderStyle):
             return style
+        # An explicit "none" (or empty) string means no border, matching the
+        # textarea tag, which already excludes "none" from its border-size
+        # accounting. Without this, "none" fell through to the SINGLE default
+        # and the textarea drew a border its layout box never reserved space
+        # for.
+        normalized = style.lower()
+        if normalized in ("none", ""):
+            return None
         # Convert string to enum
         style_map = {
             "single": BorderStyle.SINGLE,
             "double": BorderStyle.DOUBLE,
             "rounded": BorderStyle.ROUNDED,
         }
-        return style_map.get(style.lower(), BorderStyle.SINGLE)
+        return style_map.get(normalized, BorderStyle.SINGLE)
 
     def _calculate_content_width(self) -> int:
         """Calculate the maximum width of all content lines.

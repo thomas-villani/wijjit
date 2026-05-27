@@ -1181,3 +1181,109 @@ class TestTextAreaSelectionEdgeCases:
         textarea.selection_anchor = (0, 5)
         textarea.cursor_col = 0
         assert textarea._get_selected_text() == "Hello"
+
+
+class TestTextAreaBorderNormalization:
+    """Regression tests for border_style normalization."""
+
+    def test_none_string_means_no_border(self):
+        """An explicit "none" border string resolves to no border.
+
+        Previously "none" was absent from the style map and fell through to the
+        SINGLE default, so a borderless textarea still drew a border its layout
+        box never reserved space for.
+        """
+        textarea = TextArea(border_style="none")
+        assert textarea.border_style is None
+
+    def test_empty_string_means_no_border(self):
+        """An empty border string also resolves to no border."""
+        textarea = TextArea(border_style="")
+        assert textarea.border_style is None
+
+    def test_named_styles_still_resolve(self):
+        """Recognized border names still map to their enum members."""
+        from wijjit.layout.frames import BorderStyle
+
+        assert TextArea(border_style="single").border_style is BorderStyle.SINGLE
+        assert TextArea(border_style="double").border_style is BorderStyle.DOUBLE
+        assert TextArea(border_style="rounded").border_style is BorderStyle.ROUNDED
+
+
+class TestTextAreaDynamicSizing:
+    """Regression tests for fill-sized textareas inside fill containers.
+
+    A ``width=fill`` textarea reports ``supports_dynamic_sizing`` so the layout
+    engine gives it minimal preferred constraints and expands it via
+    ``set_bounds``. Without the flag the textarea's large fixed intrinsic size
+    inflated and collapsed its parent frame, and the textarea overflowed the
+    surrounding layout.
+    """
+
+    TEMPLATE = """
+    {% frame title="Outer" border_style="double" width="fill" height="fill" %}
+      {% vstack spacing=1 %}
+        {% hstack spacing=2 width=fill height=fill %}
+          {% frame border_style="rounded" title="Log" width=fill height=fill %}
+            {% textarea id="ta" border_style="none" width=fill height=fill %}aaa
+bbb{% endtextarea %}
+          {% endframe %}
+          {% frame border_style="single" title="Side" width=30 height=fill %}side{% endframe %}
+        {% endhstack %}
+        BOTTOM_MARKER
+      {% endvstack %}
+    {% endframe %}
+    """
+
+    def _app(self):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": self.TEMPLATE})
+        return app
+
+    def test_fill_textarea_reports_dynamic_sizing(self):
+        """The textarea created from a fill spec supports dynamic sizing."""
+        from wijjit.testing.harness import WijjitHarness
+
+        app = self._app()
+        with WijjitHarness(app, size=(70, 16)) as harness:
+            harness.tick(frames=1)
+            textarea = next(
+                el
+                for el in app.positioned_elements
+                if el.__class__.__name__ == "TextArea"
+            )
+        assert textarea.supports_dynamic_sizing is True
+
+    def test_fill_textarea_does_not_overflow_parent(self):
+        """The textarea stays inside its Log frame and does not collapse it."""
+        from wijjit.testing.harness import WijjitHarness
+
+        with WijjitHarness(self._app(), size=(70, 16)) as harness:
+            harness.tick(frames=1)
+            lines = harness.screen().split("\n")
+
+        # The bottom marker renders on its own row, not overdrawn by an
+        # overflowing textarea, and the textarea body stays above it.
+        marker_rows = [i for i, ln in enumerate(lines) if "BOTTOM_MARKER" in ln]
+        assert marker_rows, "bottom marker missing"
+        marker_row = marker_rows[0]
+        above = "\n".join(lines[:marker_row])
+        below = "\n".join(lines[marker_row:])
+        # Textarea content appears above the marker, never leaking below it.
+        assert "aaa" in above and "bbb" in above
+        assert "aaa" not in below and "bbb" not in below
+
+    def test_fill_textarea_border_none_draws_no_border(self):
+        """A border_style="none" textarea draws no border inside its frame."""
+        from wijjit.testing.harness import WijjitHarness
+
+        with WijjitHarness(self._app(), size=(70, 16)) as harness:
+            harness.tick(frames=1)
+            screen = harness.screen()
+
+        # The only rounded corners belong to the Log frame; the borderless
+        # textarea must not introduce single-border corners of its own. Count
+        # the single-line top-left corner: only the "Side" frame uses it once.
+        assert screen.count("┌") == 1  # one single-border frame (Side)

@@ -1131,6 +1131,16 @@ class TextAreaExtension(Extension):
         width_spec = width
         height_spec = height
 
+        # Detect dynamic ("fill"/"auto"/percentage) sizing. When either axis is a
+        # non-numeric string spec the element must report minimal layout
+        # constraints and expand via set_bounds; otherwise ElementNode treats it
+        # as fixed-size and its (large) intrinsic size inflates and collapses the
+        # parent container. The element receives numeric width/height for its
+        # initial render, so the spec intent is conveyed via this flag.
+        dynamic_sizing = (isinstance(width_spec, str) and not width_spec.isdigit()) or (
+            isinstance(height_spec, str) and not height_spec.isdigit()
+        )
+
         # Convert numeric parameters for element creation
         # If width/height are "fill" or other string specs, use default numeric values
         # for initial element creation (will be resized on bounds assignment)
@@ -1187,6 +1197,7 @@ class TextAreaExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
+        vnode.set_prop("dynamic_sizing", dynamic_sizing)
         if classes is not None:
             vnode.set_prop("classes", classes)
         if tab_index is not None:

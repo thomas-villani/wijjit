@@ -104,9 +104,22 @@ Use the Phase 1 harness to reproduce and regression-test each.
 - [ ] **Modal / focus / key routing:** modals should block app hotkeys
       (except quit); avoid double-key-to-focus; swallow keys that opened a
       dialog. (Many already fixed - re-verify with the harness.)
-- [ ] **Render order / dirty marking:** progress bars stop spinners;
-      spinner stop leaves `k...` artifacts (dirty-mark on shrink);
-      view-switch latency (`statusbar_demo`, `event_patterns_demo`).
+- [~] **Render order / dirty marking (deferred - architectural / not headless-
+      testable):** progress bars "stop" spinners; spinner stop leaves `k...`
+      artifacts; view-switch latency (`statusbar_demo`, `event_patterns_demo`).
+      Root-caused (see `etc/issues.md`): the spinner `k...` residue is the cell
+      buffer + diff renderer lacking double-width (wide-char) support - the clock
+      uses emoji frames (1 codepoint, 2 display columns), so the real terminal's
+      cursor drifts by one for everything after it on the row and the tail is
+      left uncleared. The buffer itself is correct, so the harness (which reads
+      the buffer, not the live terminal) cannot reproduce or regression-test it;
+      a proper fix needs continuation cells + width-aware diff positioning across
+      `paint_context`/`screen_buffer`/the diff renderer. The progress/spinner and
+      view-switch items are wall-clock animation timing, which `harness.tick`
+      bypasses (it advances frames directly). All three are real-terminal/timing
+      issues the headless harness fundamentally can't drive; deferred rather than
+      patched blind. (AGENTS.md already lists Unicode-on-Windows as a known
+      limitation.)
 - [x] **Display:** done.
   - [x] table scrollbar focus color: the table resolved non-existent
         `table.scrollbar` style classes, so the scrollbar was always unstyled
@@ -128,7 +141,22 @@ Use the Phase 1 harness to reproduce and regression-test each.
         `calculate_constraints()` before `assign_bounds()`; regression test
         added. (Residual: `_render_children` dual-coordinate flow noted in
         `etc/issues.md` for a future cleanup; no current failing case.)
-- [ ] **Layout polish:** `complex_layout_demo`, `error_handling_demo` cleanup.
+- [~] **Layout polish:** `error_handling_demo` cleanup remains.
+  - [x] `complex_layout_demo` ("all fucked"): was a Renderer-only diagnostic
+        using a non-existent `{% markdown %}` tag (it crashed on load). Rewrote
+        it as a proper Wijjit app (valid `{% contentview content_type=
+        "markdown" %}`, quit handling) and fixed two real layout-engine bugs it
+        surfaced: (1) a `width=fill` TextArea never flagged dynamic sizing, so
+        ElementNode used its large fixed intrinsic size as its preferred size,
+        collapsing the parent frame and overflowing the layout - the tag now
+        passes a `dynamic_sizing` flag (mirrors ContentView); (2)
+        `border_style="none"` fell through to SINGLE in TextArea, drawing a
+        border its layout box never reserved. Demo now renders cleanly and is
+        harness-covered (removed from the example-render skip list). Regression
+        tests: `tests/elements/test_textarea.py::TestTextAreaDynamicSizing` and
+        `::TestTextAreaBorderNormalization`. (Note: `{% hstack %}` defaults to
+        `width="auto"`; rows that should fill need explicit `width=fill` - this
+        is intended framework behavior, applied in the demo.)
   - [x] Suspected frame title-border 1-column discrepancy: investigated, not a
         bug (borders align at every width; regression test added).
 
