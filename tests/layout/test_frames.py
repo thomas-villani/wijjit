@@ -1319,3 +1319,64 @@ class TestNestedScrollableClipping:
         assert "CCC_BODY" in visible, "lower child not revealed after scrolling"
         # Still nothing painted below the parent frame.
         assert "".join(lines[9:]).strip() == ""
+
+
+class TestScrollbarChildBorderClearance:
+    """Regression tests for the scrollbar overdrawing child right borders.
+
+    A width="fill" child of a scrollable parent used to be laid out at the full
+    inner width, so its right border landed in the column the parent reserves
+    for its vertical scrollbar. The renderer's clip (which subtracts the
+    scrollbar column) then cut the child's right border off and the scrollbar
+    glyph overdrew it, leaving the child frame visually open on the right. The
+    layout engine now reserves the scrollbar column when the parent actually
+    needs to scroll, so the child's right border stays clear of the scrollbar.
+    """
+
+    # Parent (width 40) scrolls because three height-4 children overflow its
+    # height-9 viewport; each child fills the width.
+    TEMPLATE = """
+    {% frame id="par" title="Parent" width=40 height=9 scrollable=true %}
+      {% vstack spacing=0 %}
+        {% frame title="A" width="fill" height=4 %}AAA_BODY{% endframe %}
+        {% frame title="B" width="fill" height=4 %}BBB_BODY{% endframe %}
+        {% frame title="C" width="fill" height=4 %}CCC_BODY{% endframe %}
+      {% endvstack %}
+    {% endframe %}
+    """
+
+    def _app(self):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": self.TEMPLATE})
+        return app
+
+    def test_child_right_border_not_clobbered_by_scrollbar(self):
+        """The child frame's right corner is drawn and sits left of the
+        scrollbar, with the scrollbar flush inside the parent's right border."""
+        from wijjit.testing.harness import WijjitHarness
+
+        parent_width = 40
+        # The scrollbar occupies the rightmost interior column (parent_width-2)
+        # and the parent's right border the last column (parent_width-1).
+        scrollbar_col = parent_width - 2
+        parent_border_col = parent_width - 1
+        scrollbar_glyphs = {"█", "│"}  # full-block thumb / track
+
+        with WijjitHarness(self._app(), size=(46, 14)) as harness:
+            harness.tick(frames=1)
+            lines = harness.screen().split("\n")
+
+        # Row 1 holds child A's top border (row 0 is the parent's top border).
+        row = lines[1]
+        # The child's top-right corner is present (was clipped before the fix).
+        assert "┐" in row, "child frame right corner missing (clipped by scrollbar)"
+        corner_col = row.index("┐")
+        # The corner sits strictly left of the scrollbar column - no overlap.
+        assert corner_col < scrollbar_col, "child right border overlaps the scrollbar"
+        # The scrollbar is drawn flush just inside the parent's right border.
+        assert (
+            row[scrollbar_col] in scrollbar_glyphs
+        ), "scrollbar not drawn in its column"
+        assert row[parent_border_col] == "│", "parent right border missing"

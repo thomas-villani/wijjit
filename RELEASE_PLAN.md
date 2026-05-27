@@ -77,7 +77,7 @@ Use the Phase 1 harness to reproduce and regression-test each.
         auto-height returned the string `"auto"`, so VStack constraint
         summation hit `int += str`. `Gauge` now auto-calculates an integer
         height for any non-int spec.
-- [ ] **Scrolling / clip / overflow:** nested hstack/vstack/frame scroll
+- [x] **Scrolling / clip / overflow:** nested hstack/vstack/frame scroll
       glitches; parent-frame false scrollbars when content fits; scrollbar
       overlap.
   - [x] `frame_overflow_demo` modes looked identical: a text-only frame body
@@ -91,11 +91,16 @@ Use the Phase 1 harness to reproduce and regression-test each.
         broke at intermediate non-element frames. Now clips to the intersection
         of the innermost frame plus any *scrolling* ancestor, and links nested
         frames into the chain structurally. Regression tests added.
-  - [ ] Scrollbar-overlaps-child-borders (deferred): re-laying children to
-        reserve the scrollbar column regressed grid_demo (inner frame border is
-        drawn by a separate pass from its content). Needs reconciling the clip's
-        scrollbar reservation with the two-pass border rendering. See
-        `etc/issues.md`.
+  - [x] Scrollbar-overlaps-child-borders: a width="fill" child of a scrollable
+        parent was laid out at the full inner width, so its right border landed
+        in the column the parent reserves for its scrollbar; the renderer's clip
+        then cut the border off and the scrollbar overdrew it. The layout engine
+        (`FrameNode.assign_bounds`) now reserves the scrollbar column - re-laying
+        children one column narrower - once the frame actually needs to scroll
+        (`_needs_scroll`), matching the clip and the frame's own scrollbar
+        drawing. Non-scrolling frames are unchanged. grid_demo's golden was
+        regenerated (its inner frame borders now render closed). Regression test:
+        `tests/layout/test_frames.py::TestScrollbarChildBorderClearance`.
 - [ ] **Modal / focus / key routing:** modals should block app hotkeys
       (except quit); avoid double-key-to-focus; swallow keys that opened a
       dialog. (Many already fixed - re-verify with the harness.)

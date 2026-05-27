@@ -2131,6 +2131,28 @@ class FrameNode(Container):
             # Always call this when there are children, even if calculated height is 0
             self.frame.set_child_content_height(max_bottom)
 
+            # Reserve the vertical-scrollbar column once we know scrolling is
+            # actually needed. The scrollbar is drawn in the rightmost interior
+            # column (the renderer's clip and the frame's own render_to both
+            # subtract one column for it), so a width="fill" child laid out at
+            # the full inner width overhangs into that column: its right border
+            # falls outside the clip and the scrollbar overdraws it, leaving the
+            # child frame visually open on the right. Re-lay the children one
+            # column narrower so their right edge clears the scrollbar. This is
+            # gated on _needs_scroll (known only after the first layout populates
+            # the content height) so frames whose content fits are unchanged.
+            if (
+                self.frame.style.scrollable
+                and self.frame._needs_scroll
+                and self.frame.style.show_scrollbar
+                and inner_width > 1
+            ):
+                self.content_container.assign_bounds(
+                    inner_x, inner_y, inner_width - 1, inner_height
+                )
+                max_bottom = find_max_bottom(self.content_container, inner_y)
+                self.frame.set_child_content_height(max_bottom)
+
     def collect_elements(self) -> list[Element]:
         """Collect frame and all child elements.
 
