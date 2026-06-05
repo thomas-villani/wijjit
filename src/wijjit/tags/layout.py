@@ -158,10 +158,10 @@ def process_body_content(body_output: str, raw: bool = False) -> str:
 
 def interleave_text_and_vnode_builders(
     body_output: str,
-    vnode_children: list,
+    vnode_children: list[Any],
     raw: bool,
-    layout_context,
-) -> list:
+    layout_context: Any,
+) -> list[Any]:
     """Interleave text content with child VNodeBuilders based on markers.
 
     Child elements insert markers like '\x00ELEM_0\x00' into body_output
@@ -402,7 +402,7 @@ def _parse_for_render(
     padding_bottom: int | None = None,
     padding_left: int | None = None,
     margin: int | str | tuple[int, ...] = 0,
-) -> tuple:
+) -> tuple[Any, ...]:
     """Calculate the attributes for rendering"""
     # Parse attributes
     width_parsed = parse_size_attr(width)
@@ -418,7 +418,7 @@ def _parse_for_render(
         except (ValueError, SyntaxError, NameError):
             padding_parsed = 0
     elif isinstance(padding, tuple):
-        padding_parsed = padding
+        padding_parsed = cast("int | tuple[int, int, int, int]", padding)
     elif isinstance(padding, str):
         try:
             padding_parsed = int(padding)

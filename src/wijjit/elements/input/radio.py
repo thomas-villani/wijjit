@@ -386,7 +386,7 @@ class RadioGroup(Element):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
-    def _normalize_options(self, options: list[Any]) -> list[dict]:
+    def _normalize_options(self, options: list[Any]) -> list[dict[str, Any]]:
         """Normalize options to internal format with value and label."""
         normalized = []
         for opt in options:
@@ -538,7 +538,9 @@ class RadioGroup(Element):
 
         # Determine if we have borders
         has_border = self.border_style is not None
-        chars = BORDER_CHARS[self.border_style] if has_border else None
+        chars = (
+            BORDER_CHARS[self.border_style] if self.border_style is not None else None
+        )
 
         # Resolve border style
         if has_border:
@@ -702,7 +704,7 @@ class RadioGroup(Element):
             bottom_border = chars["bl"] + chars["h"] * self.width + chars["br"]
             ctx.write_text(0, y_pos, bottom_border, border_style)
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -714,7 +716,7 @@ class RadioGroup(Element):
             "highlighted_index": self.highlighted_index,
         }
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

@@ -203,7 +203,7 @@ class ListView(ScrollableElement):
 
         return max(1, content_width)
 
-    def _normalize_items(self, items: list[Any]) -> list[dict]:
+    def _normalize_items(self, items: list[Any]) -> list[dict[str, Any]]:
         """Normalize items to internal format.
 
         Parameters
@@ -247,7 +247,7 @@ class ListView(ScrollableElement):
         return normalized
 
     @property
-    def items(self) -> list[dict]:
+    def items(self) -> list[dict[str, Any]]:
         """Get the normalized items list.
 
         Returns
@@ -409,7 +409,7 @@ class ListView(ScrollableElement):
         """
         return self.scroll_manager.state.scroll_position
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -423,7 +423,7 @@ class ListView(ScrollableElement):
             )
         }
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

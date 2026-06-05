@@ -239,7 +239,7 @@ class ElementRegistry:
         valid_props = self._filter_props_for_factory(factory, props)
 
         try:
-            return factory(**valid_props)
+            return factory(**valid_props)  # type: ignore[no-any-return]
         except TypeError as e:
             logger.error(
                 f"Failed to create element {vnode.type} with props {valid_props}: {e}"
@@ -266,7 +266,7 @@ class ElementRegistry:
             Props that match factory constructor parameters
         """
         try:
-            sig = inspect.signature(factory.__init__)
+            sig = inspect.signature(factory.__init__)  # type: ignore[misc]
             valid_params = set(sig.parameters.keys()) - {"self"}
 
             # Check for **kwargs - if present, accept all props

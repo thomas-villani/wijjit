@@ -229,7 +229,7 @@ class Select(ScrollableElement):
         self._highlight_state_key_override = value
 
     @property
-    def options(self) -> list[dict]:
+    def options(self) -> list[dict[str, Any]]:
         """Get the normalized options list.
 
         Returns
@@ -299,7 +299,7 @@ class Select(ScrollableElement):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
-    def _normalize_options(self, options: list[Any]) -> list[dict]:
+    def _normalize_options(self, options: list[Any]) -> list[dict[str, Any]]:
         """Normalize options to internal format with value and label.
 
         Parameters
@@ -844,8 +844,8 @@ class Select(ScrollableElement):
 
     def _render_option_to_ctx(
         self,
-        ctx,
-        option: dict,
+        ctx: PaintContext,
+        option: dict[str, Any],
         is_selected: bool,
         is_highlighted: bool,
         is_disabled: bool,
@@ -903,7 +903,11 @@ class Select(ScrollableElement):
         ctx.write_text(x_offset, row, text, style)
 
     def _render_option(
-        self, option: dict, is_selected: bool, is_highlighted: bool, is_disabled: bool
+        self,
+        option: dict[str, Any],
+        is_selected: bool,
+        is_highlighted: bool,
+        is_disabled: bool,
     ) -> str:
         """Render a single option line.
 
@@ -951,7 +955,7 @@ class Select(ScrollableElement):
             # Normal
             return f"{ANSIStyle.RESET} {indicator}{label} {ANSIStyle.RESET}"
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -959,7 +963,7 @@ class Select(ScrollableElement):
         dict
             Highlight, scroll, and selection state that should survive re-renders
         """
-        state = {
+        state: dict[str, Any] = {
             "highlighted_index": self.highlighted_index,
         }
 
@@ -973,7 +977,7 @@ class Select(ScrollableElement):
 
         return state
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

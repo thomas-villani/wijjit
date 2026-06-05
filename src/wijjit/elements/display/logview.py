@@ -465,7 +465,7 @@ class LogView(ScrollableElement):
         """
         return (self.width, self.height)
 
-    def on_update(self, changed_props: dict) -> None:
+    def on_update(self, changed_props: dict[str, Any]) -> None:
         """Handle prop updates during reconciliation.
 
         Parameters
@@ -518,7 +518,7 @@ class LogView(ScrollableElement):
                     self.scroll_manager.scroll_to_bottom()
             self._last_content_size = len(self.rendered_lines)
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -533,7 +533,7 @@ class LogView(ScrollableElement):
             "_user_scrolled_up": self._user_scrolled_up,
         }
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

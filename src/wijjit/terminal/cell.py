@@ -5,6 +5,7 @@ which enables efficient diff rendering, styling, and dirty region tracking.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -301,7 +302,7 @@ class CellPool:
     def __init__(self) -> None:
         """Initialize the cell pool with common cells."""
         # Cache for common cells
-        self._cache: dict[tuple, Cell] = {}
+        self._cache: dict[tuple[Any, ...], Cell] = {}
 
         # Pre-create most common cells
         self._space = Cell(" ")

@@ -114,7 +114,7 @@ def resolve_autocomplete(
             completer = completers[value]
             if isinstance(completer, StateCompleter):
                 completer.bind_app(app)
-            return completer
+            return completer  # type: ignore[no-any-return]
 
         # Not found
         logger.warning(f"Autocomplete completer '{value}' not found in app.completers")
@@ -134,7 +134,7 @@ def resolve_autocomplete(
                 completer = completers[lookup_key]
                 if isinstance(completer, StateCompleter):
                     completer.bind_app(app)
-                return completer
+                return completer  # type: ignore[no-any-return]
 
         logger.warning(
             f"autocomplete=true but no completer registered for "

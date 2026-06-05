@@ -11,7 +11,7 @@ import sys
 import threading
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Union
+from typing import Any, Union
 
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys as PTKeys
@@ -121,7 +121,7 @@ class Key:
         return self.name == "ctrl+c" or (self.char == "\x03")
 
     @property
-    def modifiers(self) -> list:
+    def modifiers(self) -> list[str]:
         """Get list of modifiers for this key.
 
         Returns
@@ -129,7 +129,7 @@ class Key:
         list
             List of modifier names (e.g., ['ctrl'], ['alt'], etc.)
         """
-        mods = []
+        mods: list[str] = []
         if self.key_type == KeyType.CONTROL or "ctrl+" in self.name:
             mods.append("ctrl")
         if "alt+" in self.name:
@@ -312,7 +312,7 @@ class InputHandler:
         mouse_tracking_mode: "MouseTrackingMode | None" = None,
     ) -> None:
         self._input = create_input()
-        self._raw_mode = None
+        self._raw_mode: Any | None = None
 
         # Mouse support
         # Note: mouse_enabled tracks whether mouse tracking is ACTIVE on the terminal
@@ -328,11 +328,11 @@ class InputHandler:
         self.mouse_parser = MouseEventParser()
 
         # Queue for handling lookahead keys (used for Alt detection and mouse parsing)
-        self._key_queue = []
+        self._key_queue: list[Any] = []
 
         # Queue-based input reading to avoid thread leaks
         # This queue receives raw key lists from prompt_toolkit
-        self._input_queue: queue.Queue = queue.Queue()
+        self._input_queue: queue.Queue[Any] = queue.Queue()
         self._reader_thread: threading.Thread | None = None
         self._shutdown: threading.Event = threading.Event()
         self._reader_lock: threading.Lock = threading.Lock()
@@ -348,7 +348,7 @@ class InputHandler:
             if self._reader_thread is None or not self._reader_thread.is_alive():
                 self._shutdown.clear()
 
-                def reader_loop():
+                def reader_loop() -> None:
                     while not self._shutdown.is_set():
                         try:
                             keys = self._input.read_keys()
@@ -374,7 +374,7 @@ class InputHandler:
                 self._reader_thread.start()
                 logger.debug("Started persistent input reader thread")
 
-    def _get_keys_from_queue(self, timeout: float | None = None) -> list | None:
+    def _get_keys_from_queue(self, timeout: float | None = None) -> list[Any] | None:
         """Get keys from the input queue in a thread-safe manner.
 
         This method should be used instead of directly calling _input.read_keys()
@@ -396,13 +396,13 @@ class InputHandler:
             if isinstance(keys, _ReaderError):
                 logger.debug(f"Reader thread error: {keys.exception}")
                 return None
-            return keys
+            return list(keys)
         except queue.Empty:
             return None
 
     async def _get_keys_from_queue_async(
         self, timeout: float | None = None
-    ) -> list | None:
+    ) -> list[Any] | None:
         """Get keys from the input queue asynchronously in a thread-safe manner.
 
         This method should be used instead of directly calling _input.read_keys()
@@ -430,7 +430,7 @@ class InputHandler:
             if isinstance(keys, _ReaderError):
                 logger.debug(f"Reader thread error: {keys.exception}")
                 return None
-            return keys
+            return list(keys)
         except (TimeoutError, queue.Empty):
             return None
 

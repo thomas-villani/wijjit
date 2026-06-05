@@ -4,7 +4,7 @@ This module handles focus navigation between focusable elements,
 typically using Tab and Shift+Tab keys, as well as arrow keys.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import Element
 from wijjit.logging_config import get_logger
@@ -107,12 +107,11 @@ class FocusManager:
         indexed.sort(key=_tab_index_sort_key)
 
         # Filter out elements with tab_index=-1 from tab navigation
-        self.elements = [
-            elem
-            for _, elem in indexed
-            if getattr(elem, "tab_index", None) is None
-            or getattr(elem, "tab_index", None) >= 0
-        ]
+        def _keep(elem: Any) -> bool:
+            ti = getattr(elem, "tab_index", None)
+            return ti is None or ti >= 0
+
+        self.elements = [elem for _, elem in indexed if _keep(elem)]
 
         # Try to restore focus
         if focused_id:
@@ -252,8 +251,9 @@ class FocusManager:
             self.elements[index].on_focus()
 
             # Mark new focused element's bounds as dirty
-            if self.dirty_manager and self.elements[index].bounds:
-                self.dirty_manager.mark_dirty_bounds(self.elements[index].bounds)
+            bounds = self.elements[index].bounds
+            if self.dirty_manager and bounds is not None:
+                self.dirty_manager.mark_dirty_bounds(bounds)
 
     def clear(self) -> None:
         """Clear all elements and focus."""

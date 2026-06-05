@@ -17,7 +17,7 @@ import os
 from typing import Any
 
 
-class Config(dict):
+class Config(dict[str, Any]):
     """Configuration dictionary with Flask-like interface.
 
     Works like a regular dict but provides additional methods for loading
@@ -36,7 +36,7 @@ class Config(dict):
     >>> config.from_object(MyConfigClass)
     """
 
-    def __init__(self, defaults: dict | None = None) -> None:
+    def __init__(self, defaults: dict[str, Any] | None = None) -> None:
         """Initialize configuration.
 
         Parameters
@@ -97,7 +97,7 @@ class Config(dict):
 
         try:
             with open(filename, "rb") as f:
-                namespace = {}
+                namespace: dict[str, Any] = {}
                 exec(compile(f.read(), filename, "exec"), namespace)
                 # Only import uppercase variables
                 for key, value in namespace.items():
@@ -139,7 +139,9 @@ class Config(dict):
             )
         return self.from_pyfile(rv, silent=silent)
 
-    def from_mapping(self, mapping: dict | None = None, **kwargs) -> None:
+    def from_mapping(
+        self, mapping: dict[str, Any] | None = None, **kwargs: Any
+    ) -> None:
         """Load config from a dict or kwargs.
 
         Parameters
@@ -182,19 +184,19 @@ class Config(dict):
             if key.startswith(prefix):
                 config_key = key[prefix_len:]
 
-                # Try to parse as bool/int/float
+                parsed: Any = value
                 if value.lower() in ("true", "1", "yes", "on"):
-                    value = True
+                    parsed = True
                 elif value.lower() in ("false", "0", "no", "off"):
-                    value = False
+                    parsed = False
                 elif value.replace(".", "", 1).replace("-", "", 1).isdigit():
-                    value = float(value) if "." in value else int(value)
+                    parsed = float(value) if "." in value else int(value)
 
-                self[config_key] = value
+                self[config_key] = parsed
 
     def get_namespace(
         self, namespace: str, lowercase: bool = True, trim_namespace: bool = True
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get all config values for a namespace.
 
         Parameters
@@ -217,7 +219,7 @@ class Config(dict):
         >>> notif_config = app.config.get_namespace('NOTIFICATION_')
         >>> # Returns: {'duration': 3.0, 'position': 'top_right', ...}
         """
-        rv = {}
+        rv: dict[str, Any] = {}
         for k, v in self.items():
             if not k.startswith(namespace):
                 continue

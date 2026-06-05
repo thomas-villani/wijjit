@@ -411,7 +411,7 @@ class Slider(Element):
 
         return False
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -423,7 +423,7 @@ class Slider(Element):
             "dragging": self._dragging,
         }
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

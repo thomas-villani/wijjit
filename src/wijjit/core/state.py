@@ -8,7 +8,7 @@ Supports both synchronous and asynchronous callbacks.
 import asyncio
 from collections import UserDict
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Literal
 
 from wijjit.logging_config import get_logger
 
@@ -317,7 +317,7 @@ class State(UserDict[str, Any]):
             exc_type: type | None,
             exc_val: BaseException | None,
             exc_tb: Any,
-        ) -> bool:
+        ) -> Literal[False]:
             """Exit batch mode and trigger callbacks for all changes.
 
             Only triggers callbacks once, passing all changes that occurred.

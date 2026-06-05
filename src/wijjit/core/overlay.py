@@ -16,7 +16,7 @@ import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.menu import ContextMenu, DropdownMenu
 
@@ -88,7 +88,7 @@ class Overlay:
     on_close: Callable[[], None] | None = None
     dimmed_background: bool = False
     previous_focus: "Element | None" = None
-    previous_focus_state: tuple | None = None
+    previous_focus_state: tuple[Any, ...] | None = None
 
 
 class OverlayManager:
@@ -146,10 +146,10 @@ class OverlayManager:
 
         # Track next available z-index for each layer
         # This auto-increments to handle stacking within a layer
-        self._next_z_index = {
-            LayerType.MODAL: LayerType.MODAL,
-            LayerType.DROPDOWN: LayerType.DROPDOWN,
-            LayerType.TOOLTIP: LayerType.TOOLTIP,
+        self._next_z_index: dict[LayerType, int] = {
+            LayerType.MODAL: LayerType.MODAL.value,
+            LayerType.DROPDOWN: LayerType.DROPDOWN.value,
+            LayerType.TOOLTIP: LayerType.TOOLTIP.value,
         }
 
     def push(
@@ -330,7 +330,7 @@ class OverlayManager:
 
         # Reset z-index if this layer is now empty
         if not any(o.layer_type == layer_type for o in self.overlays):
-            self._next_z_index[layer_type] = layer_type
+            self._next_z_index[layer_type] = layer_type.value
 
         return removed
 
@@ -348,9 +348,9 @@ class OverlayManager:
 
         # Reset all z-index counters
         self._next_z_index = {
-            LayerType.MODAL: LayerType.MODAL,
-            LayerType.DROPDOWN: LayerType.DROPDOWN,
-            LayerType.TOOLTIP: LayerType.TOOLTIP,
+            LayerType.MODAL: LayerType.MODAL.value,
+            LayerType.DROPDOWN: LayerType.DROPDOWN.value,
+            LayerType.TOOLTIP: LayerType.TOOLTIP.value,
         }
 
         return removed

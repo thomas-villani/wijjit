@@ -417,7 +417,7 @@ class MouseEventRouter:
             if isinstance(elem, TextElement):
                 continue
             if elem.bounds and elem.bounds.contains(x, y):
-                return elem
+                return elem  # type: ignore[no-any-return]
         return None
 
     def _find_scrollable_container_at(self, x: int, y: int) -> Element | None:

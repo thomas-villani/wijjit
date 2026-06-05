@@ -19,6 +19,8 @@ from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
+    from wijjit.terminal.input import Key
+    from wijjit.terminal.mouse import MouseEvent
 
 
 class BarChart(ScrollableElement):
@@ -241,7 +243,7 @@ class BarChart(ScrollableElement):
         """
         return (self.width, self.height)
 
-    def handle_key(self, key) -> bool:
+    def handle_key(self, key: Key) -> bool:
         """Handle keyboard input for scrolling.
 
         Parameters
@@ -306,7 +308,7 @@ class BarChart(ScrollableElement):
 
         return False
 
-    async def handle_mouse(self, event) -> bool:
+    async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse events.
 
         Parameters

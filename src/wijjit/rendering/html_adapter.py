@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import xml.parsers.expat
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit.formatted_text import HTML
 
@@ -144,7 +144,9 @@ def html_string_to_cells(
 
     cells = []
 
-    for style_str, text in formatted_text:
+    for item in formatted_text:
+        # OneStyleAndTextTuple may be (style, text) or (style, text, mouse_handler)
+        style_str, text = item[0], item[1]
         # Parse the style string into attributes
         cell_attrs = _parse_style_string(style_str, style_resolver)
 
@@ -158,7 +160,7 @@ def html_string_to_cells(
 def _parse_style_string(
     style_str: str,
     style_resolver: StyleResolver | None,
-) -> dict:
+) -> dict[str, Any]:
     """Parse prompt_toolkit style string into Cell attributes.
 
     Parameters
@@ -173,7 +175,7 @@ def _parse_style_string(
     dict
         Dictionary of Cell attributes (fg_color, bg_color, bold, etc.)
     """
-    attrs: dict = {
+    attrs: dict[str, Any] = {
         "fg_color": None,
         "bg_color": None,
         "bold": False,
@@ -221,7 +223,7 @@ def _parse_style_string(
 
 
 def _apply_class_style(
-    attrs: dict,
+    attrs: dict[str, Any],
     class_name: str,
     style_resolver: StyleResolver | None,
 ) -> None:
@@ -256,7 +258,7 @@ def _apply_class_style(
             _merge_style_to_attrs(attrs, style)
 
 
-def _merge_style_to_attrs(attrs: dict, style) -> None:
+def _merge_style_to_attrs(attrs: dict[str, Any], style: Any) -> None:
     """Merge Style object properties into attrs dict.
 
     Parameters
@@ -368,7 +370,7 @@ def strip_html_tags(html_str: str) -> str:
     try:
         html_obj = HTML(html_str)
         formatted_text = html_obj.__pt_formatted_text__()
-        return "".join(text for _, text in formatted_text)
+        return "".join(item[1] for item in formatted_text)
     except Exception as e:
         # If parsing fails, use regex fallback
         import re

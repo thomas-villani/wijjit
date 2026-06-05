@@ -703,7 +703,7 @@ class EventLoop:
                 # Update frame index in state if element has state dict reference
                 if hasattr(elem, "_state_dict") and hasattr(elem, "_frame_key"):
                     try:
-                        elem._state_dict[elem._frame_key] = elem.frame_index
+                        elem._state_dict[elem._frame_key] = elem.frame_index  # type: ignore[index]
                     except Exception as e:
                         # If state update fails, just continue
                         logger.warning(

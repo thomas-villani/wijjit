@@ -354,7 +354,7 @@ class Tree(ScrollableElement):
             Root node of nested tree structure
         """
         # Build lookup table
-        nodes_by_id = {}
+        nodes_by_id: dict[Any, dict[str, Any]] = {}
         for item in flat_list:
             node_id = item.get("id", item.get("value", str(len(nodes_by_id))))
             nodes_by_id[node_id] = {

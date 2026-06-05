@@ -147,7 +147,7 @@ class LineChart(Element):
         value : list or dict or None
             New data values
         """
-        self.set_data(value)
+        self.set_data(value if value is not None else [])
 
     def _parse_data(self, data: list[Any] | dict[str, list[Any]] | None) -> None:
         """Parse input data into series format.

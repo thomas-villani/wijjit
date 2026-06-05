@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from wijjit.autocomplete.state import AutocompleteState
 from wijjit.elements.base import Element, ElementType
-from wijjit.layout.frames import BORDER_CHARS
+from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager
 from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
@@ -183,7 +183,7 @@ class AutocompletePopup(Element):
             ctx.bounds.width,
             ctx.bounds.height,
             border_style,
-            BORDER_CHARS["single"],  # Use single-line border style
+            BORDER_CHARS[BorderStyle.SINGLE],  # Use single-line border style
         )
 
         if not self.suggestions:

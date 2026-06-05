@@ -192,13 +192,35 @@ closed or explicitly deferred with rationale; harness regression tests added.
 
 ## Phase 3 - Type-check gate green (-> contributes to 0.1.0rc1)
 
-- [ ] Triage the ~480 `mypy --strict` errors by module.
-- [ ] Decide policy: fully fix, or relax strictness pragmatically (e.g. start
-      strict on `core/` + public API, looser elsewhere via per-module
-      `[[tool.mypy.overrides]]`), then tighten over time.
-- [ ] Make CI `lint` job pass (ruff already clean + mypy green).
+- [x] Triaged: 496 errors across 50 files; top rules type-arg (162),
+      no-untyped-def (60), arg-type (56), assignment (50), attr-defined (40);
+      top files engine.py (103), renderer.py (50), wiring.py (37), frames.py
+      (25). Categories cluster on structural Element-base attr access and
+      Literal-string flow through template tags.
+- [x] Policy chosen: pragmatic split. Public API surface (`wijjit.__init__`),
+      `core/` (except renderer/wiring/app), `terminal/`, `tags/`, `styling/`
+      (except css_parser), `inline/`, `autocomplete/`, `rendering/`, and the
+      smaller elements/layout files are fully strict. The structural-gap files
+      keep targeted `[[tool.mypy.overrides]]` blocks in `pyproject.toml` with
+      inline comments and `RELEASE_PLAN`-tracked deferred work: layout/engine
+      (Literal-through-tag-stack), core/renderer (Element-base attr access),
+      core/wiring (lambda-in-closure factories), layout/frames (BorderStyle |
+      None indexing), elements/input/datagrid (property setters + pandas),
+      core/app (handler-signature variance), elements/display/tabbed_panel,
+      elements/input/code_editor (pygments untyped + lots of property setters),
+      elements/display/tree, elements/display/image (Pillow None checks),
+      testing/harness (test-fixture-shaped runtime), elements/display/table,
+      elements/display/pager, styling/css_parser (tinycss2 untyped), and
+      elements/menu. Each block disables only the categories that would need
+      structural refactoring; everything else stays strict.
+- [x] Made CI `lint` job pass: ruff clean + mypy --strict clean.
 
-**Acceptance:** `mypy src/` passes under the agreed config; CI is green.
+**Acceptance:** `mypy --strict src/` passes; CI lint job green. **Met.**
+
+> Side effect during the sweep: `Notification.handle_mouse` was awaiting the
+> coroutine returned by the action-button's `handle_mouse` incorrectly (the
+> coroutine was returned without `await`, so clicks on a notification's
+> action button silently fell through to the dismiss path). Fixed inline.
 
 ## Phase 4 - Documentation (-> 0.1.0rc1)
 

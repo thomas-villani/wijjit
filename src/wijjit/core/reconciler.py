@@ -175,6 +175,8 @@ class Reconciler:
             children_diffs = [self._diff(child, None) for child in old.children]
             return DiffResult(DiffType.DELETE, old, None, {}, children_diffs)
 
+        # By here, both old and new are non-None (cases 1-3 handled above)
+        assert old is not None and new is not None
         # Case 4: Type changed - replace entirely
         if old.type != new.type:
             # Diff children of new tree for creation
@@ -322,7 +324,8 @@ class Reconciler:
             return self._create_element(diff)
 
         if diff.diff_type == DiffType.DELETE:
-            return self._delete_element(diff)
+            self._delete_element(diff)
+            return None
 
         if diff.diff_type == DiffType.REPLACE:
             self._delete_element(diff)

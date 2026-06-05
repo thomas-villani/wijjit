@@ -6,8 +6,9 @@ colors, cursor control, and text styling.
 
 import re
 import threading
+from typing import Any
 
-from wcwidth import wcswidth, wcwidth
+from wcwidth import wcswidth, wcwidth  # type: ignore[import-untyped]
 
 from wijjit.logging_config import get_logger
 
@@ -366,7 +367,7 @@ ANSI_COLOR_TO_RGB: dict[int, tuple[int, int, int]] = {
 }
 
 
-def parse_ansi_text(text: str) -> list[tuple[str, dict]]:
+def parse_ansi_text(text: str) -> list[tuple[str, dict[str, Any]]]:
     """Parse ANSI-formatted text into characters with cell attributes.
 
     This function converts ANSI escape codes into cell-compatible attributes
@@ -403,7 +404,7 @@ def parse_ansi_text(text: str) -> list[tuple[str, dict]]:
     reverse = False
     dim = False
 
-    result: list[tuple[str, dict]] = []
+    result: list[tuple[str, dict[str, Any]]] = []
 
     # Pattern to split text into ANSI codes and regular characters
     ansi_pattern = re.compile(r"(\x1b\[[0-9;]*m)")

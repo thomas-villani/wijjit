@@ -100,7 +100,8 @@ class RenderContext:
         dict
             Application state, or empty dict if not present
         """
-        return self.template_context.get("state", {})
+        result: dict[str, Any] = self.template_context.get("state", {})
+        return result
 
     def generate_frame_id(self) -> str:
         """Generate a unique frame ID.

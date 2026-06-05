@@ -9,7 +9,7 @@ and CodeBlock elements with a unified, flexible component.
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import ElementType, ScrollableElement
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -20,6 +20,7 @@ from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent
 
 if TYPE_CHECKING:
+    from wijjit.layout.bounds import Bounds
     from wijjit.styling.resolver import StyleResolver
 
 
@@ -166,11 +167,11 @@ class ContentView(ScrollableElement):
 
         # Rendered content caches
         self.rendered_lines: list[str] = []
-        self.rendered_cells: list[list] = []  # For HTML content type
+        self.rendered_cells: list[list[Any]] = []  # For HTML content type
         self._uses_cells = False  # Flag to indicate cell-based rendering
 
         # Cache key for avoiding re-renders
-        self._render_cache_key: tuple | None = None
+        self._render_cache_key: tuple[Any, ...] | None = None
 
         # Store style resolver for HTML rendering (set during render_to)
         self._style_resolver: StyleResolver | None = None
@@ -298,7 +299,7 @@ class ContentView(ScrollableElement):
         """
         return self._dynamic_sizing
 
-    def set_bounds(self, bounds) -> None:
+    def set_bounds(self, bounds: Bounds) -> None:
         """Set bounds and resize element to fit.
 
         Parameters
@@ -388,6 +389,7 @@ class ContentView(ScrollableElement):
         content_width = self._get_content_width()
 
         # Build cache key based on content type and relevant parameters
+        cache_key: tuple[Any, ...]
         if self._content_type == ContentType.CODE:
             cache_key = (
                 self.content,

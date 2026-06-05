@@ -159,7 +159,7 @@ class NotificationElement(OverlayElement):
         # Dismiss callback (set externally by notification manager)
         self.on_dismiss: Callable[..., Any] | None = None
 
-    def _handle_action_click(self, event=None) -> None:
+    def _handle_action_click(self, event: Any = None) -> None:
         """Handle action button click.
 
         Parameters
@@ -337,7 +337,7 @@ class NotificationElement(OverlayElement):
         if self.action_button and self.action_button.bounds:
             if self.action_button.bounds.contains(event.x, event.y):
                 # Route to button
-                return self.action_button.handle_mouse(event)
+                return await self.action_button.handle_mouse(event)
 
         # Any other click on notification dismisses it
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):

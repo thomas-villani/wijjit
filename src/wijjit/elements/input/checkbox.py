@@ -311,7 +311,7 @@ class CheckboxGroup(Element):
         self.title = title
 
         # Callbacks
-        self.on_change: Callable[[list, list], None] | None = None
+        self.on_change: Callable[[list[Any], list[Any]], None] | None = None
         self.on_action: Callable[[], None] | None = None
         self.on_highlight_change: Callable[[int], None] | None = None
 
@@ -357,7 +357,7 @@ class CheckboxGroup(Element):
         }
         return style_map.get(style.lower(), BorderStyle.SINGLE)
 
-    def _normalize_options(self, options: list[Any]) -> list[dict]:
+    def _normalize_options(self, options: list[Any]) -> list[dict[str, Any]]:
         """Normalize options to internal format with value and label."""
         normalized = []
         for opt in options:
@@ -392,7 +392,7 @@ class CheckboxGroup(Element):
             new_values = list(self.selected_values)
             self._emit_change(old_values, new_values)
 
-    def _emit_change(self, old_values: list, new_values: list[Any]) -> None:
+    def _emit_change(self, old_values: list[Any], new_values: list[Any]) -> None:
         """Emit change event."""
         if self.on_change and old_values != new_values:
             invoke_callback(self.on_change, old_values, new_values)
@@ -498,7 +498,9 @@ class CheckboxGroup(Element):
 
         # Determine if we have borders
         has_border = self.border_style is not None
-        chars = BORDER_CHARS[self.border_style] if has_border else None
+        chars = (
+            BORDER_CHARS[self.border_style] if self.border_style is not None else None
+        )
 
         # Resolve border style
         if has_border:
@@ -662,7 +664,7 @@ class CheckboxGroup(Element):
             bottom_border = chars["bl"] + chars["h"] * self.width + chars["br"]
             ctx.write_text(0, y_pos, bottom_border, border_style)
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -674,7 +676,7 @@ class CheckboxGroup(Element):
             "highlighted_index": self.highlighted_index,
         }
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

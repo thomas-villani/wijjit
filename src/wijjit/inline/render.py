@@ -126,7 +126,7 @@ def render_inline(
         return ansi_output
 
 
-def _calculate_content_height(elements: list) -> int:
+def _calculate_content_height(elements: list[Any]) -> int:
     """Calculate the height needed to fit all elements.
 
     This function analyzes element bounds to determine the minimum height
@@ -152,8 +152,8 @@ def _calculate_content_height(elements: list) -> int:
     # We'll find the minimum bounding box that contains all elements,
     # then add space for frame borders.
 
-    max_y = 0
-    content_heights = []
+    max_y: int = 0
+    content_heights: list[int] = []
     has_frame = False
 
     for elem in elements:

@@ -31,7 +31,8 @@ from __future__ import annotations
 import os
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from types import FrameType
+from typing import TYPE_CHECKING, Any
 
 from wijjit.logging_config import get_logger
 
@@ -93,8 +94,8 @@ class SuspendManager:
         self.suspended = False
 
         # Store original signal handlers to restore on cleanup
-        self._original_sigtstp: Callable | int | None = None
-        self._original_sigcont: Callable | int | None = None
+        self._original_sigtstp: Callable[..., Any] | int | None = None
+        self._original_sigcont: Callable[..., Any] | int | None = None
 
         # Track terminal state at suspend time for restoration
         self._was_in_alt_buffer = False
@@ -142,8 +143,8 @@ class SuspendManager:
 
         try:
             # Save original handlers
-            self._original_sigtstp = signal.signal(signal.SIGTSTP, self._handle_sigtstp)
-            self._original_sigcont = signal.signal(signal.SIGCONT, self._handle_sigcont)
+            self._original_sigtstp = signal.signal(signal.SIGTSTP, self._handle_sigtstp)  # type: ignore[attr-defined]
+            self._original_sigcont = signal.signal(signal.SIGCONT, self._handle_sigcont)  # type: ignore[attr-defined]
 
             self.enabled = True
             logger.info("Suspend handlers registered (Ctrl+Z enabled)")
@@ -166,9 +167,9 @@ class SuspendManager:
         try:
             # Restore original handlers
             if self._original_sigtstp is not None:
-                signal.signal(signal.SIGTSTP, self._original_sigtstp)
+                signal.signal(signal.SIGTSTP, self._original_sigtstp)  # type: ignore[attr-defined]
             if self._original_sigcont is not None:
-                signal.signal(signal.SIGCONT, self._original_sigcont)
+                signal.signal(signal.SIGCONT, self._original_sigcont)  # type: ignore[attr-defined]
 
             self.enabled = False
             logger.debug("Suspend handlers unregistered")
@@ -176,7 +177,7 @@ class SuspendManager:
         except (OSError, ValueError) as e:
             logger.warning(f"Error unregistering suspend handlers: {e}")
 
-    def _handle_sigtstp(self, signum: int, frame) -> None:
+    def _handle_sigtstp(self, signum: int, frame: FrameType | None) -> None:
         """Handle SIGTSTP (Ctrl+Z suspend signal).
 
         This handler is called when the user presses Ctrl+Z. It:
@@ -219,17 +220,17 @@ class SuspendManager:
         self.suspended = True
 
         # Temporarily restore default SIGTSTP handler so we actually suspend
-        signal.signal(signal.SIGTSTP, signal.SIG_DFL)
+        signal.signal(signal.SIGTSTP, signal.SIG_DFL)  # type: ignore[attr-defined]
 
         # Send SIGTSTP to ourselves to actually suspend
         # The process will stop here until resumed with SIGCONT
-        os.kill(os.getpid(), signal.SIGTSTP)
+        os.kill(os.getpid(), signal.SIGTSTP)  # type: ignore[attr-defined]
 
         # Execution continues here after resume (before SIGCONT handler runs)
         # Re-register our handler for next Ctrl+Z
-        signal.signal(signal.SIGTSTP, self._handle_sigtstp)
+        signal.signal(signal.SIGTSTP, self._handle_sigtstp)  # type: ignore[attr-defined]
 
-    def _handle_sigcont(self, signum: int, frame) -> None:
+    def _handle_sigcont(self, signum: int, frame: FrameType | None) -> None:
         """Handle SIGCONT (resume signal).
 
         This handler is called when the process resumes after suspension

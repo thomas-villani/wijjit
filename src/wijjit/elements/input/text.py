@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.autocomplete.mixin import AutocompleteMixin
 from wijjit.elements.base import Element, ElementType, invoke_callback
@@ -29,6 +29,7 @@ from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.autocomplete.completer import Completer
+    from wijjit.layout.bounds import Bounds
     from wijjit.styling.style import Style
 
 
@@ -323,7 +324,7 @@ class TextInput(AutocompleteMixin, Element):
         try:
             import pyperclip
 
-            text = pyperclip.paste()
+            text: str = pyperclip.paste()
             if text:
                 return text
         except Exception:
@@ -595,7 +596,7 @@ class TextInput(AutocompleteMixin, Element):
 
         return (self.width + border_width, 1)
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 
         Returns
@@ -757,7 +758,7 @@ class TextArea(Element):
         """
         return self._dynamic_sizing
 
-    def set_bounds(self, bounds) -> None:
+    def set_bounds(self, bounds: Bounds) -> None:
         """Set bounds and dynamically resize if needed.
 
         Parameters
@@ -1084,7 +1085,7 @@ class TextArea(Element):
 
         # Check if Shift is being held
         # Keys can have shift in modifiers OR be named with 's-' prefix (like 's-right')
-        shift_held = "shift" in key.modifiers or (
+        shift_held: bool = "shift" in key.modifiers or bool(
             key.name and key.name.startswith("s-")
         )
 
@@ -2030,7 +2031,7 @@ class TextArea(Element):
         -----
         Normalizes selection so start is always before end in document order.
         """
-        if not self._has_selection():
+        if not self._has_selection() or self.selection_anchor is None:
             return None
 
         anchor_row, anchor_col = self.selection_anchor
@@ -2236,7 +2237,7 @@ class TextArea(Element):
         try:
             import pyperclip
 
-            text = pyperclip.paste()
+            text: str = pyperclip.paste()
             if text:
                 return text
         except Exception:
@@ -2926,6 +2927,7 @@ class TextArea(Element):
         from wijjit.terminal.cell import Cell
 
         # Get border characters
+        assert self.border_style is not None
         chars = BORDER_CHARS[self.border_style]
         border_attrs = border_style.to_cell_attrs()
 
@@ -3379,7 +3381,7 @@ class TextArea(Element):
 
         return result
 
-    def on_update(self, changed_props: dict) -> None:
+    def on_update(self, changed_props: dict[str, Any]) -> None:
         """Handle prop updates during reconciliation.
 
         Parameters
@@ -3394,7 +3396,7 @@ class TextArea(Element):
             if new_val != self.get_value():
                 self.set_value(new_val)
 
-    def get_ephemeral_state(self) -> dict:
+    def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral_state for reconciliation.
 
         Returns
@@ -3402,7 +3404,7 @@ class TextArea(Element):
         dict
             Cursor, selection, and scroll state that should survive re-renders
         """
-        state = {
+        state: dict[str, Any] = {
             "cursor_row": self.cursor_row,
             "cursor_col": self.cursor_col,
             "selection_anchor": self.selection_anchor,
@@ -3416,7 +3418,7 @@ class TextArea(Element):
 
         return state
 
-    def restore_ephemeral_state(self, state: dict) -> None:
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
         """Restore ephemeral state after reconciliation.
 
         Parameters

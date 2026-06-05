@@ -112,7 +112,7 @@ class StyleResolver:
         self.theme = theme
         self.focus_color = focus_color
         # Cache for resolved styles: (base_class, css_classes_key, state_key) -> Style
-        self._style_cache: dict[tuple, Style] = {}
+        self._style_cache: dict[tuple[Any, ...], Style] = {}
 
     def resolve_style(
         self,

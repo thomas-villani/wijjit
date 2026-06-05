@@ -266,8 +266,8 @@ class SplitPanel(Container):
         self.children = [first, second]
 
         # Set parent reference on children
-        first._parent = self
-        second._parent = self
+        first._parent = self  # type: ignore[attr-defined]
+        second._parent = self  # type: ignore[attr-defined]
 
     def set_app(self, app: Wijjit) -> None:
         """Set app reference for state binding.

@@ -9,7 +9,7 @@ This module provides common utilities for data visualization elements including:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     pass
@@ -564,7 +564,8 @@ def get_threshold_color(
 
 
 def extract_values(
-    data: list[dict | tuple | float | int], value_key: str = "value"
+    data: list[dict[str, Any] | tuple[Any, ...] | float | int],
+    value_key: str = "value",
 ) -> tuple[list[float], list[str]]:
     """Extract values and labels from various data formats.
 
@@ -594,6 +595,7 @@ def extract_values(
             labels.append(str(item[0]))
             values.append(float(item[1]))
         else:
+            assert isinstance(item, (int, float))
             values.append(float(item))
             labels.append(str(i))
 

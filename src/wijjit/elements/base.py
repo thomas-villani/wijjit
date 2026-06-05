@@ -184,12 +184,12 @@ class Element(ABC):
         self.bounds: Bounds | None = None
         self.element_type = ElementType.DISPLAY
         self.tab_index = tab_index
-        self._parent_frame_ref: weakref.ref | None = (
+        self._parent_frame_ref: weakref.ref[Any] | None = (
             None  # Weak reference to parent Frame
         )
 
         # State management attributes (used by ElementWiringManager)
-        self._state_dict = None  # Reference to application state
+        self._state_dict: dict[str, Any] | None = None  # Reference to application state
         self._highlight_state_key: str | None = (
             None  # State key for highlight persistence
         )
@@ -400,7 +400,7 @@ class Element(ABC):
         return (1, 1)
 
     @property
-    def parent_frame(self):
+    def parent_frame(self) -> Any:
         """Get the parent Frame if this element is inside a scrollable frame.
 
         Returns
@@ -417,7 +417,7 @@ class Element(ABC):
         return self._parent_frame_ref()
 
     @parent_frame.setter
-    def parent_frame(self, frame) -> None:
+    def parent_frame(self, frame: Any) -> None:
         """Set the parent Frame reference.
 
         Parameters
@@ -1094,7 +1094,7 @@ class TextElement(Element):
         self.html = html
         self._wrapped_text: str | None = None
 
-    def set_bounds(self, bounds) -> None:
+    def set_bounds(self, bounds: Bounds) -> None:
         """Set bounds and wrap text if needed.
 
         Parameters

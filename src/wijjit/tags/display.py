@@ -1406,13 +1406,13 @@ class TextExtension(Extension):
             [],
             [],
             parser.parse_statements(("name:endtext",), drop_needle=True),
-        ).set_lineno(lineno)
-
+        )
+        node.set_lineno(lineno)
         return node
 
     def _render_text(
         self,
-        caller: Callable,
+        caller: Callable[..., Any],
         id: str | None = None,
         wrap: bool = True,
         html: bool | None = None,
@@ -2451,7 +2451,7 @@ class StatusIndicatorExtension(Extension):
         id: str | None = None,
         status: str = "info",
         label: str | None = None,
-        custom_statuses: dict | None = None,
+        custom_statuses: dict[str, Any] | None = None,
         indicator_style: str = "filled",
         **kwargs: Any,
     ) -> str:

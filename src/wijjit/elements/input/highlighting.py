@@ -9,7 +9,7 @@ and dark backgrounds.
 
 from typing import TypedDict
 
-from pygments.token import (
+from pygments.token import (  # type: ignore[import-untyped]
     Comment,
     Error,
     Generic,

@@ -808,7 +808,7 @@ class Pager(Container):
 
         if isinstance(content, FrameNode):
             if hasattr(content, "content_container") and content.content_container:
-                focusable = []
+                focusable: list[Any] = []
                 self._collect_focusable(content.content_container.children, focusable)
                 return focusable
 
@@ -854,7 +854,7 @@ class Pager(Container):
         page = self.pages[self.current_page]
         content = page.content
 
-        elements = []
+        elements: list[Any] = []
         if isinstance(content, FrameNode):
             if hasattr(content, "content_container") and content.content_container:
                 self._collect_all_elements(content.content_container.children, elements)
