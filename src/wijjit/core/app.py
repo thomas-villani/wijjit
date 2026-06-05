@@ -938,14 +938,14 @@ class Wijjit:
                     # Normal rendering - update with view elements
                     self._update_focus_manager(elements)
                 else:
-                    # Focus is trapped in overlay - update with overlay's focusable elements
+                    # Focus is trapped in overlay - update with overlay's focusable
+                    # elements. Do NOT filter by bounds: overlay children are laid
+                    # out during the composite step, which runs AFTER this update,
+                    # so on the frame the modal opens its buttons have no bounds
+                    # yet. Filtering here would wipe the focus that overlay push()
+                    # just set, and subsequent set_elements calls would never
+                    # restore it.
                     overlay_focusable = self.overlay_manager.get_focus_trap_elements()
-                    # Filter by bounds (focusable elements must have bounds set)
-                    overlay_focusable = [
-                        elem
-                        for elem in overlay_focusable
-                        if hasattr(elem, "bounds") and elem.bounds
-                    ]
                     self.focus_manager.set_elements(overlay_focusable)
 
                 # Clean up globals

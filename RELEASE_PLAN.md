@@ -101,9 +101,19 @@ Use the Phase 1 harness to reproduce and regression-test each.
         drawing. Non-scrolling frames are unchanged. grid_demo's golden was
         regenerated (its inner frame borders now render closed). Regression test:
         `tests/layout/test_frames.py::TestScrollbarChildBorderClearance`.
-- [ ] **Modal / focus / key routing:** modals should block app hotkeys
-      (except quit); avoid double-key-to-focus; swallow keys that opened a
-      dialog. (Many already fixed - re-verify with the harness.)
+- [x] **Modal / focus / key routing:** harness-verified end-to-end via
+      `tests/integration/test_modal_key_routing.py`. Confirmed invariants:
+      (1) a trap-focus modal blocks app-level `on_key` handlers; (2) `Ctrl+Q`
+      always quits, even with a TextInput focused or a modal open; (3) the
+      key that opened a modal does NOT leak into the new modal's input; (4)
+      Tab/Shift+Tab cycle focus between dialog buttons; (5) a freshly-opened
+      dialog auto-focuses its first button so Enter activates it immediately.
+      Found and fixed one real regression while writing (5): `_render` was
+      bounds-filtering overlay focusables before the composite step assigned
+      bounds to them, wiping the focus that `overlay.push()` had just set.
+      Removed the over-strict filter (overlay focusables come from a
+      structural walk of the modal hierarchy; they're real focusables
+      regardless of this-frame bounds).
 - [~] **Render order / dirty marking (deferred - architectural / not headless-
       testable):** progress bars "stop" spinners; spinner stop leaves `k...`
       artifacts; view-switch latency (`statusbar_demo`, `event_patterns_demo`).
