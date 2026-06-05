@@ -73,70 +73,47 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Error Handling Demo" border_style="double" width=100 height=40 %}
+{% frame title="Error Handling Demo" border_style="double" width=106 height=40 %}
   {% vstack spacing=1 padding=1 %}
-    {% vstack spacing=0 %}
-      Last Action: {{ state.last_action }}
-      Total Errors: {{ state.error_count }}
-    {% endvstack %}
+    Last Action: {{ state.last_action }}    Total Errors: {{ state.error_count }}
 
     {% if state.error_message %}
-      {% frame border_style="single" %}
-        {% vstack spacing=0 padding=1 %}
-          ERROR: {{ state.error_message }}
-        {% endvstack %}
-      {% endframe %}
+    [ERROR] {{ state.error_message | truncate(94) }}
     {% endif %}
 
     {% hstack spacing=2 align_v="top" %}
-      {% vstack spacing=1 width=48 %}
-        {% frame title="Error Scenarios" border_style="single" width="fill" %}
-          {% vstack spacing=1 padding=1 %}
-            {% vstack spacing=0 %}
-              1. Division by Zero:
-            {% endvstack %}
-            {% hstack spacing=2 %}
-              {% textinput id="divide_a" width=10 placeholder="10" %}{% endtextinput %}
-              ÷
-              {% textinput id="divide_b" width=10 placeholder="2" %}{% endtextinput %}
-              {% button action="divide" %}Calculate{% endbutton %}
-            {% endhstack %}
-            {% vstack spacing=0 %}
-              Result: {{ state.divide_result }}
-            {% endvstack %}
+      {% frame title="Error Scenarios" border_style="single" width=54 %}
+        {% vstack spacing=1 padding=1 %}
+          1. Division by Zero:
+          {% hstack spacing=2 %}
+            {% textinput id="divide_a" width=10 placeholder="10" %}{% endtextinput %}
+            /
+            {% textinput id="divide_b" width=10 placeholder="2" %}{% endtextinput %}
+            {% button action="divide" %}Calculate{% endbutton %}
+          {% endhstack %}
+          Result: {{ state.divide_result }}
 
-            {% vstack spacing=0 %}
-              2. JSON Parsing:
-            {% endvstack %}
-            {% textinput id="json_input" width=40 placeholder='{"key": "value"}' %}{% endtextinput %}
-            {% button action="parse_json" %}Parse JSON{% endbutton %}
-            {% vstack spacing=0 %}
-              Result: {{ state.json_result }}
-            {% endvstack %}
+          2. JSON Parsing:
+          {% textinput id="json_input" width=40 placeholder='{"key": "value"}' %}{% endtextinput %}
+          {% button action="parse_json" %}Parse JSON{% endbutton %}
+          Result: {{ state.json_result }}
 
-            {% vstack spacing=0 %}
-              3. File Operations:
-            {% endvstack %}
-            {% textinput id="file_path" width=40 placeholder="/path/to/file.txt" %}{% endtextinput %}
-            {% button action="read_file" %}Read File{% endbutton %}
-            {% vstack spacing=0 %}
-              {{ state.file_content | truncate(50) }}
-            {% endvstack %}
+          3. File Operations:
+          {% textinput id="file_path" width=40 placeholder="/path/to/file.txt" %}{% endtextinput %}
+          {% button action="read_file" %}Read File{% endbutton %}
+          {{ state.file_content | truncate(46) }}
 
-            {% vstack spacing=0 %}
-              4. Simulated Errors:
-            {% endvstack %}
-            {% hstack spacing=2 %}
-              {% button action="null_error" %}Null Reference{% endbutton %}
-              {% button action="type_error" %}Type Error{% endbutton %}
-              {% button action="async_error" %}Async Error{% endbutton %}
-            {% endhstack %}
-          {% endvstack %}
-        {% endframe %}
-      {% endvstack %}
+          4. Simulated Errors:
+          {% hstack spacing=1 %}
+            {% button action="null_error" %}Null Ref{% endbutton %}
+            {% button action="type_error" %}Type Error{% endbutton %}
+            {% button action="async_error" %}Async Error{% endbutton %}
+          {% endhstack %}
+        {% endvstack %}
+      {% endframe %}
 
-      {% vstack spacing=1 width=48 %}
-        {% frame title="Error History (Last 5)" border_style="single" width="fill" height=22 %}
+      {% vstack spacing=1 width=46 %}
+        {% frame title="Error History (Last 5)" border_style="single" width="fill" height=14 %}
           {% vstack padding=1 %}
 {{ error_history_text }}
           {% endvstack %}
@@ -145,13 +122,13 @@ def main_view():
         {% frame title="Error Handling Patterns" border_style="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Demonstrated Patterns:
-            • Try/except in action handlers
-            • User-friendly error messages
-            • Error state management
-            • Error history/logging
-            • Input validation
-            • Graceful degradation
-            • Recovery mechanisms
+            - Try/except in handlers
+            - User-friendly messages
+            - Error state management
+            - Error history/logging
+            - Input validation
+            - Graceful degradation
+            - Recovery mechanisms
           {% endvstack %}
         {% endframe %}
       {% endvstack %}
@@ -163,10 +140,7 @@ def main_view():
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
 
-    {% vstack spacing=0 %}
-      Try the error scenarios above to see error handling in action!
-      [q] Quit
-    {% endvstack %}
+    Try the error scenarios above to see error handling in action!  [q] Quit
   {% endvstack %}
 {% endframe %}
         """,

@@ -151,7 +151,24 @@ Use the Phase 1 harness to reproduce and regression-test each.
         `calculate_constraints()` before `assign_bounds()`; regression test
         added. (Residual: `_render_children` dual-coordinate flow noted in
         `etc/issues.md` for a future cleanup; no current failing case.)
-- [~] **Layout polish:** `error_handling_demo` cleanup remains.
+- [x] **Layout polish:** all demos clean.
+  - [x] `error_handling_demo` cleanup: outer frame was width=100 height=40
+        with two width=48 inner columns + spacing=2, which overflowed the
+        usable inner area; the resulting vertical scrollbar clipped the right
+        column's right borders, the three simulated-error buttons overflowed
+        their column ("Async Error" truncated), and the bottom action row +
+        footer hint were hidden below the viewport. Restructured: outer
+        106x40; left column 54 + right column 46 (fits within padding +
+        spacing); shortened "Null Reference" to "Null Ref" + tightened button
+        spacing; replaced the conditional 5-line bordered error frame with a
+        single-line "[ERROR] ..." row so the layout stays stable when an
+        error is shown; dropped the redundant
+        `{% vstack spacing=0 %}<single line>{% endvstack %}` wrappers
+        throughout; reduced "Error History" frame from height=22 to height=14.
+        Regression tests: `tests/examples/test_error_handling_demo_layout.py`
+        (5 assertions: no overflow scrollbar, all three sim-error buttons
+        visible, bottom action row + footer visible, child-frame right
+        borders intact, layout stable with an error message set).
   - [x] `complex_layout_demo` ("all fucked"): was a Renderer-only diagnostic
         using a non-existent `{% markdown %}` tag (it crashed on load). Rewrote
         it as a proper Wijjit app (valid `{% contentview content_type=
