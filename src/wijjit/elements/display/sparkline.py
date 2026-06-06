@@ -346,13 +346,13 @@ class Sparkline(Element):
 
         Notes
         -----
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'sparkline': Base sparkline style
-        - 'sparkline.min': Minimum value marker style
-        - 'sparkline.max': Maximum value marker style
-        - 'sparkline.current': Current value text style
+        - ``sparkline``: Base sparkline style
+        - ``sparkline.min``: Minimum value marker style
+        - ``sparkline.max``: Maximum value marker style
+        - ``sparkline.current``: Current value text style
         """
         from wijjit.terminal.cell import Cell
 

@@ -1609,11 +1609,13 @@ class Renderer:
         -----
         This method uses DiffRenderer for efficient output generation.
 
-        When use_diff_rendering is True:
+        When use_diff_rendering is True::
+
             First render is full (with screen clear), subsequent renders
             only output changes (diffs).
 
-        When use_diff_rendering is False:
+        When use_diff_rendering is False::
+
             Always does full render with screen clear. This is more
             reliable but less efficient.
         """

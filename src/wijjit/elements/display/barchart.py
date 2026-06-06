@@ -378,16 +378,16 @@ class BarChart(ScrollableElement):
 
         Notes
         -----
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'barchart': Base bar chart style
-        - 'barchart:focus': When chart has focus
-        - 'barchart.label': Label text style
-        - 'barchart.value': Value text style
-        - 'barchart.bar': Bar fill style
-        - 'barchart.bar.empty': Empty bar portion style
-        - 'barchart.border': Border style
+        - ``barchart``: Base bar chart style
+        - ``barchart:focus``: When chart has focus
+        - ``barchart.label``: Label text style
+        - ``barchart.value``: Value text style
+        - ``barchart.bar``: Bar fill style
+        - ``barchart.bar.empty``: Empty bar portion style
+        - ``barchart.border``: Border style
         """
         from wijjit.terminal.ansi import clip_to_width, supports_unicode
         from wijjit.terminal.cell import Cell

@@ -938,10 +938,8 @@ def wrap_text(text: str, width: int) -> list[str]:
     - Empty text returns a single empty string segment
     - Text shorter than width returns as-is in a single-element list
     - ANSI escape codes are preserved and don't count toward visible length
-    - Smart word boundary detection prefers breaking at:
-      1. Spaces
-      2. Hyphens
-      3. Punctuation marks
+    - Smart word boundary detection prefers breaking at spaces, then hyphens,
+      then punctuation marks
     - Falls back to hard break at width if no boundary found
 
     Examples

@@ -301,14 +301,14 @@ class LineChart(Element):
 
         Notes
         -----
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'linechart': Base line chart style
-        - 'linechart.line': Line/data style
-        - 'linechart.axis': Axis line and text style
-        - 'linechart.label': X-axis label style
-        - 'linechart.legend': Legend text style
+        - ``linechart``: Base line chart style
+        - ``linechart.line``: Line/data style
+        - ``linechart.axis``: Axis line and text style
+        - ``linechart.label``: X-axis label style
+        - ``linechart.legend``: Legend text style
         """
         from wijjit.terminal.ansi import supports_unicode
         from wijjit.terminal.cell import Cell

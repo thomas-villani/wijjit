@@ -653,16 +653,16 @@ class ListView(ScrollableElement):
         - Borders with titles
         - Theme-based styling
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'listview': Base listview style
-        - 'listview:focus': When listview has focus
-        - 'listview.label': For item labels
-        - 'listview.details': For item details (dimmed)
-        - 'listview.divider': For horizontal dividers
-        - 'listview.border': For border characters
-        - 'listview.border:focus': For border when focused
+        - ``listview``: Base listview style
+        - ``listview:focus``: When listview has focus
+        - ``listview.label``: For item labels
+        - ``listview.details``: For item details (dimmed)
+        - ``listview.divider``: For horizontal dividers
+        - ``listview.border``: For border characters
+        - ``listview.border:focus``: For border when focused
         """
         # Update scroll_manager viewport size based on actual bounds
         # This is needed because bounds may differ from initial height after layout

@@ -17,7 +17,7 @@ Job control (Ctrl+Z suspend) requires:
 Examples
 --------
 The suspend feature is automatically enabled on Unix systems. Users can
-suspend the app with Ctrl+Z and resume with 'fg':
+suspend the app with Ctrl+Z and resume with 'fg'::
 
     $ python my_app.py
     [Press Ctrl+Z]

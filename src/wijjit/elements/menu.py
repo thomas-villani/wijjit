@@ -387,18 +387,18 @@ class MenuElement(OverlayElement):
         items, borders, and states. It properly handles highlights, disabled
         items, and keyboard shortcuts.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'menu': Base menu style
-        - 'menu:focus': Focused menu style
-        - 'menu.border': Border style
-        - 'menu.border:focus': Focused border style
-        - 'menu.item': Menu item style
-        - 'menu.item:highlighted': Highlighted item style
-        - 'menu.item:disabled': Disabled item style
-        - 'menu.divider': Divider line style
-        - 'menu.shortcut': Keyboard shortcut hint style
+        - ``menu``: Base menu style
+        - ``menu:focus``: Focused menu style
+        - ``menu.border``: Border style
+        - ``menu.border:focus``: Focused border style
+        - ``menu.item``: Menu item style
+        - ``menu.item:highlighted``: Highlighted item style
+        - ``menu.item:disabled``: Disabled item style
+        - ``menu.divider``: Divider line style
+        - ``menu.shortcut``: Keyboard shortcut hint style
         """
 
         if not self.bounds:

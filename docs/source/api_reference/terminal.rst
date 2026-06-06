@@ -47,30 +47,3 @@ Screen & buffers
    wijjit.terminal.cell.CellPool
    wijjit.terminal.screen_buffer.ScreenBuffer
    wijjit.terminal.screen_buffer.DiffRenderer
-
-Module documentation
---------------------
-
-.. automodule:: wijjit.terminal.ansi
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.terminal.input
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.terminal.mouse
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.terminal.screen
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.terminal.cell
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.terminal.screen_buffer
-   :members:
-   :noindex:

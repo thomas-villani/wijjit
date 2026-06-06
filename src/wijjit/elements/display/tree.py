@@ -1185,17 +1185,17 @@ class Tree(ScrollableElement):
         - Theme-based styling for all states
         - Scrollbar integration
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'tree': Base tree style
-        - 'tree:focus': When tree has focus
-        - 'tree.node': Default node style
-        - 'tree.node:highlight': Highlighted node (keyboard focus)
-        - 'tree.node:selected': Selected node with marker
-        - 'tree.indicator': Expand/collapse indicators
-        - 'tree.border': Border characters
-        - 'tree.border:focus': Border when focused
+        - ``tree``: Base tree style
+        - ``tree:focus``: When tree has focus
+        - ``tree.node``: Default node style
+        - ``tree.node:highlight``: Highlighted node (keyboard focus)
+        - ``tree.node:selected``: Selected node with marker
+        - ``tree.indicator``: Expand/collapse indicators
+        - ``tree.border``: Border characters
+        - ``tree.border:focus``: Border when focused
         """
         # Resolve base styles
         if self.focused:

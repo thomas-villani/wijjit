@@ -28,11 +28,3 @@ Handlers & registry
 
    wijjit.core.events.Handler
    wijjit.core.events.HandlerRegistry
-
-Module documentation
---------------------
-
-.. automodule:: wijjit.core.events
-   :members:
-   :show-inheritance:
-   :noindex:

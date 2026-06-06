@@ -808,19 +808,19 @@ class LogView(ScrollableElement):
         - Borders with titles and focus styling
         - Theme-based styling throughout
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'logview': Base logview style (for lines without detected log level)
-        - 'logview:focus': When logview has focus
-        - 'logview.error': For ERROR/FATAL/CRITICAL log lines
-        - 'logview.warning': For WARNING/WARN log lines
-        - 'logview.info': For INFO log lines
-        - 'logview.debug': For DEBUG log lines
-        - 'logview.trace': For TRACE log lines
-        - 'logview.line_number': For line number column
-        - 'logview.border': For border characters
-        - 'logview.border:focus': For border when focused
+        - ``logview``: Base logview style (for lines without detected log level)
+        - ``logview:focus``: When logview has focus
+        - ``logview.error``: For ERROR/FATAL/CRITICAL log lines
+        - ``logview.warning``: For WARNING/WARN log lines
+        - ``logview.info``: For INFO log lines
+        - ``logview.debug``: For DEBUG log lines
+        - ``logview.trace``: For TRACE log lines
+        - ``logview.line_number``: For line number column
+        - ``logview.border``: For border characters
+        - ``logview.border:focus``: For border when focused
         """
         # Resolve border style based on focus
         if self.focused:

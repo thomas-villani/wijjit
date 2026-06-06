@@ -8,7 +8,3 @@ Helpers API
    :nosignatures:
 
    wijjit.helpers.load_filesystem_tree
-
-.. automodule:: wijjit.helpers
-   :members:
-   :noindex:

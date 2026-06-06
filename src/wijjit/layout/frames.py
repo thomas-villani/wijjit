@@ -625,7 +625,8 @@ class Frame(ScrollableElement):
     def render(self) -> str:
         """Render the frame as a string (DEPRECATED).
 
-        .. deprecated::
+        .. deprecated:: 0.1.0
+
             Use ``render_to(ctx)`` for cell-based rendering instead.
             This method is kept for backwards compatibility with tests
             and debugging purposes.
@@ -1359,13 +1360,13 @@ class Frame(ScrollableElement):
         - Corner cell when both scrollbars are visible
         - Theme-based styling
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'frame': Base frame style for content
-        - 'frame:focus': When frame has focus
-        - 'frame.border': For border characters
-        - 'frame.title': For title text in border
+        - ``frame``: Base frame style for content
+        - ``frame:focus``: When frame has focus
+        - ``frame.border``: For border characters
+        - ``frame.title``: For title text in border
         """
 
         # Resolve styles based on state using style_prefix (default: "frame")

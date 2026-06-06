@@ -19,11 +19,3 @@ Usage highlights
 * ``on_change`` and ``watch`` support sync and async callbacks.
 * Reserved keys guard against name clashes with dict methods.
 * Async change handling is coordinated via per-state task tracking.
-
-Module documentation
---------------------
-
-.. automodule:: wijjit.core.state
-   :members:
-   :show-inheritance:
-   :noindex:

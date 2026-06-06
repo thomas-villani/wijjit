@@ -22,7 +22,8 @@ logger = get_logger(__name__)
 class SparklineExtension(Extension):
     """Jinja2 extension for {% sparkline %} tag.
 
-    Syntax:
+    Syntax::
+
         {% sparkline id="cpu" data=history width=20 style="line" %}
         {% endsparkline %}
     """
@@ -113,7 +114,8 @@ class SparklineExtension(Extension):
 class BarChartExtension(Extension):
     """Jinja2 extension for {% barchart %} tag.
 
-    Syntax:
+    Syntax::
+
         {% barchart id="sales" data=metrics width=40 height=10
            show_labels=true show_values=true color="gradient" %}
         {% endbarchart %}
@@ -215,7 +217,8 @@ class BarChartExtension(Extension):
 class ColumnChartExtension(Extension):
     """Jinja2 extension for {% columnchart %} tag.
 
-    Syntax:
+    Syntax::
+
         {% columnchart id="monthly" data=metrics width=60 height=15
            column_width=3 spacing=1 show_labels=true %}
         {% endcolumnchart %}
@@ -314,7 +317,8 @@ class ColumnChartExtension(Extension):
 class LineChartExtension(Extension):
     """Jinja2 extension for {% linechart %} tag.
 
-    Syntax:
+    Syntax::
+
         {% linechart id="trend" data=points width=60 height=12
            style="line" show_axis=true show_points=false %}
         {% endlinechart %}
@@ -411,7 +415,8 @@ class LineChartExtension(Extension):
 class GaugeExtension(Extension):
     """Jinja2 extension for {% gauge %} tag.
 
-    Syntax:
+    Syntax::
+
         {% gauge id="temp" value=75 max_value=100 width=20
            style="linear" show_value=true %}
         {% endgauge %}
@@ -520,7 +525,8 @@ class GaugeExtension(Extension):
 class HeatMapExtension(Extension):
     """Jinja2 extension for {% heatmap %} tag.
 
-    Syntax:
+    Syntax::
+
         {% heatmap id="activity" data=grid width=40 height=10
            color_scale="heat" show_legend=true %}
         {% endheatmap %}

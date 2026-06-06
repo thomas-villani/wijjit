@@ -16,19 +16,21 @@ scattered across the environment:
 
 Usage
 -----
-In the Renderer:
+In the Renderer::
 
     from wijjit.core.render_context import render_context_scope, get_render_context
 
-    with render_context_scope(layout_context, template_context) as ctx:
+    with render_context_scope(layout_context, template_context) as ctx::
+
         # Render template - extensions can access ctx via get_render_context()
         output = template.render(**template_context)
 
-In template extensions:
+In template extensions::
 
     from wijjit.core.render_context import get_render_context
 
-    def _render_button(self, ...):
+    def _render_button(self, ...)::
+
         ctx = get_render_context()
         layout_ctx = ctx.layout_context
         focused_id = ctx.focused_id

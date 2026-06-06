@@ -732,18 +732,18 @@ class Select(ScrollableElement):
         instead of hardcoded ANSI colors. It renders a scrollable list of options
         with optional borders and title.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'select': Base select style
-        - 'select:focus': Focused select style
-        - 'select.border': Border style
-        - 'select.border:focus': Focused border style
-        - 'select.option': Option item style
-        - 'select.option:selected': Selected option style (marked with *)
-        - 'select.option:highlighted': Highlighted option style (keyboard focus)
-        - 'select.option:disabled': Disabled option style
-        - 'select.placeholder': Placeholder text style (empty state)
+        - ``select``: Base select style
+        - ``select:focus``: Focused select style
+        - ``select.border``: Border style
+        - ``select.border:focus``: Focused border style
+        - ``select.option``: Option item style
+        - ``select.option:selected``: Selected option style (marked with an asterisk)
+        - ``select.option:highlighted``: Highlighted option style (keyboard focus)
+        - ``select.option:disabled``: Disabled option style
+        - ``select.placeholder``: Placeholder text style (empty state)
         """
         # Get visible range from scroll manager
         visible_start, visible_end = self.scroll_manager.get_visible_range()

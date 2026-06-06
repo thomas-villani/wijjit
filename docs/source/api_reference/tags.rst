@@ -42,11 +42,17 @@ Display tags
    wijjit.tags.display.TreeExtension
    wijjit.tags.display.ProgressBarExtension
    wijjit.tags.display.SpinnerExtension
-   wijjit.tags.display.MarkdownExtension
-    wijjit.tags.display.CodeBlockExtension
+   wijjit.tags.display.ContentViewExtension
    wijjit.tags.display.LogViewExtension
    wijjit.tags.display.ListViewExtension
    wijjit.tags.display.StatusBarExtension
+   wijjit.tags.display.StatusIndicatorExtension
+   wijjit.tags.display.LinkExtension
+   wijjit.tags.display.ImageViewExtension
+   wijjit.tags.display.PageExtension
+   wijjit.tags.display.PagerExtension
+   wijjit.tags.display.TabExtension
+   wijjit.tags.display.TabbedPanelExtension
    wijjit.tags.display.ModalExtension
 
 Chart tags
@@ -72,34 +78,7 @@ Dialogs & menus
 
    wijjit.tags.dialogs.ConfirmDialogExtension
    wijjit.tags.dialogs.AlertDialogExtension
-   wijjit.tags.dialogs.InputDialogExtension
+   wijjit.tags.dialogs.TextInputDialogExtension
    wijjit.tags.menu.MenuItemExtension
    wijjit.tags.menu.DropdownExtension
    wijjit.tags.menu.ContextMenuExtension
-
-Module documentation
---------------------
-
-.. automodule:: wijjit.tags.layout
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.tags.input
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.tags.display
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.tags.dialogs
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.tags.menu
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.tags.charts
-   :members:
-   :noindex:

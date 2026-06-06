@@ -369,16 +369,16 @@ class ProgressBar(Element):
         instead of hardcoded ANSI colors. It supports all progress bar styles:
         filled, percentage, gradient, and custom.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'progress': Base progress bar style
-        - 'progress.fill': Filled portion style
-        - 'progress.empty': Empty portion style
-        - 'progress.text': Progress percentage text style
-        - 'progress.gradient.low': Gradient color for 0-33% (gradient style only)
-        - 'progress.gradient.medium': Gradient color for 33-66% (gradient style only)
-        - 'progress.gradient.high': Gradient color for 66-100% (gradient style only)
+        - ``progress``: Base progress bar style
+        - ``progress.fill``: Filled portion style
+        - ``progress.empty``: Empty portion style
+        - ``progress.text``: Progress percentage text style
+        - ``progress.gradient.low``: Gradient color for 0-33% (gradient style only)
+        - ``progress.gradient.medium``: Gradient color for 33-66% (gradient style only)
+        - ``progress.gradient.high``: Gradient color for 66-100% (gradient style only)
         """
 
         percentage = self.get_percentage()

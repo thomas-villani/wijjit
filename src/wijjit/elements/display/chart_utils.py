@@ -253,7 +253,8 @@ class BrailleCanvas:
     def render(self) -> list[str]:
         """Convert the canvas to a list of braille character strings (DEPRECATED).
 
-        .. deprecated::
+        .. deprecated:: 0.1.0
+
             Use ``to_lines()`` instead. This method is kept for
             backwards compatibility.
 

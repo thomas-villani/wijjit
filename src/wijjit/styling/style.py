@@ -167,7 +167,7 @@ class Style:
         Returns
         -------
         dict
-            Dictionary of attributes suitable for Cell(**attrs)
+            Dictionary of attributes suitable for ``Cell(**attrs)``
 
         Notes
         -----

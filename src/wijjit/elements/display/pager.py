@@ -603,16 +603,16 @@ class Pager(Container):
         2. Navigation bar(s) with Prev/Next buttons and page indicator
         3. Current page content in a Frame
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'pager': Base pager style
-        - 'pager:focus': When pager has focus
-        - 'pager.border': Border style
-        - 'pager.nav': Navigation bar style
-        - 'pager.button': Navigation button style
-        - 'pager.button:disabled': Disabled button style
-        - 'pager.indicator': Page indicator style
+        - ``pager``: Base pager style
+        - ``pager:focus``: When pager has focus
+        - ``pager.border``: Border style
+        - ``pager.nav``: Navigation bar style
+        - ``pager.button``: Navigation button style
+        - ``pager.button:disabled``: Disabled button style
+        - ``pager.indicator``: Page indicator style
         """
 
         # Capture bounds for mouse hit testing

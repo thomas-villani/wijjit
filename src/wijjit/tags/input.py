@@ -35,7 +35,8 @@ logger = get_logger(__name__)
 class TextInputExtension(Extension):
     """Jinja2 extension for {% textinput %} tag.
 
-    Syntax:
+    Syntax::
+
         {% textinput id="name" placeholder="Enter name" width=30 %}{% endtextinput %}
     """
 
@@ -192,7 +193,8 @@ class TextInputExtension(Extension):
 class ButtonExtension(Extension):
     """Jinja2 extension for {% button %} tag.
 
-    Syntax:
+    Syntax::
+
         {% button id="submit" %}Submit{% endbutton %}
     """
 
@@ -292,7 +294,8 @@ class ButtonExtension(Extension):
 class SelectExtension(Extension):
     """Jinja2 extension for {% select %} tag.
 
-    Syntax:
+    Syntax::
+
         {% select id="color" width=30 %}
             Red
             Green
@@ -545,7 +548,8 @@ class SelectExtension(Extension):
 class CheckboxExtension(Extension):
     """Jinja2 extension for checkbox tag.
 
-    Syntax:
+    Syntax::
+
         {% checkbox id="terms" label="I agree" checked=False action="submit" %}{% endcheckbox %}
     """
 
@@ -635,7 +639,8 @@ class CheckboxExtension(Extension):
 class RadioExtension(Extension):
     """Jinja2 extension for radio tag.
 
-    Syntax:
+    Syntax::
+
         {% radio name="size" id="size_m" label="Medium" value="m" checked=False %}{% endradio %}
     """
 
@@ -734,7 +739,8 @@ class RadioExtension(Extension):
 class CheckboxGroupExtension(Extension):
     """Jinja2 extension for checkboxgroup tag.
 
-    Syntax:
+    Syntax::
+
         {% checkboxgroup id="features" options=["A", "B", "C"]
                          selected=["A"] width=30
                          border="single" title="Select Features" %}
@@ -854,7 +860,8 @@ class CheckboxGroupExtension(Extension):
 class RadioGroupExtension(Extension):
     """Jinja2 extension for radiogroup tag.
 
-    Syntax:
+    Syntax::
+
         {% radiogroup name="size" id="size_group" options=["S", "M", "L"]
                       selected="M" width=20
                       border="single" title="Select Size" %}
@@ -1027,7 +1034,8 @@ class RadioGroupExtension(Extension):
 class TextAreaExtension(Extension):
     """Jinja2 extension for textarea tag.
 
-    Syntax:
+    Syntax::
+
         {% textarea id="editor" value=state.content
                     width=60 height=15 wrap_mode="soft"
                     border="single" title="Editor" %}
@@ -1223,7 +1231,8 @@ class TextAreaExtension(Extension):
 class CodeEditorExtension(Extension):
     """Jinja2 extension for codeeditor tag.
 
-    Syntax:
+    Syntax::
+
         {% codeeditor id="editor" language="python" theme="monokai"
                       width=80 height=25 show_line_numbers=True %}
         {% endcodeeditor %}
@@ -1410,7 +1419,8 @@ class CodeEditorExtension(Extension):
 class SliderExtension(Extension):
     """Jinja2 extension for {% slider %} tag.
 
-    Syntax:
+    Syntax::
+
         {% slider id="volume" min=0 max=100 value=50 %}{% endslider %}
         {% slider id="opacity" min=0.0 max=1.0 step=0.1 float_mode=True %}{% endslider %}
         {% slider id="brightness" label="Brightness" width=30 %}{% endslider %}
@@ -1517,7 +1527,8 @@ class SliderExtension(Extension):
 class ToggleExtension(Extension):
     """Jinja2 extension for {% toggle %} tag.
 
-    Syntax:
+    Syntax::
+
         {% toggle id="dark_mode" label="Dark Mode" %}{% endtoggle %}
         {% toggle id="notifications" checked=True %}{% endtoggle %}
         {% toggle id="sound" label_mode="dual" on_label="ON" off_label="OFF" %}{% endtoggle %}
@@ -1606,7 +1617,8 @@ class ToggleExtension(Extension):
 class DataGridExtension(Extension):
     """Jinja2 extension for {% datagrid %} tag.
 
-    Syntax:
+    Syntax::
+
         {% datagrid id="my_grid" data=grid_data columns=["Name", "Age", "City"]
                     width=60 height=15 %}
         {% enddatagrid %}

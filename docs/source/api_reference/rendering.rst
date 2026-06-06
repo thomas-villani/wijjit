@@ -11,15 +11,5 @@ Key classes
    :nosignatures:
 
    wijjit.rendering.paint_context.PaintContext
-   wijjit.rendering.ansi_adapter.ANSIAdapter
-
-Module documentation
---------------------
-
-.. automodule:: wijjit.rendering.paint_context
-   :members:
-   :noindex:
-
-.. automodule:: wijjit.rendering.ansi_adapter
-   :members:
-   :noindex:
+   wijjit.rendering.ansi_adapter.ansi_string_to_cells
+   wijjit.rendering.ansi_adapter.cells_to_ansi

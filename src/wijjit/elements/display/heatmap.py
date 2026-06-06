@@ -222,13 +222,13 @@ class HeatMap(Element):
 
         Notes
         -----
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'heatmap': Base heat map style
-        - 'heatmap.cell': Cell style
-        - 'heatmap.label': Label text style
-        - 'heatmap.legend': Legend style
+        - ``heatmap``: Base heat map style
+        - ``heatmap.cell``: Cell style
+        - ``heatmap.label``: Label text style
+        - ``heatmap.legend``: Legend style
         """
         from wijjit.terminal.cell import Cell
 

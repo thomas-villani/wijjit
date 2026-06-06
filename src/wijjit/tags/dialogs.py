@@ -28,7 +28,8 @@ class ConfirmDialogExtension(Extension):
 
     Creates a confirmation dialog with confirm/cancel buttons.
 
-    Syntax:
+    Syntax::
+
         {% confirmdialog visible="show_confirm"
                          title="Confirm Delete"
                          message="Are you sure you want to delete this file?"
@@ -205,7 +206,8 @@ class AlertDialogExtension(Extension):
 
     Creates an alert dialog with a single OK button.
 
-    Syntax:
+    Syntax::
+
         {% alertdialog visible="show_alert"
                        title="Success"
                        message="File saved successfully!"
@@ -369,7 +371,8 @@ class TextInputDialogExtension(Extension):
 
     Creates a text input dialog with submit/cancel buttons.
 
-    Syntax:
+    Syntax::
+
         {% inputdialog visible="show_rename"
                        title="Rename File"
                        prompt="Enter new name:"

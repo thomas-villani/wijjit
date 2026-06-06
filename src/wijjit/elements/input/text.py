@@ -2877,13 +2877,13 @@ class TextArea(Element):
         - Scrollbar integration
         - Theme-based styling
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'textarea': Base textarea style
-        - 'textarea:focus': When textarea has focus
-        - 'textarea.border': Border characters
-        - 'textarea.border:focus': Border when focused
+        - ``textarea``: Base textarea style
+        - ``textarea:focus``: When textarea has focus
+        - ``textarea.border``: Border characters
+        - ``textarea.border:focus``: Border when focused
         """
 
         # Update horizontal scroll manager with current viewport/content sizes

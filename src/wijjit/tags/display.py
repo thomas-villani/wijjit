@@ -38,7 +38,8 @@ logger = get_logger(__name__)
 class TableExtension(Extension):
     """Jinja2 extension for {% table %} tag.
 
-    Syntax:
+    Syntax::
+
         {% table id="users"
                  data=state.users
                  columns=["Name", "Email", "Status"]
@@ -190,7 +191,8 @@ class TableExtension(Extension):
 class TreeExtension(Extension):
     """Jinja2 extension for {% tree %} tag.
 
-    Syntax:
+    Syntax::
+
         {% tree id="filetree"
                 data=state.file_tree
                 width=40
@@ -378,13 +380,15 @@ class TreeExtension(Extension):
 class ProgressBarExtension(Extension):
     """Jinja2 extension for progressbar tag.
 
-    Syntax:
+    Syntax::
+
         {% progressbar id="download" value=state.progress max=100
                        width=40 style="filled" bar_style="block"
                        color="green" show_percentage=True %}
         {% endprogressbar %}
 
-    Bar styles:
+    Bar styles::
+
         block (default) - Solid block characters
         thin - Thin horizontal line
         thick - Thick/heavy horizontal line
@@ -536,7 +540,8 @@ class ProgressBarExtension(Extension):
 class SpinnerExtension(Extension):
     """Jinja2 extension for spinner tag.
 
-    Syntax:
+    Syntax::
+
         {% spinner id="loading" active=state.loading
                    style="dots" label="Loading..." color="cyan" %}
         {% endspinner %}
@@ -656,7 +661,8 @@ class SpinnerExtension(Extension):
 class LogViewExtension(Extension):
     """Jinja2 extension for logview tag.
 
-    Syntax:
+    Syntax::
+
         {% logview id="app_logs"
                    lines=state.logs
                    auto_scroll=true
@@ -865,22 +871,25 @@ class LogViewExtension(Extension):
 class ListViewExtension(Extension):
     """Jinja2 extension for listview tag.
 
-    Syntax:
+    Syntax::
+
         {% listview id="tasks" items=state.tasks
                     bullet="bullet" show_dividers=true
                     width=60 height=20 border="single" title="Tasks" %}
         {% endlistview %}
 
-        Or with static items:
-        {% listview bullet="dash" %}
-    Task 1
-    Task 2
-    Task 3
-        {% endlistview %}
+        Or with static items::
 
-        Or with details (2-tuples or dicts):
-        {% listview bullet="number" items=items %}
-        {% endlistview %}
+            {% listview bullet="dash" %}
+                Task 1
+                Task 2
+                Task 3
+            {% endlistview %}
+
+        Or with details (2-tuples or dicts)::
+
+            {% listview bullet="number" items=items %}
+            {% endlistview %}
     """
 
     tags = {"listview"}
@@ -1076,7 +1085,8 @@ class ModalExtension(Extension):
 
     Creates a modal dialog with frame and content.
 
-    Syntax:
+    Syntax::
+
         {% modal visible="show_confirm"
                  title="Confirm"
                  width=50
@@ -1223,7 +1233,8 @@ class StatusBarExtension(Extension):
     Creates a status bar that displays at the bottom of the screen with
     left, center, and right-aligned sections.
 
-    Syntax:
+    Syntax::
+
         {% statusbar left="File: app.py"
                      center="Ready"
                      right="Line 42"
@@ -1377,7 +1388,8 @@ class StatusBarExtension(Extension):
 class TextExtension(Extension):
     """Jinja2 extension for {% text %} tag.
 
-    Syntax:
+    Syntax::
+
         {% text id="label" class="text-bold" %}Hello World{% endtext %}
         {% text html=true %}<b>Bold</b> text{% endtext %}
     """
@@ -1474,7 +1486,8 @@ class TextExtension(Extension):
 class TabExtension(Extension):
     """Jinja2 extension for {% tab %} tag (used within {% tabbedpanel %}).
 
-    Syntax:
+    Syntax::
+
         {% tab label="Tab Label" %}
             Content for this tab
         {% endtab %}
@@ -1596,7 +1609,8 @@ class TabExtension(Extension):
 class TabbedPanelExtension(Extension):
     """Jinja2 extension for {% tabbedpanel %} tag.
 
-    Syntax:
+    Syntax::
+
         {% tabbedpanel id="settings" tab_position="top" active_tab="active_tab"
                        width=80 height=25 border_style="single" %}
             {% tab label="General" %}
@@ -1762,7 +1776,8 @@ class TabbedPanelExtension(Extension):
 class LinkExtension(Extension):
     """Jinja2 extension for {% link %} tag.
 
-    Syntax:
+    Syntax::
+
         {% link action="do_something" %}Click here{% endlink %}
         {% link action="go" class="text-primary" %}Go{% endlink %}
     """
@@ -1850,14 +1865,16 @@ class ContentViewExtension(Extension):
     A unified content display element supporting multiple content types:
     plain, text, ansi, html, markdown, rich, and code.
 
-    Syntax:
+    Syntax::
+
         {% contentview content_type="markdown" %}
         # Hello World
         This is **markdown** content.
         {% endcontentview %}
 
         {% contentview content_type="code" language="python" %}
-        def hello():
+        def hello()::
+
             print("Hello!")
         {% endcontentview %}
 
@@ -2014,7 +2031,8 @@ class ContentViewExtension(Extension):
 class PageExtension(Extension):
     """Jinja2 extension for {% page %} tag (used within {% pager %}).
 
-    Syntax:
+    Syntax::
+
         {% page title="Page Title" %}
             Content for this page
         {% endpage %}
@@ -2129,7 +2147,8 @@ class PageExtension(Extension):
 class PagerExtension(Extension):
     """Jinja2 extension for {% pager %} tag.
 
-    Syntax:
+    Syntax::
+
         {% pager id="my_pager" nav_position="bottom" show_indicator=True %}
             {% page title="Page 1" %}
                 Content for page 1
@@ -2286,7 +2305,8 @@ class ImageViewExtension(Extension):
 
     Displays an image in the terminal using colored block characters.
 
-    Syntax:
+    Syntax::
+
         {% imageview src="path/to/image.png" width=40 %}{% endimageview %}
         {% imageview src=state.image_data height=20 braille=True %}{% endimageview %}
         {% imageview src="photo.jpg" width="50%" height="fill" %}{% endimageview %}
@@ -2421,7 +2441,8 @@ class ImageViewExtension(Extension):
 class StatusIndicatorExtension(Extension):
     """Jinja2 extension for {% status %} tag.
 
-    Syntax:
+    Syntax::
+
         {% status status="success" label="Connected" %}{% endstatus %}
         {% status status="error" %}{% endstatus %}
         {% status status="custom" custom_statuses={"custom": "magenta"} %}{% endstatus %}

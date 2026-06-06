@@ -180,12 +180,12 @@ class StatusIndicator(Element):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'status_indicator': Base indicator style
+        - ``status_indicator``: Base indicator style
         - 'status_indicator.{status}': Status-specific style (e.g., status_indicator.error)
-        - 'status_indicator.label': Label text style
+        - ``status_indicator.label``: Label text style
         """
         # Look up status definition
         status_def = self._statuses.get(self._status)

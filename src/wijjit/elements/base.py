@@ -486,8 +486,10 @@ class Element(ABC):
         with ``asyncio.create_task()`` rather than converting this method to
         async. Example::
 
-            def handle_key(self, key: Key) -> bool:
-                if key.char == 's' and key.ctrl:
+            def handle_key(self, key: Key) -> bool::
+
+                if key.char == 's' and key.ctrl::
+
                     asyncio.create_task(self._save_async())
                     return True
                 return False

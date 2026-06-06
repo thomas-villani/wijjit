@@ -152,7 +152,7 @@ class Wijjit:
         -----
         Configuration is managed via app.config. Use app.config.from_pyfile(),
         app.config.from_object(), or app.config.update() to configure the app.
-        Environment variables with WIJJIT_ prefix are automatically loaded.
+        Environment variables with ``WIJJIT_`` prefix are automatically loaded.
 
         Convenience parameters (template_dir, enable_mouse, debug) and config_overrides
         take precedence over environment variables and defaults.
@@ -394,11 +394,11 @@ class Wijjit:
         Notes
         -----
         Valid config values are:
-        - 'button_event': Press, release, and drag events (default)
-        - 'all_events' or 'any_event': All mouse motion including hover
-        - 'normal': Press and release only
-        - 'x10': Only button press, limited coordinates
-        - 'disabled': No mouse tracking
+        - ``button_event``: Press, release, and drag events (default)
+        - ``all_events`` or ``any_event``: All mouse motion including hover
+        - ``normal``: Press and release only
+        - ``x10``: Only button press, limited coordinates
+        - ``disabled``: No mouse tracking
         """
         mode = self.config["MOUSE_TRACKING_MODE"]
 
@@ -1411,11 +1411,12 @@ class Wijjit:
 
         Examples
         --------
-        Show a confirmation dialog:
+        Show a confirmation dialog::
 
             from wijjit.elements.overlay import ConfirmDialog
 
-            def on_confirm():
+            def on_confirm()::
+
                 state.file_deleted = True
 
             dialog = ConfirmDialog(
@@ -1472,7 +1473,7 @@ class Wijjit:
 
         Examples
         --------
-        Show a dropdown menu below a button:
+        Show a dropdown menu below a button::
 
             from wijjit.elements.overlay import DropdownMenu
 
@@ -1543,7 +1544,7 @@ class Wijjit:
 
         Examples
         --------
-        Show a tooltip on hover:
+        Show a tooltip on hover::
 
             from wijjit.elements.overlay import Tooltip
 
@@ -1604,13 +1605,14 @@ class Wijjit:
 
         Examples
         --------
-        Show a success notification:
+        Show a success notification::
 
             app.notify("File saved successfully!", severity="success")
 
-        Show an error with an action button:
+        Show an error with an action button::
 
-            def retry():
+            def retry()::
+
                 # Retry logic
                 pass
 
@@ -1621,7 +1623,7 @@ class Wijjit:
                 duration=5.0
             )
 
-        Show a persistent notification with sound:
+        Show a persistent notification with sound::
 
             app.notify(
                 "Update available",

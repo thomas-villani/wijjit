@@ -481,6 +481,7 @@ class HandlerRegistry:
         Notes
         -----
         Threading model:
+
         - Async handlers always execute on the event loop
         - Sync handlers run in executor if provided, otherwise on event loop
         - Running sync handlers on event loop may cause UI freezes if they

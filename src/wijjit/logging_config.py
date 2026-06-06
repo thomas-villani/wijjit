@@ -21,7 +21,7 @@ handlers unless LOG_FILE is explicitly set. The behavior is:
 
 For Advanced Users
 ------------------
-If you want full control over logging for the 'wijjit' namespace:
+If you want full control over logging for the 'wijjit' namespace::
 
     import logging
     from wijjit import Wijjit
@@ -41,20 +41,20 @@ to set up logging. Logging is not configured automatically on import.
 
 Examples
 --------
-Configure logging to a file with DEBUG level:
+Configure logging to a file with DEBUG level::
 
     >>> from wijjit.logging_config import configure_logging
     >>> configure_logging('wijjit.log', level='DEBUG')
 
-Configure logging with INFO level (default):
+Configure logging with INFO level (default)::
 
     >>> configure_logging('app.log')
 
-Disable logging:
+Disable logging::
 
     >>> configure_logging(None)
 
-Configure via environment variables:
+Configure via environment variables::
 
     >>> from wijjit.logging_config import configure_logging_from_environment
     >>> configure_logging_from_environment()
@@ -98,15 +98,15 @@ def configure_logging(
 
     Examples
     --------
-    Enable DEBUG logging to a file:
+    Enable DEBUG logging to a file::
 
         >>> configure_logging('debug.log', level='DEBUG')
 
-    Use custom format:
+    Use custom format::
 
         >>> configure_logging('app.log', format_string='%(asctime)s - %(message)s')
 
-    Disable logging:
+    Disable logging::
 
         >>> configure_logging(None)
     """
@@ -172,7 +172,7 @@ def get_logger(name: str) -> logging.Logger:
 
     Examples
     --------
-    Get a logger in a Wijjit module:
+    Get a logger in a Wijjit module::
 
         >>> logger = get_logger(__name__)
         >>> logger.debug("Debug message")
@@ -209,7 +209,7 @@ def configure_logging_from_environment() -> None:
 
     Examples
     --------
-    Call this function explicitly in your application startup:
+    Call this function explicitly in your application startup::
 
         >>> from wijjit.logging_config import configure_logging_from_environment
         >>> configure_logging_from_environment()  # Reads WIJJIT_LOG_FILE and WIJJIT_LOG_LEVEL

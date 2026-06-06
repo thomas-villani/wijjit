@@ -215,12 +215,12 @@ class Spinner(Element):
         instead of hardcoded ANSI colors. It supports all spinner animation styles
         and automatically handles Unicode detection with ASCII fallback.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'spinner': Base spinner style (inactive)
-        - 'spinner.active': Active/animating spinner style
-        - 'spinner.text': Label text style
+        - ``spinner``: Base spinner style (inactive)
+        - ``spinner.active``: Active/animating spinner style
+        - ``spinner.text``: Label text style
         """
         # Get the intrinsic size to know how much area to clear
         width, _ = self.get_intrinsic_size()

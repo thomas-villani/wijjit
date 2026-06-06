@@ -122,13 +122,13 @@ class StatusBar(Element):
         instead of hardcoded ANSI colors. It properly aligns left, center,
         and right sections with intelligent space distribution.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'statusbar': Base status bar style
-        - 'statusbar.left': Left section style
-        - 'statusbar.center': Center section style
-        - 'statusbar.right': Right section style
+        - ``statusbar``: Base status bar style
+        - ``statusbar.left``: Left section style
+        - ``statusbar.center``: Center section style
+        - ``statusbar.right``: Right section style
         """
         from wijjit.styling.style import Style
 

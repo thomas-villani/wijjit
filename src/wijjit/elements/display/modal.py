@@ -120,14 +120,14 @@ class ModalElement(OverlayElement):
         - Interactive element (button, input) rendering with sub-contexts
         - Proper bounds setting for mouse and focus handling
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes (via Frame):
-        - 'modal': Base modal style
-        - 'modal.text': Text content style
-        - 'modal.backdrop': Semi-transparent backdrop style (handled by overlay manager)
-        - 'frame.border': Border style (inherited from Frame)
-        - 'frame.border:focus': Focused border style (inherited from Frame)
+        - ``modal``: Base modal style
+        - ``modal.text``: Text content style
+        - ``modal.backdrop``: Semi-transparent backdrop style (handled by overlay manager)
+        - ``frame.border``: Border style (inherited from Frame)
+        - ``frame.border:focus``: Focused border style (inherited from Frame)
         """
         if not self.bounds:
             # No bounds set, cannot render

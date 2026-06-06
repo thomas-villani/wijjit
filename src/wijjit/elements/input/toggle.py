@@ -168,17 +168,18 @@ class Toggle(Element):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
 
-        Theme Styles
-        ------------
-        This element uses the following theme style classes for colors:
-        - 'toggle.on': On state color (default: green)
-        - 'toggle.off': Off state color (default: gray)
-        - 'toggle:focus': Focused state color (default: cyan)
-        - 'toggle.label': Label text style
-        - 'toggle.label.active': Active label style (dual mode)
-        - 'toggle.label.inactive': Inactive label style (dual mode)
+        Theme styles:
 
-        Example CSS to customize colors:
+        This element uses the following theme style classes for colors:
+        - ``toggle.on``: On state color (default: green)
+        - ``toggle.off``: Off state color (default: gray)
+        - ``toggle:focus``: Focused state color (default: cyan)
+        - ``toggle.label``: Label text style
+        - ``toggle.label.active``: Active label style (dual mode)
+        - ``toggle.label.inactive``: Inactive label style (dual mode)
+
+        Example CSS to customize colors::
+
             toggle.on { color: rgb(0, 255, 0); }
             toggle.off { color: rgb(255, 0, 0); }
         """

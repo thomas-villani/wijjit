@@ -11,14 +11,14 @@ Form inputs
 TextInput / TextArea
     Single-line and multi-line editors (:mod:`wijjit.elements.input.text`). Support placeholder text, max length, width/height control, Enter actions, selection, copy/paste (via ``pyperclip``), and cursor movement. Both emit ``ChangeEvent`` on edits and update ``state[id]`` automatically. Use ``bind=False`` to manage the value manually (useful for formatted or derived inputs) and attach ``action=...`` to submit on Enter.
 
-    .. literalinclude:: ../../examples/basic/simple_input_test.py
+    .. literalinclude:: ../../../examples/basic/simple_input_test.py
        :language: python
        :pyobject: main_view
        :caption: ``examples/basic/simple_input_test.py`` – binding a ``textinput`` to ``state``
 
     ``textarea`` adds scrollbars, selection APIs, and clipboard shortcuts. It's ideal for log editing, notes, or prompt composition. Pair it with derived state to show live counts, as demonstrated below.
 
-    .. literalinclude:: ../../examples/widgets/textarea_demo.py
+    .. literalinclude:: ../../../examples/widgets/textarea_demo.py
        :language: jinja
        :caption: Template excerpt from ``examples/widgets/textarea_demo.py``
        :start-after: "template": """
@@ -36,7 +36,7 @@ CodeEditor
 
     Performance is optimized for large files through per-line token caching and debounced re-tokenization during edits. Inherits all ``TextArea`` features including selection, clipboard support, and scrolling.
 
-    .. literalinclude:: ../../examples/widgets/code_editor_demo.py
+    .. literalinclude:: ../../../examples/widgets/code_editor_demo.py
        :language: python
        :pyobject: main_view
        :caption: ``examples/widgets/code_editor_demo.py`` - syntax highlighting with theme switching
@@ -108,7 +108,7 @@ Button
 Checkbox / CheckboxGroup
     Toggle booleans or sets of values. Groups accept ``options`` and maintain a list in state (``state.selected_tags``). Support tri-state rendering, keyboard navigation, and spacing options. Use them for preference panes or wizards.
 
-    .. literalinclude:: ../../examples/widgets/checkbox_demo.py
+    .. literalinclude:: ../../../examples/widgets/checkbox_demo.py
        :language: python
        :pyobject: main_view
        :caption: ``examples/widgets/checkbox_demo.py`` – single inputs + grouped toggles
@@ -251,7 +251,7 @@ ContentView
 Table
     Feature-rich table control with column sizing, alignment, zebra striping, sorting, and optional selection/highlighting. Works well for log viewers, data dashboards, and admin lists. Consider pairing with scrollable frames for large datasets or binding button actions to operate on selected rows.
 
-    .. literalinclude:: ../../examples/widgets/table_demo.py
+    .. literalinclude:: ../../../examples/widgets/table_demo.py
        :language: python
        :pyobject: main_view
        :caption: ``examples/widgets/table_demo.py`` – sorted table with action bar
@@ -328,7 +328,7 @@ StatusBar
 Notifications
     Inline banners styled by ``tone`` (``info``, ``success``, ``warning``, ``error``). Available as template tags and as programmatic overlays via :class:`wijjit.core.notification_manager.NotificationManager`. Use them for asynchronous feedback or confirmations.
 
-    .. literalinclude:: ../../examples/widgets/notification_demo.py
+    .. literalinclude:: ../../../examples/widgets/notification_demo.py
        :language: python
        :pyobject: main_view
        :caption: ``examples/widgets/notification_demo.py`` – framing actionable hints
@@ -451,7 +451,7 @@ Menus & overlays
 DropdownMenu / ContextMenu
     Provided by :mod:`wijjit.elements.menu` and :mod:`wijjit.tags.menu`. Bind to a trigger element (button, list item) and specify menu items with actions. Context menus open on right-click; dropdowns open on left-click or keyboard shortcuts.
 
-    .. literalinclude:: ../../examples/widgets/dropdown_demo.py
+    .. literalinclude:: ../../../examples/widgets/dropdown_demo.py
        :language: jinja
        :caption: Menu definition from ``examples/widgets/dropdown_demo.py``
        :start-after: TEMPLATE = """

@@ -882,14 +882,14 @@ class TabbedPanel(Container):
         3. Render borders around panel
         4. Render active tab's frame content in content area
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'tabbedpanel': Base panel style
-        - 'tabbedpanel:focus': When panel has focus
-        - 'tabbedpanel.tab': Tab label style
-        - 'tabbedpanel.tab:active': Active tab style
-        - 'tabbedpanel.border': Border style
+        - ``tabbedpanel``: Base panel style
+        - ``tabbedpanel:focus``: When panel has focus
+        - ``tabbedpanel.tab``: Tab label style
+        - ``tabbedpanel.tab:active``: Active tab style
+        - ``tabbedpanel.border``: Border style
         """
 
         # Capture bounds for mouse hit testing

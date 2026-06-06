@@ -202,12 +202,12 @@ class Radio(Element):
         This is the new cell-based rendering method. The legacy render()
         method is kept for backward compatibility.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'radio': Base style
-        - 'radio:focus': When element has focus
-        - 'radio:selected': When radio is selected
+        - ``radio``: Base style
+        - ``radio:focus``: When element has focus
+        - ``radio:selected``: When radio is selected
         """
 
         # Determine radio characters based on unicode support
@@ -526,13 +526,13 @@ class RadioGroup(Element):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'radio': For individual radio button items
-        - 'radio:selected': For selected radio button
-        - 'frame.border': For the border (when border_style is not None)
-        - 'text.title': For the title text in border
+        - ``radio``: For individual radio button items
+        - ``radio:selected``: For selected radio button
+        - ``frame.border``: For the border (when border_style is not None)
+        - ``text.title``: For the title text in border
         """
         from wijjit.styling.style import Style
 

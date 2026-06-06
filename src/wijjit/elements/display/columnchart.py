@@ -210,15 +210,15 @@ class ColumnChart(Element):
 
         Notes
         -----
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'columnchart': Base column chart style
-        - 'columnchart.column': Column fill style
-        - 'columnchart.column.empty': Empty column portion style
-        - 'columnchart.axis': Axis line and text style
-        - 'columnchart.label': X-axis label style
-        - 'columnchart.grid': Grid line style
+        - ``columnchart``: Base column chart style
+        - ``columnchart.column``: Column fill style
+        - ``columnchart.column.empty``: Empty column portion style
+        - ``columnchart.axis``: Axis line and text style
+        - ``columnchart.label``: X-axis label style
+        - ``columnchart.grid``: Grid line style
         """
         from wijjit.terminal.ansi import supports_unicode
         from wijjit.terminal.cell import Cell

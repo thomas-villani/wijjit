@@ -18,6 +18,8 @@ plan/
 review/
 
 docs/build
+docs/source/api/
+docs/sphinx-build-current.txt
 
 htmlcov
 .coverage

@@ -101,8 +101,8 @@ def normalize_element_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     """Normalize element kwargs for consistent attribute naming.
 
     This helper handles common attribute name conversions:
-    - 'class' -> 'classes' (since 'class' is a Python keyword)
-    - 'tabindex' -> 'tab_index' (HTML-style to Python-style)
+    - ``class`` -> ``classes`` (since ``class`` is a Python keyword)
+    - ``tabindex`` -> ``tab_index`` (HTML-style to Python-style)
 
     Parameters
     ----------
@@ -472,7 +472,8 @@ def _parse_for_render(
 class VStackExtension(Extension):
     """Jinja2 extension for {% vstack %} tag.
 
-    Syntax:
+    Syntax::
+
         {% vstack width="fill" height="auto" spacing=0 padding=0
                   margin=0 align_h="stretch" align_v="stretch" %}
             ... children ...
@@ -629,7 +630,8 @@ class VStackExtension(Extension):
 class HStackExtension(Extension):
     """Jinja2 extension for {% hstack %} tag.
 
-    Syntax:
+    Syntax::
+
         {% hstack width="auto" height="fill" spacing=0 padding=0
                   margin=0 align_h="stretch" align_v="stretch" %}
             ... children ...
@@ -812,7 +814,8 @@ class HStackExtension(Extension):
 class FrameExtension(Extension):
     """Jinja2 extension for {% frame %} tag.
 
-    Syntax:
+    Syntax::
+
         {% frame title="Title" border_style="single" width="fill" height="auto"
                  margin=0 align_h="stretch" align_v="stretch"
                  content_align_h="stretch" content_align_v="stretch" %}
@@ -1053,7 +1056,8 @@ class FrameExtension(Extension):
 class GridExtension(Extension):
     """Jinja2 extension for {% grid %} tag.
 
-    Syntax:
+    Syntax::
+
         {% grid rows=2 cols=3 row_gap=1 col_gap=2 %}
             ... children ...
         {% endgrid %}
@@ -1193,7 +1197,8 @@ class GridExtension(Extension):
 class ColspanExtension(Extension):
     """Jinja2 extension for {% colspan %} tag.
 
-    Syntax:
+    Syntax::
+
         {% colspan cols=2 %}
             {% frame %}Content{% endframe %}
         {% endcolspan %}
@@ -1285,7 +1290,8 @@ class ColspanExtension(Extension):
 class RowspanExtension(Extension):
     """Jinja2 extension for {% rowspan %} tag.
 
-    Syntax:
+    Syntax::
+
         {% rowspan rows=2 %}
             {% frame %}Tall content{% endframe %}
         {% endrowspan %}
@@ -1377,7 +1383,8 @@ class RowspanExtension(Extension):
 class SplitPanelExtension(Extension):
     """Jinja2 extension for {% splitpanel %} tag.
 
-    Syntax:
+    Syntax::
+
         {% splitpanel orientation="horizontal" ratio="50:50" resizable=true
                       min_first=5 min_second=5 collapsible="none" id="my_split" %}
             {% frame %}First panel{% endframe %}

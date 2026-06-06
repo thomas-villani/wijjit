@@ -669,15 +669,15 @@ class Table(ScrollableElement):
         This approach leverages Rich's powerful table formatting while
         benefiting from cell-based rendering performance.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'table': Base table style
-        - 'table:focus': When table has focus
-        - 'table.header': For column headers
-        - 'table.row': For table rows
-        - 'table.border': For table borders
-        - 'table.border:focus': For borders when focused
+        - ``table``: Base table style
+        - ``table:focus``: When table has focus
+        - ``table.header``: For column headers
+        - ``table.row``: For table rows
+        - ``table.border``: For table borders
+        - ``table.border:focus``: For borders when focused
         """
         from wijjit.rendering.ansi_adapter import ansi_string_to_cells
         from wijjit.terminal.cell import Cell

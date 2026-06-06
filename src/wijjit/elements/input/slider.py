@@ -218,15 +218,15 @@ class Slider(Element):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'slider': Base slider track style
-        - 'slider:focus': Track style when focused
-        - 'slider.handle': Handle style
-        - 'slider.handle:focus': Handle style when focused
-        - 'slider.label': Label text style
-        - 'slider.value': Value text style
+        - ``slider``: Base slider track style
+        - ``slider:focus``: Track style when focused
+        - ``slider.handle``: Handle style
+        - ``slider.handle:focus``: Handle style when focused
+        - ``slider.label``: Label text style
+        - ``slider.value``: Value text style
         """
         # Determine characters based on unicode support
         use_unicode = supports_unicode()

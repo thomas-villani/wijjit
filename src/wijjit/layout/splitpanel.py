@@ -682,12 +682,12 @@ class SplitPanel(Container):
         2. Divider line
         3. Second child panel
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'splitpanel.divider': Divider line style
-        - 'splitpanel.divider:hover': Divider when hovered
-        - 'splitpanel.divider:focus': Divider when focused
+        - ``splitpanel.divider``: Divider line style
+        - ``splitpanel.divider:hover``: Divider when hovered
+        - ``splitpanel.divider:focus``: Divider when focused
         """
         if not self.bounds:
             return

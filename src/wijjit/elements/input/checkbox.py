@@ -183,12 +183,12 @@ class Checkbox(Element):
         This is the new cell-based rendering method. The legacy render()
         method is kept for backward compatibility.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'checkbox': Base style
-        - 'checkbox:focus': When element has focus
-        - 'checkbox:checked': When checkbox is checked
+        - ``checkbox``: Base style
+        - ``checkbox:focus``: When element has focus
+        - ``checkbox:checked``: When checkbox is checked
         """
 
         # Determine checkbox characters based on unicode support
@@ -486,13 +486,13 @@ class CheckboxGroup(Element):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'checkbox': For individual checkbox items
-        - 'checkbox:checked': For checked checkbox items
-        - 'frame.border': For the border (when border_style is not None)
-        - 'text.title': For the title text in border
+        - ``checkbox``: For individual checkbox items
+        - ``checkbox:checked``: For checked checkbox items
+        - ``frame.border``: For the border (when border_style is not None)
+        - ``text.title``: For the title text in border
         """
         from wijjit.styling.style import Style
 

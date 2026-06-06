@@ -224,16 +224,81 @@ closed or explicitly deferred with rationale; harness regression tests added.
 
 ## Phase 4 - Documentation (-> 0.1.0rc1)
 
-- [ ] Build Sphinx docs per `docs/DOCUMENTATION_PLAN.md` (deps already in the
-      `dev` extra: sphinx, myst-parser, copybutton, rtd-theme, tabs).
-- [ ] Fix the large volume of Sphinx warnings (`docs/sphinx-warnings.txt`).
-- [ ] Phase-1 priority pages: install, quickstart, tutorial, core concepts,
-      components, plus autodoc API reference (NumPy docstrings already present).
+- [x] Sphinx build is clean: `sphinx-build -b html docs/source docs/build/html`
+      emits 0 warnings and 0 errors (down from ~1500 lines at session start).
+- [x] Fixed the large volume of Sphinx warnings. Triaged by root cause:
+  - **Duplicate object descriptions (~1000 of the original ~1500)** – came
+        from `[[tool.mypy.overrides]]`-style structural mismatches between two
+        sources: the autosummary-generated stub pages under `docs/source/api/`
+        and the `Module documentation` `automodule` blocks at the bottom of
+        every `docs/source/api_reference/*.rst` file. The blocks inherited
+        `:members: True` from `autodoc_default_options` despite their
+        `:noindex:` annotation, which Sphinx 8 does not propagate to members.
+        Resolved by deleting all bottom `automodule` blocks (autosummary stubs
+        are now the sole canonical entry per class).
+  - **Per-member duplicate descriptions** – the Napoleon `Attributes` NumPy
+        section was rendering as separate `.. attribute::` directives that
+        collided with `@property` declarations on the same class. Switched
+        `napoleon_use_ivar = True` so `Attributes` render as inline `:ivar:`
+        fields instead of separate object descriptions.
+  - **`__init__` duplicates (~30)** – `napoleon_include_init_with_doc = True`
+        folded `__init__` Parameters into the class doc, and the autosummary
+        stub template additionally emitted `.. automethod:: __init__`. Two
+        descriptions for the same FQN. Removed `:special-members: __init__`
+        from `autodoc_default_options` and set
+        `napoleon_include_init_with_doc = False`; the stub template's
+        explicit `automethod` is now the sole `__init__` source.
+  - **Docstring RST formatting (~133 warnings)** – `Examples:` /
+        `Syntax:` introducing indented code without `::` made docutils
+        interpret the next block as a definition list or unmatched block
+        quote. Mechanical sweep converted `<intro>:\n    code` to
+        `<intro>::\n\n    code` in all docstrings (script + per-file
+        cleanup); ~60 sites fixed.
+  - **`Theme Styles` nested NumPy sections (~30 sites)** – the per-element
+        `render_to` docstrings had `Theme Styles\n------------` inside the
+        Notes section, which docutils flagged as a CRITICAL `Unexpected
+        section title`. Converted to plain `Theme styles:` intro text.
+  - **`'name:variant'` style-class names** – single-quoted CSS-like names
+        with colons (`'checkbox:checked'`) confused docutils as malformed
+        string literals. Mechanical sweep wrapped them in double-backticks
+        (`` `checkbox:checked` ``) across 32 files.
+  - **Wrong autosummary paths** – `wijjit.elements.modal.Modal`,
+        `wijjit.tags.dialogs.InputDialogExtension`,
+        `wijjit.tags.display.MarkdownExtension`/`CodeBlockExtension`,
+        `wijjit.rendering.ansi_adapter.ANSIAdapter` did not exist in the
+        current code. Fixed to actual exported names
+        (`ModalElement`/`AlertDialog`/`ConfirmDialog`/`TextInputDialog`;
+        `TextInputDialogExtension`; `ContentViewExtension` + the
+        previously-missing display widgets; `ansi_string_to_cells` +
+        `cells_to_ansi`).
+  - **`literalinclude` path errors (7)** – `components.rst` used `../../`
+        but with the source dir at `docs/source/` the relative resolution
+        starts there, not at the document; corrected to `../../../`.
+  - **Remaining one-offs (~10)** – `.. deprecated::` directive missing
+        version arg (chart_utils, frames), `**attrs` parsed as inline
+        strong (style.py), `*.pyc` parsed as emphasis (helpers.py),
+        `Threading model:` definition-list/bullet collision (events.py),
+        `WIJJIT_` trailing-underscore parsed as a ref target (app.py),
+        unindented literal block body in `ListViewExtension` (tags),
+        broken `:ref:` to a section that doesn't exist (modal_dialogs).
+- [x] Phase-1 priority pages exist and build cleanly: `getting_started/`
+      (installation, quickstart, tutorial), `user_guide/` (12 pages incl.
+      core_concepts, components, layout_system, modal_dialogs, etc.),
+      `api_reference/` (10 modules via autosummary + per-class stubs),
+      `examples/` (gallery + cookbook), `developer_guide/` (architecture,
+      contributing, testing).
 - [ ] Decide on Read the Docs hosting (the project URL already points there).
 - [ ] Per-component example pages (template tag + programmatic) per `etc/todo.md`.
 
-**Acceptance:** `make html` builds with no errors and minimal warnings; the
-getting-started path lets a new user build an app in <15 min.
+**Acceptance:** `sphinx-build -b html docs/source docs/build/html` succeeds
+with 0 errors and 0 warnings; the getting-started path lets a new user build
+an app in <15 min. **Met for the build-quality gate.**
+
+> Side effect during the sweep: the Sphinx config (`docs/source/conf.py`) was
+> tuned: `napoleon_use_ivar = True`, `napoleon_include_init_with_doc = False`,
+> `:special-members: __init__` removed from `autodoc_default_options`. These
+> are the load-bearing changes that eliminate the structural duplicate-object
+> warnings without losing API documentation coverage.
 
 ## Phase 5 - Packaging & publish (-> 0.1.0)
 

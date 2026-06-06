@@ -28,7 +28,8 @@ class MenuItemExtension(Extension):
 
     Creates a menu item within a dropdown or context menu.
 
-    Syntax:
+    Syntax::
+
         {% menuitem action="new_file" key="Ctrl+N" %}New File{% endmenuitem %}
         {% menuitem divider=true %}{% endmenuitem %}
         {% menuitem action="help" disabled=true %}Help{% endmenuitem %}
@@ -129,7 +130,8 @@ class DropdownExtension(Extension):
 
     Creates a dropdown menu that appears when triggered.
 
-    Syntax:
+    Syntax::
+
         {% dropdown trigger="File" key="Alt+F" visible="show_file_menu" %}
             {% menuitem action="new" key="Ctrl+N" %}New{% endmenuitem %}
             {% menuitem action="open" key="Ctrl+O" %}Open{% endmenuitem %}
@@ -271,7 +273,8 @@ class ContextMenuExtension(Extension):
 
     Creates a context menu that appears on right-click.
 
-    Syntax:
+    Syntax::
+
         {% contextmenu target="file_list" visible="show_context_menu" %}
             {% menuitem action="rename" %}Rename{% endmenuitem %}
             {% menuitem action="delete" %}Delete{% endmenuitem %}

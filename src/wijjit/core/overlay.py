@@ -103,7 +103,7 @@ class OverlayManager:
 
     Examples
     --------
-    Basic modal usage:
+    Basic modal usage::
 
         modal = Modal(title="Confirm", content="Delete file?")
         overlay = app.overlay_manager.push(
@@ -113,7 +113,7 @@ class OverlayManager:
             dimmed_background=True
         )
 
-    Context menu usage:
+    Context menu usage::
 
         menu = ContextMenu(items=[...])
         overlay = app.overlay_manager.push(
@@ -122,7 +122,7 @@ class OverlayManager:
             close_on_click_outside=True
         )
 
-    Tooltip usage:
+    Tooltip usage::
 
         tooltip = Tooltip(text="Help text")
         overlay = app.overlay_manager.push(

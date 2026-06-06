@@ -43,7 +43,7 @@ Configuration Loading Methods
 The ``Config`` class provides six methods for loading configuration:
 
 1. Direct Assignment
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 The simplest method - just set values directly:
 

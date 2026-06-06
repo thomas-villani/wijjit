@@ -628,13 +628,13 @@ class ContentView(ScrollableElement):
         This method implements cell-based rendering for content views,
         supporting all content types with their respective formatting.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'contentview': Base style (for background/fallback)
-        - 'contentview:focus': When content view has focus
-        - 'contentview.border': For border characters
-        - 'contentview.border:focus': For border when focused
+        - ``contentview``: Base style (for background/fallback)
+        - ``contentview:focus``: When content view has focus
+        - ``contentview.border``: For border characters
+        - ``contentview.border:focus``: For border when focused
         """
         # Store style resolver for HTML rendering
         self._style_resolver = ctx.style_resolver

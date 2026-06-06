@@ -279,10 +279,10 @@ class AlertDialog(ModalElement):
         Notes
         -----
         This method uses theme style classes for severity-based coloring:
-        - 'alert.success.border': Success alert border style (default: green)
-        - 'alert.error.border': Error alert border style (default: red)
-        - 'alert.warning.border': Warning alert border style (default: yellow)
-        - 'alert.info.border': Info alert border style (default: blue)
+        - ``alert.success.border``: Success alert border style (default: green)
+        - ``alert.error.border``: Error alert border style (default: red)
+        - ``alert.warning.border``: Warning alert border style (default: yellow)
+        - ``alert.info.border``: Info alert border style (default: blue)
         """
         # If severity is set, use custom border style class
         if self.severity:

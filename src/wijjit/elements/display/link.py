@@ -102,9 +102,9 @@ class Link(Element):
         Notes
         -----
         Link styling is resolved from theme:
-        - 'link': Default link style (typically cyan underlined)
-        - 'link:focus': When link has focus
-        - 'link:hover': When mouse is over link
+        - ``link``: Default link style (typically cyan underlined)
+        - ``link:focus``: When link has focus
+        - ``link:hover``: When mouse is over link
         """
         from wijjit.terminal.ansi import clip_to_width
 

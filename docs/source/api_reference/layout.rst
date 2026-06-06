@@ -50,31 +50,3 @@ Dirty tracking
    :nosignatures:
 
    wijjit.layout.dirty.DirtyRegionManager
-
-Module documentation
---------------------
-
-.. automodule:: wijjit.layout.bounds
-   :members:
-   :show-inheritance:
-   :noindex:
-
-.. automodule:: wijjit.layout.engine
-   :members:
-   :show-inheritance:
-   :noindex:
-
-.. automodule:: wijjit.layout.frames
-   :members:
-   :show-inheritance:
-   :noindex:
-
-.. automodule:: wijjit.layout.scroll
-   :members:
-   :show-inheritance:
-   :noindex:
-
-.. automodule:: wijjit.layout.dirty
-   :members:
-   :show-inheritance:
-   :noindex:

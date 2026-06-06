@@ -31,7 +31,7 @@ Create a new directory (``tutorial_todo/``) with a single file to start:
 Open ``todo_app.py`` in your editor; we’ll expand it step by step.
 
 Step 1 – bootstrap the app and storage helpers
----------------------------------------------
+----------------------------------------------
 
 Start with the imports, storage helpers, and ``Wijjit`` instance:
 

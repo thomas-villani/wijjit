@@ -39,7 +39,6 @@ autosummary_generate = True
 autodoc_default_options = {
     'members': True,
     'member-order': 'bysource',
-    'special-members': '__init__',
     'undoc-members': True,
     'exclude-members': '__weakref__'
 }
@@ -51,13 +50,13 @@ autosectionlabel_prefix_document = True
 # Napoleon settings (for NumPy-style docstrings)
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
-napoleon_include_init_with_doc = True
+napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = True
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 napoleon_use_admonition_for_references = True
-napoleon_use_ivar = False
+napoleon_use_ivar = True
 napoleon_use_param = True
 napoleon_use_rtype = True
 napoleon_preprocess_types = True

@@ -227,14 +227,14 @@ class NotificationElement(OverlayElement):
         coloring. It delegates to Frame's render_to() method for the container
         and handles icon/message/button layout.
 
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'notification.info': Info notification style
-        - 'notification.success': Success notification style
-        - 'notification.warning': Warning notification style
-        - 'notification.error': Error notification style
-        - 'frame.border': Border style (inherited from Frame)
+        - ``notification.info``: Info notification style
+        - ``notification.success``: Success notification style
+        - ``notification.warning``: Warning notification style
+        - ``notification.error``: Error notification style
+        - ``frame.border``: Border style (inherited from Frame)
         """
 
         if not self.bounds:

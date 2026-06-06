@@ -422,14 +422,14 @@ class Gauge(Element):
 
         Notes
         -----
-        Theme Styles
-        ------------
+        Theme styles:
+
         This element uses the following theme style classes:
-        - 'gauge': Base gauge style
-        - 'gauge.fill': Filled portion style
-        - 'gauge.empty': Empty portion style
-        - 'gauge.label': Label text style
-        - 'gauge.value': Value text style
+        - ``gauge``: Base gauge style
+        - ``gauge.fill``: Filled portion style
+        - ``gauge.empty``: Empty portion style
+        - ``gauge.label``: Label text style
+        - ``gauge.value``: Value text style
         """
         if self.style == "arc":
             self._render_arc(ctx)

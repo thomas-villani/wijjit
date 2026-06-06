@@ -44,7 +44,7 @@ Using in a template:
 >>> fruits = WordCompleter(["apple", "apricot", "banana", "cherry"])
 >>> return {"template": template, "data": {"fruit_completer": fruits}}
 
-In template:
+In template::
 
     {% textinput id="fruit" autocomplete=fruit_completer %}{% endtextinput %}
 

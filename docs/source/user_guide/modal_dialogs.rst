@@ -47,7 +47,7 @@ Creating overlays programmatically
 * ``dimmed_background`` – render a translucent layer behind the overlay.
 * ``on_close`` – callback invoked after the overlay is dismissed.
 
-When ``trap_focus=True``, keyboard navigation (Tab/Shift+Tab) continues to work within the modal, cycling through its focusable elements. Focus is automatically restored to the previously focused element when the modal closes. See :ref:`Focus cycling in modals <focus_navigation:Focus cycling in modals>` for details.
+When ``trap_focus=True``, keyboard navigation (Tab/Shift+Tab) continues to work within the modal, cycling through its focusable elements. Focus is automatically restored to the previously focused element when the modal closes. See :doc:`focus_navigation` for details.
 
 Templated dialogs
 -----------------

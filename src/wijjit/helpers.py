@@ -37,7 +37,7 @@ def load_filesystem_tree(
     include_metadata : bool
         Include file size and modification time (default: True)
     exclude : list of str, optional
-        List of glob patterns to exclude (e.g., ["*.pyc", "__pycache__"])
+        List of glob patterns to exclude (e.g., ``["*.pyc", "__pycache__"]``)
     filter_func : callable, optional
         Custom filter function that takes a Path and returns True to include
 
@@ -54,13 +54,13 @@ def load_filesystem_tree(
 
     Examples
     --------
-    Basic usage:
+    Basic usage::
 
         from wijjit.helpers import load_filesystem_tree
 
         tree_data = load_filesystem_tree("/path/to/dir")
 
-    With options:
+    With options::
 
         tree_data = load_filesystem_tree(
             "/path/to/dir",
@@ -69,7 +69,7 @@ def load_filesystem_tree(
             exclude=["*.pyc", "*.pyo", "__pycache__", ".git"]
         )
 
-    Use with Tree element:
+    Use with Tree element::
 
         app = Wijjit(initial_state={
             "file_tree": load_filesystem_tree("./src"),
