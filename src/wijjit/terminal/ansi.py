@@ -327,6 +327,33 @@ class ANSIScreen:
         """
         return "\x1b[?1049l"
 
+    @staticmethod
+    def set_window_title(title: str) -> str:
+        """Set the terminal window (and icon) title via OSC 0.
+
+        OSC 0 sets both the icon name and the window title. The sequence
+        is widely supported across xterm, gnome-terminal, kitty, iTerm2,
+        Windows Terminal, and modern conhost. Embedded control characters
+        and the BEL terminator are stripped from ``title`` to prevent the
+        sequence from being broken or escaped.
+
+        Parameters
+        ----------
+        title : str
+            The title text to display in the terminal title bar.
+
+        Returns
+        -------
+        str
+            ANSI OSC escape sequence terminated by BEL (``\\x07``).
+        """
+        # Strip any characters that would prematurely terminate or break
+        # the OSC sequence (BEL, ESC, ST).
+        clean = "".join(
+            c for c in title if c not in ("\x07", "\x1b") and 0x20 <= ord(c)
+        )
+        return f"\x1b]0;{clean}\x07"
+
 
 def strip_ansi(text: str) -> str:
     """Remove all ANSI escape sequences from text.

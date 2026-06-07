@@ -135,6 +135,25 @@ class TestScreenManager:
         assert not manager._cursor_hidden
         assert ANSICursor.show() in output.getvalue()
 
+    def test_set_title_emits_osc_sequence(self):
+        """set_title emits an OSC 0 sequence with the given title."""
+        output = StringIO()
+        manager = ScreenManager(output)
+
+        manager.set_title("My App")
+
+        assert output.getvalue() == "\x1b]0;My App\x07"
+
+    def test_set_title_strips_control_chars(self):
+        """set_title sanitizes embedded ESC/BEL/control bytes."""
+        output = StringIO()
+        manager = ScreenManager(output)
+
+        manager.set_title("Hello\x07\x1b[31mEvil\x1b[0m")
+
+        # ESC and BEL stripped; remaining printable characters survive.
+        assert output.getvalue() == "\x1b]0;Hello[31mEvil[0m\x07"
+
     def test_show_cursor_when_not_hidden(self):
         """Test showing cursor when not hidden."""
         output = StringIO()

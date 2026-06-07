@@ -266,6 +266,26 @@ class Renderer:
         self.env.filters["lower"] = str.lower
         self.env.filters["title"] = str.title
 
+    def get_extension_tag_names(self) -> set[str]:
+        """Return the set of Jinja2 tag names registered by Wijjit extensions.
+
+        Useful for callers that need to determine whether a template uses any
+        Wijjit-specific tag (and therefore must be routed through the layout
+        pipeline rather than plain Jinja2 string rendering).
+
+        Returns
+        -------
+        set[str]
+            Every tag name registered by the Wijjit extension classes (e.g.
+            ``"frame"``, ``"textinput"``, ``"button"``).
+        """
+        names: set[str] = set()
+        for ext in self.env.extensions.values():
+            tags = getattr(ext, "tags", None)
+            if tags:
+                names.update(tags)
+        return names
+
     def render_string(
         self, template_string: str, context: dict[str, Any] | None = None
     ) -> str:

@@ -110,6 +110,23 @@ class ScreenManager:
             self.output.flush()
             self._cursor_hidden = False
 
+    def set_title(self, title: str) -> None:
+        """Set the terminal window title.
+
+        Emits an OSC 0 escape sequence that most modern terminal emulators
+        (xterm, gnome-terminal, kitty, iTerm2, Windows Terminal) honor.
+        Many shell prompts overwrite the title from a ``PROMPT_COMMAND`` /
+        precmd hook, so the previous title is usually restored
+        automatically when the app exits.
+
+        Parameters
+        ----------
+        title : str
+            Title text to display in the terminal title bar.
+        """
+        self.output.write(ANSIScreen.set_window_title(title))
+        self.output.flush()
+
     def write(self, text: str) -> None:
         """Write text to the output stream.
 

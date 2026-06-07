@@ -27,10 +27,14 @@ Input widgets
    wijjit.elements.input.radio.Radio
    wijjit.elements.input.radio.RadioGroup
    wijjit.elements.input.select.Select
+   wijjit.elements.input.slider.Slider
+   wijjit.elements.input.toggle.Toggle
    wijjit.elements.input.text.TextInput
    wijjit.elements.input.text.TextArea
+   wijjit.elements.input.text.InputStyle
    wijjit.elements.input.code_editor.CodeEditor
    wijjit.elements.input.code_editor.SyntaxHighlighter
+   wijjit.elements.input.datagrid.DataGrid
 
 Display widgets
 ---------------
@@ -46,10 +50,14 @@ Display widgets
    wijjit.elements.display.progress.ProgressBar
    wijjit.elements.display.spinner.Spinner
    wijjit.elements.display.statusbar.StatusBar
+   wijjit.elements.display.status_indicator.StatusIndicator
    wijjit.elements.display.contentview.ContentView
    wijjit.elements.display.notification.NotificationElement
    wijjit.elements.display.link.Link
    wijjit.elements.display.tabbed_panel.TabbedPanel
+   wijjit.elements.display.pager.Pager
+   wijjit.elements.display.pager.Page
+   wijjit.elements.display.image.ImageView
 
 Data Visualization
 ------------------

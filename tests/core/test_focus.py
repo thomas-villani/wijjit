@@ -277,6 +277,70 @@ class TestFocusManager:
         assert elem2.focused
 
 
+class TestFocusScrollsAncestor:
+    """Focus changes should auto-scroll scrollable ancestor frames."""
+
+    def _setup(self):
+        from wijjit.layout.bounds import Bounds
+        from wijjit.layout.frames import Frame, FrameStyle
+
+        style = FrameStyle(scrollable=True)
+        # Viewport = 10 lines, content = 40 lines.
+        frame = Frame(width=20, height=12, style=style)
+        frame.bounds = Bounds(x=0, y=0, width=20, height=12)
+        frame.set_child_content_height(40)
+
+        # One element inside the visible window, one well below it.
+        visible = FocusableElement(id="visible")
+        visible.bounds = Bounds(x=1, y=3, width=10, height=1)
+        visible.parent_frame = frame
+
+        offscreen = FocusableElement(id="offscreen")
+        offscreen.bounds = Bounds(x=1, y=30, width=10, height=1)
+        offscreen.parent_frame = frame
+
+        return frame, visible, offscreen
+
+    def test_focus_below_viewport_scrolls_ancestor_down(self):
+        """Tabbing onto an element below the viewport scrolls the ancestor down."""
+        frame, visible, offscreen = self._setup()
+        manager = FocusManager()
+        manager.set_elements([visible, offscreen])
+
+        manager.focus_first()
+        assert frame.scroll_position == 0
+
+        manager.focus_next()
+        # Bottom of offscreen (offset 30) aligns with viewport bottom (10):
+        # scroll_position = 30 - 10 = 20.
+        assert frame.scroll_position == 20
+
+    def test_focus_above_viewport_scrolls_ancestor_up(self):
+        """Tabbing back to an element above the viewport scrolls the ancestor up."""
+        frame, visible, offscreen = self._setup()
+        manager = FocusManager()
+        manager.set_elements([visible, offscreen])
+
+        manager.focus_first()
+        manager.focus_next()  # scrolls to 20
+        manager.focus_previous()  # back to "visible" at offset 2
+
+        # Visible's top (offset 2) is above the current viewport (20..30),
+        # so the frame scrolls up to align it with the viewport top.
+        assert frame.scroll_position == 2
+
+    def test_focus_inside_viewport_does_not_scroll(self):
+        """Focusing an already-visible element leaves the scroll alone."""
+        frame, visible, offscreen = self._setup()
+        # Pre-scroll to a position where "visible" still fits.
+        frame.scroll_manager.scroll_to(0)
+        manager = FocusManager()
+        manager.set_elements([visible, offscreen])
+
+        manager.focus_first()
+        assert frame.scroll_position == 0
+
+
 class TestTabIndex:
     """Tests for tab_index focus ordering."""
 

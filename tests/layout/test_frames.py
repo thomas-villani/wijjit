@@ -671,6 +671,60 @@ class TestFrameScrolling:
         assert "Test" in lines[1]
 
 
+class TestFrameScrollToMakeVisible:
+    """Tests for Frame.scroll_to_make_visible (scroll-into-view)."""
+
+    def _scrollable_frame(self, viewport_height=10, content_height=40):
+        """Build a scrollable frame with assigned screen-space bounds."""
+        from wijjit.layout.bounds import Bounds
+
+        style = FrameStyle(scrollable=True)
+        # Frame total height = viewport + 2 borders (no padding).
+        frame = Frame(
+            width=20, height=viewport_height + 2, style=style
+        )
+        frame.bounds = Bounds(x=0, y=0, width=20, height=viewport_height + 2)
+        frame.set_child_content_height(content_height)
+        return frame
+
+    def test_scrolls_down_when_target_below_viewport(self):
+        """Target below the viewport scrolls just enough to reveal its bottom."""
+        frame = self._scrollable_frame(viewport_height=10, content_height=40)
+        # Content area: screen y = 1..11 (top border at 0, bottom border at 11).
+        # Target at natural y=25..27 lies below the visible window.
+        changed = frame.scroll_to_make_visible(25, 27)
+        assert changed is True
+        # Bottom of target (offset 26) should sit at the viewport bottom (10),
+        # i.e. scroll_position = 26 - 10 = 16.
+        assert frame.scroll_position == 16
+
+    def test_scrolls_up_when_target_above_viewport(self):
+        """Target above the viewport scrolls so its top aligns with the viewport top."""
+        frame = self._scrollable_frame(viewport_height=10, content_height=40)
+        # Start scrolled down past the target.
+        frame.scroll_manager.scroll_to(20)
+        changed = frame.scroll_to_make_visible(5, 7)
+        assert changed is True
+        # Target offset 4 (natural y=5 minus content_top=1).
+        assert frame.scroll_position == 4
+
+    def test_noop_when_target_already_visible(self):
+        """No scroll change when the target already fits in the viewport."""
+        frame = self._scrollable_frame(viewport_height=10, content_height=40)
+        frame.scroll_manager.scroll_to(5)
+        changed = frame.scroll_to_make_visible(8, 12)
+        assert changed is False
+        assert frame.scroll_position == 5
+
+    def test_noop_when_not_scrollable(self):
+        """Non-scrollable frames never scroll."""
+        from wijjit.layout.bounds import Bounds
+
+        frame = Frame(width=20, height=12)  # no scrollable style
+        frame.bounds = Bounds(x=0, y=0, width=20, height=12)
+        assert frame.scroll_to_make_visible(100, 102) is False
+
+
 class TestFrameTextOverflow:
     """Tests for Frame text overflow_x functionality."""
 

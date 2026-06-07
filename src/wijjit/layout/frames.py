@@ -1342,6 +1342,71 @@ class Frame(ScrollableElement):
         if self.scroll_manager:
             self.scroll_manager.scroll_to(position)
 
+    def scroll_to_make_visible(self, target_top_y: int, target_bottom_y: int) -> bool:
+        """Adjust the vertical scroll position so a rectangle is visible.
+
+        Given the *natural* (pre-scroll) screen-space ``y`` range of a
+        descendant, scroll the frame just enough that the range lies
+        inside the frame's content viewport. Scrolls down to reveal a
+        descendant that is below the viewport, or up to reveal one that
+        is above. No-op if the frame is not scrollable, has no scroll
+        manager, or the descendant already fits.
+
+        Parameters
+        ----------
+        target_top_y : int
+            Natural screen-space ``y`` of the top of the descendant
+            (i.e. ``element.bounds.y`` before scroll is applied).
+        target_bottom_y : int
+            Natural screen-space ``y`` of the bottom of the descendant
+            (exclusive, i.e. ``element.bounds.y + element.bounds.height``).
+
+        Returns
+        -------
+        bool
+            True if the scroll position changed, False otherwise.
+        """
+        if not self.style.scrollable or not self.scroll_manager:
+            return False
+        if self.bounds is None:
+            return False
+
+        padding_top, _, padding_bottom, _ = self.style.padding
+        # Natural top of the content area (where scroll_position == 0 would
+        # paint the first content line).
+        content_top = self.bounds.y + 1 + padding_top
+        content_bottom = self.bounds.y + self.bounds.height - 1 - padding_bottom
+        viewport_height = max(0, content_bottom - content_top)
+        if viewport_height <= 0:
+            return False
+
+        # Convert the descendant's natural screen-y range to an offset
+        # within the frame's unscrolled content.
+        target_offset_top = target_top_y - content_top
+        target_offset_bottom = target_bottom_y - content_top
+
+        current = self.scroll_manager.state.scroll_position
+        new_position = current
+
+        # Descendant extends below the visible window -> scroll down so its
+        # bottom sits at the bottom of the viewport.
+        if target_offset_bottom > current + viewport_height:
+            new_position = target_offset_bottom - viewport_height
+        # Descendant is above the visible window -> scroll up so its top
+        # sits at the top of the viewport. (Checked after the "below" case
+        # so a target taller than the viewport prefers showing its top.)
+        if target_offset_top < new_position:
+            new_position = target_offset_top
+
+        new_position = max(0, min(new_position, self.scroll_manager.state.max_scroll))
+        if new_position == current:
+            return False
+
+        self.scroll_manager.scroll_to(new_position)
+        if self.on_scroll:
+            self.on_scroll(self.scroll_position)
+        return True
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render frame using cell-based rendering (NEW API).
 

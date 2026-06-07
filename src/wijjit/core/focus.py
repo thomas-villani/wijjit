@@ -255,6 +255,45 @@ class FocusManager:
             if self.dirty_manager and bounds is not None:
                 self.dirty_manager.mark_dirty_bounds(bounds)
 
+            # Scroll-into-view: walk the parent_frame chain and ask each
+            # scrollable ancestor frame to scroll the newly-focused element
+            # into its viewport. Innermost-first; each frame's scroll is
+            # local so the outer frames can still adjust independently.
+            self._ensure_focused_visible(self.elements[index])
+
+    def _ensure_focused_visible(self, element: Element) -> None:
+        """Walk the parent-frame chain and scroll ancestors to reveal ``element``.
+
+        Tabbing onto an element that lies below (or above) a scrollable
+        ancestor's viewport should automatically reveal it; without this
+        the user sees the focus marker "disappear" into invisible content.
+        Each ancestor's scroll position is local, so they're adjusted
+        independently from innermost to outermost.
+
+        Parameters
+        ----------
+        element : Element
+            The element that just received focus.
+        """
+        bounds = element.bounds
+        if bounds is None:
+            return
+
+        # Avoid an import cycle with wijjit.layout.frames.
+        from wijjit.layout.frames import Frame
+
+        target_top = bounds.y
+        target_bottom = bounds.y + bounds.height
+        seen: set[int] = set()
+        ancestor = element.parent_frame
+        while ancestor is not None and id(ancestor) not in seen:
+            seen.add(id(ancestor))
+            if isinstance(ancestor, Frame):
+                scrolled = ancestor.scroll_to_make_visible(target_top, target_bottom)
+                if scrolled and self.dirty_manager and ancestor.bounds is not None:
+                    self.dirty_manager.mark_dirty_bounds(ancestor.bounds)
+            ancestor = getattr(ancestor, "parent_frame", None)
+
     def clear(self) -> None:
         """Clear all elements and focus."""
         if self.current_index is not None and 0 <= self.current_index < len(

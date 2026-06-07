@@ -861,11 +861,20 @@ class Wijjit:
         """
         self.event_loop.run()
 
-    def _render(self) -> None:
+    def _render(self, fatal: bool = False) -> None:
         """Render the current view to the screen.
 
         This is an internal method called by the event loop.
         It renders the current view's template with data and displays it.
+
+        Parameters
+        ----------
+        fatal : bool, optional
+            When True, any exception raised during the render pipeline
+            propagates out (after being logged) instead of being swallowed
+            by ``_handle_error``. Used for the initial render so the event
+            loop's cleanup ``finally`` block can restore the terminal
+            before the traceback surfaces to the user.
         """
         import time
 
@@ -1045,7 +1054,9 @@ class Wijjit:
             self.needs_render = False
 
         except Exception as e:
-            self._handle_error(f"Error rendering view '{self.current_view}'", e)
+            self._handle_error(
+                f"Error rendering view '{self.current_view}'", e, fatal=fatal
+            )
 
     def _on_state_change(self, key: str, old_value: Any, new_value: Any) -> None:
         """Handle state changes.
@@ -1069,20 +1080,28 @@ class Wijjit:
         self.renderer.dirty_manager.mark_full_screen(term_size.columns, term_size.lines)
 
     def _has_layout_tags(self, template: str) -> bool:
-        """Check if template contains layout tags.
+        """Check whether a template uses any Wijjit extension tag.
+
+        Templates containing any Wijjit-registered tag (layout containers
+        like ``{% frame %}`` *or* leaf elements like ``{% textinput %}``)
+        must be routed through ``render_with_layout`` so the render context
+        and implicit-root-frame wrapping are available. Plain Jinja2 (no
+        Wijjit tags) can still use ``render_string`` directly.
 
         Parameters
         ----------
         template : str
-            Template string to check
+            Template string to check.
 
         Returns
         -------
         bool
-            True if template has layout tags
+            ``True`` if the template references any Wijjit extension tag.
         """
-        layout_tags = ["{% vstack", "{% hstack", "{% frame"]
-        return any(tag in template for tag in layout_tags)
+        for name in self.renderer.get_extension_tag_names():
+            if f"{{% {name}" in template or f"{{%- {name}" in template:
+                return True
+        return False
 
     def _update_focus_manager(self, elements: list[Any]) -> None:
         """Update focus manager with positioned elements.
@@ -1856,17 +1875,30 @@ class Wijjit:
 
         return output + bounds_overlay
 
-    def _handle_error(self, message: str, exception: Exception) -> None:
+    def _handle_error(
+        self, message: str, exception: Exception, fatal: bool = False
+    ) -> None:
         """Handle errors during app execution.
 
-        Logs error message but doesn't crash the app.
+        Logs error message and, by default, lets the app keep running so
+        transient runtime errors don't kill an interactive session. When
+        ``fatal`` is True the exception is re-raised after logging so the
+        event loop's cleanup block can restore the terminal and the user
+        sees a clean traceback (used for the initial render: a broken
+        template should never leave the terminal wedged in the alternate
+        screen buffer).
 
         Parameters
         ----------
         message : str
-            Error message context
+            Error message context.
         exception : Exception
-            The exception that occurred
+            The exception that occurred.
+        fatal : bool, optional
+            When True, re-raise ``exception`` after logging so it can
+            propagate to a caller (and trigger terminal cleanup). Defaults
+            to False — non-fatal errors are logged and printed but the
+            app continues.
         """
         # Log the error with full traceback
         try:
@@ -1885,6 +1917,9 @@ class Wijjit:
                 exc_info=True,
             )
             print(f"\nError: {message}: {str(exception)}\n", file=sys.stderr)
+
+        if fatal:
+            raise exception
 
         # Keep running unless it's a critical error
         self.needs_render = True

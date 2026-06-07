@@ -13,9 +13,11 @@ from wijjit.elements.input.highlighting import (
     get_available_themes,
     get_style_for_token,
 )
-from wijjit.elements.input.radio import RadioGroup
+from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
+from wijjit.elements.input.slider import Slider
 from wijjit.elements.input.text import InputStyle, TextArea, TextInput
+from wijjit.elements.input.toggle import Toggle
 
 __all__ = [
     "Button",
@@ -25,11 +27,14 @@ __all__ = [
     "DataGrid",
     "DEFAULT_THEME",
     "InputStyle",
+    "Radio",
     "RadioGroup",
     "Select",
+    "Slider",
     "SyntaxHighlighter",
     "TextArea",
     "TextInput",
+    "Toggle",
     "get_available_themes",
     "get_style_for_token",
 ]

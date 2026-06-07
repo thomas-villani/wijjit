@@ -268,6 +268,13 @@ class DefaultConfig:
     #: Hide cursor during application runtime
     HIDE_CURSOR = True
 
+    #: Terminal window title (OSC 0 / "title bar" text). When set, Wijjit
+    #: emits the title on startup so the terminal tab/window shows it.
+    #: Most shells reset the title from their prompt hook when the app
+    #: exits, so no explicit restore is performed. ``None`` leaves the
+    #: terminal title untouched.
+    APP_TITLE: str | None = None
+
     # ============================================================
     # COLORS & THEMING
     # ============================================================

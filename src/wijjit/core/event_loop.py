@@ -173,6 +173,14 @@ class EventLoop:
                 self.app.screen_manager.hide_cursor()
                 logger.debug("Hidden cursor")
 
+            # Set terminal window title if configured. Most shells reset
+            # the title from their prompt hook on exit, so no restore is
+            # attempted here.
+            app_title = self.app.config.get("APP_TITLE")
+            if app_title:
+                self.app.screen_manager.set_title(str(app_title))
+                logger.debug(f"Set terminal title: {app_title!r}")
+
             # Enable mouse tracking (if configured and not already enabled)
             if (
                 self.app.config["ENABLE_MOUSE"]
@@ -186,9 +194,13 @@ class EventLoop:
                 if self.app.suspend_manager.register():
                     logger.debug("Registered suspend handlers")
 
-            # Render initial view
+            # Render initial view. Pass fatal=True so any template error
+            # (syntax error, undefined variable, broken tag, etc.) propagates
+            # out instead of being swallowed by the in-loop error handler. The
+            # surrounding try/finally restores the terminal before the
+            # traceback reaches the user.
             logger.info(f"Rendering initial view: '{self.app.current_view}'")
-            self.app._render()
+            self.app._render(fatal=True)
             self.app._last_refresh_time = time.time()
 
             logger.info("Entering main async event loop")
