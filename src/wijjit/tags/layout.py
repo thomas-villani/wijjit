@@ -816,7 +816,7 @@ class FrameExtension(Extension):
 
     Syntax::
 
-        {% frame title="Title" border_style="single" width="fill" height="auto"
+        {% frame title="Title" border="single" width="fill" height="auto"
                  margin=0 align_h="stretch" align_v="stretch"
                  content_align_h="stretch" content_align_v="stretch" %}
             ... content ...
@@ -857,6 +857,7 @@ class FrameExtension(Extension):
         width: int | str = "fill",
         height: int | str = "auto",
         title: str | None = None,
+        border: str | None = None,
         border_style: str = "single",
         margin: int | str | tuple[int, ...] = 0,
         padding: int | str | tuple[int, ...] | None = None,
@@ -884,8 +885,13 @@ class FrameExtension(Extension):
             Height specification
         title : str, optional
             Frame title
+        border : str, optional
+            Border style: "single", "double", or "rounded". This is the
+            canonical attribute name (matching the dialog tags). When given,
+            it takes precedence over ``border_style``.
         border_style : str
-            Border style
+            Deprecated alias for ``border``, retained for backward
+            compatibility. Use ``border`` in new templates.
         margin : int or tuple, optional
             Margin around frame (default: 0)
         padding : int or tuple, optional
@@ -949,8 +955,13 @@ class FrameExtension(Extension):
         else:
             margin_parsed = cast(int, margin)
 
-        # Parse border style
+        # Parse border style. "border" is the canonical attribute name (and
+        # matches the dialog tags); "border_style" is kept as a backward-
+        # compatible alias. An explicit "border" wins when both are supplied.
+        if border is not None:
+            border_style = border
         border_map = {
+            "none": BorderStyle.NONE,
             "single": BorderStyle.SINGLE,
             "double": BorderStyle.DOUBLE,
             "rounded": BorderStyle.ROUNDED,

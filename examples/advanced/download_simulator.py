@@ -32,7 +32,7 @@ def main_view():
     """Main view - download interface."""
     return {
         "template": """
-{% frame title="File Download Manager" border_style="rounded" width=80 height=25 %}
+{% frame title="File Download Manager" border="rounded" width=80 height=25 %}
   {% vstack spacing=1 padding=2 %}
     {% vstack spacing=0 %}
       File: {{ state.filename }}

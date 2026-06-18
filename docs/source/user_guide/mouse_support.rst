@@ -6,7 +6,7 @@ Mouse interaction is enabled by default. When ``app.run()`` starts, :class:`wijj
 Event pipeline
 --------------
 
-1. **Terminal** – prompt-toolkit emits :class:`wijjit.terminal.mouse.MouseEvent` objects containing ``x``, ``y``, ``button``, ``type`` (CLICK, PRESS, MOVE, SCROLL), modifier flags, and click counts.
+1. **Terminal** – prompt-toolkit emits :class:`wijjit.terminal.mouse.MouseEvent` objects containing ``x``, ``y``, ``button``, ``type`` (a :class:`wijjit.terminal.mouse.MouseEventType`: ``PRESS``, ``RELEASE``, ``DRAG``, ``MOVE``, ``SCROLL``, ``CLICK``, ``DOUBLE_CLICK``), modifier flags (``shift``/``alt``/``ctrl``), and ``click_count``.
 2. **MouseEventRouter** – checks overlays first, then performs hit testing against the base layout to find the element occupying ``(x, y)``.
 3. **HoverManager** – updates hover state when the pointer moves across elements; hover changes mark the UI as dirty so highlights/tooltips refresh.
 4. **Element handlers** – if the target element implements ``handle_mouse`` it receives the event. Otherwise built-in logic handles clicks for common widgets (buttons, list items, frames).
@@ -14,28 +14,38 @@ Event pipeline
 Supported gestures
 ------------------
 
-* **Clicks** – left, right, and middle buttons. Right-click opens context menus if defined.
-* **Double clicks** – delivered with ``event.click_count == 2``. Great for list selection shortcuts.
-* **Scroll** – wheel events map to ``MouseEventType.SCROLL`` with ``event.mouse_event.scroll_amount``. Wijjit scrolls frames/log views automatically.
-* **Drag** – elements can listen for PRESS/MOVE/RELEASE sequences to implement sliders or lasso selection.
+* **Clicks** – left, right, and middle buttons. Single clicks arrive as ``MouseEventType.CLICK``. Right-click opens context menus if defined.
+* **Double clicks** – delivered as a distinct ``MouseEventType.DOUBLE_CLICK`` event (with ``event.click_count == 2``). Great for list selection shortcuts.
+* **Scroll** – wheel events map to ``MouseEventType.SCROLL``; the direction is carried by ``event.button`` (``MouseButton.SCROLL_UP`` or ``MouseButton.SCROLL_DOWN``). There is no scroll-amount field - each wheel notch is one event. Wijjit scrolls frames/log views automatically.
+* **Drag** – elements can listen for ``PRESS``/``DRAG``/``RELEASE`` sequences to implement sliders or lasso selection.
 
 Writing mouse-aware elements
 ----------------------------
 
-Implement ``handle_mouse(self, event: MouseEvent) -> bool`` on your element. Return ``True`` if you consumed the event. Example:
+Implement ``async def handle_mouse(self, event: MouseEvent) -> bool`` on your
+element (the base method is a coroutine, so override it as ``async``). Return
+``True`` if you consumed the event. Inspect ``event.type`` (a
+:class:`wijjit.terminal.mouse.MouseEventType`) to branch, and use
+``event.button`` for the scroll direction. Example:
 
 .. code-block:: python
 
-    def handle_mouse(self, event):
-        if event.mouse_type.name == "CLICK" and self.bounds.contains(event.x, event.y):
+    from wijjit.terminal.mouse import MouseEventType, MouseButton
+
+    async def handle_mouse(self, event):
+        if event.type == MouseEventType.CLICK and self.bounds.contains(event.x, event.y):
             self.toggle()
             return True
-        if event.mouse_type.name == "SCROLL":
-            self.scroll_manager.scroll(event.mouse_event.delta)
+        if event.type == MouseEventType.SCROLL:
+            if event.button == MouseButton.SCROLL_UP:
+                self.scroll_manager.scroll(-1)
+            else:
+                self.scroll_manager.scroll(1)
             return True
         return False
 
-The ``MouseEvent`` wrapper exposes convenience properties like ``x``, ``y``, ``button``, and ``shift`` / ``ctrl`` flags for modifiers.
+The ``MouseEvent`` dataclass exposes ``type``, ``button``, ``x``, ``y``, the
+``shift`` / ``alt`` / ``ctrl`` modifier flags, and ``click_count``.
 
 Hover effects & tooltips
 ------------------------

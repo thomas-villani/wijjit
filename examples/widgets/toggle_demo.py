@@ -37,7 +37,7 @@ def main_view():
     """Main view with toggle demos."""
     return {
         "template": """
-{% frame title="Toggle Demo" border_style="double" width=70 height=28 %}
+{% frame title="Toggle Demo" border="double" width=70 height=28 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}

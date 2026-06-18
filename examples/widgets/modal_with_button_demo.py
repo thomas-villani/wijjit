@@ -25,7 +25,7 @@ def main_view():
     return {
         "template": """
 {% vstack %}
-  {% frame border_style="single" title="Modal with Button Demo" %}
+  {% frame border="single" title="Modal with Button Demo" %}
 
     Press 'o' to open confirmation modal
     Press ESC to cancel modal

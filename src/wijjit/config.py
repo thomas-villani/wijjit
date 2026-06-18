@@ -170,7 +170,7 @@ class Config(dict[str, Any]):
         Parameters
         ----------
         prefix : str
-            Prefix for environment variables (default: 'WIJJIT_')
+            Prefix for environment variables (default: ``WIJJIT_``)
 
         Examples
         --------
@@ -202,7 +202,7 @@ class Config(dict[str, Any]):
         Parameters
         ----------
         namespace : str
-            Namespace prefix (e.g., 'NOTIFICATION_')
+            Namespace prefix (e.g., ``NOTIFICATION_``)
         lowercase : bool
             Convert keys to lowercase
         trim_namespace : bool

@@ -35,7 +35,7 @@ def main_view():
     return {
         "template": """
 {% vstack %}
-  {% frame border_style="double" title="Notification System Demo" %}
+  {% frame border="double" title="Notification System Demo" %}
 
     Welcome to the Notification Demo!
 

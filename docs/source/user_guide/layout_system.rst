@@ -38,19 +38,19 @@ Stacks
 ------
 
 ``{% vstack %}``
-    Arranges children vertically. Default width/height are ``fill`` so the stack expands with its container. ``align_h`` determines how children are aligned horizontally (``left``, ``center``, ``right``, ``stretch``). ``align_v`` controls how the group sits inside the stack’s allotted height (``top`` by default).
+    Arranges children vertically (default ``width="fill"``, ``height="auto"``). ``align_h`` determines how children are aligned horizontally (``left``, ``center``, ``right``, ``stretch``). ``align_v`` controls how the group sits inside the stack’s allotted height (``"stretch"`` by default).
 
 ``{% hstack %}``
-    Arranges children horizontally. Use ``justify="space-between"`` patterns by combining ``align_h`` with ``spacer`` elements (e.g., an empty ``{% hstack width="fill" %}{% endhstack %}`` between tool groups).
+    Arranges children horizontally. ``{% hstack %}`` accepts a ``justify`` attribute (``flex-start`` – the default – plus ``flex-end``, ``center``, ``space-between``, ``space-around``, ``space-evenly``) to distribute children along the main axis, as well as ``wrap``, ``gap``, ``row_gap``, and ``column_gap``. You can also push items to the edges by inserting a spacer made from an empty ``{% hstack width="fill" %}{% endhstack %}`` between tool groups.
 
 Stacks can contain other stacks, frames, inputs, or display elements. They map to :class:`wijjit.layout.engine.VStack` / :class:`wijjit.layout.engine.HStack`.
 
 Frames
 ------
 
-``{% frame %}`` wraps content in a bordered box (single/double/rounded). Beyond visual polish, frames:
+``{% frame %}`` wraps content in a bordered box. The ``border`` attribute selects the border (``single``, ``double``, ``rounded``, or ``none``). Beyond visual polish, frames:
 
-* Support scrolling – ``scrollable=true`` plus ``overflow_y="auto"`` enables vertical scrollbars automatically when content exceeds height.
+* Support scrolling – ``scrollable=true`` enables vertical scrollbars automatically when content exceeds height.
 * Manage titlebars – ``title="System Status"`` reserves a line for labels/icons.
 * Provide padding defaults – interior padding is ``(0, 1, 0, 1)`` so text does not touch borders.
 
@@ -63,7 +63,7 @@ Any ``ScrollableElement`` (frames, text areas, log views) integrates with :mod:`
 
 * Wheel events and ``PgUp/PgDn`` keys update the scroll offset.
 * Scrollbars render on the right edge if ``show_scrollbar=True``.
-* Scroll position can persist via ``scroll_state_key`` so navigating away and back restores the same viewport.
+* Scroll position is preserved across re-renders because scroll offset is an ephemeral element-state prop that survives reconciliation.
 
 Use scrollable frames to wrap long markdown blocks, tables, or nested layouts.
 
@@ -93,7 +93,7 @@ Keyboard controls for horizontal scrolling:
 * **Shift+Left/Right** - Page scroll horizontally
 * **Shift+Mouse wheel** - Horizontal scroll via mouse
 
-Horizontal scroll state is automatically persisted alongside vertical scroll state when ``scroll_state_key`` is set.
+Horizontal scroll offset is preserved across re-renders alongside the vertical scroll offset, since both are ephemeral element-state props that survive reconciliation.
 
 See ``examples/advanced/horizontal_scroll_demo.py`` for a demonstration of combined vertical and horizontal scrolling.
 
@@ -112,13 +112,13 @@ Responsive techniques
 ---------------------
 
 * **Percentages** – combine ``width="30%"`` and ``width="70%"`` columns in an ``hstack`` to mimic CSS grid behaviour.
-* **Breakpoints** – inspect ``app.screen_manager.width`` inside your view and switch templates/layouts when the terminal is narrow.
+* **Breakpoints** – inspect the terminal size with ``shutil.get_terminal_size()`` (e.g. ``shutil.get_terminal_size().columns``) inside your view and switch templates/layouts when the terminal is narrow.
 * **Conditional stacks** – use Jinja ``{% if %}`` to swap between vertical and horizontal arrangements when space is limited.
 
 Debugging layouts
 -----------------
 
-* Enable the ``WIJJIT_DEBUG_LAYOUT=1`` environment variable (coming soon) to print layout trees to the console.
+* A ``WIJJIT_DEBUG_LAYOUT`` environment variable to print layout trees is planned but not yet implemented.
 * Temporarily set ``border="double"`` and ``title`` attributes to visualize container boundaries.
 * Log bounds: each element exposes ``element.bounds`` after a render; printing them inside handlers can reveal unexpected sizes.
 

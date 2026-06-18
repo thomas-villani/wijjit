@@ -65,7 +65,7 @@ def main_view():
     """Main view showcasing ListView elements."""
     return {
         "template": """
-{% frame title="ListView Demo - Multiple Styles" border_style="double" height="auto" %}
+{% frame title="ListView Demo - Multiple Styles" border="double" height="auto" %}
     {{ state.message }}
     {% hstack spacing=1 %}
         {% listview id="fruits_bullet"
@@ -73,7 +73,7 @@ def main_view():
                     bullet="bullet"
                     width=24
                     height=7
-                    border_style="single"
+                    border="single"
                     title="Bullets"
                     show_scrollbar=true %}
         {% endlistview %}
@@ -83,7 +83,7 @@ def main_view():
                     bullet="number"
                     width=24
                     height=7
-                    border_style="rounded"
+                    border="rounded"
                     title="Numbered"
                     show_scrollbar=true %}
         {% endlistview %}
@@ -92,7 +92,7 @@ def main_view():
                     bullet="dash"
                     width=24
                     height=7
-                    border_style="double"
+                    border="double"
                     title="Dashes"
                     show_scrollbar=true %}
         {% endlistview %}
@@ -101,7 +101,7 @@ def main_view():
                     bullet=none
                     width=24
                     height=7
-                    border_style="single"
+                    border="single"
                     title="Plain"
                     show_scrollbar=true %}
         {% endlistview %}
@@ -114,7 +114,7 @@ def main_view():
                     show_dividers=false
                     width=48
                     height=8
-                    border_style="single"
+                    border="single"
                     title="Languages (Details)"
                     show_scrollbar=true
                     indent_details=2
@@ -127,7 +127,7 @@ def main_view():
                     show_dividers=true
                     width=48
                     height=8
-                    border_style="double"
+                    border="double"
                     title="Tasks (Dividers)"
                     show_scrollbar=true
                     indent_details=2

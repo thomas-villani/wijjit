@@ -45,11 +45,12 @@ Renderer & layout pipeline
 --------------------------
 
 1. **Template render** – :class:`wijjit.core.renderer.Renderer` configures a Jinja environment with the custom tags from ``wijjit.tags``. Views call ``Renderer.render_view`` which passes ``state``, ``data``, and ``params`` to the template.
-2. **Layout tree** – tags such as ``{% vstack %}``, ``{% frame %}``, and ``{% button %}`` instantiate layout nodes (``wijjit.layout.engine``) and elements (``wijjit.elements``). A ``LayoutContext`` builds the tree as tags execute.
-3. **Constraint pass** – :class:`wijjit.layout.engine.LayoutNode.calculate_constraints`` recursively computes minimum/preferred sizes based on element content and width/height specs. Scrollable frames consult ``wijjit.layout.scroll`` to measure overflow.
-4. **Assign bounds** – ``assign_bounds`` walks top-down assigning concrete ``Bounds`` rectangles, respecting padding/margin/spacing rules.
-5. **Painting** – each element’s ``render_to`` writes to :class:`wijjit.rendering.paint_context.PaintContext`, which wraps a :class:`wijjit.terminal.screen_buffer.ScreenBuffer`. Styles are resolved via :class:`wijjit.styling.resolver.StyleResolver`.
-6. **Terminal flush** – :class:`wijjit.terminal.screen.ScreenManager`` diffs the buffer against the previous frame and writes ANSI commands to the alternate screen for flicker-free updates.
+2. **VNode tree** – tags such as ``{% vstack %}``, ``{% frame %}``, and ``{% button %}`` do **not** build elements directly; they emit immutable :class:`wijjit.core.vdom.VNode` descriptions via a ``VNodeBuilder``. The template render therefore produces a VNode tree, not an element tree.
+3. **Reconcile** – :class:`wijjit.core.reconciler.Reconciler` diffs the new VNode tree against the previous one and creates/updates/replaces/deletes the corresponding stateful :class:`wijjit.elements.base.Element` objects, reusing existing elements (and their ephemeral UI state) where possible. The reconciler also wires the resulting elements into the layout tree (``wijjit.layout.engine``).
+4. **Constraint pass** – :meth:`wijjit.layout.engine.LayoutNode.calculate_constraints` recursively computes minimum/preferred sizes based on element content and width/height specs. Scrollable frames consult ``wijjit.layout.scroll`` to measure overflow.
+5. **Assign bounds** – ``assign_bounds`` walks top-down assigning concrete ``Bounds`` rectangles, respecting padding/margin/spacing rules.
+6. **Painting** – each element’s ``render_to`` writes to :class:`wijjit.rendering.paint_context.PaintContext`, which wraps a :class:`wijjit.terminal.screen_buffer.ScreenBuffer`. Styles are resolved via :class:`wijjit.styling.resolver.StyleResolver`.
+7. **Terminal flush** – :class:`wijjit.terminal.screen.ScreenManager` diffs the buffer against the previous frame and writes ANSI commands to the alternate screen for flicker-free updates.
 
 Virtual DOM & Reconciliation
 ----------------------------
@@ -215,10 +216,10 @@ Terminal adapters
 Extending Wijjit
 ----------------
 
-* **New elements** – subclass :class:`wijjit.elements.base.Element`` or ``ScrollableElement``. Implement ``render_to``, ``get_intrinsic_size``, and optional ``handle_key`` / ``handle_mouse``. Expose the element via a new tag in ``wijjit.tags`` for templated usage.
-* **Themes** – add entries to :class:`wijjit.styling.theme.Theme`` and expose selectors through ``get_style_classes`` on elements. Users can swap themes at runtime via ``app.renderer.set_theme``.
+* **New elements** – subclass :class:`wijjit.elements.base.Element` or ``ScrollableElement``. Implement ``render_to``, ``get_intrinsic_size``, and optional ``handle_key`` / ``handle_mouse``. Expose the element via a new tag in ``wijjit.tags`` for templated usage.
+* **Themes** – add entries to the styles dict of :class:`wijjit.styling.theme.Theme`, keyed by element style class (e.g. ``button``, ``button.label``). Elements resolve their style by calling ``ctx.style_resolver.resolve_style(self, "<base_class>")`` inside ``render_to``. Register a theme at runtime via ``app.renderer.theme_manager.register_theme(theme)`` and activate it with ``app.renderer.theme_manager.set_theme(theme.name)``.
 * **View helpers** – store shared macros or template fragments in ``templates/`` or ``docs/examples`` and load them with ``template_file``.
-* **Background tasks** – use ``asyncio.create_task`` or configure ``EventLoop`` with a ``ThreadPoolExecutor`` via ``app.configure`` to keep the UI responsive while running long operations.
+* **Background tasks** – use ``asyncio.create_task`` for async work, or set ``app.config["RUN_SYNC_IN_EXECUTOR"] = True`` (with optional ``app.config["EXECUTOR_MAX_WORKERS"]``) so blocking sync handlers run on a ``ThreadPoolExecutor`` and keep the UI responsive.
 
 Use this architecture map as a starting point before touching multiple subsystems. When in doubt:
 

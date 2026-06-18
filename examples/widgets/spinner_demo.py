@@ -25,7 +25,7 @@ def main_view():
     """Main view showcasing spinner animations."""
     return {
         "template": """
-{% frame title="Spinner Animations Demo" border_style="double" width=70 height=30 %}
+{% frame title="Spinner Animations Demo" border="double" width=70 height=30 %}
   {% vstack spacing=2 padding=1 %}
     {% vstack spacing=0 %}
       All spinner styles with automatic animations

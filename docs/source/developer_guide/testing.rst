@@ -33,19 +33,20 @@ Quick commands
 
     # Ruff + mypy (lint + types)
     uv run ruff check src tests
-    uv run mypy src tests
+    uv run mypy src
 
 Markers
 -------
 
 Defined in ``pytest.ini`` (strictly enforced):
 
-* ``@pytest.mark.unit`` – default; fast focused tests.
+* ``@pytest.mark.unit`` – default; fast focused tests for isolated components.
 * ``@pytest.mark.integration`` – touches multiple subsystems.
 * ``@pytest.mark.e2e`` – launches near-real TUIs; slower.
 * ``@pytest.mark.slow`` – >1s runtime; excluded from quick pass.
 * ``@pytest.mark.visual`` – snapshot/visual regression tests (uses Syrupy).
 * ``@pytest.mark.benchmark`` – performance measurements (requires ``pytest-benchmark``).
+* ``@pytest.mark.asyncio`` – async tests using ``pytest-asyncio`` (``asyncio_mode = "auto"`` is also enabled, so most async tests need no marker).
 
 Use these markers consistently so CI jobs can target subsets.
 
@@ -72,7 +73,7 @@ Before merging, run:
 .. code-block:: bash
 
     uv run ruff check src tests
-    uv run mypy src tests
+    uv run mypy src
     uv run pytest -m "not slow"
     uv run pytest --cov=src/wijjit
 

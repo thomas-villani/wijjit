@@ -67,11 +67,15 @@ app = Wijjit()
 @app.view("main", default=True)
 def main_view():
     return {
-        "template": "Hello, World! Press 'q' to quit.",
+        "template": """
+{% frame %}
+Hello, World! Press 'q' to quit.
+{% endframe %}
+""",
     }
 
 @app.on_key("q")
-def on_quit():
+def on_quit(event):
     app.quit()
 
 if __name__ == "__main__":
@@ -210,8 +214,8 @@ Use Jinja2 templates with custom tags for UI elements:
 {# Display elements #}
 {% table data=state.users columns=["name", "email"] %}{% endtable %}
 {% tree data=state.files %}{% endtree %}
-{% progress value=state.progress max=100 %}{% endprogress %}
-{% markdown content=state.readme %}{% endmarkdown %}
+{% progressbar value=state.progress max=100 %}{% endprogressbar %}
+{% contentview content_type="markdown" content=state.readme %}{% endcontentview %}
 ```
 
 ### Event Handling
@@ -265,6 +269,10 @@ element.on_context_menu = lambda event: [{"label": "Copy"}, {"label": "Paste"}]
 ```
 
 **Drag-and-Drop** (set `draggable=True` or `drop_target=True`):
+
+> The low-level drag/drop callbacks below are available on elements today. A
+> higher-level drag-and-drop manager is planned but not yet implemented.
+
 ```python
 element.draggable = True
 element.on_drag_start = lambda event: {"item": "data"}  # Return drag data
@@ -305,7 +313,7 @@ Wijjit provides flexible layout containers:
 
 **Frames**: Boxes with borders, titles, and scrolling
 ```jinja2
-{% frame title="Settings" border="single" width=60 height=20 overflow_y="scroll" %}
+{% frame title="Settings" border="single" width=60 height=20 scrollable=True %}
   Content
 {% endframe %}
 ```
@@ -407,7 +415,7 @@ Pager attributes:
 - `show_indicator`: Show "Page X of Y" indicator (default: `true`)
 - `show_titles`: Show page title in indicator (default: `false`)
 - `loop`: Wrap from last to first page (default: `false`)
-- `border_style`: Border style: `"single"`, `"double"`, `"rounded"`, `"none"`
+- `border`: Border style: `"single"`, `"double"`, `"rounded"`, `"none"`
 - `width`, `height`: Pager dimensions
 - `current_page`: Initial page index (0-based)
 
@@ -482,7 +490,7 @@ from wijjit import InlineApp
 
 template = '''
 {% frame title="Progress" %}
-  {% progress value=state.progress max=100 %}{% endprogress %}
+  {% progressbar value=state.progress max=100 %}{% endprogressbar %}
   {{ state.status }}
 {% endframe %}
 '''
@@ -561,7 +569,10 @@ print(f"You entered: {app.state.name}")
 
 ## Examples
 
-The `examples/` directory contains **67 working examples** organized into three categories. All examples use modern patterns with template-based UI and decorator event handlers.
+The `examples/` directory contains **69 working examples** organized into five
+categories: `basic/` (15), `widgets/` (30), `advanced/` (21), `styling/` (2),
+and `apps/` (1). All examples use modern patterns with template-based UI and
+decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
 
@@ -592,13 +603,13 @@ Individual UI component demonstrations (20+ widgets):
 
 **Display Elements:**
 - `table_demo.py` - Sortable data tables with Rich integration
-- `tree_demo.py`, `tree_indicator_styles_demo.py` - Hierarchical tree views
+- `tree_demo.py` - Hierarchical tree views
 - `listview_demo.py` - Scrollable lists with selection
 - `logview_demo.py` - Auto-scrolling log viewer
 - `progress_demo.py` - Progress bars and indicators
 - `spinner_demo.py` - Loading spinners with animations
-- `markdown_demo.py`, `test_markdown_tag.py` - Markdown rendering
-- `code_demo.py` - Syntax-highlighted code display
+- `contentview_demo.py` - ContentView (plain/ANSI/HTML/Markdown/Rich/code)
+- `code_editor_demo.py` - Syntax-highlighted code editor
 - `statusbar_demo.py` - Status bar component
 - `notification_demo.py` - Toast notifications
 
@@ -619,7 +630,7 @@ Individual UI component demonstrations (20+ widgets):
 Complete applications and advanced patterns:
 
 **Complete Applications:**
-- `todo_app.py` - Full-featured todo list with filtering
+- `../apps/todo_app.py` - Full-featured todo list with filtering
 - `form_demo.py` - Registration form with comprehensive validation
 - `data_entry_demo.py` - Business order entry form
 - `preferences_demo.py` - Settings/preferences editor
@@ -648,7 +659,7 @@ Run any example with:
 ```bash
 python examples/basic/hello_world.py
 python examples/widgets/table_demo.py
-python examples/advanced/todo_app.py
+python examples/apps/todo_app.py
 ```
 
 See `examples/README.md` for a complete categorized list with descriptions.
@@ -727,7 +738,10 @@ ruff check src/ tests/
 
 ## Project Status
 
-Wijjit is **production-ready for many use cases**, with the core framework fully implemented and stable. The project is approximately 70-75% complete compared to the original ambitious roadmap.
+Wijjit is approaching its first public release (`0.1.0`). The core framework is
+**stable and feature-complete for 0.1.0**, with the full element, layout, event,
+and rendering pipelines implemented and covered by a large test suite. A handful
+of known limitations remain (see below).
 
 ### Working Features ✓
 
@@ -748,7 +762,7 @@ Wijjit is **production-ready for many use cases**, with the core framework fully
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 67 working examples
+- ✅ 69 working examples
 - ✅ Comprehensive test suite (85%+ coverage)
 
 ### Known Limitations
@@ -790,26 +804,29 @@ Not recommended for:
 ## Dependencies
 
 **Core:**
-- `jinja2>=3.1.0` - Template engine
-- `prompt-toolkit>=3.0` - Terminal I/O
-- `rich>=13.0` - ANSI rendering and tables
+- `jinja2>=3.1.6` - Template engine
+- `prompt-toolkit>=3.0.52` - Terminal I/O
+- `rich>=14.2.0` - ANSI rendering and tables
+- `pyperclip>=1.11.0` - Clipboard access (copy/paste)
+- `tinycss2>=1.5.0` - CSS parsing for theming
+- `wcwidth>=0.2.14` - Wide/East-Asian character width
 
 **Optional:**
-- `pygments>=2.0` - Syntax highlighting for code blocks
+- `pillow>=12.0.0` - `ImageView` / ASCII image rendering (the `images` extra)
 
 **Development:**
-- `pytest>=7.0` - Testing
-- `pytest-cov>=4.0` - Coverage
-- `black>=23.0` - Code formatting
-- `mypy>=1.0` - Type checking
-- `ruff` - Linting
+- `pytest>=8.4.2` - Testing
+- `pytest-cov>=6.0.0` - Coverage
+- `black>=25.9.0` - Code formatting
+- `mypy>=1.18.2` - Type checking
+- `ruff>=0.14.2` - Linting
 
 ## Documentation
 
 - **README.md** (this file) - Overview and quick start
 - **CLAUDE.md** - Development guide and architecture
 - **docs/** - Full Sphinx documentation (build with `cd docs && make html`)
-- **examples/** - 63 working examples
+- **examples/** - 69 working examples
 - **tests/** - Comprehensive test suite showing usage patterns
 
 Build the documentation locally:

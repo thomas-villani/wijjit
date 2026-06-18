@@ -34,7 +34,7 @@ def main_view():
     """Main view with status indicator demos."""
     return {
         "template": """
-{% frame title="Status Indicator Demo" border_style="double" width=70 height=30 %}
+{% frame title="Status Indicator Demo" border="double" width=70 height=30 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.message }}

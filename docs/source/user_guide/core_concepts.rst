@@ -10,7 +10,7 @@ The :class:`wijjit.core.app.Wijjit` class orchestrates everything (see ``src/wij
 
 1. **Construction** – provide ``template_dir`` (if you keep templates on disk) and optional ``initial_state``. Internally this wires up the renderer, layout engine, focus/hover managers, overlay system, terminal devices, handler registry, and mouse router.
 2. **Configuration** – register views via ``@app.view``, hook actions/keys/mouse handlers, and set global options (refresh interval, custom themes, etc.). Nothing is rendered yet.
-3. **Run** – ``app.run()`` hands execution to :class:`wijjit.core.event_loop.EventLoop`, which enters the alternate terminal buffer, enables mouse tracking, and renders the default view. ``run_async()`` is also available when you already have an asyncio loop.
+3. **Run** – ``app.run()`` hands execution to :class:`wijjit.core.event_loop.EventLoop`, which enters the alternate terminal buffer, enables mouse tracking, and renders the default view. Internally ``app.run()`` calls ``asyncio.run(...)`` to drive the async loop.
 4. **Main loop** – every tick collects input, dispatches events, applies state changes, and triggers renders when ``app.needs_render`` is true. Focus, hover, overlays, and notifications are updated along the way.
 5. **Shutdown** – ``app.quit()`` or ``Ctrl+C`` causes the event loop to unwind, restore the cursor/buffer, close the ``InputHandler``, and stop any background executors. ``on_exit`` view hooks and overlay ``on_close`` callbacks are guaranteed to run.
 
@@ -25,7 +25,7 @@ Views describe what should be rendered for a given route. ``@app.view("name", de
 * ``data`` – optional dict or callable that builds a context dictionary for the template.
 * ``on_enter`` / ``on_exit`` – lifecycle hooks executed whenever the view is entered or left.
 
-``ViewRouter`` lazily evaluates the function the first time the view is used. Static ``data`` dicts are deep-copied so a render cannot mutate the next run. Navigation is performed with ``app.navigate("settings", params={"tab": "profile"})`` (sync) or ``await app.navigate_async(...)``. During navigation Wijjit:
+``ViewRouter`` lazily evaluates the function the first time the view is used. Static ``data`` dicts are deep-copied so a render cannot mutate the next run. Navigation is performed with ``app.navigate("settings", tab="profile")``; parameters are passed as keyword arguments (``Wijjit.navigate(view_name, **params)``). ``navigate`` auto-detects async view callables, so the same call works for sync and async views. During navigation Wijjit:
 
 1. Initializes the target view if necessary.
 2. Executes the previous view’s ``on_exit`` hook and clears view-scoped handlers.
@@ -54,7 +54,7 @@ Rendering pipeline
 
 Rendering is a multi-step process:
 
-1. **Template rendering** – Wijjit configures a Jinja environment with custom extensions from ``wijjit.tags`` (``{% frame %}``, ``{% vstack %}``, ``{% button %}``, etc.). Your view’s ``template`` is rendered using ``state`` and the optional ``data`` dict.
+1. **Template rendering** – Wijjit configures a Jinja environment with custom extensions from ``wijjit.tags`` (``{% frame %}``, ``{% vstack %}``, ``{% button %}``, etc.). Your view’s ``template`` is rendered with ``state`` injected as a named object, plus every key from the view’s ``data`` dict flattened into top-level template variables. A ``data`` value of ``{"title": "Home"}`` is therefore referenced as ``{{ title }}``, not ``{{ data.title }}``.
 2. **Layout tree** – tags such as ``{% vstack %}`` emit layout nodes (:class:`wijjit.layout.engine.VStack`, :class:`wijjit.layout.engine.HStack`, :class:`wijjit.layout.engine.FrameNode`) that describe sizing, spacing, and alignment.
 3. **Layout pass** – :mod:`wijjit.layout.engine` performs a bottom-up intrinsic size calculation followed by a top-down assignment of absolute bounds (:class:`wijjit.layout.bounds.Bounds`). Scroll containers report overflow to :mod:`wijjit.layout.scroll`.
 4. **Element painting** – Each :class:`wijjit.elements.base.Element` paints itself into a :class:`wijjit.rendering.paint_context.PaintContext`, which tracks ANSI styling and dirty regions. Elements only redraw when their bounds intersect the dirty set.
@@ -71,14 +71,14 @@ Events originate from :class:`wijjit.terminal.input.InputHandler` and :class:`wi
 * ``VIEW`` – automatically registered/unregistered when the active view changes.
 * ``ELEMENT`` – tied to a specific element via wiring (e.g., a button’s action).
 
-Handlers may be synchronous or ``async``. By default they run on the main loop, but you can configure ``app.configure(executor=ThreadPoolExecutor())`` to offload blocking work. The registry also supports priorities so critical behavior (e.g., Tab navigation) runs before user code.
+Handlers may be synchronous or ``async``. By default they run on the main loop, but you can offload blocking synchronous handlers to a thread pool by setting the config keys ``RUN_SYNC_IN_EXECUTOR = True`` (and optionally ``EXECUTOR_MAX_WORKERS``); see ``src/wijjit/config.py``. The registry also supports priorities so critical behavior (e.g., Tab navigation) runs before user code.
 
 Mouse events are routed via :class:`wijjit.core.mouse_router.MouseEventRouter`, which performs hit testing against overlay layers first, then base elements. Hover state is managed by :class:`wijjit.core.hover.HoverManager`.
 
 Working asynchronously
 ----------------------
 
-Wijjit runs happily inside existing asyncio applications. Call ``await app.run_async()`` or interact directly with ``EventLoop`` if you’re embedding Wijjit into another service. Long-running operations should:
+Wijjit is async internally – ``app.run()`` calls ``asyncio.run(...)`` to drive an async event loop, and both sync and async handlers/views are supported. Long-running operations should:
 
 * Spawn a ``asyncio.create_task`` or schedule work on ``ThreadPoolExecutor``.
 * Update ``app.state`` when results arrive (loop-safe thanks to ``State`` callbacks).

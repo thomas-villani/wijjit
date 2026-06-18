@@ -31,7 +31,7 @@ def main_view():
     """Main view showcasing select elements."""
     return {
         "template": """
-{% frame title="Select List Demo" border_style="single" width=100 height=38 %}
+{% frame title="Select List Demo" border="single" width=100 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}
@@ -42,7 +42,7 @@ def main_view():
     {% endvstack %}
 
     {% hstack spacing=2 %}
-      {% select id="color" width=30 border_style="single" title="Color" %}
+      {% select id="color" width=30 border="single" title="Color" %}
         Red
         Green
         Blue
@@ -50,7 +50,7 @@ def main_view():
         Purple
       {% endselect %}
 
-      {% select id="size" width=30 border_style="rounded" title="Size" %}
+      {% select id="size" width=30 border="rounded" title="Size" %}
         {"value": "xs", "label": "Extra Small"}
         {"value": "s", "label": "Small"}
         {"value": "m", "label": "Medium"}
@@ -60,7 +60,7 @@ def main_view():
     {% endhstack %}
 
     {% hstack spacing=2 %}
-      {% select id="priority" width=30 border_style="double" title="Priority" %}
+      {% select id="priority" width=30 border="double" title="Priority" %}
         Critical
         High
         Medium
@@ -68,7 +68,7 @@ def main_view():
         None (disabled)
       {% endselect %}
 
-      {% select id="country" width=40 visible_rows=8 border_style="single" title="Country" %}
+      {% select id="country" width=40 visible_rows=8 border="single" title="Country" %}
         Afghanistan
           Albania
           Algeria
@@ -116,7 +116,7 @@ def main_view():
     {% endhstack %}
 
     {% hstack spacing=2 %}
-      {% select id="toppings" width=35 visible_rows=6 border_style="rounded" title="Toppings (multi-select)" multiple=True %}
+      {% select id="toppings" width=35 visible_rows=6 border="rounded" title="Toppings (multi-select)" multiple=True %}
         {"value": "cheese", "label": "Cheese"}
         {"value": "pepperoni", "label": "Pepperoni"}
         {"value": "mushrooms", "label": "Mushrooms"}

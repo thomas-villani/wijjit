@@ -146,7 +146,7 @@ def main_view():
 
     return {
         "template": """
-{% frame border_style="rounded" title="CodeEditor Demo - Syntax Highlighting" width=90 height=35 %}
+{% frame border="rounded" title="CodeEditor Demo - Syntax Highlighting" width=90 height=35 %}
   {% vstack spacing=1 %}
     {% hstack spacing=2 %}
       Language:

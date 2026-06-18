@@ -13,6 +13,8 @@ Base classes
    wijjit.elements.base.Element
    wijjit.elements.base.ElementType
    wijjit.elements.base.ScrollableElement
+   wijjit.elements.base.OverlayElement
+   wijjit.elements.base.TextElement
 
 Input widgets
 -------------
@@ -88,3 +90,15 @@ Menus & modals
    wijjit.elements.modal.AlertDialog
    wijjit.elements.modal.ConfirmDialog
    wijjit.elements.modal.TextInputDialog
+
+Supporting types
+----------------
+
+.. autosummary::
+   :toctree: ../api/
+   :nosignatures:
+
+   wijjit.elements.display.contentview.ContentType
+   wijjit.elements.display.notification.NotificationSeverity
+   wijjit.elements.display.tabbed_panel.TabPosition
+   wijjit.elements.display.tree.TreeIndicatorStyle

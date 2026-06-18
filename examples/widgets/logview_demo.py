@@ -115,7 +115,7 @@ def main_view():
     """Main view showcasing LogView elements."""
     return {
         "template": """
-{% frame title="LogView Demo - Log Display with Auto-Coloring" border_style="double" width="fill" height="fill" %}
+{% frame title="LogView Demo - Log Display with Auto-Coloring" border="double" width="fill" height="fill" %}
   {{ state.status }}
     {% vstack %}
     {% hstack spacing=1 %}
@@ -127,7 +127,7 @@ def main_view():
                    detect_log_levels=true
                    width=45
                    height=4
-                   border_style="single"
+                   border="single"
                    title="Main Logs (Auto-Scroll)"
                    show_scrollbar=true %}
         {% endlogview %}
@@ -140,7 +140,7 @@ def main_view():
                    detect_log_levels=true
                    width=45
                    height=4
-                   border_style="rounded"
+                   border="rounded"
                    title="Streaming Logs"
                    show_scrollbar=true %}
         {% endlogview %}
@@ -153,7 +153,7 @@ def main_view():
                    detect_log_levels=false
                    width=45
                    height=4
-                   border_style="single"
+                   border="single"
                    title="ANSI Passthrough (No Level Detection)"
                    show_scrollbar=true %}
         {% endlogview %}
@@ -166,7 +166,7 @@ def main_view():
                    detect_log_levels=true
                    width=45
                    height=4
-                   border_style="double"
+                   border="double"
                    title="Long Lines (Soft-Wrap Enabled)"
                    show_scrollbar=true %}
         {% endlogview %}

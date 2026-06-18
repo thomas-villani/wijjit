@@ -73,7 +73,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Error Handling Demo" border_style="double" width=106 height=40 %}
+{% frame title="Error Handling Demo" border="double" width=106 height=40 %}
   {% vstack spacing=1 padding=1 %}
     Last Action: {{ state.last_action }}    Total Errors: {{ state.error_count }}
 
@@ -82,7 +82,7 @@ def main_view():
     {% endif %}
 
     {% hstack spacing=2 align_v="top" %}
-      {% frame title="Error Scenarios" border_style="single" width=54 %}
+      {% frame title="Error Scenarios" border="single" width=54 %}
         {% vstack spacing=1 padding=1 %}
           1. Division by Zero:
           {% hstack spacing=2 %}
@@ -113,13 +113,13 @@ def main_view():
       {% endframe %}
 
       {% vstack spacing=1 width=46 %}
-        {% frame title="Error History (Last 5)" border_style="single" width="fill" height=14 %}
+        {% frame title="Error History (Last 5)" border="single" width="fill" height=14 %}
           {% vstack padding=1 %}
 {{ error_history_text }}
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Error Handling Patterns" border_style="single" width="fill" %}
+        {% frame title="Error Handling Patterns" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Demonstrated Patterns:
             - Try/except in handlers

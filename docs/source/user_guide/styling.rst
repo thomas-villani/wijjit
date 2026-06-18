@@ -14,10 +14,10 @@ Building blocks
 Theme lookup flow
 -----------------
 
-1. Assign a **base class** to each element. Built-in widgets expose ``get_style_classes`` (e.g., ``["button", "button.label"]``). You can override this in custom elements.
+1. Each element passes a **base class** string when it draws, e.g. ``ctx.style_resolver.resolve_style(self, "button")``. The resolver also folds in any user CSS classes from ``element.classes``.
 2. StyleResolver fetches ``theme.get_style("button")`` and merges the returned ``Style``.
 3. If the element is focused/hovered/disabled/selected, additional pseudo-class entries (``button:focus``) are merged.
-4. Inline overrides (``inline_overrides={"fg_color": (255, 0, 0)}``) are merged last.
+4. Inline overrides (``resolve_style(self, "button", inline_overrides={"fg_color": (255, 0, 0)})``) are merged last.
 
 Changing the theme
 ------------------
@@ -36,7 +36,16 @@ Create a theme and pass it to the renderer:
         "button:hover": Style(bg_color=(255, 85, 170)),
     })
 
-    app.renderer.set_theme(neon)
+    # Register the custom Theme object, then activate it by name
+    app.renderer.theme_manager.register_theme(neon)
+    app.renderer.theme_manager.set_theme("neon")
+
+The built-in themes (``"default"``, ``"dark"``, ``"light"``, ``"high_contrast"``)
+are already registered, so switching to one of those is a single call:
+
+.. code-block:: python
+
+    app.renderer.theme_manager.set_theme("dark")
 
 Themes can be swapped at runtime (e.g., toggle between light/dark). Elements re-render automatically because the theme change marks all dirty regions.
 
@@ -56,7 +65,7 @@ Dynamic styling
 
 * Derive colors from state – pass RGB tuples or bool flags to inline ``style`` based on theme preference stored in ``state``.
 * Toggle pseudo-classes manually – custom elements can set ``self.focused``/``self.hovered`` to trigger ``:focus``/``:hover`` styles.
-* Dark/light switching – store the current theme name in ``state.theme`` and call ``app.renderer.set_theme(THEMES[state.theme])`` whenever it changes.
+* Dark/light switching – store the current theme name in ``state.theme`` and call ``app.renderer.theme_manager.set_theme(state.theme)`` whenever it changes (register any custom ``Theme`` objects once at startup so their names are known).
 
 Built-in style classes
 ----------------------

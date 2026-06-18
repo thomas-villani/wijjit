@@ -32,12 +32,12 @@ app = Wijjit(enable_mouse=True)
 def main_view():
     template = """
     {% vstack spacing=1 padding=1 %}
-        {% frame title="Tabbed Panel Demo - Top Position" border_style="double" %}
+        {% frame title="Tabbed Panel Demo - Top Position" border="double" %}
             Use Left/Right arrows to switch tabs | Up/Down to scroll content
         {% endframe %}
 
         {% tabbedpanel id="main_tabs" tab_position="top"
-                       active_tab="active_tab" width=78 height=25 border_style="single" %}
+                       active_tab="active_tab" width=78 height=25 border="single" %}
             {% tab label="Welcome" %}
 Welcome to the Wijjit Tabbed Panel Demo!
 
@@ -208,7 +208,7 @@ Press 'q' to quit this demo.
             {% endtab %}
         {% endtabbedpanel %}
 
-        {% frame title="Navigation" border_style="single" %}
+        {% frame title="Navigation" border="single" %}
 Left/Right: switch tabs | Up/Down/PgUp/PgDn: scroll | Click tabs | Q to quit
         {% endframe %}
     {% endvstack %}

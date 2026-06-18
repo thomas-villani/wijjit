@@ -109,7 +109,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="System Dashboard" border_style="double" width=120 height=40 %}
+{% frame title="System Dashboard" border="double" width=120 height=40 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Status: {{ state.system_status }} | Last Update: {{ state.last_update }}
@@ -117,7 +117,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=38 %}
-        {% frame title="System Resources" border_style="single" width="fill" %}
+        {% frame title="System Resources" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% vstack spacing=0 %}
               CPU Usage:
@@ -145,7 +145,7 @@ def main_view():
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Network" border_style="single" width="fill" %}
+        {% frame title="Network" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Network In:  {{ state.network_in }} KB/s
             Network Out: {{ state.network_out }} KB/s
@@ -154,7 +154,7 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=38 %}
-        {% frame title="Application Metrics" border_style="single" width="fill" %}
+        {% frame title="Application Metrics" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Active Users: {{ state.active_users }}
             Requests/sec: {{ state.requests_per_sec }}
@@ -163,7 +163,7 @@ def main_view():
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Recent Activity" border_style="single" width="fill" height=14 %}
+        {% frame title="Recent Activity" border="single" width="fill" height=14 %}
           {% vstack padding=1 %}
 {{ recent_activity_text }}
           {% endvstack %}
@@ -171,7 +171,7 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=38 %}
-        {% frame title="Alerts" border_style="single" width="fill" %}
+        {% frame title="Alerts" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             {% if state.alerts %}
               {% for alert in state.alerts %}
@@ -183,7 +183,7 @@ def main_view():
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Quick Stats" border_style="single" width="fill" %}
+        {% frame title="Quick Stats" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Uptime: 7d 14h 23m
             Total Requests: 1.2M
@@ -192,7 +192,7 @@ def main_view():
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="System Info" border_style="single" width="fill" %}
+        {% frame title="System Info" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Version: 2.1.0
             Environment: Production

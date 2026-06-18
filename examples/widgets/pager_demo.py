@@ -34,12 +34,12 @@ app = Wijjit(enable_mouse=True)
 def main_view():
     template = """
     {% vstack spacing=1 padding=1 %}
-        {% frame title="Pager Demo - Linear Pagination" border_style="double" %}
+        {% frame title="Pager Demo - Linear Pagination" border="double" %}
             Use Left/Right or PgUp/PgDown to navigate pages | Home/End for first/last
         {% endframe %}
 
         {% pager id="main_pager" nav_position="bottom" show_indicator=True
-                 show_titles=True width=78 height=20 border_style="single" %}
+                 show_titles=True width=78 height=20 border="single" %}
 
             {% page title="Welcome" %}
 Welcome to the Wijjit Pager Demo!
@@ -183,7 +183,7 @@ or press 'q' to quit this demo.
 
         {% endpager %}
 
-        {% frame title="Controls" border_style="single" %}
+        {% frame title="Controls" border="single" %}
 Left/PgUp: prev | Right/PgDown: next | Home/End: first/last | Q: quit
         {% endframe %}
     {% endvstack %}

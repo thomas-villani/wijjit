@@ -17,7 +17,7 @@ app.state.button_label = "Click to Toggle Style"
 def main_view():
     """Main view demonstrating CSS class usage."""
     template = """
-    {% frame border_style="single" title="CSS Classes Demo" %}
+    {% frame border="single" title="CSS Classes Demo" %}
       {% vstack spacing=1 %}
         {% textinput id="title" placeholder="Demo Title" %}{% endtextinput %}
 

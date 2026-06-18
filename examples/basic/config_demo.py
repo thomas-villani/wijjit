@@ -77,7 +77,7 @@ for key, value in notification_config.items():
 def main_view():
     """Main view showing current configuration."""
     template = """
-{% frame border_style="double" title="Configuration Demo" padding=1 %}
+{% frame border="double" title="Configuration Demo" padding=1 %}
   {% vstack spacing=1 %}
     Configuration System Demo
     =========================

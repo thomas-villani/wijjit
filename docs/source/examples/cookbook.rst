@@ -15,8 +15,12 @@ Source: ``examples/advanced/login_form.py``
    .. code-block:: jinja
 
         {% if state.form_errors.username %}
-          {% notification tone="error" %}{{ state.form_errors.username }}{% endnotification %}
+          {% text class="error" %}{{ state.form_errors.username }}{% endtext %}
         {% endif %}
+
+   For a transient toast instead of inline text, call
+   ``app.notify(state.form_errors["username"], severity="error")`` from your
+   action handler.
 
 4. Clear errors when the form succeeds or users edit the fields.
 
@@ -47,8 +51,11 @@ Source: ``examples/basic/async_demo.py`` and ``examples/advanced/download_simula
 
 1. Mark the handler ``async def`` (Wijjit awaits coroutines).
 2. Update ``state["progress"]`` inside the coroutine and call ``await asyncio.sleep(...)`` between iterations.
-3. Render ``progress`` via ``{% progressbar value=state.progress label=state.status %}``.
-4. For CPU-bound work, configure ``app.configure(executor=ThreadPoolExecutor(...))`` and use ``loop.run_in_executor`` to keep the UI responsive.
+3. Render ``progress`` via ``{% progressbar value=state.progress %}{% endprogressbar %}``.
+4. For CPU-bound work, opt into the built-in executor with
+   ``app.config["RUN_SYNC_IN_EXECUTOR"] = True`` (and optionally
+   ``app.config["EXECUTOR_MAX_WORKERS"] = N``) so blocking sync handlers run off
+   the event loop and keep the UI responsive.
 
 Modal confirmations before destructive actions
 ----------------------------------------------
@@ -57,7 +64,7 @@ Source: ``examples/widgets/modal_with_button_demo.py``
 
 1. Define a template snippet with ``{% confirmdialog action_ok="confirm_delete" action_cancel="cancel_delete" %}``.
 2. Show the dialog by updating a boolean in state or by returning overlay metadata from the view.
-3. Handle the confirm/cancel actions with ``@app.on_action``; call ``app.overlay_manager.close_all(LayerType.MODAL)`` when done.
+3. Handle the confirm/cancel actions with ``@app.on_action``; call ``app.overlay_manager.pop_layer(LayerType.MODAL)`` when done.
 4. Use ``trap_focus=True`` and ``dimmed_background=True`` for critical workflows.
 
 Data tables with selection
@@ -75,7 +82,7 @@ Notifications & status feedback
 
 Source: ``examples/widgets/notification_demo.py`` and ``examples/widgets/statusbar_demo.py``
 
-1. For transient toasts, call ``app.notification_manager.info("Saved!")``. The manager auto-dismisses based on timeout.
+1. For transient toasts, call ``app.notify("Saved!", severity="success")``. The notification auto-dismisses after ``duration`` seconds (pass ``duration=None`` to make it persistent).
 2. For persistent hints, bind a ``state.status`` string to a ``statusbar`` or text block.
 3. Combine with success/error tones to give clear guidance after actions.
 
@@ -85,7 +92,7 @@ Theming and styling tweaks
 Source: ``examples/widgets/spinner_demo.py`` + :doc:`../user_guide/styling`
 
 1. Create a custom ``Theme`` with overrides (button colors, frame borders).
-2. Call ``app.renderer.set_theme(custom_theme)`` during startup or in response to user preference toggles.
+2. Register and activate it via ``app.renderer.theme_manager.register_theme(custom_theme)`` followed by ``app.renderer.theme_manager.set_theme(custom_theme.name)`` during startup or in response to user preference toggles.
 3. Use ``style={...}`` attributes on template tags for one-off overrides (e.g., danger buttons).
 4. Snapshot the UI after theme changes to catch regressions.
 

@@ -30,16 +30,17 @@ Single key updates
 Batch updates
 ^^^^^^^^^^^^^
 
-Group related changes to avoid multiple renders. Wrapping updates in a helper keeps intent clear:
+Each assignment normally fires its own change callbacks immediately. To coalesce a group of related changes into a single notification, use ``State.batch_update()`` (sync) or ``State.async_batch_update()`` (async). Inside the context manager intermediate callbacks are suppressed, and on exit each key that actually changed (comparing original old vs. final new value) triggers callbacks once:
 
 .. code-block:: python
 
     def update_profile(name: str, email: str) -> None:
         state = app.state
-        state["status"] = "Saving…"
-        state["profile"] = {**state["profile"], "name": name, "email": email}
+        with state.batch_update():
+            state["status"] = "Saving…"
+            state["profile"] = {**state["profile"], "name": name, "email": email}
 
-State will emit two change events (``status`` then ``profile``); the renderer coalesces them into a single frame.
+In async code, prefer ``async with state.async_batch_update():`` so async callbacks are awaited before the context exits.
 
 Watching specific keys
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -68,7 +69,7 @@ Long-running operations should not block the event loop. Typical pattern:
         finally:
             app.state.loading = False
 
-``State`` ensures watchers run on the loop thread; avoid mutating state from raw background threads. If you must, schedule back onto the loop using ``asyncio.run_coroutine_threadsafe`` or ``loop.call_soon_threadsafe``. The ``EventLoop`` constructor accepts a ``ThreadPoolExecutor`` so heavy synchronous handlers can run off-thread while still updating state safely afterward.
+``State`` ensures watchers run on the loop thread; avoid mutating state from raw background threads. If you must, schedule back onto the loop using ``asyncio.run_coroutine_threadsafe`` or ``loop.call_soon_threadsafe``. To run heavy synchronous handlers off the main loop, set the config keys ``RUN_SYNC_IN_EXECUTOR = True`` (and optionally ``EXECUTOR_MAX_WORKERS``); they can then update state safely afterward.
 
 Derived & computed data
 -----------------------
@@ -110,10 +111,10 @@ Template snippet:
 .. code-block:: jinja
 
     {% if state.form_errors.username %}
-      {% notification tone="error" %}{{ state.form_errors.username }}{% endnotification %}
+      {{ state.form_errors.username }}
     {% endif %}
 
-Remember to clear or overwrite errors after successful submission. Because ``State`` uses deep equality, setting ``form_errors`` to a new dict ensures watchers fire even if the previous dict was empty.
+Remember to clear or overwrite errors after successful submission. ``State`` decides whether to fire watchers by comparing the new value to the old with ``!=``, so assigning a fresh ``form_errors`` dict whose contents differ from the previous one ensures watchers run.
 
 Refreshing manually
 -------------------

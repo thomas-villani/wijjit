@@ -22,7 +22,7 @@ def main_view():
     """Main view showcasing ImageView element."""
     # Use minimal template to avoid whitespace issues
     return {
-        "template": """{% frame title="ImageView Demo" border_style="double" width=80 height=40 %}
+        "template": """{% frame title="ImageView Demo" border="double" width=80 height=40 %}
 Renders images as ANSI colored characters in the terminal
 Toggle braille mode for B&W rendering | Press 'q' to quit
 {% hstack %}

@@ -24,7 +24,7 @@ app.renderer.theme_manager.set_theme("custom")
 def main_view():
     """Main view demonstrating CSS theme."""
     template = """
-    {% frame border_style="single" title="CSS Theme Demo - Styles from custom_theme.css" %}
+    {% frame border="single" title="CSS Theme Demo - Styles from custom_theme.css" %}
       {% vstack spacing=1 %}
         {% text class="text-bold" %}This theme was loaded from a CSS file!{% endtext %}
 

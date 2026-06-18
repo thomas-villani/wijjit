@@ -89,7 +89,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="Dialog Showcase" border_style="double" width=90 height=28 %}
+{% frame title="Dialog Showcase" border="double" width=90 height=28 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Last Dialog: {{ state.last_dialog }}
@@ -98,7 +98,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=42 %}
-        {% frame title="Alert Dialogs" border_style="single" width="fill" %}
+        {% frame title="Alert Dialogs" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% button action="alert_info" %}Info Alert{% endbutton %}
             {% button action="alert_warning" %}Warning Alert{% endbutton %}
@@ -107,7 +107,7 @@ def main_view():
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Confirm Dialogs" border_style="single" width="fill" %}
+        {% frame title="Confirm Dialogs" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% button action="confirm_yesno" %}Yes/No Dialog{% endbutton %}
             {% button action="confirm_okcancel" %}OK/Cancel Dialog{% endbutton %}
@@ -117,14 +117,14 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=42 %}
-        {% frame title="Input Dialogs" border_style="single" width="fill" %}
+        {% frame title="Input Dialogs" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% button action="input_text" %}Text Input{% endbutton %}
             {% button action="input_name" %}Name Input{% endbutton %}
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Action Log" border_style="single" width="fill" height=12 %}
+        {% frame title="Action Log" border="single" width="fill" height=12 %}
           {% vstack padding=1 %}
 {{ action_log_text }}
           {% endvstack %}

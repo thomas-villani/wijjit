@@ -153,7 +153,7 @@ def main_view():
     """Main registration form view."""
     return {
         "template": """
-{% frame title="Registration Form" border_style="double" width=90 height=38 %}
+{% frame title="Registration Form" border="double" width=90 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}
@@ -185,7 +185,7 @@ def main_view():
 
     {% vstack spacing=0 %}
       Country: *
-      {% select id="country" width=50 border_style="single" title="" %}
+      {% select id="country" width=50 border="single" title="" %}
         {"value": "", "label": "Select your country"}
         United States
         Canada

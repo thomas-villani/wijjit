@@ -89,7 +89,7 @@ DataGrid
 
        # Get data as list of dicts
        from wijjit.elements.input.datagrid import DataGrid
-       grid = app.get_element("spreadsheet")
+       grid = app.get_element_by_id("spreadsheet")
        data_as_dicts = grid.get_data_as_dicts()
 
        # Get data as pandas DataFrame (if pandas available)
@@ -209,7 +209,7 @@ ContentView
 
     * ``content_type`` - Content format (default: ``"plain"``)
     * ``width`` / ``height`` - Display dimensions
-    * ``border_style`` - Border style: ``single``, ``double``, ``rounded``, or ``none``
+    * ``border`` - Border style: ``single``, ``double``, ``rounded``, or ``none``
     * ``title`` - Optional title in top border
     * ``show_scrollbar`` - Show vertical scrollbar (default: ``True``)
 
@@ -332,6 +332,21 @@ Notifications
        :language: python
        :pyobject: main_view
        :caption: ``examples/widgets/notification_demo.py`` – framing actionable hints
+
+ImageView
+    Renders raster images as ASCII/ANSI art in the terminal (:mod:`wijjit.elements.display.imageview`). Requires the ``images`` extra (``pip install wijjit[images]``), which pulls in Pillow. Exposed via the ``{% imageview %}`` tag (registered alias: ``Image``). Accepts a file path, raw bytes, or a PIL ``Image`` as ``src`` and auto-binds it to ``state[id]`` unless ``bind=False``.
+
+    Key attributes:
+
+    * ``src`` - Image source: file path, bytes, or PIL ``Image``
+    * ``width`` / ``height`` - Size spec: int, ``"auto"``, ``"fill"``, or ``"50%"`` (default: ``"auto"``)
+    * ``braille`` - Use braille mode for black-and-white rendering (default: ``False``)
+    * ``invert`` - Invert the threshold in braille mode (default: ``False``)
+    * ``background`` - Background RGB tuple for transparent pixels (default: ``(0, 0, 0)``)
+
+    .. code-block:: jinja
+
+       {% imageview id="logo" src="assets/logo.png" width=40 %}{% endimageview %}
 
 Data Visualization
 ------------------
@@ -458,7 +473,7 @@ DropdownMenu / ContextMenu
        :end-before: """
 
 Modal
-    Base container for custom dialogs (:mod:`wijjit.elements.modal`). Combine with :doc:`modal_dialogs` for confirm/alert/input flows. Supports focus trapping, dimmed background, and layering via :class:`wijjit.core.overlay.OverlayManager`.
+    Base container for custom dialogs. The base modal element is :class:`wijjit.elements.display.modal.ModalElement`; the higher-level dialog subclasses (``ConfirmDialog``, ``AlertDialog``, ``TextInputDialog``) live in :mod:`wijjit.elements.modal`. Drive it from a template with ``{% modal id=... visible="state_key" %}...{% endmodal %}`` and combine with :doc:`modal_dialogs` for confirm/alert/input flows. Supports focus trapping, dimmed background, and layering via :class:`wijjit.core.overlay.OverlayManager`.
 
 NotificationElement
     For toast-style notifications. Usually managed through :class:`wijjit.core.notification_manager.NotificationManager`.
@@ -473,7 +488,7 @@ TabbedPanel
 
     * ``tab_position`` - Position of tabs: ``top`` (default), ``bottom``, ``left``, ``right``
     * ``width`` / ``height`` - Panel dimensions
-    * ``border_style`` - Border style: ``single`` (default), ``double``, ``rounded``
+    * ``border`` - Border style: ``single`` (default), ``double``, ``rounded``
     * ``active_tab_index`` - Initially active tab (default: 0)
 
     Navigation:
@@ -504,6 +519,33 @@ TabbedPanel
        {% endtabbedpanel %}
 
     See ``examples/widgets/tabbedpanel_demo.py`` for a complete interactive demonstration with all tab positions.
+
+Pager
+    Paged container that shows one ``{% page %}`` at a time with built-in navigation (:mod:`wijjit.elements.display.pager`). Useful for wizards, slideshows, onboarding flows, or any sequential multi-step UI. Each child ``{% page %}`` is a self-contained frame; the pager renders a "Page X of Y" indicator and Prev/Next controls.
+
+    Key attributes:
+
+    * ``nav_position`` - Position of navigation controls: ``top``, ``bottom`` (default), or ``both``
+    * ``show_indicator`` - Show the "Page X of Y" indicator (default: ``True``)
+    * ``show_titles`` - Show the page title in the indicator (default: ``False``)
+    * ``loop`` - Wrap from the last page back to the first (default: ``False``)
+    * ``current_page`` - State key name for page binding, or an initial page index (default: ``0``)
+    * ``width`` / ``height`` - Pager dimensions (default: 60 x 20)
+    * ``border`` - Border style: ``single`` (default), ``double``, ``rounded``, ``none``
+
+    .. code-block:: jinja
+
+       {% pager id="wizard" nav_position="bottom" show_indicator=True %}
+           {% page title="Welcome" %}
+               Welcome to the setup wizard.
+           {% endpage %}
+           {% page title="Account" %}
+               {% textinput id="username" placeholder="Username" width=30 %}{% endtextinput %}
+           {% endpage %}
+           {% page title="Done" %}
+               All set!
+           {% endpage %}
+       {% endpager %}
 
 Custom components
 -----------------

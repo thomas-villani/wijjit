@@ -37,7 +37,7 @@ def home_view():
     """Home view with basic status bar."""
     return {
         "template": """
-{% frame title="StatusBar Demo - Home" border_style="rounded" width=80 height=20 %}
+{% frame title="StatusBar Demo - Home" border="rounded" width=80 height=20 %}
     Welcome to the StatusBar Demo!
 
     This demo shows view-scoped status bars with:
@@ -74,7 +74,7 @@ def editor_view():
     """Editor view with position tracking in status bar."""
     return {
         "template": """
-{% frame title="StatusBar Demo - Editor" border_style="rounded" width=80 height=20 %}
+{% frame title="StatusBar Demo - Editor" border="rounded" width=80 height=20 %}
     Editor View
 
     This view shows a status bar with cursor position information.
@@ -111,7 +111,7 @@ def stats_view():
     """Stats view with document statistics in status bar."""
     return {
         "template": """
-{% frame title="StatusBar Demo - Statistics" border_style="rounded" width=80 height=20 %}
+{% frame title="StatusBar Demo - Statistics" border="rounded" width=80 height=20 %}
     Statistics View
 
     This view shows document statistics in the status bar.

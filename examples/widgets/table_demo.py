@@ -83,7 +83,7 @@ def main_view():
     """Main view showcasing table element."""
     return {
         "template": """
-{% frame title="Table Demo - User Directory" border_style="double" width=100 height=29 %}
+{% frame title="Table Demo - User Directory" border="double" width=100 height=29 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.message }}
@@ -101,7 +101,7 @@ def main_view():
              height=19
              show_header=true
              show_scrollbar=true
-             border_style="single" %}
+             border="single" %}
     {% endtable %}
 
     {% hstack spacing=2 %}

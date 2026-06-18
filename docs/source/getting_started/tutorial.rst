@@ -104,30 +104,28 @@ Add the main view below the app definition:
         {% hstack spacing=1 %}
           {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" %}
           {% endtextinput %}
-          {% button action="clear_done" variant="secondary" %}Clear Done{% endbutton %}
+          {% button action="clear_done" %}Clear Done{% endbutton %}
         {% endhstack %}
 
-        {% hstack spacing=1 %}
-          {% button action="filter_all" variant="secondary" %}All{% endbutton %}
-          {% button action="filter_active" variant="secondary" %}Active{% endbutton %}
-          {% button action="filter_done" variant="secondary" %}Done{% endbutton %}
-          {% spacer width="fill" %}
+        {% hstack spacing=1 justify="space_between" %}
+          {% button action="filter_all" %}All{% endbutton %}
+          {% button action="filter_active" %}Active{% endbutton %}
+          {% button action="filter_done" %}Done{% endbutton %}
           Completed: {{ completed }}/{{ todos|length }}
         {% endhstack %}
 
         {% frame title="Tasks" height="fill" scrollable=True %}
           {% vstack spacing=0 %}
             {% for todo in filtered %}
-              {% hstack spacing=1 padding=0 %}
+              {% hstack spacing=1 padding=0 justify="space_between" %}
                 {% checkbox id="todo_{{ todo.id }}" bind=False
                              action="toggle_{{ todo.id }}"
                              checked=todo.done %}
                 {% endcheckbox %}
-                {% text element="span" %}
+                {% text %}
                   {{ todo.text }}
                 {% endtext %}
-                {% spacer width="fill" %}
-                {% button action="delete_{{ todo.id }}" variant="ghost" %}×{% endbutton %}
+                {% button action="delete_{{ todo.id }}" %}×{% endbutton %}
               {% endhstack %}
             {% else %}
               No tasks matching this filter.
@@ -198,7 +196,6 @@ Add the handlers at the bottom of the file:
             app.state["status"] = f"Showing {mode} tasks."
 
 
-    @app.on(EventType.ACTION, scope=HandlerScope.VIEW)
     def handle_item_actions(event: ActionEvent):
         action = (event.action_id or "")
         if action.startswith("toggle_"):
@@ -220,6 +217,8 @@ Add the handlers at the bottom of the file:
             app.state["todos"] = [todo for todo in todos if todo["id"] != todo_id]
             app.state["status"] = "Task deleted."
             persist()
+
+    app.on(EventType.ACTION, handle_item_actions, scope=HandlerScope.VIEW, view_name="main")
 
 This setup keeps the code compact: a single handler inspects ``ActionEvent.action_id`` to determine whether the user clicked a checkbox or delete button, so you don’t need to dynamically register per-item callbacks.
 
@@ -315,28 +314,26 @@ If you prefer a single block to copy, here is the finished script:
         {% hstack spacing=1 %}
           {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" %}
           {% endtextinput %}
-          {% button action="clear_done" variant="secondary" %}Clear Done{% endbutton %}
+          {% button action="clear_done" %}Clear Done{% endbutton %}
         {% endhstack %}
 
-        {% hstack spacing=1 %}
-          {% button action="filter_all" variant="secondary" %}All{% endbutton %}
-          {% button action="filter_active" variant="secondary" %}Active{% endbutton %}
-          {% button action="filter_done" variant="secondary" %}Done{% endbutton %}
-          {% spacer width="fill" %}
+        {% hstack spacing=1 justify="space_between" %}
+          {% button action="filter_all" %}All{% endbutton %}
+          {% button action="filter_active" %}Active{% endbutton %}
+          {% button action="filter_done" %}Done{% endbutton %}
           Completed: {{ completed }}/{{ todos|length }}
         {% endhstack %}
 
         {% frame title="Tasks" height="fill" scrollable=True %}
           {% vstack spacing=0 %}
             {% for todo in filtered %}
-              {% hstack spacing=1 padding=0 %}
+              {% hstack spacing=1 padding=0 justify="space_between" %}
                 {% checkbox id="todo_{{ todo.id }}" bind=False action="toggle_{{ todo.id }}" checked=todo.done %}
                 {% endcheckbox %}
-                {% text element="span" %}
+                {% text %}
                   {{ todo.text }}
                 {% endtext %}
-                {% spacer width="fill" %}
-                {% button action="delete_{{ todo.id }}" variant="ghost" %}×{% endbutton %}
+                {% button action="delete_{{ todo.id }}" %}×{% endbutton %}
               {% endhstack %}
             {% else %}
               No tasks matching this filter.
@@ -392,7 +389,6 @@ If you prefer a single block to copy, here is the finished script:
             app.state["status"] = f"Showing {mode} tasks."
 
 
-    @app.on(EventType.ACTION, scope=HandlerScope.VIEW)
     def handle_item_actions(event: ActionEvent):
         action = (event.action_id or "")
         if action.startswith("toggle_"):
@@ -414,6 +410,8 @@ If you prefer a single block to copy, here is the finished script:
             app.state["todos"] = [todo for todo in todos if todo["id"] != todo_id]
             app.state["status"] = "Task deleted."
             persist()
+
+    app.on(EventType.ACTION, handle_item_actions, scope=HandlerScope.VIEW, view_name="main")
 
 
     @app.on_key("ctrl+s")

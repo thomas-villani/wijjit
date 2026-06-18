@@ -23,11 +23,11 @@ def main():
         """Main view with nested split panels."""
         return {
             "template": """
-{% frame title="Nested Split Panel Demo - IDE Layout" border_style="double" width=fill height=fill %}
+{% frame title="Nested Split Panel Demo - IDE Layout" border="double" width=fill height=fill %}
   {% splitpanel orientation="horizontal" ratio="25:75" id="outer" %}
 
     {# Left panel: File explorer #}
-    {% frame title="Explorer" border_style="single" %}
+    {% frame title="Explorer" border="single" %}
       {% vstack spacing=0 %}
         + src/
           + wijjit/
@@ -50,7 +50,7 @@ def main():
     {% splitpanel orientation="vertical" ratio="60:40" id="editors" %}
 
       {# Top: Main editor #}
-      {% frame title="Editor: splitpanel.py" border_style="single" %}
+      {% frame title="Editor: splitpanel.py" border="single" %}
         {% vstack spacing=0 %}
 class SplitPanel(Container):
     # Resizable split panel container.
@@ -69,7 +69,7 @@ class SplitPanel(Container):
       {% endframe %}
 
       {# Bottom: Output/terminal #}
-      {% frame title="Terminal" border_style="single" %}
+      {% frame title="Terminal" border="single" %}
         {% vstack spacing=0 %}
 $ python -m pytest tests/ -v
 ===== test session starts =====

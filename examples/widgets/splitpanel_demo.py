@@ -23,9 +23,9 @@ def main():
         """Main view with split panel."""
         return {
             "template": """
-{% frame title="Split Panel Demo" border_style="double" width=fill height=fill %}
+{% frame title="Split Panel Demo" border="double" width=fill height=fill %}
   {% splitpanel orientation="horizontal" ratio="30:70" collapsible="first" id="main_split" %}
-    {% frame title="Sidebar" border_style="single" %}
+    {% frame title="Sidebar" border="single" %}
       {% vstack spacing=1 %}
         Navigation:
 
@@ -40,7 +40,7 @@ def main():
       {% endvstack %}
     {% endframe %}
 
-    {% frame title="Main Content" border_style="single" %}
+    {% frame title="Main Content" border="single" %}
       {% vstack spacing=1 %}
         Enter some text below:
 

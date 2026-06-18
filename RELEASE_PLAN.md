@@ -128,7 +128,7 @@ Use the Phase 1 harness to reproduce and regression-test each.
       view-switch items are wall-clock animation timing, which `harness.tick`
       bypasses (it advances frames directly). All three are real-terminal/timing
       issues the headless harness fundamentally can't drive; deferred rather than
-      patched blind. (AGENTS.md already lists Unicode-on-Windows as a known
+      patched blind. (CLAUDE.md already lists Unicode-on-Windows as a known
       limitation.)
 - [x] **Display:** done.
   - [x] table scrollbar focus color: the table resolved non-existent
@@ -332,9 +332,9 @@ on a clean machine across the supported Python/OS matrix.
 - [ ] Repo hygiene: stray debug `*.log` files at root are gitignored - leave
       or delete. Untracked logo PNGs and scratch `.md` plans: decide what to
       commit vs move under `etc/`/`plan/` (already gitignored).
-- [ ] Confirm `@AGENTS.md` import in `CLAUDE.md` loads as expected next session.
+- [ ] Confirm `CLAUDE.md` loads as expected next session.
 - [ ] Consider a `py.typed` marker (the package advertises `Typing :: Typed`).
-- [ ] Keep `AGENTS.md` as the single source of project guidance.
+- [ ] Keep `CLAUDE.md` as the single source of project guidance.
 
 ## Definition of Done for 0.1.0
 

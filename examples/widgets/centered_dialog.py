@@ -29,11 +29,11 @@ def dialog_view():
 
     return {
         "template": """
-{% frame title="Desktop" border_style="double" height=frame_height %}
+{% frame title="Desktop" border="double" height=frame_height %}
   {% vstack align_h="center" align_v="middle" %}
 
     {% frame title="Welcome!"
-             border_style="rounded"
+             border="rounded"
              width=50
              height=10
              content_align_h="center"

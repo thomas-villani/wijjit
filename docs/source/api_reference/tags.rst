@@ -13,6 +13,10 @@ Layout tags
    wijjit.tags.layout.VStackExtension
    wijjit.tags.layout.HStackExtension
    wijjit.tags.layout.FrameExtension
+   wijjit.tags.layout.GridExtension
+   wijjit.tags.layout.ColspanExtension
+   wijjit.tags.layout.RowspanExtension
+   wijjit.tags.layout.SplitPanelExtension
 
 Input tags
 ----------
@@ -30,6 +34,9 @@ Input tags
    wijjit.tags.input.RadioExtension
    wijjit.tags.input.RadioGroupExtension
    wijjit.tags.input.SelectExtension
+   wijjit.tags.input.SliderExtension
+   wijjit.tags.input.ToggleExtension
+   wijjit.tags.input.DataGridExtension
 
 Display tags
 ------------
@@ -38,6 +45,7 @@ Display tags
    :toctree: ../api/
    :nosignatures:
 
+   wijjit.tags.display.TextExtension
    wijjit.tags.display.TableExtension
    wijjit.tags.display.TreeExtension
    wijjit.tags.display.ProgressBarExtension
@@ -82,3 +90,15 @@ Dialogs & menus
    wijjit.tags.menu.MenuItemExtension
    wijjit.tags.menu.DropdownExtension
    wijjit.tags.menu.ContextMenuExtension
+
+Item tags
+---------
+
+Child-item tags used inside their parent container tags.
+
+.. autosummary::
+   :toctree: ../api/
+   :nosignatures:
+
+   wijjit.tags.input.SelectItemExtension
+   wijjit.tags.display.TreeItemExtension

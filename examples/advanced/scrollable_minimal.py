@@ -15,12 +15,12 @@ def create_app():
         """Main view with simple scrollable frame."""
         return {
             "template": """
-{% frame title="Test" border_style="double" width=60 height=20 %}
+{% frame title="Test" border="double" width=60 height=20 %}
   {% vstack spacing=1 padding=2 %}
     Press Up/Down to scroll, q to quit
     Focus status: Frame should auto-focus when scrollable
 
-    {% frame id="scrollable_test" title="Scrollable" border_style="single" width="fill" height=10 scrollable=true %}
+    {% frame id="scrollable_test" title="Scrollable" border="single" width="fill" height=10 scrollable=true %}
         Line 1: This is test content
         Line 2: This is test content
         Line 3: This is test content

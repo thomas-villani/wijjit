@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Targeting the first public release, `0.1.0`. See `RELEASE_PLAN.md` for the
-remaining work.
+## [0.1.0] - 2026-06-18
+
+First public release.
 
 ### Added
 - Right-aligned (and centered) **table columns** via a per-column `align` key
@@ -54,4 +55,5 @@ remaining work.
   module level (code hygiene; no behavior change).
 - Version is now sourced from `wijjit.__version__` (single source of truth).
 
-[Unreleased]: https://github.com/thomas-villani/wijjit/commits/main
+[Unreleased]: https://github.com/thomas-villani/wijjit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/thomas-villani/wijjit/releases/tag/v0.1.0

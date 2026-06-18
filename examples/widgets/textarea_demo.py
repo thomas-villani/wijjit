@@ -134,7 +134,7 @@ def create_app():
 
         return {
             "template": """{% frame height="fill" title="TextArea demo" %}
-{% textarea id="content" height=10 width=80 show_scrollbar=true border_style="single" %}{% endtextarea %}
+{% textarea id="content" height=10 width=80 show_scrollbar=true border="single" %}{% endtextarea %}
 
   Lines: {{ state.lines }}  |  Chars: {{ state.chars }}  |  Wrap: {{ state.wrap_display }}
   [Shift+Arrows] Select  [Ctrl+C/X/V] Clipboard  [Ctrl+A] Select All  [Ctrl+Q] Quit

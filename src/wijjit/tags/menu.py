@@ -184,6 +184,7 @@ class DropdownExtension(Extension):
         key: str | None = None,
         visible: str | None = None,
         width: int = 30,
+        border: str | None = None,
         border_style: str = "single",
         **kwargs: Any,
     ) -> str:
@@ -203,6 +204,9 @@ class DropdownExtension(Extension):
             State key name for visibility control
         width : int
             Menu width (default: 30)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", or "rounded" (default: "single")
 
@@ -211,6 +215,8 @@ class DropdownExtension(Extension):
         str
             Rendered output (empty string, menu is registered as overlay)
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
@@ -326,6 +332,7 @@ class ContextMenuExtension(Extension):
         target: str | None = None,
         visible: str | None = None,
         width: int = 30,
+        border: str | None = None,
         border_style: str = "single",
         **kwargs: Any,
     ) -> str:
@@ -343,6 +350,9 @@ class ContextMenuExtension(Extension):
             State key name for visibility control
         width : int
             Menu width (default: 30)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", or "rounded" (default: "single")
 
@@ -351,6 +361,8 @@ class ContextMenuExtension(Extension):
         str
             Rendered output (empty string, menu is registered as overlay)
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 

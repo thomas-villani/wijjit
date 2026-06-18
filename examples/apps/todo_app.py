@@ -191,7 +191,7 @@ def main_view():
 
     return {
         "template": """
-{% frame border_style="rounded" title="Todo App" width=70 height=24 %}
+{% frame border="rounded" title="Todo App" width=70 height=24 %}
   {% vstack spacing=1 padding=1 %}
 
     {# Input row - Enter in textinput triggers add_todo action #}
@@ -209,7 +209,7 @@ def main_view():
     {% endhstack %}
 
     {# Scrollable todo list #}
-    {% frame border_style="single" height=12 scrollable=True show_scrollbar=True %}
+    {% frame border="single" height=12 scrollable=True show_scrollbar=True %}
       {% vstack spacing=0 %}
         {% if filtered_todos %}
           {% for todo in filtered_todos %}

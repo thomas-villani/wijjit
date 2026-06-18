@@ -21,12 +21,12 @@ def flexbox_demo():
     """HStack flexbox features demo view."""
     return {
         "template": """
-{% frame title="HStack Flexbox Features" border_style="double" width=80 height=30 %}
+{% frame title="HStack Flexbox Features" border="double" width=80 height=30 %}
   {% vstack spacing=1 %}
 
     {# Row 1: Justify modes - space-between, space-around, space-evenly #}
     {# NOTE: width="fill" is required for justify to work - hstack must expand to fill container #}
-    {% frame title="Justify: space-between" border_style="rounded" width=76 height=3 %}
+    {% frame title="Justify: space-between" border="rounded" width=76 height=3 %}
       {% hstack justify="space-between" width="fill" %}
         {% button %}Left{% endbutton %}
         {% button %}Center{% endbutton %}
@@ -34,7 +34,7 @@ def flexbox_demo():
       {% endhstack %}
     {% endframe %}
 
-    {% frame title="Justify: space-around" border_style="rounded" width=76 height=3 %}
+    {% frame title="Justify: space-around" border="rounded" width=76 height=3 %}
       {% hstack justify="space-around" width="fill" %}
         {% button %}One{% endbutton %}
         {% button %}Two{% endbutton %}
@@ -42,7 +42,7 @@ def flexbox_demo():
       {% endhstack %}
     {% endframe %}
 
-    {% frame title="Justify: space-evenly" border_style="rounded" width=76 height=3 %}
+    {% frame title="Justify: space-evenly" border="rounded" width=76 height=3 %}
       {% hstack justify="space-evenly" width="fill" %}
         {% button %}A{% endbutton %}
         {% button %}B{% endbutton %}
@@ -52,21 +52,21 @@ def flexbox_demo():
 
     {# Row 2: Justify alignment modes #}
     {% hstack spacing=1 height=3 %}
-      {% frame title="flex-start" border_style="single" width=24 height=3 %}
+      {% frame title="flex-start" border="single" width=24 height=3 %}
         {% hstack justify="flex-start" width="fill" column_gap=1 %}
           {% button %}1{% endbutton %}
           {% button %}2{% endbutton %}
         {% endhstack %}
       {% endframe %}
 
-      {% frame title="center" border_style="single" width=24 height=3 %}
+      {% frame title="center" border="single" width=24 height=3 %}
         {% hstack justify="center" width="fill" column_gap=1 %}
           {% button %}1{% endbutton %}
           {% button %}2{% endbutton %}
         {% endhstack %}
       {% endframe %}
 
-      {% frame title="flex-end" border_style="single" width=24 height=3 %}
+      {% frame title="flex-end" border="single" width=24 height=3 %}
         {% hstack justify="flex-end" width="fill" column_gap=1 %}
           {% button %}1{% endbutton %}
           {% button %}2{% endbutton %}
@@ -75,7 +75,7 @@ def flexbox_demo():
     {% endhstack %}
 
     {# Row 3: Wrap demonstration #}
-    {% frame title="Wrap: Items wrap to next row (row_gap=1)" border_style="rounded" width=76 height=6 %}
+    {% frame title="Wrap: Items wrap to next row (row_gap=1)" border="rounded" width=76 height=6 %}
       {% hstack wrap=True width="fill" column_gap=1 row_gap=1 %}
         {% button %}Alpha{% endbutton %}
         {% button %}Beta{% endbutton %}
@@ -91,7 +91,7 @@ def flexbox_demo():
     {% endframe %}
 
     {# Row 4: Wrap with centering #}
-    {% frame title="Wrap + Justify Center" border_style="rounded" width=76 height=5 %}
+    {% frame title="Wrap + Justify Center" border="rounded" width=76 height=5 %}
       {% hstack wrap=True justify="center" width="fill" gap=1 %}
         {% button %}Tag1{% endbutton %}
         {% button %}Tag2{% endbutton %}

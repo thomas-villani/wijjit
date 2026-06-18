@@ -48,7 +48,7 @@ def main_view():
     """
     return {
         "template": """
-{% frame title="Context Menu Demo" border_style="double" width=70 height=20 %}
+{% frame title="Context Menu Demo" border="double" width=70 height=20 %}
       Status: {{ state.status }}
       Selected: {{ state.selected_file }}
 

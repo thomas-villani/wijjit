@@ -54,7 +54,7 @@ def demo_default_theme():
     @app.view("main", default=True)
     def main_view():
         template = """
-{% frame border_style="single" title="Dark Theme Demo" %}
+{% frame border="single" title="Dark Theme Demo" %}
   {% vstack spacing=1 %}
     This uses the built-in 'dark' theme
     configured via DEFAULT_THEME config.
@@ -105,7 +105,7 @@ def demo_config_file():
         @app.view("main", default=True)
         def main_view():
             template = """
-{% frame border_style="single" title="Config File Theme Demo" %}
+{% frame border="single" title="Config File Theme Demo" %}
   {% vstack spacing=1 %}
     Theme loaded from config.py file
 

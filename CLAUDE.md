@@ -1,7 +1,8 @@
-# AGENTS.md
+# CLAUDE.md
 
 Guidance for AI agents (Claude Code and others) working in this repository.
-This is the canonical project guide; `CLAUDE.md` imports it via `@AGENTS.md`.
+This is the canonical, version-controlled project guide; Claude Code loads it
+automatically.
 
 ## Project Overview
 
@@ -154,7 +155,7 @@ preserves cursor/scroll/selection state across renders.
   tab-index) and mouse hover lifecycle.
 - **mouse_router.py** - Hit testing, overlay-first routing by z-index, context
   menu (right-click), hover updates, async element mouse dispatch.
-- **overlay.py** - Layered overlays (`NOTIFICATION`, `MODAL`, `MENU`, `CUSTOM`),
+- **overlay.py** - Layered overlays (`LayerType`: `BASE`, `MODAL`, `DROPDOWN`, `TOOLTIP`),
   z-index, click-outside, auto-positioning, focus trapping.
 - **notification_manager.py** - Notification lifecycle/positioning/expiry.
 - **view_router.py** - View registration/navigation, `ViewConfig`, async views
@@ -224,8 +225,8 @@ Jinja2 extensions: `layout.py` (vstack/hstack/frame/pager/page),
 
 `style.py`, `theme.py`, `resolver.py`, and `css_parser.py` (CSS theming via
 `tinycss2`). Themes load from CSS/JSON files or built-ins. Config keys:
-`DEFAULT_THEME` ('default'/'dark'/'light'), `THEME_FILE`, `STYLE_FILE`,
-`FOCUS_COLOR`, `NO_COLOR`, `FORCE_COLOR`, `UNICODE_SUPPORT`.
+`DEFAULT_THEME` ('default'/'dark'/'light'/'high_contrast'), `THEME_FILE`,
+`STYLE_FILE`, `FOCUS_COLOR`, `NO_COLOR`, `UNICODE_SUPPORT`.
 
 ### Rendering Layer (`src/wijjit/rendering/`)
 

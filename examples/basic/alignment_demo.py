@@ -18,50 +18,50 @@ def alignment_demo():
     """Alignment and margin demo view."""
     return {
         "template": """
-{% frame title="Content Alignment & Margin Demo" border_style="double" height=20 %}
+{% frame title="Content Alignment & Margin Demo" border="double" height=20 %}
   {% vstack spacing=1 %}
 
     {# Row 1: Content horizontal alignment #}
     {% hstack height=5 spacing=1 %}
-      {% frame title="Left" border_style="rounded" width=20 height=5 content_align_h="left" %}
+      {% frame title="Left" border="rounded" width=20 height=5 content_align_h="left" %}
         Left text
       {% endframe %}
 
-      {% frame title="Center" border_style="rounded" width=20 height=5 content_align_h="center" %}
+      {% frame title="Center" border="rounded" width=20 height=5 content_align_h="center" %}
         Centered
       {% endframe %}
 
-      {% frame title="Right" border_style="rounded" width=20 height=5 content_align_h="right" %}
+      {% frame title="Right" border="rounded" width=20 height=5 content_align_h="right" %}
         Right text
       {% endframe %}
     {% endhstack %}
 
     {# Row 2: Content vertical alignment #}
     {% hstack height=8 spacing=1 %}
-      {% frame title="Top" border_style="single" width=20 height=8 content_align_v="top" %}
+      {% frame title="Top" border="single" width=20 height=8 content_align_v="top" %}
         At top
       {% endframe %}
 
-      {% frame title="Middle" border_style="single" width=20 height=8 content_align_v="middle" %}
+      {% frame title="Middle" border="single" width=20 height=8 content_align_v="middle" %}
         In middle
       {% endframe %}
 
-      {% frame title="Bottom" border_style="single" width=20 height=8 content_align_v="bottom" %}
+      {% frame title="Bottom" border="single" width=20 height=8 content_align_v="bottom" %}
         At bottom
       {% endframe %}
     {% endhstack %}
 
     {# Row 3: Margins demonstration #}
     {% hstack height=10 spacing=0 %}
-      {% frame title="No Margin" border_style="single" width=20 height=8 margin=0 %}
+      {% frame title="No Margin" border="single" width=20 height=8 margin=0 %}
         margin=0
       {% endframe %}
 
-      {% frame title="Margin=1" border_style="single" width=20 height=8 margin=1 %}
+      {% frame title="Margin=1" border="single" width=20 height=8 margin=1 %}
         margin=1
       {% endframe %}
 
-      {% frame title="Margin=2" border_style="single" width=20 height=8 margin=2 %}
+      {% frame title="Margin=2" border="single" width=20 height=8 margin=2 %}
         margin=2
       {% endframe %}
     {% endhstack %}

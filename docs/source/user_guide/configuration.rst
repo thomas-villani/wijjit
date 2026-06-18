@@ -199,7 +199,7 @@ QUIT_KEY
    app.config['QUIT_KEY'] = 'ctrl+c'   # Ctrl+C
    app.config['QUIT_KEY'] = 'escape'   # ESC key
 
-Display & Terminal (2 options)
+Display & Terminal (3 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 USE_ALTERNATE_SCREEN
@@ -223,6 +223,17 @@ HIDE_CURSOR
 .. code-block:: python
 
    app.config['HIDE_CURSOR'] = False  # Keep cursor visible
+
+APP_TITLE
+^^^^^^^^^
+
+:Type: ``str`` or ``None``
+:Default: ``None``
+:Description: Terminal window/tab title (OSC 0 text). When set, Wijjit emits the title on startup so the terminal tab or window shows it. Most shells reset the title from their prompt hook when the app exits, so no explicit restore is performed. ``None`` leaves the terminal title untouched.
+
+.. code-block:: python
+
+   app.config['APP_TITLE'] = 'My Wijjit App'  # Set the terminal title
 
 Process Control (1 option)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -248,7 +259,7 @@ ENABLE_SUSPEND
 .. note::
    This feature only works on Unix-like systems. On Windows, job control signals are not available.
 
-Colors & Theming (7 options)
+Colors & Theming (6 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 FOCUS_COLOR
@@ -286,23 +297,12 @@ NO_COLOR
 
    export NO_COLOR=1  # Automatically disables colors
 
-FORCE_COLOR
-^^^^^^^^^^^
-
-:Type: ``bool``
-:Default: ``False``
-:Description: Force color output even if terminal doesn't appear to support it
-
-.. code-block:: python
-
-   app.config['FORCE_COLOR'] = True  # Always use colors
-
 DEFAULT_THEME
 ^^^^^^^^^^^^^
 
 :Type: ``str``
 :Default: ``'default'``
-:Values: ``'default'``, ``'dark'``, ``'light'``, or custom theme name
+:Values: ``'default'``, ``'dark'``, ``'light'``, ``'high_contrast'``, or custom theme name
 :Description: Built-in theme to use
 
 .. code-block:: python
@@ -345,7 +345,7 @@ UNICODE_SUPPORT
    app.config['UNICODE_SUPPORT'] = 'disable'  # ASCII only
    app.config['UNICODE_SUPPORT'] = 'auto'     # Auto-detect (default)
 
-Performance & Threading (7 options)
+Performance & Threading (5 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 REFRESH_INTERVAL
@@ -408,16 +408,8 @@ EXECUTOR_MAX_WORKERS
 
    app.config['EXECUTOR_MAX_WORKERS'] = 4  # 4 worker threads
 
-USE_DIFF_RENDERING
-^^^^^^^^^^^^^^^^^^
-
-:Type: ``bool``
-:Default: ``True``
-:Description: Use diff-based rendering (only update changed cells)
-
-.. code-block:: python
-
-   app.config['USE_DIFF_RENDERING'] = False  # Full redraw every frame
+Rendering (1 option)
+~~~~~~~~~~~~~~~~~~~~~
 
 RENDER_THROTTLE_MS
 ^^^^^^^^^^^^^^^^^^
@@ -495,7 +487,7 @@ NOTIFICATION_MAX_STACK
    app.config['NOTIFICATION_MAX_STACK'] = 10  # Allow 10 notifications
    app.config['NOTIFICATION_MAX_STACK'] = None  # Unlimited
 
-Logging (4 options)
+Logging (5 options)
 ~~~~~~~~~~~~~~~~~~~
 
 LOG_LEVEL
@@ -542,6 +534,17 @@ LOG_FORMAT
 .. code-block:: python
 
    app.config['LOG_FORMAT'] = '%(levelname)s: %(message)s'  # Simple format
+
+SUPPRESS_INTERNAL_LOGGING_CONFIG
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``False``
+:Description: When ``True``, Wijjit will not configure its own loggers, giving the host application full control over logging. Set this if you have pre-configured logging handlers for the ``wijjit`` namespace and don't want Wijjit to override them.
+
+.. code-block:: python
+
+   app.config['SUPPRESS_INTERNAL_LOGGING_CONFIG'] = True  # Host owns logging config
 
 Debug & Development (6 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -643,6 +646,20 @@ TEMPLATE_AUTO_RELOAD
 .. note::
    **Status**: Not yet implemented. See Phase 3 in ``claude-config-next-steps.md``
 
+HTML Content (1 option)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+HTML_CONTENT
+^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``False``
+:Description: Global toggle for HTML content parsing. When ``True``, elements that support HTML will parse HTML tags in their content. Individual elements can still override this with their own ``html=True``/``html=False`` parameter.
+
+.. code-block:: python
+
+   app.config['HTML_CONTENT'] = True  # Parse HTML in content-bearing elements
+
 Accessibility (2 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -682,45 +699,6 @@ Features of the high contrast theme:
 .. tip::
    Enable ``HIGH_CONTRAST`` for users with vision impairments or those requiring enhanced visibility. This theme follows WCAG high contrast guidelines.
 
-Testing & CI (3 options)
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-TESTING
-^^^^^^^
-
-:Type: ``bool``
-:Default: ``False``
-:Description: Testing mode flag (may affect behavior for test stability)
-
-.. code-block:: python
-
-   app.config['TESTING'] = True  # Enable testing mode
-
-CI
-^^
-
-:Type: ``bool``
-:Default: Auto-detected from ``CI`` env var
-:Description: CI/CD mode (implies NO_COLOR, disables animations, etc.)
-
-.. code-block:: bash
-
-   export CI=1  # Automatically enables CI mode
-
-HEADLESS
-^^^^^^^^
-
-:Type: ``bool``
-:Default: ``False``
-:Description: Headless mode for automated testing (no terminal required)
-
-.. code-block:: python
-
-   app.config['HEADLESS'] = True  # Headless mode
-
-.. note::
-   **Status**: Not yet implemented. See Phase 3 in ``claude-config-next-steps.md``
-
 Common Use Cases
 ----------------
 
@@ -753,7 +731,6 @@ Production Environment
    LOG_FILE = '/var/log/myapp.log'
    RUN_SYNC_IN_EXECUTOR = True
    EXECUTOR_MAX_WORKERS = 4
-   USE_DIFF_RENDERING = True
 
 .. code-block:: python
 
@@ -798,16 +775,21 @@ Performance Monitoring
 CI/CD Testing
 ~~~~~~~~~~~~~
 
+In CI you typically want colorless, deterministic output. Wijjit honors the
+``NO_COLOR`` standard, and any ``WIJJIT_*`` variable maps to a real config key:
+
 .. code-block:: bash
 
-   export WIJJIT_CI=1
+   export NO_COLOR=1            # Disable ANSI colors (no-color.org standard)
    export WIJJIT_LOG_LEVEL=DEBUG
-   export WIJJIT_TESTING=1
 
 .. code-block:: python
 
-   # Automatically configured for CI
-   app = Wijjit()  # CI mode active, colors disabled
+   # NO_COLOR and WIJJIT_* vars are picked up in Wijjit.__init__()
+   app = Wijjit()  # Colors disabled, debug logging enabled
+
+For driving an app without a real TTY in tests, use the headless harness
+(``wijjit.testing.WijjitHarness``) rather than a config flag.
 
 Best Practices
 --------------

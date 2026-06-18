@@ -18,7 +18,7 @@ Using ``uv`` (recommended)
 
 .. code-block:: bash
 
-    git clone https://github.com/yourusername/wijjit.git
+    git clone https://github.com/thomas-villani/wijjit.git
     cd wijjit
     uv pip install -e .
 
@@ -55,7 +55,7 @@ Run a smoke test and docs build:
 .. code-block:: bash
 
     uv run pytest -m "not slow"
-    uv run python -m wijjit --version  # optional helper
+    uv run python -c "import wijjit; print(wijjit.__version__)"  # confirm import + version
     uv run make -C docs html           # ensure Sphinx extensions import correctly
 
 You can also launch a demo:
@@ -73,6 +73,18 @@ Core libraries installed automatically:
 * ``prompt-toolkit`` – keyboard/mouse input, screen buffering.
 * ``rich`` – ANSI rendering utilities and colors.
 * ``pyperclip`` – clipboard integration for text inputs.
+* ``tinycss2`` – CSS parsing for themes/styles.
+* ``wcwidth`` – correct display widths for wide/combining characters.
+
+Optional ``images`` extra:
+
+.. code-block:: bash
+
+    pip install -e ".[images]"
+    # or
+    uv sync --extra images
+
+This installs ``Pillow`` to enable the ``ImageView`` element (ASCII/ANSI image rendering).
 
 Optional additions in ``.[dev]``:
 

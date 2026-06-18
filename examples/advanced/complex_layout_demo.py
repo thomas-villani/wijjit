@@ -22,7 +22,7 @@ def dashboard():
     """Dashboard-like view with three levels of nested layout."""
     return {
         "template": """
-{% frame title="Dashboard - Complex Layout Demo" border_style="double"
+{% frame title="Dashboard - Complex Layout Demo" border="double"
          width="fill" height="fill" %}
   {% vstack spacing=1 padding=1 %}
 
@@ -30,7 +30,7 @@ def dashboard():
     {% hstack spacing=2 width=fill height=fill %}
 
       {# Left panel: markdown documentation (fills available space) #}
-      {% contentview content_type="markdown" border_style="rounded"
+      {% contentview content_type="markdown" border="rounded"
                      title="Documentation" width=fill height=fill %}
 # Welcome to Wijjit!
 
@@ -44,14 +44,14 @@ This is a **markdown** viewer that automatically fills available space.
 
       {# Middle panel: VStack with mixed content #}
       {% vstack spacing=1 width=40 %}
-        {% frame border_style="single" title="Status" height=6 %}
+        {% frame border="single" title="Status" height=6 %}
           System: Online
           CPU: 45%
           Memory: 2.1GB / 8GB
         {% endframe %}
 
-        {% frame border_style="rounded" title="Log" height=fill %}
-          {% textarea border_style="none" width=fill height=fill %}
+        {% frame border="rounded" title="Log" height=fill %}
+          {% textarea border="none" width=fill height=fill %}
 [INFO] Application started
 [INFO] Layout engine initialized
 [DEBUG] Rendering complete
@@ -62,13 +62,13 @@ This is a **markdown** viewer that automatically fills available space.
 
       {# Right panel: another VStack with different sizing #}
       {% vstack spacing=1 width=30 %}
-        {% frame border_style="single" title="Quick Stats" height=6 %}
+        {% frame border="single" title="Quick Stats" height=6 %}
           Users: 1,234
           Active: 89
           Tasks: 42
         {% endframe %}
 
-        {% frame border_style="single" title="Alerts" height=fill %}
+        {% frame border="single" title="Alerts" height=fill %}
           No new alerts
         {% endframe %}
       {% endvstack %}
@@ -88,7 +88,7 @@ This is a **markdown** viewer that automatically fills available space.
 
       {# Left: wide column - command output #}
       {% vstack width=80 %}
-        {% frame border_style="single" title="Command Output" height=fill %}
+        {% frame border="single" title="Command Output" height=fill %}
           $ python app.py
           Starting application...
           Loading configuration...

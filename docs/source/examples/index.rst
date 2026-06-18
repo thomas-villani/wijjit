@@ -1,11 +1,13 @@
 Examples
 ========
 
-Wijjit ships with 60+ runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+Wijjit ships with 69 runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
 
-* ``examples/basic`` – first steps, focus, events, async, alignment.
-* ``examples/widgets`` – component spotlights (tables, trees, dialogs, etc.).
-* ``examples/advanced`` – multi-view apps, complex layouts, and performance patterns.
+* ``examples/basic`` (15) – first steps, focus, events, async, alignment.
+* ``examples/widgets`` (30) – component spotlights (tables, trees, dialogs, etc.).
+* ``examples/advanced`` (21) – multi-view apps, complex layouts, and performance patterns.
+* ``examples/styling`` (2) – CSS theming and style-class demos.
+* ``examples/apps`` (1) – complete sample applications.
 
 Running an example
 ------------------
@@ -44,9 +46,9 @@ Widgets & components
 * ``examples/widgets/dropdown_demo.py`` – buttons that spawn dropdown menus with nested actions + shortcuts.
 * ``examples/widgets/dialog_showcase.py`` / ``alert_dialog_demo.py`` / ``confirm_dialog_demo.py`` – overlay interactions.
 * ``examples/widgets/table_demo.py`` – sortable table with zebra striping and scroll support.
-* ``examples/widgets/tree_demo.py`` / ``tree_indicator_styles_demo.py`` – hierarchical navigation with custom indicators.
+* ``examples/widgets/tree_demo.py`` – hierarchical navigation with expand/collapse and multi-select.
 * ``examples/widgets/listview_demo.py`` / ``logview_demo.py`` – scrolling lists and streaming logs.
-* ``examples/widgets/markdown_demo.py`` / ``code_demo.py`` – render markdown and syntax-highlighted panes.
+* ``examples/widgets/contentview_demo.py`` / ``code_editor_demo.py`` – render markdown/ANSI/HTML content and edit syntax-highlighted code.
 * ``examples/widgets/progress_demo.py`` / ``spinner_demo.py`` – progress indicators and loading states.
 * ``examples/widgets/notification_demo.py`` / ``statusbar_demo.py`` – real-time feedback and persistent hints.
 * ``examples/widgets/textarea_demo.py`` – full-featured text editor with clipboard + mouse support.
@@ -60,7 +62,7 @@ Advanced workflows
 * ``examples/advanced/navigation_demo.py`` – multi-view navigation with lifecycle hooks and scoped handlers.
 * ``examples/advanced/dashboard_demo.py`` – monitoring layout built from stacks, frames, and tables.
 * ``examples/advanced/filesystem_browser.py`` – list + tree composition that mirrors a file explorer.
-* ``examples/advanced/todo_app.py`` – CRUD todo list with filters, persistence hooks, and overlays.
+* ``examples/apps/todo_app.py`` – CRUD todo list with filters, persistence hooks, and overlays.
 * ``examples/advanced/state_management_demo.py`` / ``event_patterns_demo.py`` – reactors, watchers, and custom event scopes.
 * ``examples/advanced/scroll_demo.py`` / ``scrollable_children_demo.py`` / ``frame_overflow_demo.py`` – focus-preserving scrolling patterns.
 * ``examples/advanced/executor_demo.py`` / ``download_simulator.py`` – background workers and progress coordination.

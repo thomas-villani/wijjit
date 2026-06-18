@@ -416,6 +416,8 @@ class SelectExtension(Extension):
         str
             Rendered output
         """
+        # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        border_style = kwargs.pop("border", border_style)
         # Normalize kwargs (handles class->classes, tabindex->tab_index)
         kwargs = normalize_element_kwargs(kwargs)
         classes = kwargs.pop("classes", None)
@@ -878,6 +880,8 @@ class CheckboxGroupExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the checkboxgroup tag."""
+        # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        border_style = kwargs.pop("border", border_style)
         # Normalize kwargs (handles class->classes, tabindex->tab_index)
         kwargs = normalize_element_kwargs(kwargs)
         classes = kwargs.pop("classes", None)
@@ -1000,6 +1004,8 @@ class RadioGroupExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the radiogroup tag."""
+        # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        border_style = kwargs.pop("border", border_style)
         # Normalize kwargs (handles class->classes, tabindex->tab_index)
         kwargs = normalize_element_kwargs(kwargs)
         classes = kwargs.pop("classes", None)
@@ -1230,6 +1236,8 @@ class TextAreaExtension(Extension):
         str
             Rendered output
         """
+        # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        border_style = kwargs.pop("border", border_style)
         # Normalize kwargs (handles class->classes, tabindex->tab_index)
         kwargs = normalize_element_kwargs(kwargs)
         classes = kwargs.pop("classes", None)
@@ -1441,6 +1449,8 @@ class CodeEditorExtension(Extension):
         str
             Rendered output
         """
+        # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        border_style = kwargs.pop("border", border_style)
         # Normalize kwargs (handles class->classes, tabindex->tab_index)
         kwargs = normalize_element_kwargs(kwargs)
         classes = kwargs.pop("classes", None)
@@ -1784,6 +1794,7 @@ class DataGridExtension(Extension):
         height: int = 15,
         show_row_numbers: bool = True,
         editable: bool = True,
+        border: str | None = None,
         border_style: str = "single",
         show_scrollbar: bool = True,
         bind: bool = True,
@@ -1810,6 +1821,9 @@ class DataGridExtension(Extension):
             Show row numbers on left side (default: True)
         editable : bool
             Whether cells can be edited (default: True)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", "rounded", etc. (default: "single")
         show_scrollbar : bool
@@ -1826,6 +1840,8 @@ class DataGridExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Normalize kwargs (handles class->classes, tabindex->tab_index)
         kwargs = normalize_element_kwargs(kwargs)
         classes = kwargs.pop("classes", None)

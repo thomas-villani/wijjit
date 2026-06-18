@@ -10,7 +10,7 @@ Why Wijjit
 * **Jinja-first layout system** – compose frames, stacks, inputs, and display widgets with template tags instead of manual cursor math.
 * **Reactive state** – ``State`` tracks mutations, schedules renders, and keeps elements in sync automatically.
 * **Full interaction model** – keyboard, mouse, focus traversal, overlays, dialogs, and notifications are provided out of the box.
-* **Production features** – 61 examples, comprehensive tests, and a renderer that understands ANSI styling and terminal constraints.
+* **Production features** – 69 examples, comprehensive tests, and a renderer that understands ANSI styling and terminal constraints.
 
 Quick Example
 -------------
@@ -102,6 +102,7 @@ Documentation Contents
    :caption: API Reference
 
    api_reference/core
+   api_reference/config
    api_reference/state
    api_reference/events
    api_reference/layout
@@ -135,8 +136,8 @@ Wijjit is **production-ready for many console applications**. The core framework
 Links
 -----
 
-* **GitHub**: https://github.com/yourusername/wijjit
-* **Examples**: `examples/ <https://github.com/yourusername/wijjit/tree/main/examples>`_
+* **GitHub**: https://github.com/thomas-villani/wijjit
+* **Examples**: `examples/ <https://github.com/thomas-villani/wijjit/tree/main/examples>`_
 
 Indices and tables
 ==================

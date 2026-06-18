@@ -37,11 +37,14 @@ The focus manager automatically:
 * **Wraps at boundaries** - From the last element, Tab wraps to the first element (and vice versa for Shift+Tab)
 * **Restores focus on close** - When the modal closes, focus returns to the element that was focused before the modal opened
 
-This behaviour is automatic and requires no configuration. Simply include focusable elements (buttons, inputs, checkboxes, etc.) in your modal template:
+This behaviour is automatic and requires no configuration. Bind the modal's
+visibility to a state key with ``visible=`` (the modal only renders while that
+key is truthy) and include focusable elements (buttons, inputs, checkboxes,
+etc.) in its body:
 
 .. code-block:: jinja
 
-   {% modal id="confirm_dialog" trap_focus=true %}
+   {% modal id="confirm_dialog" visible="show_confirm" title="Confirm" %}
        Are you sure you want to delete this item?
 
        {% hstack spacing=2 %}
@@ -50,7 +53,11 @@ This behaviour is automatic and requires no configuration. Simply include focusa
        {% endhstack %}
    {% endmodal %}
 
-With this template, users can Tab between "Yes, Delete" and "Cancel" buttons while the modal is open. See :doc:`modal_dialogs` for more details on building dialogs.
+Focus trapping is applied automatically for modal-layer overlays - there is no
+``trap_focus`` tag attribute to set. With this template, once you set
+``state["show_confirm"] = True`` the modal opens and users can Tab between the
+"Yes, Delete" and "Cancel" buttons while it is open. See :doc:`modal_dialogs`
+for more details on building dialogs.
 
 Making elements focusable
 -------------------------
@@ -93,7 +100,7 @@ You can direct focus programmatically:
 
 .. code-block:: python
 
-    app.focus_manager.focus_element(app.renderer.get_element("search_box"))
+    app.focus_manager.focus_element(app.get_element_by_id("search_box"))
 
 or use helper methods:
 
@@ -107,7 +114,7 @@ Troubleshooting tips
 --------------------
 
 * **Element skipped** – ensure ``focusable=True`` and the element is part of the layout tree (check ``element.bounds`` is not ``None``).
-* **Wrong order** – focus order follows the layout tree order. Rearrange template tags or assign explicit ``tab_index`` (feature coming soon) to fine-tune.
+* **Wrong order** – focus order follows the layout tree order. Rearrange template tags or assign an explicit ``tab_index`` attribute to fine-tune. ``tab_index`` is a constructor param on :class:`wijjit.elements.base.Element` and is wired through the element tags, so you can set it directly in templates (e.g. ``{% textinput id="name" tab_index=1 %}``).
 * **Focus lost after rerender** – assign stable ``id`` values. Auto-generated ids may change between renders when conditionals add/remove elements.
 * **Scroll jumps** – if a focused element is inside a scrollable frame with dynamic height, keep the frame height fixed so scroll offsets remain valid.
 

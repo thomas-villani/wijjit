@@ -88,6 +88,7 @@ class TableExtension(Extension):
         sortable: bool = False,
         show_header: bool = True,
         show_scrollbar: bool = True,
+        border: str | None = None,
         border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
@@ -114,6 +115,9 @@ class TableExtension(Extension):
             Whether to show header row (default: True)
         show_scrollbar : bool
             Whether to show scrollbar (default: True)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Rich border style (default: "single")
         bind : bool
@@ -126,6 +130,8 @@ class TableExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
@@ -831,6 +837,7 @@ class LogViewExtension(Extension):
         line_number_start: int = 1,
         detect_log_levels: bool = True,
         show_scrollbar: bool = True,
+        border: str | None = None,
         border_style: str = "single",
         title: str | None = None,
         bind: bool = True,
@@ -862,6 +869,9 @@ class LogViewExtension(Extension):
             Auto-detect and color log levels (default: True)
         show_scrollbar : bool
             Whether to show scrollbar (default: True)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style (default: "single")
         title : str, optional
@@ -874,6 +884,8 @@ class LogViewExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
@@ -1043,6 +1055,7 @@ class ListViewExtension(Extension):
         bullet: str = "bullet",
         show_dividers: bool = False,
         show_scrollbar: bool = True,
+        border: str | None = None,
         border_style: str = "single",
         title: str | None = None,
         indent_details: int = 2,
@@ -1072,6 +1085,9 @@ class ListViewExtension(Extension):
             Whether to show horizontal dividers (default: False)
         show_scrollbar : bool
             Whether to show scrollbar (default: True)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style (default: "single")
         title : str, optional
@@ -1090,6 +1106,8 @@ class ListViewExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
@@ -1245,6 +1263,7 @@ class ModalExtension(Extension):
         title: str | None = None,
         width: int = 50,
         height: int = 12,
+        border: str | None = None,
         border_style: str = "single",
         **kwargs: Any,
     ) -> str:
@@ -1264,6 +1283,9 @@ class ModalExtension(Extension):
             Modal width (default: 50)
         height : int
             Modal height (default: 12)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", "rounded" (default: "single")
 
@@ -1272,6 +1294,8 @@ class ModalExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
         classes = kwargs.get("class", None)
 
@@ -1785,6 +1809,7 @@ class TabbedPanelExtension(Extension):
         active_tab: str | int | None = None,
         width: int | str = 60,
         height: int | str = 20,
+        border: str | None = None,
         border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
@@ -1805,6 +1830,9 @@ class TabbedPanelExtension(Extension):
             Panel width (default: 60)
         height : int or str
             Panel height (default: 20)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", "rounded" (default: "single")
         bind : bool
@@ -1821,6 +1849,8 @@ class TabbedPanelExtension(Extension):
         Child {% tab %} tags create TabContent VNodes that become children.
         The renderer builds the TabbedPanel element from the VNode tree.
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 
@@ -2051,6 +2081,7 @@ class ContentViewExtension(Extension):
         width: int | str = "fill",
         height: int | str = "fill",
         show_scrollbar: bool = True,
+        border: str | None = None,
         border_style: str = "single",
         title: str | None = None,
         bind: bool = True,
@@ -2083,6 +2114,9 @@ class ContentViewExtension(Extension):
             View height (default: "fill")
         show_scrollbar : bool
             Whether to show scrollbar (default: True)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style (default: "single")
         title : str, optional
@@ -2097,6 +2131,8 @@ class ContentViewExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute (rename to 'classes')
         classes = kwargs.get("class", None)
 
@@ -2325,6 +2361,7 @@ class PagerExtension(Extension):
         current_page: str | int = 0,
         width: int | str = 60,
         height: int | str = 20,
+        border: str | None = None,
         border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
@@ -2351,6 +2388,9 @@ class PagerExtension(Extension):
             Pager width (default: 60)
         height : int or str
             Pager height (default: 20)
+        border : str, optional
+            Canonical border style (``single``, ``double``, ``rounded``,
+            ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", "rounded", "none" (default: "single")
         bind : bool
@@ -2361,6 +2401,8 @@ class PagerExtension(Extension):
         str
             Rendered output
         """
+        if border is not None:
+            border_style = border
         # Handle 'class' attribute
         classes = kwargs.get("class", None)
 

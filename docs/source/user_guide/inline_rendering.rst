@@ -50,6 +50,7 @@ Options
 * ``height`` - Output height in lines (default: "auto" to fit content)
 * ``print_output`` - If ``True`` (default), print to stdout. If ``False``, return the ANSI string.
 * ``file`` - File object to write to (default: sys.stdout)
+* ``template_dir`` - Directory for template file loading (used by ``{% include %}`` and friends; default: ``None``)
 * ``**context`` - Template context variables
 
 .. code-block:: python
@@ -77,7 +78,7 @@ Use ``InlineApp`` when you need reactive updates that refresh in-place:
     template = '''
     {% frame title="Download Progress" %}
       {% vstack %}
-        {% progress value=state.progress max=100 %}{% endprogress %}
+        {% progressbar value=state.progress %}{% endprogressbar %}
         {{ state.status }}
       {% endvstack %}
     {% endframe %}

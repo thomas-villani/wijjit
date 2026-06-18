@@ -68,7 +68,7 @@ def main_view():
 
     return {
         "template": """
-{% frame title="ThreadPoolExecutor Demo" border_style="double" width=100 height=36 %}
+{% frame title="ThreadPoolExecutor Demo" border="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Status: {{ state.status }}
@@ -78,7 +78,7 @@ def main_view():
 
     {% hstack spacing=2 align_v="top" %}
       {% vstack spacing=1 width=48 %}
-        {% frame title="Simulated Operations" border_style="single" width="fill" %}
+        {% frame title="Simulated Operations" border="single" width="fill" %}
           {% vstack spacing=1 padding=1 %}
             {% vstack spacing=0 %}
               1. Short Operations (< 1s):
@@ -117,13 +117,13 @@ def main_view():
       {% endvstack %}
 
       {% vstack spacing=1 width=48 %}
-        {% frame title="Operation Log" border_style="single" width="fill" height=20 %}
+        {% frame title="Operation Log" border="single" width="fill" height=20 %}
           {% vstack padding=1 %}
 {{ operation_log_text }}
           {% endvstack %}
         {% endframe %}
 
-        {% frame title="Executor Info" border_style="single" width="fill" %}
+        {% frame title="Executor Info" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Configuration:
             • run_sync_in_executor: True

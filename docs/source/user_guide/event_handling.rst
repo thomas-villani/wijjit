@@ -27,13 +27,13 @@ Registering handlers
 Wijjit exposes decorator helpers on the app instance:
 
 ``@app.on_key("ctrl+s")``
-    Convenience wrapper for registering a KEY handler with hotkey parsing (``ctrl``, ``alt``, ``shift``). Use ``@app.on_key("*")`` to listen to every key in the active view.
+    Decorator that registers a KEY handler with hotkey parsing (``ctrl``, ``alt``, ``shift``). The key is matched exactly (case-insensitively) against ``event.key``; there is no ``"*"`` wildcard.
 
 ``@app.on_action("save")``
-    Subscribe to a specific action id. Handy for buttons and dialogs.
+    Decorator that subscribes to a specific action id. Handy for buttons and dialogs.
 
-``@app.on(EventType.CHANGE, scope=HandlerScope.VIEW)``
-    Lowest-level API – register any event type with fine-grained control over scope and priority.
+``app.on(EventType.CHANGE, handler, scope=HandlerScope.VIEW)``
+    Lowest-level API. **Note:** ``Wijjit.on`` is *not* a decorator – ``callback`` is a required positional argument. Define the handler function, then pass it to ``app.on(...)``.
 
 Handlers receive one argument (the event object). They can be synchronous or ``async``; Wijjit detects coroutines automatically. Example:
 
@@ -41,10 +41,17 @@ Handlers receive one argument (the event object). They can be synchronous or ``a
 
     from wijjit.core.events import EventType, HandlerScope
 
-    @app.on(EventType.KEY, scope=HandlerScope.VIEW, priority=10)
     async def handle_keys(event):
         if event.key == "escape":
             app.quit()
+
+    app.on(
+        EventType.KEY,
+        handle_keys,
+        scope=HandlerScope.VIEW,
+        view_name="home",
+        priority=10,
+    )
 
 Handler scopes & lifetimes
 --------------------------
@@ -53,7 +60,7 @@ Handler scopes & lifetimes
     Always active. Use for cross-view shortcuts (``Ctrl+C`` to quit). Keep global handlers minimal to avoid unexpected interactions.
 
 ``HandlerScope.VIEW``
-    Active only while the named view is visible. When navigation occurs, Wijjit automatically unregisters view-scoped handlers and re-registers those belonging to the new view. Default scope for ``@app.on_key`` and ``@app.on_action``.
+    Active only while the named view is visible. When navigation occurs, Wijjit automatically unregisters view-scoped handlers and re-registers those belonging to the new view. To get this scope, pass ``scope=HandlerScope.VIEW`` (and a ``view_name``) to ``app.on(...)``. Note that ``@app.on_key`` always registers at ``HandlerScope.GLOBAL``, and ``@app.on_action`` does not use ``HandlerScope`` at all – its handlers are stored in a separate action-handler map.
 
 ``HandlerScope.ELEMENT``
     Used internally by the element wiring manager. Custom elements may register element-scoped handlers to capture focus, mouse, or change events belonging to a specific widget id.
@@ -70,44 +77,51 @@ Any widget can emit an action:
 * Dialogs – ``{% confirmdialog action_ok="confirm_delete" %}``
 * Menus – menu items specify ``action`` on each entry.
 
-Handle them using ``@app.on_action("save")`` or ``app.on(EventType.ACTION, ...)`` if you need a catch-all logger. ``ActionEvent.data`` carries widget-specific payloads (e.g., selected option).
+Handle them using ``@app.on_action("save")`` or ``app.on(EventType.ACTION, handler)`` if you need a catch-all logger. ``ActionEvent.data`` carries widget-specific payloads (e.g., selected option).
 
 ``ChangeEvent`` is emitted by bound inputs (text, textarea, checkbox, select). It is useful for real-time validation:
 
 .. code-block:: python
 
-    @app.on(EventType.CHANGE, scope=HandlerScope.VIEW)
     def validate(event):
         if event.element_id == "password" and len(event.new_value) < 8:
             app.state.password_error = "Too short"
 
+    app.on(EventType.CHANGE, validate, scope=HandlerScope.VIEW, view_name="signup")
+
 Keyboard shortcuts
 ------------------
 
-`prompt-toolkit` normalizes keys to strings (``"ctrl+c"``, ``"f5"``, ``"enter"``). ``@app.on_key`` accepts individual keys or sequences:
+`prompt-toolkit` normalizes keys to strings (``"ctrl+c"``, ``"f5"``, ``"enter"``). ``@app.on_key`` registers one key per decorator; apply it multiple times (or call it directly) to bind several keys:
 
 .. code-block:: python
 
-    @app.on_key(["ctrl+s", "ctrl+w"])
-    def handle_hotkeys(event):
-        if event.key == "ctrl+s":
-            save()
-        else:
-            close_tab()
+    @app.on_key("ctrl+s")
+    def save_handler(event):
+        save()
+
+    @app.on_key("ctrl+w")
+    def close_handler(event):
+        close_tab()
 
 To stop further handlers from running, call ``event.cancel()``.
 
 Mouse handling
 --------------
 
-Mouse events surface through :class:`wijjit.core.events.MouseEvent`. Typical pattern:
+Mouse events surface through :class:`wijjit.core.events.MouseEvent`, which wraps the terminal-layer mouse event in ``event.mouse_event`` and exposes convenience properties directly on the event: ``event.x``, ``event.y``, ``event.button``, ``event.mouse_type``, ``event.shift``/``event.alt``/``event.ctrl``, and ``event.click_count``. Scroll direction is read from ``event.button`` (there is no ``scroll_amount``):
 
 .. code-block:: python
 
-    @app.on(EventType.MOUSE, scope=HandlerScope.VIEW)
+    from wijjit.terminal.mouse import MouseButton
+
     def on_mouse(event):
-        if event.mouse_type.name == "SCROLL" and event.ctrl:
-            zoom(event.mouse_event.scroll_amount)
+        if event.button == MouseButton.SCROLL_UP and event.ctrl:
+            zoom_in()
+        elif event.button == MouseButton.SCROLL_DOWN and event.ctrl:
+            zoom_out()
+
+    app.on(EventType.MOUSE, on_mouse, scope=HandlerScope.VIEW, view_name="canvas")
 
 For widget-level interactions (click a specific element), implement ``handle_mouse`` on the element or rely on built-in widgets (buttons, menus, scroll containers) which already handle mouse input.
 
@@ -162,7 +176,7 @@ Example:
 Asynchronous handlers
 ---------------------
 
-Mark a handler ``async def`` to perform network calls or I/O. Wijjit awaits the coroutine. If you need to run CPU-intensive code, configure ``app.configure(executor=ThreadPoolExecutor(...))``; synchronous handlers then execute on the executor and the event loop remains responsive.
+Mark a handler ``async def`` to perform network calls or I/O. Wijjit awaits the coroutine. If you need to run CPU-intensive synchronous handlers off the main loop, set the config keys ``RUN_SYNC_IN_EXECUTOR = True`` (and optionally ``EXECUTOR_MAX_WORKERS``); synchronous handlers then execute on a thread pool and the event loop remains responsive.
 
 Error handling & debugging
 --------------------------

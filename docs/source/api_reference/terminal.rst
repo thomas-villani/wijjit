@@ -17,6 +17,8 @@ ANSI helpers
    wijjit.terminal.ansi.visible_length
    wijjit.terminal.ansi.wrap_text
    wijjit.terminal.ansi.clip_to_width
+   wijjit.terminal.ansi.strip_ansi
+   wijjit.terminal.ansi.colorize
 
 Input & mouse
 -------------
@@ -43,6 +45,7 @@ Screen & buffers
    :nosignatures:
 
    wijjit.terminal.screen.ScreenManager
+   wijjit.terminal.screen.alternate_screen
    wijjit.terminal.cell.Cell
    wijjit.terminal.cell.CellPool
    wijjit.terminal.screen_buffer.ScreenBuffer

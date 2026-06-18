@@ -534,6 +534,51 @@ class TestRootFrameAutoScroll:
 
         assert layout_ctx.root.frame.style.border_style == BorderStyle.NONE
 
+    def _root_frame_border(self, template):
+        """Render a single-frame template and return its resolved BorderStyle."""
+        renderer = Renderer()
+        _output, _elements, layout_ctx = renderer.render_with_layout(
+            template, width=80, height=24
+        )
+        return layout_ctx.root.frame.style.border_style
+
+    def test_frame_border_canonical_attribute(self):
+        """``border`` is the canonical frame attribute (single/double/rounded/none)."""
+        from wijjit.layout.frames import BorderStyle
+
+        assert (
+            self._root_frame_border('{% frame border="double" %}x{% endframe %}')
+            == BorderStyle.DOUBLE
+        )
+        assert (
+            self._root_frame_border('{% frame border="rounded" %}x{% endframe %}')
+            == BorderStyle.ROUNDED
+        )
+        assert (
+            self._root_frame_border('{% frame border="none" %}x{% endframe %}')
+            == BorderStyle.NONE
+        )
+
+    def test_frame_border_style_alias_still_works(self):
+        """``border_style`` is retained as a backward-compatible alias for ``border``."""
+        from wijjit.layout.frames import BorderStyle
+
+        assert (
+            self._root_frame_border('{% frame border_style="double" %}x{% endframe %}')
+            == BorderStyle.DOUBLE
+        )
+
+    def test_frame_border_takes_precedence_over_border_style(self):
+        """When both are given, the canonical ``border`` wins."""
+        from wijjit.layout.frames import BorderStyle
+
+        assert (
+            self._root_frame_border(
+                '{% frame border="double" border_style="single" %}x{% endframe %}'
+            )
+            == BorderStyle.DOUBLE
+        )
+
     def test_frame_in_vstack_is_root_frame(self):
         """First frame inside a VStack should be marked as root frame."""
         renderer = Renderer()
