@@ -1287,3 +1287,61 @@ bbb{% endtextarea %}
         # textarea must not introduce single-border corners of its own. Count
         # the single-line top-left corner: only the "Side" frame uses it once.
         assert screen.count("┌") == 1  # one single-border frame (Side)
+
+
+class TestTextAreaAutosize:
+    """Autosizing textareas grow their intrinsic height to fit content."""
+
+    def test_default_not_autosize(self):
+        ta = TextArea()
+        assert ta.autosize is False
+
+    def test_intrinsic_height_grows_with_content(self):
+        ta = TextArea(width=20, height=10, autosize=True, wrap_mode="none")
+        # Single (empty) line: one content row + 2 border rows.
+        assert ta.get_intrinsic_size() == (22, 3)
+
+        ta.set_value("a\nb\nc")
+        assert ta.get_intrinsic_size() == (22, 5)  # 3 lines + border
+
+    def test_intrinsic_height_clamped_to_max_height(self):
+        ta = TextArea(width=20, autosize=True, max_height=4, wrap_mode="none")
+        ta.set_value("\n".join(str(i) for i in range(20)))  # 20 lines
+        # Capped at max_height total rows regardless of content.
+        assert ta.get_intrinsic_size()[1] == 4
+
+    def test_max_height_never_collapses_below_one_row(self):
+        ta = TextArea(width=20, autosize=True, max_height=1, wrap_mode="none")
+        # border (2) + at least one content row -> 3, even if max_height is 1.
+        assert ta.get_intrinsic_size()[1] == 3
+
+    def test_borderless_autosize_excludes_border_chrome(self):
+        ta = TextArea(width=20, autosize=True, border_style="none", wrap_mode="none")
+        ta.set_value("x\ny")
+        # No border -> total height equals content line count.
+        assert ta.get_intrinsic_size() == (20, 2)
+
+    def test_autosize_grows_in_layout(self):
+        """End-to-end: an autosize textarea sizes to its content via the tag."""
+        from wijjit import Wijjit
+        from wijjit.testing.harness import WijjitHarness
+
+        template = (
+            "{% frame width=40 height=20 %}"
+            '{% textarea id="ta" autosize=True max_height=10 '
+            'border_style="single" %}one\ntwo\nthree{% endtextarea %}'
+            "{% endframe %}"
+        )
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": template})
+        with WijjitHarness(app, size=(50, 24)) as harness:
+            harness.tick(frames=1)
+            textarea = next(
+                el
+                for el in app.positioned_elements
+                if el.__class__.__name__ == "TextArea"
+            )
+            # 3 content rows allocated (height is inner content rows).
+            assert textarea.height == 3
+            screen = harness.screen()
+        assert "one" in screen and "three" in screen

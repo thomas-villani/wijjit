@@ -215,3 +215,24 @@ disable_error_code = ["no-untyped-def", "type-arg", "operator", "arg-type"]
 [[tool.mypy.overrides]]
 module = "pyperclip"
 ignore_missing_imports = true
+
+# Pillow is an optional dependency (the `images` extra) and is not installed in
+# the CI lint environment; image.py guards its use behind a PIL_AVAILABLE flag.
+[[tool.mypy.overrides]]
+module = "PIL"
+ignore_missing_imports = true
+
+# suspend.py accesses Unix-only signal attributes (SIGTSTP/SIGCONT) guarded at
+# runtime by a platform check. The `# type: ignore[attr-defined]` comments are
+# required on Windows (where mypy's stdlib stubs omit those attrs) but are
+# "unused" on Linux/macOS, so warn_unused_ignores must be relaxed here.
+[[tool.mypy.overrides]]
+module = "wijjit.core.suspend"
+disable_error_code = ["unused-ignore"]
+
+# The wcwidth `# type: ignore[import-untyped]` is needed against older,
+# stub-less wcwidth releases but is "unused" once wcwidth ships py.typed; relax
+# warn_unused_ignores so the import line is valid across wcwidth versions.
+[[tool.mypy.overrides]]
+module = "wijjit.terminal.ansi"
+disable_error_code = ["unused-ignore"]

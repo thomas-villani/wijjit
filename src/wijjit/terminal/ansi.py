@@ -4,7 +4,10 @@ This module provides utilities for working with ANSI escape codes including
 colors, cursor control, and text styling.
 """
 
+import locale
+import os
 import re
+import sys
 import threading
 from typing import Any
 
@@ -718,8 +721,6 @@ def is_no_color() -> bool:
 
     Thread-safe: Uses a lock to protect global state.
     """
-    import os
-
     with _settings_lock:
         if _no_color is not None:
             return _no_color
@@ -835,10 +836,6 @@ def supports_unicode() -> bool:
     Thread-safe: Uses a lock to protect global state.
     """
     global _unicode_support_cache, _unicode_mode
-
-    import locale
-    import os
-    import sys
 
     with _settings_lock:
         # Check if mode is explicitly set

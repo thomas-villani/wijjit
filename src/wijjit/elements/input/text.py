@@ -7,6 +7,8 @@ TextArea supports multi-line editing with scrolling and text selection.
 
 from __future__ import annotations
 
+import os
+import re
 import threading
 from collections.abc import Callable
 from enum import Enum, auto
@@ -162,9 +164,6 @@ class TextInput(AutocompleteMixin, Element):
         list of str
             Detected file paths, empty list if none detected
         """
-        import os
-        import re
-
         paths = []
         # Split by newlines and common delimiters
         candidates = re.split(r"[\n\r]+", text.strip())
@@ -679,6 +678,8 @@ class TextArea(Element):
         action: str | None = None,
         bind: bool = True,
         dynamic_sizing: bool = False,
+        autosize: bool = False,
+        max_height: int | None = None,
     ):
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.INPUT
@@ -689,6 +690,13 @@ class TextArea(Element):
         self.height = height
         self.wrap_mode = wrap_mode
         self.max_lines = max_lines
+
+        # Autosize: when enabled the element reports a content-driven intrinsic
+        # height (via get_intrinsic_size) so the layout engine grows it to fit
+        # the text, up to ``max_height`` (total rows including borders). Beyond
+        # that the scroll manager takes over.
+        self.autosize = autosize
+        self.max_height = max_height
         self.show_scrollbar = show_scrollbar
         self.show_scrollbar_x = show_scrollbar_x
 
@@ -757,6 +765,31 @@ class TextArea(Element):
             True if configured with fill sizing, False otherwise
         """
         return self._dynamic_sizing
+
+    def get_intrinsic_size(self) -> tuple[int, int]:
+        """Get the intrinsic size of the text area, including borders.
+
+        When ``autosize`` is enabled the height grows to fit the current
+        content (visual line count, wrapping-aware) up to ``max_height``
+        total rows; otherwise the configured ``height`` is reported.
+
+        Returns
+        -------
+        tuple[int, int]
+            ``(width, height)`` where both include border characters.
+        """
+        border = 2 if self.border_style is not None else 0
+        width = self.width + border
+
+        if not self.autosize:
+            return (width, self.height + border)
+
+        content_lines = self._calculate_total_visual_lines()
+        total_height = max(border + 1, content_lines + border)
+        if self.max_height is not None:
+            # Never clamp below a single visible content row.
+            total_height = min(total_height, max(border + 1, self.max_height))
+        return (width, total_height)
 
     def set_bounds(self, bounds: Bounds) -> None:
         """Set bounds and dynamically resize if needed.
@@ -2260,9 +2293,6 @@ class TextArea(Element):
         list of str
             Detected file paths, empty list if none detected
         """
-        import os
-        import re
-
         paths = []
         # Split by newlines and common delimiters
         candidates = re.split(r"[\n\r]+", text.strip())

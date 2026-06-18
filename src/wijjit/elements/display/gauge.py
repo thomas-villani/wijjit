@@ -6,6 +6,7 @@ linear or semi-circular gauges with threshold-based coloring.
 
 from __future__ import annotations
 
+from math import cos, pi, sin
 from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
@@ -311,8 +312,6 @@ class Gauge(Element):
         ctx : PaintContext
             Paint context
         """
-        from math import cos, pi, sin
-
         from wijjit.terminal.ansi import supports_unicode
         from wijjit.terminal.cell import Cell
 

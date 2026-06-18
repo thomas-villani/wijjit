@@ -70,6 +70,7 @@ class MenuItemExtension(Extension):
         key: str | None = None,
         divider: bool = False,
         disabled: bool = False,
+        label: str = "",
         **kwargs: Any,
     ) -> str:
         """Render the menuitem tag.
@@ -86,6 +87,8 @@ class MenuItemExtension(Extension):
             Whether this is a divider line (default: False)
         disabled : bool
             Whether this item is disabled (default: False)
+        label : str, optional
+            Item label. If empty, the tag body is used as the label.
 
         Returns
         -------
@@ -105,8 +108,13 @@ class MenuItemExtension(Extension):
             caller()
             return ""
 
-        # Get label from body (or empty for dividers)
-        label = caller().strip() if not divider else ""
+        # Label comes from the label attribute, falling back to the tag body.
+        # Dividers never carry a label.
+        body = caller().strip()
+        if divider:
+            label = ""
+        elif not label:
+            label = body
 
         # Create MenuItem - menus need direct Element instantiation
         # to maintain the menu item structure for the menu element

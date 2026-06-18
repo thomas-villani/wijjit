@@ -345,6 +345,25 @@ class TreeExtension(Extension):
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
+        # Collect nodes declared via nested {% treeitem %} tags. The body is
+        # always rendered (to consume the marker text); the collected nodes are
+        # only used as the tree data when no data attribute / state binding is
+        # present. A single top-level item becomes the root; multiple items are
+        # wrapped in a synthetic root (use show_root=False to hide it).
+        item_list = render_ctx.push_items()
+        caller()
+        render_ctx.pop_items()
+        if data is None and item_list:
+            if len(item_list) == 1:
+                data = item_list[0]
+            else:
+                data = {
+                    "id": "root",
+                    "label": "Root",
+                    "value": "root",
+                    "children": item_list,
+                }
+
         # Build VNode
         vnode = VNodeBuilder("TreeView", key=id)
         vnode.set_prop("data", data)
@@ -370,11 +389,105 @@ class TreeExtension(Extension):
 
         context.add_vnode(vnode)
 
-        # Consume body (should be empty)
-        caller()
-
-        # Return marker for text interleaving
+        # Return marker for text interleaving (body already consumed above)
         return get_element_marker(context)
+
+
+class TreeItemExtension(Extension):
+    """Jinja2 extension for the ``{% treeitem %}`` tag.
+
+    Declares a node inside a ``{% tree %}`` body. Items may nest to form a
+    hierarchy::
+
+        {% tree id="files" show_root=False %}
+            {% treeitem label="src" %}
+                {% treeitem %}app.py{% endtreeitem %}
+                {% treeitem %}cli.py{% endtreeitem %}
+            {% endtreeitem %}
+            {% treeitem %}README.md{% endtreeitem %}
+        {% endtree %}
+
+    A leaf item uses its body as the label; a parent item (one that contains
+    nested treeitems) should set the ``label`` attribute, since its body also
+    contains the child item markers.
+    """
+
+    tags = {"treeitem"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the treeitem tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endtreeitem", lineno)
+        node = nodes.CallBlock(
+            self.call_method("_render_treeitem", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endtreeitem",), drop_needle=True),
+        ).set_lineno(lineno)
+        return node
+
+    def _render_treeitem(
+        self,
+        caller: Callable[[], str],
+        label: str = "",
+        value: Any = None,
+        id: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Render a treeitem: append a node to the enclosing tree/parent.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content (label fallback / nested items).
+        label : str, optional
+            Node label. If empty and the item has no children, the tag body is
+            used as the label.
+        value : Any, optional
+            Node value (defaults to the label/id inside the tree element).
+        id : str, optional
+            Explicit node id (auto-generated from the label otherwise).
+
+        Returns
+        -------
+        str
+            Empty string; the node is added to the enclosing tree.
+        """
+        render_ctx = get_render_context()
+        parent = render_ctx.current_items
+        if parent is None:
+            logger.warning("treeitem tag used outside of a tree")
+            caller()
+            return ""
+
+        # Collect nested children while consuming the body text.
+        children = render_ctx.push_items()
+        body = caller().strip()
+        render_ctx.pop_items()
+
+        # Leaf items fall back to the body as their label; parents (with nested
+        # children) keep the explicit label attribute.
+        if not label and not children:
+            label = body
+
+        node: dict[str, Any] = {"label": label, "children": children}
+        if value is not None:
+            node["value"] = value
+        if id is not None:
+            node["id"] = id
+        parent.append(node)
+        return ""
 
 
 class ProgressBarExtension(Extension):
@@ -1428,6 +1541,9 @@ class TextExtension(Extension):
         id: str | None = None,
         wrap: bool = True,
         html: bool | None = None,
+        align: str = "left",
+        width: Any = "auto",
+        height: Any = "auto",
         **kwargs: Any,
     ) -> str:
         """Render the text tag.
@@ -1442,6 +1558,15 @@ class TextExtension(Extension):
             Whether to wrap text (default: True)
         html : bool, optional
             Whether to parse HTML tags in content (default: None = use global config)
+        align : str, optional
+            Horizontal alignment of each line: ``"left"`` (default),
+            ``"center"``, or ``"right"``. Only visible when the element is wider
+            than its text (e.g. ``width="fill"`` or a fixed width).
+        width : int or str, optional
+            Element width: an integer, ``"auto"`` (default, hug content),
+            ``"fill"``, or a percentage like ``"50%"``.
+        height : int or str, optional
+            Element height (default: ``"auto"``).
         **kwargs : dict
             Additional attributes (including 'class' which gets renamed to 'classes')
 
@@ -1473,9 +1598,11 @@ class TextExtension(Extension):
         vnode.set_prop("wrap", wrap)
         if html is not None:
             vnode.set_prop("html", html)
+        if align and align != "left":
+            vnode.set_prop("align", align)
         if classes:
             vnode.set_prop("classes", classes)
-        vnode.set_layout(width="auto", height="auto")
+        vnode.set_layout(width=width, height=height)
 
         context.add_vnode(vnode)
 
