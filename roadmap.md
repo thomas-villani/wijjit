@@ -30,6 +30,24 @@ that would otherwise embarrass the first public release.
   no longer has commented-out exports; the API reference covers the
   previously-missing Slider/Toggle/DataGrid/ImageView/Pager/StatusIndicator.
 
+### Quality-of-life features folded in from the 0.1.x bucket
+
+These started as 0.1.x items but were small and well-isolated enough to ship
+in 0.1.0 (all test-backed via the headless harness):
+
+- [x] **Right-align text and table columns** — per-column ``align`` key on
+  ``Table``; ``align`` (+ ``width``/``height``) on the ``{% text %}`` tag.
+- [x] **Autosizing TextArea** — ``autosize=True`` + optional ``max_height``;
+  the element reports a content-driven intrinsic height and scrolls past it.
+- [x] **Bind keys to focus** — ``app.bind_focus_key(key, element_id)`` plus
+  ``get_element_by_id`` / ``focus_element_by_id``.
+- [x] **Inner-text discipline** — ``{% textinput %}`` body becomes its initial
+  value; ``{% button %}`` / ``{% menuitem %}`` accept a ``label=`` attribute.
+- [x] **Define select / tree items via tags** — new ``{% selectitem %}`` and
+  ``{% treeitem %}`` (nesting-aware) tags; menu items already supported this.
+- [x] **Move local imports** (phase 1) — hoisted safe stdlib imports out of
+  function bodies. Optional-dependency and circular-guard imports stay local.
+
 ### Phase 5 (after the items above)
 
 Bump to ``0.1.0``, set up Trusted Publishing via GitHub Actions, ``uv build``,
@@ -39,24 +57,31 @@ Bump to ``0.1.0``, set up Trusted Publishing via GitHub Actions, ``uv build``,
 
 Real features, but not blockers — ship as additive minor versions after 0.1.0.
 
-- [ ] **Inline span element** for styling fragments of text.
-- [ ] **Right-align text and table columns.**
+- [x] **Right-align text and table columns.** Shipped in 0.1.0.
+- [x] **Autosizing TextArea** — shipped in 0.1.0 (``autosize`` + ``max_height``).
+- [x] **Bind keys to focus** — shipped in 0.1.0 (``bind_focus_key``).
+- [x] **Inner-text discipline** — shipped in 0.1.0 for the high-traffic tags
+  (textinput/button/menuitem); a broader Frame/Markdown/Code audit can follow.
+- [x] **Define select / tree items via tags** — shipped in 0.1.0
+  (``selectitem``/``treeitem``). The ``{% for %}``/``{% if %}`` loop-over-items
+  case (the two skipped menu-integration tests) still needs Jinja2 AST work.
+- [~] **Move local imports** — phase 1 (stdlib hoist) done in 0.1.0. The
+  remaining function-local ``wijjit`` imports are circular-import guards;
+  untangling them is deferred.
+- [ ] **Inline span element** for styling fragments of text. Deferred: the
+  layout engine is block-based, so a true inline-flow ``{% span %}`` is a large
+  change. For now, fragment styling is available via inline HTML inside a
+  ``{% text html=true %}`` (e.g. ``<span class="text-danger">...</span>``).
 - [ ] **Dynamic API for collection updates** — uniform programmatic way to
   add/remove/update items in ``ListView``, ``Menu``, ``Tree``, ``Select``.
-- [ ] **Autosizing TextArea** — expand to content size up to a configurable
-  max.
-- [ ] **Bind keys to focus** — keyboard shortcut that jumps focus to a named
-  frame or element.
+  Deferred: the four elements diverge enough that a clean unified API needs
+  its own design pass (property setters work today).
 - [ ] **Full-screen a panel/element** — temporarily expand any container to
-  fill the screen.
+  fill the screen. Deferred: a naive bounds override breaks on stateful /
+  scrolled / clipped elements; the correct version is overlay-based.
 - [ ] **Selectable text** — enable text selection / copy in display elements.
-- [ ] **Move local imports** — code hygiene; hoist imports currently inside
-  function bodies.
-- [ ] **Define menuitems / select items / tree items via tags** — make sure
-  every list-like element supports both template tags and dynamic population.
-- [ ] **Inner-text discipline** — audit elements that should accept inner
-  text in templates (Frame, TextArea, Markdown, Code, Button, etc.) and make
-  the behavior consistent.
+  Deferred: display elements render through Rich (pre-baked ANSI, no per-char
+  model); a real implementation is a substantial feature.
 
 ## 0.2+ (new scope, post-0.1)
 

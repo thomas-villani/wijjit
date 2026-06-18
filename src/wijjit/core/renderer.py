@@ -65,6 +65,7 @@ from wijjit.tags.display import (
     TableExtension,
     TextExtension,
     TreeExtension,
+    TreeItemExtension,
 )
 from wijjit.tags.input import (
     ButtonExtension,
@@ -75,6 +76,7 @@ from wijjit.tags.input import (
     RadioExtension,
     RadioGroupExtension,
     SelectExtension,
+    SelectItemExtension,
     SliderExtension,
     TextAreaExtension,
     TextInputExtension,
@@ -169,8 +171,10 @@ class Renderer:
                 CheckboxGroupExtension,
                 RadioGroupExtension,
                 SelectExtension,
+                SelectItemExtension,
                 TableExtension,
                 TreeExtension,
+                TreeItemExtension,
                 ProgressBarExtension,
                 SpinnerExtension,
                 StatusBarExtension,

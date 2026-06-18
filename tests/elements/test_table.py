@@ -33,8 +33,18 @@ class TestTable:
         """Test column normalization."""
         # String columns
         table1 = Table(columns=["name", "age"])
-        assert table1.columns[0] == {"key": "name", "label": "name", "width": None}
-        assert table1.columns[1] == {"key": "age", "label": "age", "width": None}
+        assert table1.columns[0] == {
+            "key": "name",
+            "label": "name",
+            "width": None,
+            "align": "left",
+        }
+        assert table1.columns[1] == {
+            "key": "age",
+            "label": "age",
+            "width": None,
+            "align": "left",
+        }
 
         # Dict columns
         table2 = Table(
@@ -45,6 +55,45 @@ class TestTable:
         )
         assert table2.columns[0]["label"] == "Full Name"
         assert table2.columns[0]["width"] == 20
+        # Columns default to left alignment when unspecified.
+        assert table2.columns[0]["align"] == "left"
+
+    def test_column_alignment(self):
+        """Columns accept an ``align`` key, normalized to a Rich justify value."""
+        table = Table(
+            columns=[
+                {"key": "name", "label": "Name"},
+                {"key": "amount", "label": "Amount", "align": "right"},
+                {"key": "status", "label": "Status", "align": "CENTER"},
+                {"key": "note", "label": "Note", "align": "bogus"},
+            ]
+        )
+        assert table.columns[0]["align"] == "left"  # unspecified default
+        assert table.columns[1]["align"] == "right"
+        assert table.columns[2]["align"] == "center"  # case-insensitive
+        assert table.columns[3]["align"] == "left"  # invalid -> default
+
+    def test_right_aligned_column_renders(self):
+        """A right-aligned numeric column pushes values to the column's right."""
+        table = Table(
+            columns=[
+                {"key": "item", "label": "Item"},
+                {"key": "qty", "label": "Qty", "width": 10, "align": "right"},
+            ],
+            data=[{"item": "Apples", "qty": "5"}],
+            width=40,
+            height=8,
+        )
+        table.set_bounds(Bounds(0, 0, 40, 8))
+
+        output = render_element(table, width=40, height=8)
+        # The right-aligned "5" should sit toward the right of its 10-wide
+        # column - i.e. several spaces separate "Apples" from "5", rather than
+        # the single padding space a left-aligned column would use.
+        line = next(ln for ln in output.splitlines() if "Apples" in ln)
+        assert "Apples" in line and "5" in line
+        gap = line.split("Apples", 1)[1].split("5", 1)[0]
+        assert gap.count(" ") >= 5
 
     def test_empty_table(self):
         """Test table with no data."""

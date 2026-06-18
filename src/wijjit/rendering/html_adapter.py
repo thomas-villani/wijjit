@@ -10,6 +10,7 @@ output to Wijjit's Cell system with theme-based styling support.
 from __future__ import annotations
 
 import logging
+import re
 import xml.parsers.expat
 from typing import TYPE_CHECKING, Any
 
@@ -373,8 +374,6 @@ def strip_html_tags(html_str: str) -> str:
         return "".join(item[1] for item in formatted_text)
     except Exception as e:
         # If parsing fails, use regex fallback
-        import re
-
         logger.debug(f"HTML stripping failed, using regex fallback: {e}")
         return re.sub(r"<[^>]+>", "", html_str)
 

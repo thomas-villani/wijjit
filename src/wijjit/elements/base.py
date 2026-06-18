@@ -1069,6 +1069,9 @@ class TextElement(Element):
     html : bool or None, optional
         Whether to parse HTML tags in text content. If None, uses
         app.config['HTML_CONTENT'] setting. Default: None
+    align : str, optional
+        Horizontal alignment of each line within the element's width:
+        ``"left"`` (default), ``"center"``, or ``"right"``.
 
     Attributes
     ----------
@@ -1078,6 +1081,8 @@ class TextElement(Element):
         Whether text wrapping is enabled
     html : bool or None
         HTML parsing mode (None = use global config)
+    align : str
+        Horizontal alignment (``"left"``, ``"center"``, or ``"right"``).
     """
 
     def __init__(
@@ -1087,6 +1092,7 @@ class TextElement(Element):
         classes: str | list[str] | set[str] | None = None,
         wrap: bool = True,
         html: bool | None = None,
+        align: str = "left",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.text = text
@@ -1094,7 +1100,53 @@ class TextElement(Element):
         self.focusable = False
         self.wrap = wrap
         self.html = html
+        self.align = self._normalize_align(align)
         self._wrapped_text: str | None = None
+
+    @staticmethod
+    def _normalize_align(align: str | None) -> str:
+        """Normalize an alignment value to ``"left"``/``"center"``/``"right"``.
+
+        Parameters
+        ----------
+        align : str or None
+            Requested alignment (case-insensitive). Unknown or missing values
+            fall back to ``"left"``.
+
+        Returns
+        -------
+        str
+            One of ``"left"``, ``"center"``, ``"right"``.
+        """
+        if not align:
+            return "left"
+        value = str(align).strip().lower()
+        if value in ("left", "center", "right"):
+            return value
+        return "left"
+
+    def _align_offset(self, line_width: int, available_width: int) -> int:
+        """Compute the left x-offset that aligns a line within the width.
+
+        Parameters
+        ----------
+        line_width : int
+            Visible width of the line to place.
+        available_width : int
+            Total width available for the line.
+
+        Returns
+        -------
+        int
+            Number of columns to indent so the line is left/center/right
+            aligned. Never negative.
+        """
+        slack = available_width - line_width
+        if slack <= 0 or self.align == "left":
+            return 0
+        if self.align == "right":
+            return slack
+        return slack // 2  # center
 
     def set_bounds(self, bounds: Bounds) -> None:
         """Set bounds and wrap text if needed.
@@ -1201,7 +1253,7 @@ class TextElement(Element):
         text : str
             Text to render
         """
-        from wijjit.terminal.ansi import clip_to_width
+        from wijjit.terminal.ansi import clip_to_width, visible_length
 
         # Resolve style for text element
         style = ctx.style_resolver.resolve_style(self, "text")
@@ -1212,7 +1264,8 @@ class TextElement(Element):
             if i >= ctx.bounds.height:
                 break
             clipped = clip_to_width(line, ctx.bounds.width, ellipsis="")
-            ctx.write_text(0, i, clipped, style)
+            x = self._align_offset(visible_length(clipped), ctx.bounds.width)
+            ctx.write_text(x, i, clipped, style)
 
     def _render_html(self, ctx: PaintContext, text: str) -> None:
         """Render HTML content.
@@ -1229,29 +1282,32 @@ class TextElement(Element):
         # Parse HTML and convert to cells
         cells = html_string_to_cells(text, style_resolver=ctx.style_resolver)
 
-        # Render cells to buffer, handling line breaks
-        x = 0
-        y = 0
+        # Group cells into logical lines (split on newline cells) so each line
+        # can be aligned independently within the element width.
+        logical_lines: list[list[Any]] = [[]]
         for cell in cells:
-            # Handle newlines
             if cell.char == "\n":
-                x = 0
-                y += 1
-                continue
+                logical_lines.append([])
+            else:
+                logical_lines[-1].append(cell)
 
-            # Stop if we've exceeded bounds
+        # Render each logical line, applying the horizontal alignment offset.
+        y = 0
+        for line_cells in logical_lines:
             if y >= ctx.bounds.height:
                 break
-            if x >= ctx.bounds.width:
-                # Move to next line if wrapping, otherwise skip
-                if self.wrap:
-                    x = 0
-                    y += 1
-                    if y >= ctx.bounds.height:
+            offset = self._align_offset(len(line_cells), ctx.bounds.width)
+            x = offset
+            for cell in line_cells:
+                if x >= ctx.bounds.width:
+                    # Move to next line if wrapping, otherwise drop the rest.
+                    if self.wrap:
+                        x = 0
+                        y += 1
+                        if y >= ctx.bounds.height:
+                            break
+                    else:
                         break
-                else:
-                    continue
-
-            # Write cell to buffer
-            ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, cell)
-            x += 1
+                ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, cell)
+                x += 1
+            y += 1

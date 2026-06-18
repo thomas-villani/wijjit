@@ -89,6 +89,7 @@ class RenderContext:
     focused_id: str | None = None
     radiogroup_stack: list[str] = field(default_factory=list)
     menu_stack: list[list[MenuItem]] = field(default_factory=list)
+    item_stack: list[list[Any]] = field(default_factory=list)
     frame_counter: int = 0
     overlays: list[dict[str, Any]] = field(default_factory=list)
     statusbar: Any = None  # Element, but avoiding circular import
@@ -183,6 +184,45 @@ class RenderContext:
             Current menu items list, or None if not building a menu
         """
         return self.menu_stack[-1] if self.menu_stack else None
+
+    def push_items(self) -> list[Any]:
+        """Push a new generic item list onto the item stack.
+
+        Used by list-like elements (select, tree) to collect items declared
+        via nested child tags (``selectitem``/``treeitem``). Tree nesting
+        pushes an additional list per level for child items.
+
+        Returns
+        -------
+        list
+            The new item list (to be populated by child item tags).
+        """
+        items: list[Any] = []
+        self.item_stack.append(items)
+        return items
+
+    def pop_items(self) -> list[Any] | None:
+        """Pop and return the current generic item list.
+
+        Returns
+        -------
+        list or None
+            The popped item list, or None if the stack is empty.
+        """
+        if self.item_stack:
+            return self.item_stack.pop()
+        return None
+
+    @property
+    def current_items(self) -> list[Any] | None:
+        """Get the current generic item list without popping.
+
+        Returns
+        -------
+        list or None
+            Current item list, or None if not building one.
+        """
+        return self.item_stack[-1] if self.item_stack else None
 
     def add_overlay(self, overlay_info: dict[str, Any]) -> None:
         """Add an overlay info dict.

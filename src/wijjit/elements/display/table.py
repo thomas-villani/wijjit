@@ -279,7 +279,9 @@ class Table(ScrollableElement):
         Returns
         -------
         list of dict
-            Normalized columns with 'key', 'label', 'width' keys
+            Normalized columns with 'key', 'label', 'width', 'align' keys.
+            ``align`` is one of ``"left"``, ``"center"``, ``"right"`` and
+            defaults to ``"left"``.
         """
         normalized = []
         for col in columns:
@@ -290,6 +292,7 @@ class Table(ScrollableElement):
                         "key": col.get("key", col.get("label", "")),
                         "label": col.get("label", col.get("key", "")),
                         "width": col.get("width", None),  # None = auto
+                        "align": self._normalize_align(col.get("align")),
                     }
                 )
             else:
@@ -299,9 +302,33 @@ class Table(ScrollableElement):
                         "key": str(col),
                         "label": str(col),
                         "width": None,
+                        "align": "left",
                     }
                 )
         return normalized
+
+    @staticmethod
+    def _normalize_align(align: str | None) -> str:
+        """Normalize a column alignment value to a Rich ``justify`` keyword.
+
+        Parameters
+        ----------
+        align : str or None
+            Requested alignment. Accepts ``"left"``, ``"center"``,
+            ``"right"`` (case-insensitive). Unknown or missing values fall
+            back to ``"left"``.
+
+        Returns
+        -------
+        str
+            One of ``"left"``, ``"center"``, ``"right"``.
+        """
+        if not align:
+            return "left"
+        value = str(align).strip().lower()
+        if value in ("left", "center", "right"):
+            return value
+        return "left"
 
     def set_data(self, data: list[dict]) -> None:
         """Update table data and refresh scroll state.
@@ -717,7 +744,12 @@ class Table(ScrollableElement):
                 indicator = " ▲" if self.sort_direction == "asc" else " ▼"
                 label = label + indicator
 
-            table.add_column(label, width=col["width"], no_wrap=True)
+            table.add_column(
+                label,
+                width=col["width"],
+                no_wrap=True,
+                justify=col.get("align", "left"),
+            )
 
         # Get visible rows
         visible_start, visible_end = self.scroll_manager.get_visible_range()

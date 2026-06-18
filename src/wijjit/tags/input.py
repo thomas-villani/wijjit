@@ -93,7 +93,8 @@ class TextInputExtension(Extension):
         width : int
             Input width
         value : str
-            Initial value
+            Initial value. If empty, the tag body is used as the initial value
+            (state binding still takes precedence).
         action : str, optional
             Action ID to dispatch when Enter is pressed
         bind : bool
@@ -131,6 +132,12 @@ class TextInputExtension(Extension):
         # Auto-generate ID if not provided
         if id is None:
             id = layout_context.generate_id("textinput")
+
+        # Use the tag body as the initial value when no value attribute is given
+        # (consistent with textarea). State binding below still takes precedence.
+        body = caller().strip()
+        if not value and body:
+            value = body
 
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:
@@ -231,6 +238,7 @@ class ButtonExtension(Extension):
         caller: Any,
         id: str | None = None,
         action: str | None = None,
+        label: str = "",
         **kwargs: Any,
     ) -> str:
         """Render the button tag.
@@ -243,6 +251,8 @@ class ButtonExtension(Extension):
             Element identifier
         action : str, optional
             Action ID to dispatch when button is clicked
+        label : str, optional
+            Button label. If empty, the tag body is used as the label.
         classes : str, optional
             CSS-like class names for styling
         tab_index : int, optional
@@ -263,8 +273,10 @@ class ButtonExtension(Extension):
         layout_context = render_ctx.layout_context
         focused_id = render_ctx.focused_id
 
-        # Get button label from body
-        label = caller().strip()
+        # Label comes from the label attribute, falling back to the tag body.
+        body = caller().strip()
+        if not label:
+            label = body
 
         # Auto-generate ID if not provided
         if id is None:
@@ -419,16 +431,20 @@ class SelectExtension(Extension):
         width = safe_int(width, default=20, name="width")
         visible_rows = safe_int(visible_rows, default=5, name="visible_rows")
 
-        # Parse options from body if not provided as attribute
-        if options is None:
-            body = caller().strip()
-            if body:
-                options = self._parse_options_from_body(body)
-            else:
-                options = []
+        # Parse options. Precedence: options= attribute, then nested
+        # {% selectitem %} tags, then a newline-delimited text body.
+        item_list = render_ctx.push_items()
+        body = caller().strip()
+        render_ctx.pop_items()
+        if options is not None:
+            # Options provided as attribute; body already consumed above.
+            pass
+        elif item_list:
+            options = item_list
+        elif body:
+            options = self._parse_options_from_body(body)
         else:
-            # Options provided as attribute, consume body anyway
-            caller()
+            options = []
 
         # Extract disabled values
         disabled_values: list[str] = []
@@ -543,6 +559,87 @@ class SelectExtension(Extension):
             options.append(line)
 
         return options
+
+
+class SelectItemExtension(Extension):
+    """Jinja2 extension for the ``{% selectitem %}`` tag.
+
+    Declares a single option inside a ``{% select %}`` body, as an alternative
+    to the ``options=`` attribute or a newline-delimited text body::
+
+        {% select id="size" %}
+            {% selectitem value="s" %}Small{% endselectitem %}
+            {% selectitem value="m" label="Medium" %}{% endselectitem %}
+            {% selectitem value="x" disabled=True %}Unavailable{% endselectitem %}
+        {% endselect %}
+    """
+
+    tags = {"selectitem"}
+
+    def parse(self, parser: Parser) -> nodes.Node:
+        """Parse the selectitem tag.
+
+        Parameters
+        ----------
+        parser : jinja2.parser.Parser
+            Jinja2 parser
+
+        Returns
+        -------
+        jinja2.nodes.CallBlock
+            Parsed node tree
+        """
+        lineno = next(parser.stream).lineno
+        kwargs = parse_tag_attributes(parser, "endselectitem", lineno)
+        node = nodes.CallBlock(
+            self.call_method("_render_selectitem", [], kwargs),
+            [],
+            [],
+            parser.parse_statements(("name:endselectitem",), drop_needle=True),
+        ).set_lineno(lineno)
+        return node
+
+    def _render_selectitem(
+        self,
+        caller: Any,
+        value: Any = None,
+        label: str = "",
+        disabled: bool = False,
+        **kwargs: Any,
+    ) -> str:
+        """Render a selectitem: append an option dict to the current select.
+
+        Parameters
+        ----------
+        caller : callable
+            Jinja2 caller for body content (label fallback).
+        value : Any, optional
+            Option value. Defaults to the label when omitted.
+        label : str, optional
+            Option label. If empty, the tag body is used.
+        disabled : bool, optional
+            Whether the option is disabled (default: False).
+
+        Returns
+        -------
+        str
+            Empty string; the option is added to the enclosing select.
+        """
+        render_ctx = get_render_context()
+        current = render_ctx.current_items
+        body = caller().strip()
+        if current is None:
+            logger.warning("selectitem tag used outside of a select")
+            return ""
+        if not label:
+            label = body
+        if value is None:
+            value = label
+        item: dict[str, Any] = {"value": value, "label": label}
+        if disabled:
+            item["disabled"] = True
+        current.append(item)
+        return ""
 
 
 class CheckboxExtension(Extension):
@@ -1084,6 +1181,8 @@ class TextAreaExtension(Extension):
         border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
         action: str | None = None,
         bind: bool = True,
+        autosize: bool = False,
+        max_height: int | None = None,
         **kwargs: Any,
     ) -> str:
         """Render the textarea tag.
@@ -1114,6 +1213,13 @@ class TextAreaExtension(Extension):
             Action ID to dispatch on content change
         bind : bool
             Whether to auto-bind value to state[id] (default: True)
+        autosize : bool
+            Grow the height to fit the content up to ``max_height`` total rows
+            (default: False). When enabled the ``height`` attribute is ignored.
+        max_height : int, optional
+            Maximum total height (rows, including borders) when ``autosize`` is
+            enabled. ``None`` (default) means unbounded; content beyond it
+            scrolls.
         classes : str, optional
             CSS-like class names for styling
         tab_index : int, optional
@@ -1135,9 +1241,15 @@ class TextAreaExtension(Extension):
         state = render_ctx.state
         focused_id = render_ctx.focused_id
 
-        # Store original width/height specs for layout
+        autosize = bool(autosize)
+        if max_height is not None:
+            max_height = int(max_height)
+
+        # Store original width/height specs for layout. When autosizing, the
+        # height is driven by the element's content-based intrinsic size, so
+        # force an "auto" spec regardless of any height attribute.
         width_spec = width
-        height_spec = height
+        height_spec = "auto" if autosize else height
 
         # Detect dynamic ("fill"/"auto"/percentage) sizing. When either axis is a
         # non-numeric string spec the element must report minimal layout
@@ -1206,6 +1318,8 @@ class TextAreaExtension(Extension):
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
         vnode.set_prop("dynamic_sizing", dynamic_sizing)
+        vnode.set_prop("autosize", autosize)
+        vnode.set_prop("max_height", max_height)
         if classes is not None:
             vnode.set_prop("classes", classes)
         if tab_index is not None:

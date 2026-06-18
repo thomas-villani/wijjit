@@ -16,6 +16,7 @@ declarative UI patterns.
 import asyncio
 import shutil
 import sys
+import time
 import traceback
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
@@ -790,6 +791,81 @@ class Wijjit:
             return True
         return False
 
+    def get_element_by_id(self, element_id: str) -> "Element | None":
+        """Find a rendered element by its ``id``.
+
+        Parameters
+        ----------
+        element_id : str
+            The ``id`` assigned to the element in the template or constructor.
+
+        Returns
+        -------
+        Element or None
+            The matching element from the most recent render, or ``None`` if no
+            positioned element has that id. Only available after the first
+            render populates ``positioned_elements``.
+        """
+        for elem in self.positioned_elements:
+            element: Element = elem
+            if getattr(element, "id", None) == element_id:
+                return element
+        return None
+
+    def focus_element_by_id(self, element_id: str) -> bool:
+        """Move keyboard focus to a focusable element by its ``id``.
+
+        Parameters
+        ----------
+        element_id : str
+            The ``id`` of the element to focus.
+
+        Returns
+        -------
+        bool
+            ``True`` if a focusable element with that id was found and focused,
+            ``False`` otherwise (unknown id, not yet rendered, or the element
+            is not focusable).
+        """
+        element = self.get_element_by_id(element_id)
+        if element is None:
+            return False
+        return self.focus_manager.focus_element(element)
+
+    def bind_focus_key(
+        self, key: str, element_id: str, priority: int = 0
+    ) -> Callable[..., Any]:
+        """Bind a key so that pressing it moves focus to a named element.
+
+        This is a convenience wrapper over :meth:`on_key` and
+        :meth:`focus_element_by_id` for the common "jump to this field/panel"
+        keyboard shortcut.
+
+        Parameters
+        ----------
+        key : str
+            The key to bind (e.g. ``"f"``, ``"ctrl+l"``). Ctrl+Q is reserved.
+        element_id : str
+            The ``id`` of the element to focus when the key is pressed.
+        priority : int, optional
+            Handler priority (higher runs earlier, default: 0).
+
+        Returns
+        -------
+        Callable
+            The registered handler function (so it can be referenced if needed).
+
+        Examples
+        --------
+        >>> app.bind_focus_key("ctrl+l", "search_box")
+        """
+
+        def _focus_handler(event: "KeyEvent") -> None:
+            self.focus_element_by_id(element_id)
+
+        self.on_key(key, priority=priority)(_focus_handler)
+        return _focus_handler
+
     def on_action(self, action_id: str) -> Callable:
         """Decorator to register an action handler.
 
@@ -876,8 +952,6 @@ class Wijjit:
             loop's cleanup ``finally`` block can restore the terminal
             before the traceback surfaces to the user.
         """
-        import time
-
         # Track render start time for performance monitoring
         render_start = time.time()
 
