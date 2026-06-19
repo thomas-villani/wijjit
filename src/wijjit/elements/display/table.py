@@ -112,8 +112,9 @@ class Table(ScrollableElement):
         show_header: bool = True,
         show_scrollbar: bool = True,
         border_style: str = "single",
+        tab_index: int | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

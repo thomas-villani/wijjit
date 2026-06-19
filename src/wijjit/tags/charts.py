@@ -14,7 +14,7 @@ from jinja2.parser import Parser
 from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import get_element_marker
+from wijjit.tags.layout import apply_tabindex, get_element_marker
 
 logger = get_logger(__name__)
 
@@ -188,6 +188,7 @@ class BarChartExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("BarChart", key=id)
+        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
         vnode.set_prop("bar_height", int(bar_height))

@@ -297,6 +297,34 @@ class TestDataGridNavigation:
         assert (0, 1) in selections
         assert (1, 1) in selections
 
+    def test_tab_wrap_emits_cell_select(self):
+        """Tab wrapping to the next row reports the full position change."""
+        grid = DataGrid(data=[["A", "B"], ["C", "D"]], columns=["Col1", "Col2"])
+        selections = []
+        grid.on_cell_select = lambda r, c: selections.append((r, c))
+
+        grid.handle_key(Keys.TAB)  # (0,0) -> (0,1)
+        grid.handle_key(Keys.TAB)  # (0,1) -> wrap to (1,0)
+
+        assert grid.cursor_row == 1
+        assert grid.cursor_col == 0
+        # The wrap must surface as a (1, 0) selection, not be suppressed.
+        assert selections == [(0, 1), (1, 0)]
+
+    def test_shift_tab_wrap_emits_cell_select(self):
+        """Shift+Tab wrapping to the previous row reports the change."""
+        grid = DataGrid(data=[["A", "B"], ["C", "D"]], columns=["Col1", "Col2"])
+        grid.cursor_row = 1
+        grid.cursor_col = 0
+        selections = []
+        grid.on_cell_select = lambda r, c: selections.append((r, c))
+
+        grid.handle_key(Keys.BACKTAB)
+
+        assert grid.cursor_row == 0
+        assert grid.cursor_col == 1
+        assert selections == [(0, 1)]
+
 
 class TestDataGridEditing:
     """Tests for cell editing."""
@@ -338,6 +366,36 @@ class TestDataGridEditing:
 
         assert grid.editing is False
         assert grid.data[0][0] == "Modified"
+
+    def test_enter_commits_edit_once(self):
+        """Enter commits the edited cell exactly once (no double-commit)."""
+        grid = DataGrid(data=[["Original"], ["Second"]], columns=["Col1"])
+        commits = []
+        grid.on_cell_change = lambda r, c, o, n: commits.append((r, c, o, n))
+
+        grid.handle_key(Keys.F2)
+        grid.edit_value = "Modified"
+        grid.handle_key(Keys.ENTER)
+
+        assert grid.data[0][0] == "Modified"
+        assert commits == [(0, 0, "Original", "Modified")]
+        # Enter also advances the cursor down.
+        assert grid.cursor_row == 1
+
+    def test_tab_commits_edit_once_and_moves(self):
+        """Tab in edit mode commits once and advances the cursor."""
+        grid = DataGrid(data=[["A", "B"]], columns=["Col1", "Col2"])
+        commits = []
+        grid.on_cell_change = lambda r, c, o, n: commits.append((r, c, o, n))
+
+        grid.handle_key(Keys.F2)
+        grid.edit_value = "X"
+        grid.handle_key(Keys.TAB)
+
+        assert grid.data[0][0] == "X"
+        assert commits == [(0, 0, "A", "X")]
+        assert grid.cursor_col == 1
+        assert grid.editing is False
 
     def test_typing_in_edit_mode(self):
         """Test typing characters in edit mode."""

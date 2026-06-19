@@ -1040,8 +1040,9 @@ class DataGrid(ScrollableElement):
             if self.cursor_col < len(self.columns) - 1:
                 self._move_cursor(0, 1)
             elif self.cursor_row < len(self.data) - 1:
-                self.cursor_col = 0
-                self._move_cursor(1, 0)
+                # Wrap to first column of the next row in a single move so the
+                # full position change drives on_cell_select and scrolling.
+                self._move_cursor(1, -self.cursor_col)
             return True
 
         # Shift+Tab - move left, wrap to previous row
@@ -1049,14 +1050,13 @@ class DataGrid(ScrollableElement):
             if self.cursor_col > 0:
                 self._move_cursor(0, -1)
             elif self.cursor_row > 0:
-                self.cursor_col = len(self.columns) - 1
-                self._move_cursor(-1, 0)
+                # Wrap to last column of the previous row in a single move.
+                self._move_cursor(-1, len(self.columns) - 1)
             return True
 
-        # Enter - commit and move down
+        # Enter - move down. Not reachable while editing (handle_key delegates
+        # to _handle_edit_key above), so no commit is needed here.
         elif key == Keys.ENTER:
-            if self.editing:
-                self._commit_edit()
             self._move_cursor(1, 0)
             return True
 
@@ -1151,29 +1151,27 @@ class DataGrid(ScrollableElement):
             self._cancel_edit()
             return True
 
-        # Enter - commit and move down
+        # Enter - commit and move down. _move_cursor commits the pending edit
+        # itself, so an explicit _commit_edit() here would write the cell twice.
         elif key == Keys.ENTER:
-            self._commit_edit()
             self._move_cursor(1, 0)
             return True
 
-        # Tab - commit and move right
+        # Tab - commit and move right, wrapping to the next row.
         elif key == Keys.TAB:
-            self._commit_edit()
             if self.cursor_col < len(self.columns) - 1:
                 self._move_cursor(0, 1)
             elif self.cursor_row < len(self.data) - 1:
-                self.cursor_col = 0
-                self._move_cursor(1, 0)
+                # Single move to first column of next row (commits the edit,
+                # drives on_cell_select for the full position change).
+                self._move_cursor(1, -self.cursor_col)
             return True
 
-        # Arrow keys - commit and navigate
+        # Arrow keys - commit and navigate (_move_cursor commits the edit).
         elif key == Keys.UP:
-            self._commit_edit()
             self._move_cursor(-1, 0)
             return True
         elif key == Keys.DOWN:
-            self._commit_edit()
             self._move_cursor(1, 0)
             return True
         elif key == Keys.LEFT:
@@ -1181,7 +1179,6 @@ class DataGrid(ScrollableElement):
             if self.edit_cursor_pos > 0:
                 self.edit_cursor_pos -= 1
             else:
-                self._commit_edit()
                 self._move_cursor(0, -1)
             return True
         elif key == Keys.RIGHT:
@@ -1189,7 +1186,6 @@ class DataGrid(ScrollableElement):
             if self.edit_cursor_pos < len(self.edit_value):
                 self.edit_cursor_pos += 1
             else:
-                self._commit_edit()
                 self._move_cursor(0, 1)
             return True
 

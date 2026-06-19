@@ -102,10 +102,25 @@ class Radio(Element):
         self.radio_group: list[Radio] | None = None  # Set by app
 
     def select(self) -> None:
-        """Select this radio button and emit change event."""
+        """Select this radio button, deselecting same-group siblings.
+
+        Selecting a radio deselects every other radio in ``radio_group`` that
+        shares this radio's ``name`` (mutual exclusion). For radios bound to
+        state this is reinforced by the state round-trip, but performing it here
+        means unbound radios behave correctly too.
+        """
         if not self.checked:
             old_value = self.checked
             self.checked = True
+            # Deselect same-group siblings so only one radio stays checked.
+            if self.radio_group:
+                for sibling in self.radio_group:
+                    if (
+                        sibling is not self
+                        and sibling.name == self.name
+                        and sibling.checked
+                    ):
+                        sibling.deselect()
             self._emit_change(old_value, self.checked)
 
     def deselect(self) -> None:

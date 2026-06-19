@@ -50,6 +50,26 @@ CLAUDE.md is already resolved.)
   docstring states the single-width limitation; wide-char support added to
   `roadmap.md` (near-term).
 
+### Fixed in batch 2
+
+Branch `fix/0.1.0-code-review-batch2` (stacked on batch 1). 17 new tests;
+full suite **2784 passed**, `ruff` / `black` / `mypy --strict` clean.
+
+- **Standalone `Radio` sibling deselect (HIGH)** — `Radio.select()` deselects
+  same-`name` siblings; `ElementWiringManager.wire_elements()` groups radios by
+  name and populates `radio_group`, so mutual exclusion and Up/Down navigation
+  work for unbound radios (previously only state-bound radios round-tripped).
+- **Select down-arrow scroll overshoot (HIGH)** — arrow handlers now share the
+  adaptive `_scroll_margin` (`min(2, visible_rows // 4)`) used by `__init__`;
+  small selects no longer scroll prematurely / pin the highlight to the edge.
+- **DataGrid Tab/Enter nav (HIGH)** — removed the dead non-editing-ENTER commit
+  branch; Tab/Shift+Tab row-wrap uses a single `_move_cursor` delta so the
+  column change drives `on_cell_select`; removed redundant `_commit_edit()`
+  calls in edit mode (`_move_cursor` already commits) → no more double-commit.
+- **Tags `tabindex` normalization (HIGH)** — `apply_tabindex` helper; Table,
+  Tree, ListView, LogView, ContentView, BarChart constructors accept
+  `tab_index` and the tags forward `tabindex`/`tab_index`.
+
 ### Checked and rejected (not bugs as described)
 
 - "Removed/None props never cleared" (`reconciler._diff_props`) — the diff
@@ -69,19 +89,18 @@ Highest-value first:
 2. **Reconciler state correctness (HIGH)** — keyless-element ephemeral
    preservation via a positional/path cache; conditional frame-id stability
    (`render_context.py:117`).
-3. **Standalone `Radio` sibling deselect (HIGH)** — `radio_group` is never
-   wired anywhere; this is an unfinished feature (wire group discovery, then
-   `select()` deselects siblings).
-4. **Input HIGHs** — Select down-arrow scroll margin overshoot
-   (`select.py:540`); DataGrid Tab/Enter dead-commit + double-commit
-   (`datagrid.py:1039,1155`); CodeEditor soft-wrap scroll desync
-   (`code_editor.py:478,839`).
+3. ~~Standalone `Radio` sibling deselect~~ — **done in batch 2.**
+4. **Input HIGHs (partial)** — ~~Select down-arrow scroll margin overshoot~~ and
+   ~~DataGrid Tab/Enter dead-commit + double-commit~~ **done in batch 2**;
+   *remaining:* CodeEditor soft-wrap scroll desync (`code_editor.py:478,839`).
 5. **Display HIGHs** — Tree multi-select ephemeral dropped on `multiple` toggle
    + bordered auto-scroll viewport (`tree.py`); Pager wheel-vs-keyboard Frame
    API (`pager.py:489`, `tabbed_panel.py:782`).
-6. **Tags HIGHs** — `tabindex`->`tab_index` not normalized on display/chart/menu
-   /dialog tags (focusable Table/Tree ignore it); unknown-attribute forwarding.
-   (Note: `class`->`classes` *is* already handled on those tags.)
+6. **Tags HIGHs (partial)** — ~~`tabindex`->`tab_index` normalization on
+   focusable display/chart tags~~ **done in batch 2** (Table, Tree, ListView,
+   LogView, ContentView, BarChart); *remaining:* menu/dialog tag `tabindex`
+   (lower value — those elements are rarely tab-ordered) and unknown-attribute
+   forwarding.
 7. **Theme C remainder** — warnings at the other silent-drop sites (unknown tag
    type, tag attribute parsing, CSS malformed declarations/colors).
 8. **Terminal MEDIUMs** — multi-byte input split; legacy mouse coords/clicks;

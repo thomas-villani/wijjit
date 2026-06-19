@@ -21,6 +21,7 @@ from wijjit.elements.display.tabbed_panel import TabPosition
 from wijjit.elements.display.tree import TreeIndicatorStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
+    apply_tabindex,
     get_element_marker,
     interleave_text_and_vnode_builders,
     parse_tag_attributes,
@@ -174,6 +175,7 @@ class TableExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("Table", key=id)
+        apply_tabindex(vnode, kwargs)
         vnode.set_prop("data", data)
         vnode.set_prop("columns", columns)
         vnode.set_prop("sortable", sortable)
@@ -372,6 +374,7 @@ class TreeExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("TreeView", key=id)
+        apply_tabindex(vnode, kwargs)
         vnode.set_prop("data", data)
         vnode.set_prop("multiple", multiple)
         if selected_ids is not None:
@@ -952,6 +955,7 @@ class LogViewExtension(Extension):
         # Create VNode for reconciliation - NO direct Element instantiation
         # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("LogView", key=id)
+        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("lines", lines)
         vnode.set_prop("width", element_width)
@@ -1174,6 +1178,7 @@ class ListViewExtension(Extension):
         # Create VNode for reconciliation - NO direct Element instantiation
         # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("ListView", key=id)
+        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("items", items)
         vnode.set_prop("width", element_width)
@@ -2169,6 +2174,7 @@ class ContentViewExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("ContentView", key=id)
+        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("content", content)
         vnode.set_prop("content_type", content_type)

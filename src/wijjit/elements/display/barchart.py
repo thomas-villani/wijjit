@@ -115,8 +115,9 @@ class BarChart(ScrollableElement):
         color_scale: str = "green",
         show_scrollbar: bool = True,
         show_border: bool = False,
+        tab_index: int | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # For keyboard scrolling
 

@@ -133,8 +133,9 @@ class ContentView(ScrollableElement):
         show_scrollbar: bool = True,
         border_style: str = "single",
         title: str | None = None,
+        tab_index: int | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

@@ -153,8 +153,9 @@ class Tree(ScrollableElement):
         border_style: str = "none",
         title: str | None = None,
         action: str | None = None,
+        tab_index: int | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True
 

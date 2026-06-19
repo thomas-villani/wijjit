@@ -623,6 +623,32 @@ class TestSelect:
         assert select.scroll_manager.state.viewport_size == 5
         assert select.scroll_manager.state.is_scrollable
 
+    def test_small_select_down_arrow_no_overshoot(self):
+        """Down-arrow must not scroll prematurely on a small select.
+
+        With a 3-row viewport the scroll margin collapses to 0, so moving the
+        highlight to an option that already fits on screen should not scroll.
+        A fixed 2-line margin used to force an immediate scroll-to-top here.
+        """
+        options = [f"Option {i}" for i in range(10)]
+        select = Select(options=options, visible_rows=3)
+        assert select.scroll_manager.state.scroll_position == 0
+
+        # Highlight 0 -> 1: still within the 3 visible rows, no scroll.
+        select.handle_key(Keys.DOWN)
+        assert select.highlighted_index == 1
+        assert select.scroll_manager.state.scroll_position == 0
+
+        # Highlight 1 -> 2 (bottom visible row): still no scroll.
+        select.handle_key(Keys.DOWN)
+        assert select.highlighted_index == 2
+        assert select.scroll_manager.state.scroll_position == 0
+
+        # Highlight 2 -> 3: now off-screen; scroll by exactly one row.
+        select.handle_key(Keys.DOWN)
+        assert select.highlighted_index == 3
+        assert select.scroll_manager.state.scroll_position == 1
+
     @pytest.mark.asyncio
     async def test_mouse_click_option(self):
         """Test clicking an option to select it."""
