@@ -92,6 +92,32 @@ full suite **2798 passed** (excl. benchmarks), `ruff` / `black` / `mypy
   `delegate_frame_scroll` helper (`elements/base.py`) prefers `handle_scroll`
   and falls back to synthesized Up/Down keys; both containers route through it.
 
+### Fixed in batch 4
+
+Branch `fix/0.1.0-code-review-batch4` (stacked on batch 3). 9 new tests;
+full suite **2807 passed** (excl. benchmarks), `ruff` / `black` / `mypy
+--strict` clean. Public-API completeness (Part 4 "Public API"):
+
+- **Completer classes re-exported** — `Completer`, `WordCompleter`,
+  `CallbackCompleter`, `AsyncCompleter`, `StateCompleter`, `CompleterConfig` now
+  importable from top-level `wijjit` (autocomplete is a headline feature). The
+  import is placed after the element imports (`# isort: split`) to avoid a
+  circular import via the autocomplete popup.
+- **`Modal` / `Notification` friendly aliases** — added at top level pointing at
+  `ModalElement` / `NotificationElement` (the documented names used by the docs,
+  template tags, and registry); the `*Element` names remain for back-compat.
+- **Dialog classes re-exported** — `ConfirmDialog`, `AlertDialog`,
+  `TextInputDialog` importable from `wijjit` instead of only via deep paths.
+- New `tests/test_public_api.py` guards the re-export contract and `__all__`
+  consistency (all entries resolvable, no duplicates).
+
+Note: the menu/dialog tag `tabindex` and unknown-attribute *forwarding* parts of
+item #6 were intentionally left for later -- forwarding arbitrary tag kwargs to
+the VNode is unsafe because the registry only filters by signature on *create*,
+so on the *update* path `_apply_prop_changes` would `setattr` typo'd attributes
+onto the element. That belongs with the Theme C warning work (#7), not a
+mechanical pass.
+
 ### Checked and rejected (not bugs as described)
 
 - "Removed/None props never cleared" (`reconciler._diff_props`) — the diff
@@ -128,8 +154,9 @@ Highest-value first:
 8. **Terminal MEDIUMs** — multi-byte input split; legacy mouse coords/clicks;
    `strip_ansi` regex too narrow; `_full_render` style reset.
 9. **Theme F** — dead-code removal + chart/dialog/border dedup.
-10. Remaining **MEDIUM/LOW** items in Parts 3-4 and the **Public API**
-    re-export gaps.
+10. Remaining **MEDIUM/LOW** items in Parts 3-4. ~~**Public API** re-export
+    gaps~~ — **done in batch 4** (completers, dialogs, Modal/Notification
+    aliases).
 
 ---
 
