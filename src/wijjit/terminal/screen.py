@@ -4,6 +4,7 @@ This module provides utilities for managing the terminal's alternate screen buff
 which allows TUI applications to run without disturbing the user's terminal history.
 """
 
+import atexit
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -35,6 +36,20 @@ class ScreenManager:
         self.output = output or sys.stdout
         self.in_alternate_buffer = False
         self._cursor_hidden = False
+        self._atexit_registered = False
+
+    def _register_atexit(self) -> None:
+        """Register a last-resort terminal-restore handler (idempotent).
+
+        Normal shutdown calls :meth:`cleanup` explicitly. This handler is a
+        safety net for the case where the process exits without that path
+        running - e.g. an unhandled exception propagating past the event
+        loop - so the user is not left in the alternate buffer with a hidden
+        cursor. ``cleanup`` is idempotent, so running it twice is harmless.
+        """
+        if not self._atexit_registered:
+            atexit.register(self.cleanup)
+            self._atexit_registered = True
 
     def enter_alternate_buffer(self) -> None:
         """Switch to alternate screen buffer.
@@ -44,6 +59,7 @@ class ScreenManager:
         are not preserved after exit.
         """
         if not self.in_alternate_buffer:
+            self._register_atexit()
             self.output.write(ANSIScreen.alternate_buffer_on())
             self.output.flush()
             self.in_alternate_buffer = True
@@ -95,6 +111,7 @@ class ScreenManager:
         be distracting or confusing.
         """
         if not self._cursor_hidden:
+            self._register_atexit()
             self.output.write(ANSICursor.hide())
             self.output.flush()
             self._cursor_hidden = True
@@ -145,11 +162,23 @@ class ScreenManager:
         - Exiting alternate buffer if active
         - Showing cursor if hidden
         - Clearing any remaining output
+
+        Idempotent and safe to call from an ``atexit`` handler: errors writing
+        to an already-closed stream during interpreter shutdown are swallowed.
         """
-        if self._cursor_hidden:
-            self.show_cursor()
-        if self.in_alternate_buffer:
-            self.exit_alternate_buffer()
+        try:
+            if self._cursor_hidden:
+                self.show_cursor()
+            if self.in_alternate_buffer:
+                self.exit_alternate_buffer()
+        except (ValueError, OSError):
+            # Stream may be closed during interpreter shutdown; nothing more
+            # we can do to restore the terminal at that point.
+            pass
+        finally:
+            if self._atexit_registered:
+                atexit.unregister(self.cleanup)
+                self._atexit_registered = False
 
 
 @contextmanager
