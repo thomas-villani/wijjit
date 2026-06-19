@@ -141,6 +141,24 @@ class TestStripAnsi:
         text = f"{ANSICursor.position(5, 10)}Text"
         assert strip_ansi(text) == "Text"
 
+    def test_strip_private_mode_csi(self):
+        """Private-mode CSI (e.g. show/hide cursor) must be stripped.
+
+        These contain a ``?`` parameter byte that the old ``[0-9;]`` pattern
+        could not match, so they leaked into "visible" text.
+        """
+        assert strip_ansi("a\x1b[?25hb\x1b[?25lc") == "abc"
+
+    def test_strip_osc_sequence(self):
+        """OSC sequences (window title / hyperlinks) must be stripped."""
+        # BEL-terminated and ST-terminated forms.
+        assert strip_ansi("a\x1b]0;window title\x07b") == "ab"
+        assert strip_ansi("a\x1b]8;;http://x\x1b\\link\x1b]8;;\x1b\\b") == "alinkb"
+
+    def test_strip_truecolor(self):
+        """Truecolor SGR (semicolon params) still strips cleanly."""
+        assert strip_ansi("\x1b[38;2;10;20;30mX\x1b[0m") == "X"
+
 
 class TestVisibleLength:
     """Tests for visible_length function."""
@@ -167,6 +185,11 @@ class TestVisibleLength:
         """Test string with only ANSI codes."""
         text = f"{ANSIColor.RED}{ANSIStyle.BOLD}{ANSIColor.RESET}"
         assert visible_length(text) == 0
+
+    def test_excludes_private_mode_and_osc(self):
+        """visible_length must not count private-mode CSI / OSC sequences."""
+        assert visible_length("ab\x1b[?25h") == 2
+        assert visible_length("\x1b]0;title\x07hi") == 2
 
 
 class TestClipToWidth:

@@ -18,8 +18,26 @@ from wijjit.logging_config import get_logger
 # Get logger for this module
 logger = get_logger(__name__)
 
-# ANSI escape sequence pattern for stripping
-ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+# ANSI escape sequence pattern for stripping.
+#
+# The previous pattern (``\x1b\[[0-9;]*[a-zA-Z]``) only matched CSI sequences
+# whose parameter bytes were digits/semicolons and whose final byte was a
+# letter. That misses two families that Wijjit itself emits and that commonly
+# appear in captured terminal output, leaving them in the "visible" text and
+# making ``visible_length`` overcount:
+#   * private-mode CSI such as ``\x1b[?25h`` / ``\x1b[?25l`` (the ``?`` is a
+#     private parameter byte, not in ``[0-9;]``);
+#   * OSC sequences such as ``\x1b]0;title\x07`` (window title, hyperlinks).
+#
+# This pattern follows the ECMA-48 grammar: CSI is ``ESC [`` + parameter bytes
+# (0x30-0x3F, which includes ``? < = > ; :`` and digits) + intermediate bytes
+# (0x20-0x2F) + a final byte (0x40-0x7E); OSC is ``ESC ]`` ... terminated by
+# BEL (``\x07``) or ST (``ESC \``). The OSC alternative is listed first so it is
+# tried before the generic CSI branch.
+ANSI_ESCAPE_PATTERN = re.compile(
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC ... BEL/ST
+    r"|\x1b\[[0-?]*[ -/]*[@-~]"  # CSI (incl. private/intermediate bytes)
+)
 
 # Characters that terminate ANSI escape sequences
 _ANSI_TERMINATORS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")

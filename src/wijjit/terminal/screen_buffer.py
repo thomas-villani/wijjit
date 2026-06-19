@@ -498,6 +498,13 @@ class DiffRenderer:
         commands.append("\x1b[2J")  # Clear screen
         commands.append("\x1b[H")  # Home cursor
 
+        # Reset attributes before the first row. ``_render_row_optimized`` only
+        # emits a reset *between* style runs, so the very first cell inherits
+        # whatever attributes the terminal happened to have on entry (e.g. bold
+        # left over from prior output). Without this, a full repaint can bleed
+        # stale styling onto the first styled cell.
+        commands.append("\x1b[0m")
+
         # Render each row
         for y, row in enumerate(buffer.cells):
             if y > 0:

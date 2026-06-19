@@ -3,6 +3,7 @@
 This module provides common fixtures used across unit, integration, and e2e tests.
 """
 
+import logging
 import tempfile
 from io import StringIO
 from pathlib import Path
@@ -32,6 +33,31 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def golden_update(pytestconfig: pytest.Config) -> bool:
     """Whether golden fixtures should be regenerated during this test session."""
     return bool(pytestconfig.getoption("--golden-update"))
+
+
+@pytest.fixture
+def wijjit_caplog(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
+    """Capture ``wijjit.*`` log records robustly.
+
+    The plain ``caplog`` fixture attaches its handler to the *root* logger and
+    relies on propagation. Constructing any ``Wijjit`` app calls
+    ``configure_logging`` which sets ``wijjit_logger.propagate = False`` for the
+    whole process, so once any app has been built (true in a full suite run)
+    ``caplog`` silently stops seeing wijjit warnings. This fixture attaches
+    ``caplog``'s handler directly to the ``wijjit`` logger so capture works
+    regardless of propagation state, then restores the prior configuration.
+    """
+    wlog = logging.getLogger("wijjit")
+    prev_level = wlog.level
+    prev_propagate = wlog.propagate
+    wlog.addHandler(caplog.handler)
+    wlog.setLevel(logging.DEBUG)
+    try:
+        yield caplog
+    finally:
+        wlog.removeHandler(caplog.handler)
+        wlog.setLevel(prev_level)
+        wlog.propagate = prev_propagate
 
 
 class MockElement(Element):
