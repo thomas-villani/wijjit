@@ -178,9 +178,7 @@ class Select(ScrollableElement):
         # Ensure highlighted option is visible with margin
         if self.highlighted_index >= 0:
             # Calculate scroll position to center the highlighted item, or keep it with margin
-            margin = min(
-                2, visible_rows // 4
-            )  # Use 2-line margin, or 1/4 of viewport if smaller
+            margin = self._scroll_margin
 
             # Try to position with margin from top
             target_scroll = max(0, self.highlighted_index - margin)
@@ -206,6 +204,21 @@ class Select(ScrollableElement):
 
         # Backward compatibility
         self.max_visible = visible_rows  # Alias for tests
+
+    @property
+    def _scroll_margin(self) -> int:
+        """Number of context lines to keep around the highlighted option.
+
+        A 2-line margin, shrinking to a quarter of the viewport for small
+        selects so the scroll target never overshoots (e.g. with 3 visible
+        rows a fixed 2-line margin would force the highlight to the top edge).
+
+        Returns
+        -------
+        int
+            Scroll margin in lines (0 for very small viewports).
+        """
+        return min(2, self.visible_rows // 4)
 
     @property
     def highlight_state_key(self) -> str | None:
@@ -516,9 +529,9 @@ class Select(ScrollableElement):
                 if new_index != self.highlighted_index:
                     self.highlighted_index = new_index
                     self._emit_highlight_change(self.highlighted_index)
-                    # Ensure visible with margin (keep 2 lines visible above when possible)
+                    # Ensure visible with margin (consistent with __init__)
                     visible_start, _ = self.scroll_manager.get_visible_range()
-                    margin = 2
+                    margin = self._scroll_margin
                     if self.highlighted_index < visible_start + margin:
                         # Scroll up to keep margin, but don't go below 0
                         target = max(0, self.highlighted_index - margin)
@@ -536,9 +549,9 @@ class Select(ScrollableElement):
                 if new_index != self.highlighted_index:
                     self.highlighted_index = new_index
                     self._emit_highlight_change(self.highlighted_index)
-                    # Ensure visible with margin (keep 2 lines visible below when possible)
+                    # Ensure visible with margin (consistent with __init__)
                     _, visible_end = self.scroll_manager.get_visible_range()
-                    margin = 2
+                    margin = self._scroll_margin
                     # Calculate how many lines are below the highlighted index
                     lines_below = (visible_end - 1) - self.highlighted_index
                     if lines_below < margin:
