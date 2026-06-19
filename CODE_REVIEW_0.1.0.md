@@ -118,6 +118,59 @@ so on the *update* path `_apply_prop_changes` would `setattr` typo'd attributes
 onto the element. That belongs with the Theme C warning work (#7), not a
 mechanical pass.
 
+### Fixed in batch 5
+
+Branch `fix/0.1.0-code-review-batch5` (off `main`; batches 1-4 are merged).
+15 new tests; full suite **2822 passed** (excl. benchmarks), `ruff` / `black` /
+`mypy --strict` clean. Two clusters: **Theme C** silent-drop warnings (#7) and
+the contained **Terminal MEDIUMs** (#8).
+
+Theme C — surface user/author mistakes instead of failing silently:
+
+- **Unknown tag type warns (`reconciler.py`)** — a `vnode.type` that is neither
+  a registered element nor a known structural container (new module-level
+  `KNOWN_CONTAINER_TYPES`, kept in sync with the `vnode.type` branches in
+  `renderer.py`) now logs a `warning` on the create path naming the offending
+  type (almost always a template typo). Container types still log at debug; the
+  per-frame update path stays at debug to avoid spam.
+- **Valueless tag attribute warns (`tags/layout.py`)** — `parse_tag_attributes`
+  used to silently `break` on the first bare attribute (e.g.
+  `{% button disabled %}`), dropping it *and every attribute after it*. It now
+  warns naming the attribute and line number.
+- **CSS warnings (`styling/css_parser.py`)** — unknown CSS property, unparseable
+  color value, malformed declaration / stylesheet (tinycss2 `ParseError`), and
+  a non-empty stylesheet that parses to zero usable rules each warn now.
+
+Terminal:
+
+- **`strip_ansi` widened (`terminal/ansi.py`)** — the old `\x1b\[[0-9;]*[a-zA-Z]`
+  pattern missed private-mode CSI (`\x1b[?25h`/`\x1b[?25l`, which the framework
+  itself emits) and OSC sequences (`\x1b]0;title\x07`), so `visible_length`
+  overcounted. Replaced with the ECMA-48 CSI grammar (`[0-?]*[ -/]*[@-~]`) plus
+  an OSC alternative (terminated by BEL or ST).
+- **`_full_render` style reset (`terminal/screen_buffer.py`)** — a full repaint
+  now emits `\x1b[0m` after the clear/home, before the first row.
+  `_render_row_optimized` only resets *between* style runs, so the first cell
+  previously inherited stale terminal attributes. (Five `test_visual_regression`
+  syrupy snapshots were regenerated to include the leading reset.)
+
+Checked and not reproduced:
+
+- **`parse_ansi_text` "drops trailing 256/truecolor params" (`ansi.py:491-522`)**
+  — verified that `38;5;n`, `38;2;r;g;b` and `48;...` parse correctly both at the
+  end of and in the middle of an SGR sequence; the existing bounds checks are
+  correct. No change.
+
+Deferred (need design, not a contained edit):
+
+- **Legacy "normal" mouse mode + per-byte multi-byte input** (`mouse.py`,
+  `input.py`) — left as-is. SGR is the default and works; the legacy path is
+  effectively non-functional because the raw mouse bytes arrive already mangled
+  by prompt_toolkit's UTF-8 decode (coords past ~95 cols become multi-byte), and
+  release events carry no button id (no synthesized clicks). A robust fix means
+  bypassing prompt_toolkit's decode for the mouse path -- architectural and low
+  value while SGR is the default.
+
 ### Checked and rejected (not bugs as described)
 
 - "Removed/None props never cleared" (`reconciler._diff_props`) — the diff
@@ -149,10 +202,16 @@ Highest-value first:
    LogView, ContentView, BarChart); *remaining:* menu/dialog tag `tabindex`
    (lower value — those elements are rarely tab-ordered) and unknown-attribute
    forwarding.
-7. **Theme C remainder** — warnings at the other silent-drop sites (unknown tag
-   type, tag attribute parsing, CSS malformed declarations/colors).
-8. **Terminal MEDIUMs** — multi-byte input split; legacy mouse coords/clicks;
-   `strip_ansi` regex too narrow; `_full_render` style reset.
+7. ~~**Theme C remainder** — warnings at the other silent-drop sites (unknown
+   tag type, tag attribute parsing, CSS malformed declarations/colors).~~ —
+   **done in batch 5.** (The unknown-attribute *forwarding* part of #6 remains
+   deferred — forwarding arbitrary kwargs to the VNode is unsafe; dropped props
+   are already logged at debug by `element_registry`.)
+8. **Terminal MEDIUMs (partial)** — ~~`strip_ansi` regex too narrow;
+   `_full_render` style reset~~ **done in batch 5**; `parse_ansi_text` trailing
+   params **checked, not a bug**; *remaining (deferred):* legacy "normal" mouse
+   coords/clicks + per-byte multi-byte input (SGR default works; needs bypassing
+   prompt_toolkit's UTF-8 decode).
 9. **Theme F** — dead-code removal + chart/dialog/border dedup.
 10. Remaining **MEDIUM/LOW** items in Parts 3-4. ~~**Public API** re-export
     gaps~~ — **done in batch 4** (completers, dialogs, Modal/Notification
