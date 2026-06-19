@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
@@ -531,7 +531,9 @@ class ContentView(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -541,7 +543,9 @@ class ContentView(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -549,14 +553,18 @@ class ContentView(ScrollableElement):
         elif key == Keys.HOME:
             self.scroll_manager.scroll_to(0)
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # End - jump to bottom
         elif key == Keys.END:
             self.scroll_manager.scroll_to_bottom()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # Page Up
@@ -565,7 +573,9 @@ class ContentView(ScrollableElement):
             self.scroll_manager.page_up()
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -575,7 +585,9 @@ class ContentView(ScrollableElement):
             self.scroll_manager.page_down()
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -600,7 +612,9 @@ class ContentView(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -609,7 +623,9 @@ class ContentView(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 

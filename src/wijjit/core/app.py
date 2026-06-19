@@ -266,6 +266,12 @@ class Wijjit:
         self.running = False
         self.needs_render = True
 
+        # Strong references to in-flight background tasks (async action
+        # handlers, etc.). asyncio.create_task only weakly references its task,
+        # so retaining it here prevents premature garbage collection; tasks
+        # remove themselves on completion via _on_background_task_done.
+        self._background_tasks: set[asyncio.Task[Any]] = set()
+
         # Layout system
         self.positioned_elements = []  # Elements with bounds from layout engine
 
@@ -1440,8 +1446,9 @@ class Wijjit:
                 result = handler(action_event)
                 # If handler is async, schedule it on the event loop
                 if asyncio.iscoroutine(result):
-                    asyncio.create_task(
-                        self._run_async_action_handler(action_id, result)
+                    self._schedule_coroutine(
+                        self._run_async_action_handler(action_id, result),
+                        label=f"async action handler '{action_id}'",
                     )
             except Exception as e:
                 self._handle_error(f"Error in action handler '{action_id}'", e)
@@ -1450,6 +1457,63 @@ class Wijjit:
             self.needs_render = True
         else:
             logger.warning(f"Action handler not found: '{action_id}'")
+
+    def _schedule_coroutine(
+        self, coro: Coroutine[Any, Any, Any], *, label: str
+    ) -> asyncio.Task[Any] | None:
+        """Schedule a coroutine on the running event loop, tracked and safe.
+
+        The task is retained in ``self._background_tasks`` (so it is not
+        garbage-collected before completion) and its exceptions are surfaced
+        via :meth:`_handle_error`. If no event loop is running (e.g. a
+        synchronous invocation or a test), the coroutine is run to completion
+        instead of raising ``RuntimeError``.
+
+        Parameters
+        ----------
+        coro : Coroutine
+            The coroutine to schedule. Always consumed (scheduled or run), so
+            no "coroutine was never awaited" warning is produced.
+        label : str
+            Human-readable description used in error messages.
+
+        Returns
+        -------
+        asyncio.Task or None
+            The scheduled task, or ``None`` if it was run synchronously.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            task = loop.create_task(coro)
+            self._background_tasks.add(task)
+            task.add_done_callback(self._on_background_task_done)
+            return task
+
+        # No running loop: run to completion as a fallback.
+        try:
+            asyncio.run(coro)
+        except Exception as e:
+            self._handle_error(f"Error in {label}", e)
+        return None
+
+    def _on_background_task_done(self, task: asyncio.Task[Any]) -> None:
+        """Drop a finished background task and surface any unhandled error.
+
+        Parameters
+        ----------
+        task : asyncio.Task
+            The completed task scheduled by :meth:`_schedule_coroutine`.
+        """
+        self._background_tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            self._handle_error("Error in background task", exc)
 
     async def _run_async_action_handler(
         self, action_id: str, coro: Coroutine[Any, Any, Any]

@@ -7,7 +7,7 @@ with automatic log level detection, coloring, auto-scroll, and soft-wrap.
 import re
 from typing import Any
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
@@ -605,7 +605,9 @@ class LogView(ScrollableElement):
                 self._user_scrolled_up = True
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -621,7 +623,9 @@ class LogView(ScrollableElement):
                     self._user_scrolled_up = False
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -631,7 +635,9 @@ class LogView(ScrollableElement):
             self._user_scrolled_up = True
             self._save_scroll_state()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # End - jump to bottom
@@ -640,7 +646,9 @@ class LogView(ScrollableElement):
             self._user_scrolled_up = False  # Re-enable auto-scroll
             self._save_scroll_state()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # Page Up
@@ -650,7 +658,9 @@ class LogView(ScrollableElement):
                 self._user_scrolled_up = True
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -666,7 +676,9 @@ class LogView(ScrollableElement):
                     self._user_scrolled_up = False
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -695,7 +707,9 @@ class LogView(ScrollableElement):
                 self._user_scrolled_up = True
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -710,7 +724,9 @@ class LogView(ScrollableElement):
                     self._user_scrolled_up = False
                 self._save_scroll_state()
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 

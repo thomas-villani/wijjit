@@ -81,6 +81,9 @@ class State(UserDict[str, Any]):
             self, "_pending_tasks", set()
         )  # Track pending async callback tasks
         object.__setattr__(
+            self, "_loop", None
+        )  # Event loop captured while on the loop thread (for cross-thread scheduling)
+        object.__setattr__(
             self, "_batch_mode", False
         )  # Track if we're in batch update mode
         object.__setattr__(
@@ -507,6 +510,58 @@ class State(UserDict[str, Any]):
         finally:
             self._notify_depth -= 1
 
+    def _schedule_state_coroutine(
+        self, coro: Any, callback_name: str, kind: str
+    ) -> None:
+        """Schedule an async state callback safely from any thread.
+
+        Parameters
+        ----------
+        coro : Coroutine
+            The already-created coroutine to run. Always consumed (scheduled
+            or closed) so no "coroutine was never awaited" warning is emitted.
+        callback_name : str
+            Name of the callback (for diagnostics).
+        kind : str
+            Either ``"callback"`` or ``"watcher"`` (for diagnostics).
+
+        Notes
+        -----
+        When invoked on the event-loop thread, the coroutine is scheduled with
+        ``create_task`` (thread-safe in that context) and the loop is captured
+        for later cross-thread use. When invoked from a worker thread, it is
+        scheduled onto the captured loop with ``run_coroutine_threadsafe``.
+        If no loop is available the coroutine cannot run and a warning is
+        logged. Uses ``get_running_loop`` (not the deprecated
+        ``get_event_loop``).
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # On the event-loop thread: create_task is safe. Capture the loop
+            # so callbacks fired later from worker threads can reach it.
+            object.__setattr__(self, "_loop", loop)
+            task = loop.create_task(coro)
+            self._pending_tasks.add(task)
+            task.add_done_callback(self._pending_tasks.discard)
+            return
+
+        captured = self._loop
+        if captured is not None and captured.is_running():
+            # Called from a worker thread: hop to the loop thread safely.
+            asyncio.run_coroutine_threadsafe(coro, captured)
+            return
+
+        # No event loop available - cannot run the coroutine.
+        coro.close()
+        logger.warning(
+            f"Cannot invoke async state {kind} '{callback_name}' "
+            f"outside of async context"
+        )
+
     def _dispatch_change(self, key: str, old_value: Any, new_value: Any) -> None:
         """Invoke global callbacks and key watchers for a change.
 
@@ -526,19 +581,12 @@ class State(UserDict[str, Any]):
         for callback in self._change_callbacks:
             try:
                 if asyncio.iscoroutinefunction(callback):
-                    # Schedule async callback as a task and track it
-                    try:
-                        loop = asyncio.get_event_loop()
-                        task = loop.create_task(callback(key, old_value, new_value))
-                        self._pending_tasks.add(task)
-                        # Remove task from pending set when done
-                        task.add_done_callback(lambda t: self._pending_tasks.discard(t))
-                    except RuntimeError:
-                        # No event loop running - log warning
-                        logger.warning(
-                            f"Cannot invoke async state callback '{callback.__name__}' "
-                            f"outside of async context"
-                        )
+                    # Schedule async callback safely (handles cross-thread).
+                    self._schedule_state_coroutine(
+                        callback(key, old_value, new_value),
+                        callback.__name__,
+                        "callback",
+                    )
                 else:
                     # Call sync callback immediately on this thread
                     callback(key, old_value, new_value)
@@ -554,20 +602,12 @@ class State(UserDict[str, Any]):
             for callback in self._watchers[key]:
                 try:
                     if asyncio.iscoroutinefunction(callback):
-                        # Schedule async callback as a task and track it
-                        try:
-                            loop = asyncio.get_event_loop()
-                            task = loop.create_task(callback(key, old_value, new_value))
-                            self._pending_tasks.add(task)
-                            task.add_done_callback(
-                                lambda t: self._pending_tasks.discard(t)
-                            )
-                        except RuntimeError:
-                            # No event loop running - log warning
-                            logger.warning(
-                                f"Cannot invoke async state watcher '{callback.__name__}' "
-                                f"outside of async context"
-                            )
+                        # Schedule async watcher safely (handles cross-thread).
+                        self._schedule_state_coroutine(
+                            callback(key, old_value, new_value),
+                            callback.__name__,
+                            "watcher",
+                        )
                     else:
                         # Call sync callback immediately on this thread
                         callback(key, old_value, new_value)
@@ -600,7 +640,7 @@ class State(UserDict[str, Any]):
                     await callback(key, old_value, new_value)
                 else:
                     # Run sync callback in executor to avoid blocking
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(
                         None, callback, key, old_value, new_value
                     )
@@ -619,7 +659,7 @@ class State(UserDict[str, Any]):
                         await callback(key, old_value, new_value)
                     else:
                         # Run sync callback in executor
-                        loop = asyncio.get_event_loop()
+                        loop = asyncio.get_running_loop()
                         await loop.run_in_executor(
                             None, callback, key, old_value, new_value
                         )

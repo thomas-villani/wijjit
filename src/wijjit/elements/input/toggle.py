@@ -8,7 +8,7 @@ and dual label mode (labels on both sides showing On/Off states).
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import supports_unicode
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -149,7 +149,7 @@ class Toggle(Element):
 
         if old_value != value:
             if self.on_change:
-                self.on_change(old_value, value)
+                invoke_callback(self.on_change, old_value, value)
 
     def toggle(self) -> None:
         """Toggle the current state.
@@ -158,7 +158,7 @@ class Toggle(Element):
         """
         self.checked = not self._checked
         if self.on_toggle:
-            self.on_toggle()
+            invoke_callback(self.on_toggle)
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render toggle switch to paint context.

@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -174,4 +174,4 @@ class Link(Element):
         by the application's event system.
         """
         if self.on_click:
-            self.on_click()
+            invoke_callback(self.on_click)

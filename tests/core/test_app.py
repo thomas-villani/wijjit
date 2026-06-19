@@ -239,6 +239,22 @@ class TestNavigation:
         with pytest.raises(ValueError, match="View 'nonexistent' not found"):
             app.navigate("nonexistent")
 
+    @pytest.mark.asyncio
+    async def test_navigate_to_nonexistent_view_async_raises(self):
+        """Unknown view raises synchronously even inside an event loop.
+
+        Regression: in async context navigate() scheduled a fire-and-forget
+        task, so a bad view name silently did nothing instead of raising.
+        """
+        app = Wijjit()
+
+        @app.view("view1")
+        def view1():
+            return {"template": "View 1"}
+
+        with pytest.raises(ValueError, match="View 'nonexistent' not found"):
+            app.navigate("nonexistent")
+
     def test_navigate_calls_lifecycle_hooks(self):
         """Test that navigation calls on_exit and on_enter hooks."""
         app = Wijjit()
