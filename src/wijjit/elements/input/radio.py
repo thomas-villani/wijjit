@@ -508,13 +508,18 @@ class RadioGroup(Element):
                     self.select_option(relative_y)
                     return True
             else:  # horizontal
-                # Calculate based on radio width
-                radio_width = 5  # Approximate width per radio
-                clicked_index = relative_x // radio_width
-                if 0 <= clicked_index < len(self.options):
-                    self.highlighted_index = clicked_index
-                    self.select_option(clicked_index)
-                    return True
+                # Mirror the render layout exactly: each option occupies
+                # "{circle} {label}" followed by a single-space gap, where the
+                # circle glyph is 1 column in unicode mode or 3 ("( )") otherwise.
+                circle_width = 1 if supports_unicode() else 3
+                start = 0
+                for i, opt in enumerate(self.options):
+                    text_len = circle_width + 1 + len(opt["label"])
+                    if start <= relative_x < start + text_len:
+                        self.highlighted_index = i
+                        self.select_option(i)
+                        return True
+                    start += text_len + 1  # +1 for the inter-option space
 
         return False
 
