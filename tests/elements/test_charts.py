@@ -334,6 +334,25 @@ class TestColumnChart:
         cell = buffer.get_cell(0, 0)
         assert cell is not None
 
+    def test_columnchart_render_does_not_mutate_column_width(self):
+        """render_to must not shrink self.column_width.
+
+        Regression: when columns did not fit the chart width, render_to
+        permanently reassigned self.column_width, so columns shrank
+        irreversibly on every subsequent render.
+        """
+        # Many columns in a narrow width forces the fit-adjustment branch.
+        chart = ColumnChart(data=list(range(20)), width=20, height=10)
+        original_width = chart.column_width
+
+        for _ in range(3):
+            buffer = ScreenBuffer(30, 15)
+            resolver = StyleResolver(DefaultTheme())
+            bounds = Bounds(x=0, y=0, width=20, height=10)
+            chart.render_to(PaintContext(buffer, resolver, bounds))
+
+        assert chart.column_width == original_width
+
 
 class TestLineChart:
     """Tests for LineChart element."""

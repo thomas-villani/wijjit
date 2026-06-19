@@ -8,7 +8,7 @@ and float modes, keyboard navigation, and mouse drag interaction.
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import supports_unicode
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -168,7 +168,7 @@ class Slider(Element):
         # Emit change if value actually changed
         new_val = self.value  # Get through property for type conversion
         if old_value != new_val and self.on_change:
-            self.on_change(old_value, new_val)
+            invoke_callback(self.on_change, old_value, new_val)
 
     def _value_to_position(self, track_width: int) -> int:
         """Convert value to handle position on track.

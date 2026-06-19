@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import (
     ScrollManager,
@@ -1251,7 +1251,9 @@ class DataGrid(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if self.scroll_manager.state.scroll_position != old_pos:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -1260,7 +1262,9 @@ class DataGrid(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if self.scroll_manager.state.scroll_position != old_pos:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 

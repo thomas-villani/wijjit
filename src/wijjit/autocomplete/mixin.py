@@ -20,11 +20,14 @@ from wijjit.autocomplete.popup import AutocompletePopup
 from wijjit.autocomplete.state import AutocompleteState
 from wijjit.autocomplete.utils import get_word_at_cursor, replace_word_at_cursor
 from wijjit.core.overlay import LayerType
+from wijjit.logging_config import get_logger
 from wijjit.terminal.input import Key, Keys
 
 if TYPE_CHECKING:
     from wijjit.core.overlay import Overlay, OverlayManager
     from wijjit.layout.bounds import Bounds
+
+logger = get_logger(__name__)
 
 
 class AutocompleteMixin:
@@ -90,6 +93,9 @@ class AutocompleteMixin:
         self._autocomplete_popup = None
         self._autocomplete_overlay = None
         self._autocomplete_applying = False
+        # In-flight async suggestion fetch; retained so it is not
+        # garbage-collected and so a newer keystroke can cancel a stale one.
+        self._suggestion_task: asyncio.Task[None] | None = None
 
     def _handle_autocomplete_key(self, key: Key) -> bool:
         """Handle key events for autocomplete.
@@ -114,7 +120,7 @@ class AutocompleteMixin:
         config = self.completer.config
         state = self._autocomplete_state
 
-        # Check for manual trigger (Ctrl+Space by default)
+        # Check for manual trigger (Ctrl+/ by default; see CompleterConfig)
         if not state.is_open:
             if self._is_trigger_key(key, config.trigger_key):
                 self._trigger_autocomplete()
@@ -270,8 +276,25 @@ class AutocompleteMixin:
 
         # Get suggestions (handle async case)
         if isinstance(self.completer, AsyncCompleter):
-            # Schedule async fetch
-            asyncio.create_task(self._fetch_suggestions_async(prefix))
+            # Cancel any prior in-flight fetch so a slow earlier request cannot
+            # overwrite the results of this newer keystroke, then schedule and
+            # retain a strong reference to the new task.
+            prior = self._suggestion_task
+            if prior is not None and not prior.done():
+                prior.cancel()
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop is not None:
+                self._suggestion_task = loop.create_task(
+                    self._fetch_suggestions_async(prefix)
+                )
+            else:
+                logger.warning(
+                    "Cannot fetch async autocomplete suggestions outside of "
+                    "an event loop"
+                )
         else:
             suggestions = self.completer.get_suggestions(prefix)
             self._show_suggestions(suggestions)
@@ -298,11 +321,7 @@ class AutocompleteMixin:
                 self._show_suggestions(suggestions)
         except Exception as e:
             # Log error and close autocomplete to avoid stale state
-            import logging
-
-            logging.getLogger(__name__).debug(
-                "Autocomplete fetch failed for prefix '%s': %s", prefix, e
-            )
+            logger.debug("Autocomplete fetch failed for prefix '%s': %s", prefix, e)
             # Close autocomplete if prefix still matches (user hasn't moved on)
             if self._autocomplete_state.prefix == prefix:
                 self._close_autocomplete()

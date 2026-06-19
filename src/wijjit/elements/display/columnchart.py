@@ -253,16 +253,20 @@ class ColumnChart(Element):
         # Calculate axis ticks
         ticks = calculate_axis_ticks(min_val, max_val, min(5, chart_height // 2))
 
-        # Calculate column positions
-        total_column_space = self.column_width + self.spacing
+        # Calculate column positions. Use a local copy of the configured
+        # column width so that ``render_to`` stays a pure read of state;
+        # mutating ``self.column_width`` here would shrink columns
+        # irreversibly across re-renders.
+        column_width = self.column_width
+        total_column_space = column_width + self.spacing
         num_columns = len(self.values)
         total_needed_width = num_columns * total_column_space - self.spacing
 
         # Adjust column width if needed to fit
         if total_needed_width > chart_width and num_columns > 0:
             available_per_column = chart_width // num_columns
-            self.column_width = max(1, available_per_column - self.spacing)
-            total_column_space = self.column_width + self.spacing
+            column_width = max(1, available_per_column - self.spacing)
+            total_column_space = column_width + self.spacing
 
         # Render y-axis
         if self.show_axis:
@@ -359,7 +363,7 @@ class ColumnChart(Element):
                 row_y = y  # y from top
                 is_filled = (chart_height - y - 1) < column_height
 
-                for col_x in range(self.column_width):
+                for col_x in range(column_width):
                     x_pos = column_x + col_x
                     if x_pos >= self.width:
                         break
@@ -383,7 +387,7 @@ class ColumnChart(Element):
                 partial_y = chart_height - column_height - 1
                 if partial_y >= 0:
                     partial_char = get_block_char(fractional, "vertical", use_unicode)
-                    for col_x in range(self.column_width):
+                    for col_x in range(column_width):
                         x_pos = column_x + col_x
                         if x_pos >= self.width:
                             break
@@ -403,11 +407,11 @@ class ColumnChart(Element):
                     break
 
                 # Truncate label to column width
-                display_label = label[: self.column_width]
+                display_label = label[:column_width]
 
                 # Center label under column
-                if len(display_label) < self.column_width:
-                    padding = (self.column_width - len(display_label)) // 2
+                if len(display_label) < column_width:
+                    padding = (column_width - len(display_label)) // 2
                     column_x += padding
 
                 ctx.write_text(column_x, label_y, display_label, label_style)

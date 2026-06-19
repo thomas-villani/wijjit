@@ -346,14 +346,26 @@ class ViewRouter:
         The async path supports both sync and async lifecycle hooks (on_enter,
         on_exit) and view functions, while the sync path only supports sync hooks.
         """
+        # Validate the target up front so a bad view name raises synchronously
+        # in both the sync and async paths, rather than vanishing into a
+        # fire-and-forget task (the previous behavior silently did nothing).
+        if view_name not in self.views:
+            logger.error(f"Navigation failed: view '{view_name}' not found")
+            raise ValueError(f"View '{view_name}' not found")
+
         # Check if we're running in an async event loop
         try:
-            _loop = asyncio.get_running_loop()
-            # We're in an async context - schedule async navigation
-            asyncio.create_task(self._navigate_async_impl(view_name, params))
+            asyncio.get_running_loop()
         except RuntimeError:
             # No event loop running - use sync navigation
             self._navigate_sync_impl(view_name, params)
+        else:
+            # We're in an async context - schedule a tracked async navigation
+            # so the task is not garbage-collected and its exceptions surface.
+            self.app._schedule_coroutine(
+                self._navigate_async_impl(view_name, params),
+                label=f"navigation to view '{view_name}'",
+            )
 
     def _navigate_sync_impl(
         self,

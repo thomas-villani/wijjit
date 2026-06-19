@@ -32,6 +32,18 @@ class ScreenBuffer:
     dirty_regions : set of tuple
         Set of (x, y, width, height) rectangles that have changed
 
+    Notes
+    -----
+    **Single-width limitation (0.1.0).** The buffer model is strictly one
+    cell per terminal column: each ``Cell`` holds exactly one display column
+    and there is no continuation/sentinel cell for width-2 glyphs. Wide
+    characters (most CJK, many emoji) therefore occupy a single buffer cell
+    while the real terminal advances two columns, which misaligns subsequent
+    cells, overflows borders, and desyncs the diff cursor. For 0.1.0, content
+    is assumed to be single-width. Full wide-character support (a width-aware
+    buffer plus a sweep of the remaining ``len()``-based width math) is tracked
+    on the roadmap; see ``roadmap.md``.
+
     Examples
     --------
     Create a buffer and write a cell:

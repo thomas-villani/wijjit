@@ -12,7 +12,7 @@ import shutil
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.core.events import KeyEvent
 from wijjit.logging_config import get_logger
@@ -240,12 +240,21 @@ class EventLoop:
         finally:
             logger.info("Exiting application, cleaning up")
 
-            # Cancel any pending async tasks spawned from state callbacks so they
-            # don't leak or block shutdown.
+            # Cancel async tasks that Wijjit itself spawned (action handlers,
+            # state callbacks, element callbacks) so they don't leak or block
+            # shutdown. Only our own tasks are cancelled - cancelling
+            # asyncio.all_tasks() would also kill the host application's tasks
+            # when Wijjit is embedded in an existing event loop.
+            from wijjit.elements.base import _background_tasks as _element_tasks
+
+            owned: set[asyncio.Task[Any]] = set()
+            owned |= getattr(self.app, "_background_tasks", set())
+            state = getattr(self.app, "state", None)
+            if state is not None:
+                owned |= getattr(state, "_pending_tasks", set())
+            owned |= _element_tasks
             pending_tasks = [
-                t
-                for t in asyncio.all_tasks()
-                if t is not asyncio.current_task() and not t.done()
+                t for t in owned if t is not asyncio.current_task() and not t.done()
             ]
             if pending_tasks:
                 logger.debug(f"Cancelling {len(pending_tasks)} pending task(s)")

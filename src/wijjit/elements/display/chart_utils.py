@@ -596,7 +596,15 @@ def extract_values(
             labels.append(str(item[0]))
             values.append(float(item[1]))
         else:
-            assert isinstance(item, (int, float))
+            # Raise a clear error instead of asserting: assertions are stripped
+            # under ``python -O``, which would let a bad item fall through to
+            # float() (or silently desync values/labels).
+            if not isinstance(item, (int, float)):
+                raise TypeError(
+                    f"Chart data item {i} has unsupported type "
+                    f"{type(item).__name__!r}; expected a number, a "
+                    f"(label, value) tuple, or a dict with a {value_key!r} key."
+                )
             values.append(float(item))
             labels.append(str(i))
 

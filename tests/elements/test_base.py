@@ -1,8 +1,15 @@
 """Tests for base element classes."""
 
+import asyncio
+
 import pytest
 
-from wijjit.elements.base import Container, Element
+from wijjit.elements.base import (
+    Container,
+    Element,
+    _background_tasks,
+    invoke_callback,
+)
 from wijjit.layout.bounds import Bounds
 from wijjit.rendering.paint_context import PaintContext
 
@@ -22,6 +29,68 @@ class TestElement(Element):
         """Render using cell-based rendering."""
         style = ctx.style_resolver.resolve_style(self, "text")
         ctx.write_text(0, 0, self.content, style)
+
+
+class TestInvokeCallback:
+    """Tests for the invoke_callback async-aware dispatcher."""
+
+    def test_sync_callback_returns_value(self):
+        """Sync callbacks are invoked immediately and their result returned."""
+        assert invoke_callback(lambda x: x + 1, 1) == 2
+
+    @pytest.mark.asyncio
+    async def test_async_callback_is_tracked_and_awaitable(self):
+        """Async callbacks are scheduled with a retained task reference."""
+        done = asyncio.Event()
+
+        async def cb():
+            done.set()
+
+        result = invoke_callback(cb)
+        assert result is None
+        # A strong reference is retained so the task is not GC'd mid-flight.
+        assert len(_background_tasks) >= 1
+
+        await asyncio.wait_for(done.wait(), timeout=1.0)
+        # Let the done-callback run so the task removes itself.
+        await asyncio.sleep(0)
+        assert all(
+            not t.done() or t not in _background_tasks for t in _background_tasks
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_callback_exception_is_logged_not_raised(self):
+        """An exception in an async callback is logged, not propagated.
+
+        Attaches a handler directly to the 'wijjit' logger (rather than using
+        caplog) so the assertion is robust against global logging config that
+        other tests may have applied (e.g. configure_logging(None)).
+        """
+        import logging
+
+        async def boom():
+            raise RuntimeError("kaboom")
+
+        records: list[logging.LogRecord] = []
+        handler = logging.Handler()
+        handler.emit = records.append  # type: ignore[method-assign]
+        wlogger = logging.getLogger("wijjit")
+        prev_level, prev_propagate = wlogger.level, wlogger.propagate
+        wlogger.addHandler(handler)
+        wlogger.setLevel(logging.ERROR)
+        try:
+            # invoke_callback itself must not raise.
+            assert invoke_callback(boom) is None
+            task = next(iter(_background_tasks))
+            # Drain the task without re-raising, then let the done-callback run.
+            await asyncio.gather(task, return_exceptions=True)
+            await asyncio.sleep(0)
+        finally:
+            wlogger.removeHandler(handler)
+            wlogger.setLevel(prev_level)
+            wlogger.propagate = prev_propagate
+
+        assert any("async callback" in r.getMessage() for r in records)
 
 
 class TestElementBase:

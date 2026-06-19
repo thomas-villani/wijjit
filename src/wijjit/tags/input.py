@@ -461,9 +461,14 @@ class SelectExtension(Extension):
                 else:
                     cleaned_options.append(opt)
             elif isinstance(opt, dict):
-                # Check for disabled key
+                # Check for disabled key. Fall back to "label" when "value" is
+                # absent (matching Select's own normalization) and skip
+                # entirely if neither is present, rather than crashing the
+                # whole template render with a KeyError.
                 if opt.get("disabled", False):
-                    disabled_values.append(opt["value"])
+                    disabled_value = opt.get("value", opt.get("label"))
+                    if disabled_value is not None:
+                        disabled_values.append(disabled_value)
                 cleaned_options.append(opt)
             else:
                 cleaned_options.append(opt)

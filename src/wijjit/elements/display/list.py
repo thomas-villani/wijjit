@@ -7,7 +7,7 @@ borders, dividers, and keyboard/mouse interaction.
 
 from typing import TYPE_CHECKING, Any
 
-from wijjit.elements.base import ElementType, ScrollableElement
+from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
@@ -477,7 +477,9 @@ class ListView(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -487,7 +489,9 @@ class ListView(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -495,14 +499,18 @@ class ListView(ScrollableElement):
         elif key == Keys.HOME:
             self.scroll_manager.scroll_to(0)
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # End - jump to bottom
         elif key == Keys.END:
             self.scroll_manager.scroll_to_bottom()
             if self.on_scroll:
-                self.on_scroll(self.scroll_manager.state.scroll_position)
+                invoke_callback(
+                    self.on_scroll, self.scroll_manager.state.scroll_position
+                )
             return True
 
         # Page Up
@@ -511,7 +519,9 @@ class ListView(ScrollableElement):
             self.scroll_manager.page_up()
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -521,7 +531,9 @@ class ListView(ScrollableElement):
             self.scroll_manager.page_down()
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -546,7 +558,9 @@ class ListView(ScrollableElement):
             self.scroll_manager.scroll_by(-1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 
@@ -555,7 +569,9 @@ class ListView(ScrollableElement):
             self.scroll_manager.scroll_by(1)
             if old_pos != self.scroll_manager.state.scroll_position:
                 if self.on_scroll:
-                    self.on_scroll(self.scroll_manager.state.scroll_position)
+                    invoke_callback(
+                        self.on_scroll, self.scroll_manager.state.scroll_position
+                    )
                 return True
             return False
 

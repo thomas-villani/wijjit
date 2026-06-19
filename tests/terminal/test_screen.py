@@ -219,6 +219,48 @@ class TestScreenManager:
         assert not manager.in_alternate_buffer
         assert not manager._cursor_hidden
 
+    def test_atexit_registered_on_enter_and_unregistered_on_cleanup(self):
+        """Entering the alt buffer registers an atexit restore; cleanup removes it."""
+        import atexit
+
+        output = StringIO()
+        manager = ScreenManager(output)
+
+        manager.enter_alternate_buffer()
+        assert manager._atexit_registered
+
+        try:
+            manager.cleanup()
+            assert not manager._atexit_registered
+        finally:
+            # Defensive: ensure no handler lingers if the assert above fails.
+            atexit.unregister(manager.cleanup)
+
+    def test_cleanup_swallows_closed_stream_errors(self):
+        """cleanup must not raise if the output stream is already closed."""
+        output = StringIO()
+        manager = ScreenManager(output)
+        manager.enter_alternate_buffer()
+        manager.hide_cursor()
+
+        output.close()  # simulate interpreter-shutdown stream teardown
+
+        # Should not raise despite writes to a closed stream.
+        manager.cleanup()
+        assert not manager._atexit_registered
+
+    def test_cleanup_idempotent(self):
+        """Calling cleanup twice is safe and stays clean."""
+        output = StringIO()
+        manager = ScreenManager(output)
+        manager.enter_alternate_buffer()
+        manager.hide_cursor()
+
+        manager.cleanup()
+        manager.cleanup()
+        assert not manager.in_alternate_buffer
+        assert not manager._cursor_hidden
+
 
 class TestAlternateScreenContext:
     """Tests for alternate_screen context manager."""

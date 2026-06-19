@@ -8,6 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from wijjit.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+# Unknown size strings already warned about, so layout (a hot path) does not
+# emit the same warning on every frame.
+_warned_unknown_sizes: set[str] = set()
+
 
 @dataclass
 class Bounds:
@@ -219,7 +227,21 @@ class Size:
         elif self.is_fill:
             return available
         else:
-            # Auto or unknown - use minimum
+            # Auto sizing falls back to 0 (content-driven sizing happens
+            # elsewhere). An unrecognized string is almost certainly a typo
+            # (e.g. "50px", "fil"); warn once so it is not silently treated
+            # as 0 on every frame.
+            if (
+                isinstance(self.value, str)
+                and self.value != "auto"
+                and self.value not in _warned_unknown_sizes
+            ):
+                _warned_unknown_sizes.add(self.value)
+                logger.warning(
+                    "Unknown size value %r; expected an int, 'auto', 'fill', "
+                    "or a percentage like '50%%'. Treating as 0.",
+                    self.value,
+                )
             return 0
 
     def __repr__(self) -> str:

@@ -9,7 +9,7 @@ from collections.abc import Callable
 from enum import Enum, auto
 
 from wijjit.core.events import ActionEvent
-from wijjit.elements.base import Element, ElementType
+from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.rendering import PaintContext
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
@@ -158,11 +158,13 @@ class Button(Element):
             data={"label": self.label},
         )
 
+        # Route through invoke_callback so async callbacks are scheduled on
+        # the event loop rather than returned as un-awaited coroutines.
         if self.on_click:
-            self.on_click(event)
+            invoke_callback(self.on_click, event)
 
         if self.on_activate:
-            self.on_activate(event)
+            invoke_callback(self.on_activate, event)
 
     async def activate_async(self) -> None:
         """Activate the button asynchronously (trigger async callbacks).

@@ -680,9 +680,7 @@ class TestFrameScrollToMakeVisible:
 
         style = FrameStyle(scrollable=True)
         # Frame total height = viewport + 2 borders (no padding).
-        frame = Frame(
-            width=20, height=viewport_height + 2, style=style
-        )
+        frame = Frame(width=20, height=viewport_height + 2, style=style)
         frame.bounds = Bounds(x=0, y=0, width=20, height=viewport_height + 2)
         frame.set_child_content_height(content_height)
         return frame

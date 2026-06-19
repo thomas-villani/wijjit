@@ -131,6 +131,24 @@ class TestConfigClass:
         with pytest.raises(FileNotFoundError):
             config.from_pyfile("/nonexistent/config.py", silent=False)
 
+    def test_from_pyfile_malformed_raises_even_when_silent(self):
+        """A malformed config raises regardless of silent (it isn't 'missing').
+
+        silent suppresses file-access problems, not syntax/runtime errors in
+        the config itself - the user should learn their config is broken.
+        """
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+            f.write("DEBUG = (\n")  # syntax error
+            path = f.name
+        try:
+            config = Config()
+            with pytest.raises(SyntaxError):
+                config.from_pyfile(path, silent=True)
+        finally:
+            os.unlink(path)
+
     def test_from_envvar(self):
         """Config can load from environment variable pointing to file.
 
@@ -232,6 +250,25 @@ class TestConfigClass:
 
             # Non-prefixed var ignored
             assert "OTHER_VAR" not in config
+
+    def test_from_prefixed_env_non_numeric_kept_as_string(self):
+        """Values that only look numeric must not crash or mis-coerce.
+
+        Regression: the digit-stripping heuristic accepted "1-2" and then
+        raised ValueError in int(); such values are now kept as strings.
+        """
+        env_vars = {
+            "WIJJIT_VERSION_RANGE": "1-2",
+            "WIJJIT_HEX": "0xff",
+            "WIJJIT_PLAIN": "abc",
+        }
+        with patch.dict(os.environ, env_vars, clear=True):
+            config = Config()
+            config.from_prefixed_env("WIJJIT_")  # must not raise
+
+            assert config["VERSION_RANGE"] == "1-2"
+            assert config["HEX"] == "0xff"
+            assert config["PLAIN"] == "abc"
 
     def test_from_prefixed_env_bool_variations(self):
         """Config parses various boolean representations.

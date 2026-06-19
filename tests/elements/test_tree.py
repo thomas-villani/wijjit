@@ -750,6 +750,56 @@ class TestTreeMethods:
         assert tree.data["label"] == "New Root"
         assert len(tree.data["children"]) == 1
 
+    def test_set_data_normalizes_once(self):
+        """set_data must normalize exactly once and keep the raw input.
+
+        Regression: set_data previously normalized the data and then assigned
+        the result through the ``data`` setter, which normalized a second time
+        and clobbered ``_raw_data`` with the already-normalized dict.
+        """
+        raw = {
+            "label": "Root",
+            "children": [
+                {"label": "Alpha"},
+                {"label": "Beta", "children": [{"label": "Gamma"}]},
+            ],
+        }
+
+        updated = Tree()
+        updated.set_data(raw)
+
+        # Raw input is preserved untouched (not replaced by normalized data).
+        assert updated._raw_data == raw
+        assert "id" not in updated._raw_data
+
+        # Normalized result matches a single-pass normalization (fresh build).
+        fresh = Tree(data=raw)
+        assert updated.data == fresh.data
+
+    def test_set_data_preserves_expansion_state(self):
+        """Re-setting equivalent data keeps id-keyed expansion state valid."""
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {
+                    "label": "Branch",
+                    "value": "branch",
+                    "children": [{"label": "Leaf", "value": "leaf"}],
+                },
+            ],
+        }
+        tree = Tree(data=data)
+        tree.expand_node("branch")
+        assert "branch" in tree.expanded_nodes
+
+        tree.set_data(data)
+
+        # The branch id is unchanged, so its expansion survives the update.
+        assert "branch" in tree.expanded_nodes
+        branch = tree._find_node_by_id(tree.data, "branch")
+        assert branch is not None
+
     def test_find_node_by_id(self):
         """Test finding a node by ID."""
         data = {

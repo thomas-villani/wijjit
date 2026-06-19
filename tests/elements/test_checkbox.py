@@ -2,9 +2,14 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from tests.helpers import render_element
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
+from wijjit.layout.bounds import Bounds
+from wijjit.terminal.ansi import supports_unicode
 from wijjit.terminal.input import Key, Keys, KeyType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 
 class TestCheckbox:
@@ -210,6 +215,40 @@ class TestCheckboxGroup:
         result = group.handle_key(Keys.LEFT)
         assert result is True
         assert group.highlighted_index == 0
+
+    @pytest.mark.asyncio
+    async def test_horizontal_click_maps_to_variable_width_option(self):
+        """Horizontal click hit-testing follows the real per-option widths.
+
+        Regression: hit-testing used a fixed 5-column width per option, so a
+        click on an option following a long label selected the wrong one.
+        """
+        group = CheckboxGroup(
+            options=["Option A", "B", "C"],
+            orientation="horizontal",
+            border_style=None,
+        )
+        group.set_bounds(Bounds(0, 0, 40, 1))
+
+        # Compute the center column of option index 1 ("B") using the same
+        # layout the renderer uses, then click there.
+        box_width = 1 if supports_unicode() else 3
+        labels = ["Option A", "B", "C"]
+        start = 0
+        starts = []
+        for label in labels:
+            starts.append(start)
+            start += (box_width + 1 + len(label)) + 1
+        target = starts[1] + (box_width + 1 + len("B")) // 2
+
+        event = MouseEvent(
+            type=MouseEventType.CLICK, button=MouseButton.LEFT, x=target, y=0
+        )
+        handled = await group.handle_mouse(event)
+
+        assert handled is True
+        assert group.highlighted_index == 1
+        assert "B" in group.selected_values
 
     def test_enter_triggers_action(self):
         """Test enter key triggers action callback."""

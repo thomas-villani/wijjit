@@ -35,12 +35,38 @@ from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
+from wijjit.logging_config import get_logger
 from wijjit.terminal.input import Key
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.layout.bounds import Bounds
     from wijjit.rendering.paint_context import PaintContext
+
+logger = get_logger(__name__)
+
+# Strong references to in-flight async callbacks scheduled by
+# ``invoke_callback``. ``asyncio.create_task`` only holds a weak reference to
+# its task, so without retaining it here the task may be garbage-collected
+# mid-flight ("Task was destroyed but it is pending"). Tasks remove themselves
+# on completion via :func:`_on_callback_task_done`.
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
+def _on_callback_task_done(task: asyncio.Task[Any]) -> None:
+    """Drop a finished callback task and surface any unhandled exception.
+
+    Parameters
+    ----------
+    task : asyncio.Task
+        The completed task scheduled by :func:`invoke_callback`.
+    """
+    _background_tasks.discard(task)
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("Unhandled exception in async callback", exc_info=exc)
 
 
 def invoke_callback(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -79,14 +105,24 @@ def invoke_callback(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> 
     """
     result = callback(*args, **kwargs)
     if asyncio.iscoroutine(result):
-        # Schedule async callback on event loop
+        # Schedule async callback on event loop, retaining a strong reference
+        # so it is not garbage-collected before completion and routing any
+        # exception to the logger.
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(result)
         except RuntimeError:
+            loop = None
+        if loop is not None:
+            task = loop.create_task(result)
+            _background_tasks.add(task)
+            task.add_done_callback(_on_callback_task_done)
+        else:
             # No running loop - this shouldn't happen in normal Wijjit usage
-            # but handle gracefully by just running it
-            asyncio.run(result)
+            # but handle gracefully by running it to completion.
+            try:
+                asyncio.run(result)
+            except Exception:
+                logger.exception("Unhandled exception in async callback")
         return None
     return result
 
