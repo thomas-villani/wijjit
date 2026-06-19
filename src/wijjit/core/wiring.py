@@ -99,6 +99,28 @@ class ElementWiringManager:
         for elem in elements:
             self._wire_element(elem, state)
 
+        # Group standalone radios by name so each knows its siblings. This
+        # drives mutual exclusion (select() deselects same-group siblings) and
+        # Up/Down arrow navigation, both of which rely on Radio.radio_group.
+        self._wire_radio_groups(elements)
+
+    def _wire_radio_groups(self, elements: list[Element]) -> None:
+        """Link standalone radios that share a ``name`` into a group.
+
+        Parameters
+        ----------
+        elements : list[Element]
+            Flat list of positioned elements for the current render.
+        """
+        groups: dict[str, list[Radio]] = {}
+        for elem in elements:
+            if isinstance(elem, Radio) and elem.name:
+                groups.setdefault(elem.name, []).append(elem)
+
+        for siblings in groups.values():
+            for radio in siblings:
+                radio.radio_group = siblings
+
     def _wire_element(self, elem: Element, state: State) -> None:
         """Wire callbacks for a single element.
 

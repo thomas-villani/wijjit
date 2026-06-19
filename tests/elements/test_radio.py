@@ -107,6 +107,46 @@ class TestRadio:
         assert result is True
         assert radio1.checked is True
 
+    def test_select_deselects_group_siblings(self):
+        """Selecting a radio deselects same-group siblings."""
+        radio1 = Radio(name="size", label="Small", checked=True)
+        radio2 = Radio(name="size", label="Medium")
+        radio3 = Radio(name="size", label="Large")
+        group = [radio1, radio2, radio3]
+        for r in group:
+            r.radio_group = group
+
+        radio2.select()
+        assert radio2.checked is True
+        assert radio1.checked is False
+        assert radio3.checked is False
+
+    def test_select_ignores_other_named_siblings(self):
+        """Deselect only affects radios sharing the same name."""
+        a1 = Radio(name="a", label="A1", checked=True)
+        b1 = Radio(name="b", label="B1", checked=True)
+        a2 = Radio(name="a", label="A2")
+        group = [a1, b1, a2]
+        for r in group:
+            r.radio_group = group
+
+        a2.select()
+        assert a2.checked is True
+        assert a1.checked is False  # same name -> deselected
+        assert b1.checked is True  # different name -> untouched
+
+    def test_arrow_navigation_deselects_previous(self):
+        """Arrow navigation deselects the previously selected radio."""
+        radio1 = Radio(name="size", label="Small", checked=True)
+        radio2 = Radio(name="size", label="Medium")
+        group = [radio1, radio2]
+        for r in group:
+            r.radio_group = group
+
+        radio1.handle_key(Keys.DOWN)
+        assert radio2.checked is True
+        assert radio1.checked is False
+
     def test_other_keys_not_handled(self):
         """Test other keys are not handled."""
         radio = Radio(name="size", label="Small")
@@ -326,3 +366,39 @@ class TestRadioGroup:
         assert group._find_option_index("L") == 2
         assert group._find_option_index("XL") == -1
         assert group._find_option_index(None) == -1
+
+
+class TestRadioWiring:
+    """Tests for standalone radio group wiring in ElementWiringManager."""
+
+    def test_wire_elements_groups_radios_by_name(self):
+        """Radios sharing a name are linked into a single radio_group."""
+        from types import SimpleNamespace
+
+        from wijjit.core.wiring import ElementWiringManager
+
+        manager = ElementWiringManager(SimpleNamespace())
+        a1 = Radio(name="a", label="A1", value="1")
+        a2 = Radio(name="a", label="A2", value="2")
+        b1 = Radio(name="b", label="B1", value="1")
+
+        manager._wire_radio_groups([a1, b1, a2])
+
+        assert a1.radio_group == [a1, a2]
+        assert a2.radio_group == [a1, a2]
+        assert b1.radio_group == [b1]
+
+    def test_wired_radios_are_mutually_exclusive(self):
+        """After wiring, selecting one radio deselects its same-name sibling."""
+        from types import SimpleNamespace
+
+        from wijjit.core.wiring import ElementWiringManager
+
+        manager = ElementWiringManager(SimpleNamespace())
+        a1 = Radio(name="a", label="A1", value="1", checked=True)
+        a2 = Radio(name="a", label="A2", value="2")
+        manager._wire_radio_groups([a1, a2])
+
+        a2.select()
+        assert a2.checked is True
+        assert a1.checked is False
