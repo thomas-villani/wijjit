@@ -386,6 +386,136 @@ class TestMouseEventParser:
         assert length == 10  # Length of '\x1b[<0;10;5M'
 
 
+class TestParseWindows:
+    """Tests for the Windows console mouse format.
+
+    On Windows, prompt_toolkit's Win32 input delivers mouse events as a
+    ";"-delimited string ("<button>;<event>;<x>;<y>") rather than a vt100
+    escape sequence; ``parse_windows`` translates that form.
+    """
+
+    def test_windows_left_press(self):
+        """A MOUSE_DOWN with LEFT button parses as a left press."""
+        parser = MouseEventParser()
+        event = parser.parse_windows("LEFT;MOUSE_DOWN;13;6")
+
+        assert event is not None
+        assert event.type == MouseEventType.PRESS
+        assert event.button == MouseButton.LEFT
+        assert event.x == 13
+        assert event.y == 6
+
+    def test_windows_click_synthesis_with_buttonless_release(self):
+        """Windows reports button NONE on release; a click must still synthesize.
+
+        This is the core regression: ``MOUSE_UP`` carries no button id, so the
+        synthesized CLICK has to adopt the press button.
+        """
+        parser = MouseEventParser()
+
+        press = parser.parse_windows("LEFT;MOUSE_DOWN;13;6")
+        assert press.type == MouseEventType.PRESS
+
+        # Release at the same cell - prompt_toolkit reports button NONE here.
+        release = parser.parse_windows("NONE;MOUSE_UP;13;6")
+        assert release.type == MouseEventType.CLICK
+        assert release.button == MouseButton.LEFT  # adopted from the press
+        assert release.x == 13
+        assert release.y == 6
+        assert release.click_count == 1
+
+    def test_windows_right_click_keeps_button(self):
+        """A right press + button-less release synthesizes a RIGHT click."""
+        parser = MouseEventParser()
+
+        parser.parse_windows("RIGHT;MOUSE_DOWN;5;5")
+        release = parser.parse_windows("NONE;MOUSE_UP;5;5")
+
+        assert release.type == MouseEventType.CLICK
+        assert release.button == MouseButton.RIGHT
+
+    def test_windows_double_click(self):
+        """Two button-less releases at the same cell synthesize a double-click."""
+        parser = MouseEventParser(double_click_threshold=1.0)
+
+        parser.parse_windows("LEFT;MOUSE_DOWN;3;3")
+        first = parser.parse_windows("NONE;MOUSE_UP;3;3")
+        assert first.type == MouseEventType.CLICK
+
+        parser.parse_windows("LEFT;MOUSE_DOWN;3;3")
+        second = parser.parse_windows("NONE;MOUSE_UP;3;3")
+        assert second.type == MouseEventType.DOUBLE_CLICK
+        assert second.click_count == 2
+
+    def test_windows_scroll_up(self):
+        """SCROLL_UP parses as a scroll event with the up button."""
+        parser = MouseEventParser()
+        event = parser.parse_windows("NONE;SCROLL_UP;7;8")
+
+        assert event is not None
+        assert event.type == MouseEventType.SCROLL
+        assert event.button == MouseButton.SCROLL_UP
+        assert event.x == 7
+        assert event.y == 8
+
+    def test_windows_scroll_down(self):
+        """SCROLL_DOWN parses as a scroll event with the down button."""
+        parser = MouseEventParser()
+        event = parser.parse_windows("NONE;SCROLL_DOWN;7;8")
+
+        assert event.type == MouseEventType.SCROLL
+        assert event.button == MouseButton.SCROLL_DOWN
+
+    def test_windows_move_without_button(self):
+        """A MOUSE_MOVE with no button is a plain MOVE event."""
+        parser = MouseEventParser()
+        event = parser.parse_windows("NONE;MOUSE_MOVE;1;2")
+
+        assert event.type == MouseEventType.MOVE
+        assert event.button == MouseButton.NONE
+
+    def test_windows_drag_with_button(self):
+        """A MOUSE_MOVE while a button is held is a DRAG event."""
+        parser = MouseEventParser()
+        event = parser.parse_windows("LEFT;MOUSE_MOVE;1;2")
+
+        assert event.type == MouseEventType.DRAG
+        assert event.button == MouseButton.LEFT
+
+    def test_windows_malformed_returns_none(self):
+        """Payloads that are not four ";"-delimited fields return None."""
+        parser = MouseEventParser()
+
+        assert parser.parse_windows("garbage") is None
+        assert parser.parse_windows("LEFT;MOUSE_DOWN;13") is None
+        assert parser.parse_windows("LEFT;MOUSE_DOWN;x;y") is None
+        assert parser.parse_windows("LEFT;UNKNOWN_EVENT;1;2") is None
+
+
+class TestNormalModeButtonlessRelease:
+    """Legacy normal-mode releases also report no button; clicks must synthesize."""
+
+    def test_normal_mode_click_synthesis(self):
+        """Press then release in normal format should synthesize a CLICK.
+
+        In normal mode the release button code is 3, which decodes to
+        ``MouseButton.NONE``; the synthesized click adopts the press button.
+        """
+        parser = MouseEventParser()
+
+        # Left press at (42, 37): button 0 -> chr(32), x/y encoded as value+33.
+        press = parser.parse_normal(b"\x1b[M" + bytes([32, 33 + 42, 33 + 37]))
+        assert press.type == MouseEventType.PRESS
+        assert press.button == MouseButton.LEFT
+
+        # Release at the same cell: button code 3 -> NONE.
+        release = parser.parse_normal(b"\x1b[M" + bytes([35, 33 + 42, 33 + 37]))
+        assert release.type == MouseEventType.CLICK
+        assert release.button == MouseButton.LEFT
+        assert release.x == 42
+        assert release.y == 37
+
+
 class TestMouseEvent:
     """Tests for MouseEvent class."""
 
