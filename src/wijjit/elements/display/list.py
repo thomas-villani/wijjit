@@ -123,8 +123,9 @@ class ListView(ScrollableElement):
         title: str | None = None,
         indent_details: int = 2,
         dim_details: bool = True,
+        tab_index: int | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 

@@ -130,6 +130,27 @@ def normalize_element_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def apply_tabindex(vnode: Any, kwargs: dict[str, Any]) -> None:
+    """Forward a ``tabindex``/``tab_index`` tag attribute onto a VNode.
+
+    Display/chart tags collect extra attributes in ``kwargs`` rather than as
+    explicit parameters, so (unlike the input tags) they never normalized the
+    HTML-style ``tabindex``. Without this, focusable display elements such as
+    Table and Tree silently ignored an author-supplied tab order.
+
+    Parameters
+    ----------
+    vnode : VNodeBuilder
+        The VNode builder being populated for the element.
+    kwargs : dict
+        Raw keyword arguments captured from the template tag. Either
+        ``tabindex`` (HTML-style) or ``tab_index`` (Python-style) is accepted.
+    """
+    tab_index = kwargs.get("tabindex", kwargs.get("tab_index"))
+    if tab_index is not None:
+        vnode.set_prop("tab_index", tab_index)
+
+
 def process_body_content(body_output: str, raw: bool = False) -> str:
     """Process template body content with optional whitespace stripping.
 
