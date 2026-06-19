@@ -1,6 +1,13 @@
 """Tests for Reconciler implementation."""
 
-from wijjit.core.reconciler import DiffResult, DiffType, Reconciler
+import logging
+
+from wijjit.core.reconciler import (
+    KNOWN_CONTAINER_TYPES,
+    DiffResult,
+    DiffType,
+    Reconciler,
+)
 from wijjit.core.vdom import VNode
 
 
@@ -123,6 +130,42 @@ class TestReconcilerDiff:
         diff = reconciler._diff(old, new)
 
         assert diff.diff_type == DiffType.NONE
+
+    def test_unknown_type_warns_on_create(self, wijjit_caplog):
+        """An unregistered, non-container type is a likely typo -> warn once."""
+        reconciler = Reconciler(MockRegistry())
+        vnode = VNode.create("Buton", key="x", props={"label": "OK"})
+        diff = reconciler._diff(None, vnode)
+
+        result = reconciler._create_element(diff)
+
+        assert result is None  # nothing rendered for an unknown type
+        warnings = [r.getMessage() for r in wijjit_caplog.records]
+        assert any("Unknown element type" in m and "Buton" in m for m in warnings)
+
+    def test_known_container_type_does_not_warn(self, wijjit_caplog):
+        """Structural container types are handled by the layout builder, not the
+        registry, and must not be reported as typos."""
+        reconciler = Reconciler(MockRegistry())
+        # Frame is a known container but not in the MockRegistry's known types.
+        assert "Frame" in KNOWN_CONTAINER_TYPES
+        vnode = VNode.create("Frame", key="f")
+        diff = reconciler._diff(None, vnode)
+
+        reconciler._create_element(diff)
+
+        assert not [r for r in wijjit_caplog.records if r.levelno >= logging.WARNING]
+
+    def test_registered_type_does_not_warn(self, wijjit_caplog):
+        """A registered element type creates normally without warnings."""
+        reconciler = Reconciler(MockRegistry())
+        vnode = VNode.create("Button", key="b", props={"label": "OK"})
+        diff = reconciler._diff(None, vnode)
+
+        result = reconciler._create_element(diff)
+
+        assert result is not None
+        assert not [r for r in wijjit_caplog.records if r.levelno >= logging.WARNING]
 
     def test_diff_skips_ephemeral_props(self):
         """Diff should skip ephemeral props like cursor_pos."""

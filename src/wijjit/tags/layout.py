@@ -93,6 +93,19 @@ def parse_tag_attributes(
             value = parser.parse_expression()
             kwargs.append(nodes.Keyword(key, value, lineno=lineno))
         else:
+            # Valueless attributes (e.g. ``{% button disabled %}``) are not
+            # supported: every attribute must be ``key=value``. Bailing out
+            # here silently dropped this attribute *and every attribute after
+            # it*, which is a confusing failure. Warn naming the offender so
+            # the author can add ``=value`` (e.g. ``disabled=true``).
+            logger.warning(
+                "Template tag ending in %r got a valueless attribute %r on "
+                "line %d; attributes must be written as key=value. This "
+                "attribute and any following it are ignored.",
+                end_tag,
+                key,
+                lineno,
+            )
             break
     return kwargs
 

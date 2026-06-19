@@ -4,10 +4,11 @@ This module tests the CSSParser class that converts CSS files to Wijjit Style ob
 using the tinycss library.
 """
 
+import logging
 import os
 import tempfile
 
-from wijjit.styling.css_parser import CSSParser, load_css_theme
+from wijjit.styling.css_parser import CSSParser, load_css_theme, parse_css
 
 
 class TestCSSParser:
@@ -704,3 +705,37 @@ class TestEdgeCases:
         # Known properties should be parsed
         assert styles[".test"].fg_color == (255, 0, 0)
         assert styles[".test"].bg_color == (0, 0, 255)
+
+
+class TestCSSParserWarnings:
+    """Theme C: malformed/typo'd CSS should warn instead of vanishing silently."""
+
+    def test_unknown_property_warns(self, wijjit_caplog):
+        styles = parse_css(".x { colour: red; color: blue; }")
+        # The valid declaration still applies.
+        assert styles[".x"].fg_color == (0, 0, 255)
+        msgs = [r.getMessage() for r in wijjit_caplog.records]
+        assert any("Unknown CSS property" in m and "colour" in m for m in msgs)
+
+    def test_bad_color_warns(self, wijjit_caplog):
+        parse_css(".x { color: notacolor; }")
+        msgs = [r.getMessage() for r in wijjit_caplog.records]
+        assert any("Could not parse color" in m and "notacolor" in m for m in msgs)
+
+    def test_malformed_declaration_warns(self, wijjit_caplog):
+        # ``bogus`` has no ``:`` -> a declaration-level parse error in tinycss2.
+        # The valid ``color: red`` still applies.
+        styles = parse_css(".x { color: red; bogus }")
+        assert styles[".x"].fg_color == (255, 0, 0)
+        msgs = [r.getMessage() for r in wijjit_caplog.records]
+        assert any("Malformed CSS declaration" in m for m in msgs)
+
+    def test_empty_theme_warns(self, wijjit_caplog):
+        styles = parse_css(".x { bogus-prop: 1; }")
+        assert styles == {}
+        msgs = [r.getMessage() for r in wijjit_caplog.records]
+        assert any("empty theme" in m for m in msgs)
+
+    def test_valid_css_does_not_warn(self, wijjit_caplog):
+        parse_css(".x { color: red; background-color: blue; }")
+        assert not [r for r in wijjit_caplog.records if r.levelno >= logging.WARNING]

@@ -20,6 +20,27 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Structural/container VNode types that are intentionally NOT registered in the
+# ``ElementRegistry`` -- they are realized directly by the layout-tree builder in
+# ``renderer.py`` (they need layout information the registry cannot supply). The
+# reconciler therefore skips them in ``_create_element`` / ``_update_element``
+# *without* treating them as user typos. Keep this in sync with the structural
+# ``vnode.type`` branches in ``Renderer._build_layout_node``.
+KNOWN_CONTAINER_TYPES = frozenset(
+    {
+        "VStack",
+        "HStack",
+        "Grid",
+        "GridSpanWrapper",
+        "Frame",
+        "SplitPanel",
+        "TabbedPanel",
+        "Pager",
+        "TabContent",
+        "PageContent",
+    }
+)
+
 
 class DiffType(Enum):
     """Types of differences detected during reconciliation."""
@@ -353,9 +374,21 @@ class Reconciler:
         if vnode is None:
             raise ValueError("Cannot create element: new_vnode is None")
 
-        # Skip container types (Frame, VStack, HStack) - they're created by template
+        # Skip container types (Frame, VStack, HStack, ...) - they are realized
+        # by the layout-tree builder, not the registry. A type that is neither
+        # registered nor a known container is almost always a template typo
+        # (e.g. ``{% buton %}``); warn once at creation so it is discoverable
+        # instead of silently rendering nothing.
         if not self.registry.has_type(vnode.type):
-            logger.debug(f"Skipping unknown/container type: {vnode.type}")
+            if vnode.type in KNOWN_CONTAINER_TYPES:
+                logger.debug(f"Skipping container type: {vnode.type}")
+            else:
+                logger.warning(
+                    "Unknown element type %r - not a registered element or a "
+                    "known container. Check for a typo in the template tag; "
+                    "this node will not render.",
+                    vnode.type,
+                )
             # Still process children for containers
             for child_diff in diff.children_diffs:
                 self._patch(child_diff)

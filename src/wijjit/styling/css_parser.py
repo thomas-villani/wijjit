@@ -23,7 +23,10 @@ from typing import Any
 
 import tinycss2
 
+from wijjit.logging_config import get_logger
 from wijjit.styling.style import Style, parse_color
+
+logger = get_logger(__name__)
 
 # CSS property to Wijjit Style attribute mapping
 CSS_PROPERTY_MAP: dict[str, str] = {
@@ -126,6 +129,13 @@ def _parse_declarations(declarations: list) -> dict[str, Any]:
                 if color:
                     attr_name = CSS_PROPERTY_MAP[prop]
                     style_attrs[attr_name] = color
+                else:
+                    logger.warning(
+                        "Could not parse color value %r for CSS property %r; "
+                        "declaration ignored.",
+                        value_str,
+                        prop,
+                    )
 
             elif prop == "font-weight":
                 # Bold if "bold" or weight >= 600
@@ -157,6 +167,12 @@ def _parse_declarations(declarations: list) -> dict[str, Any]:
                 # Reverse if "invert"
                 if "invert" in value_str.lower():
                     style_attrs["reverse"] = True
+        else:
+            logger.warning(
+                "Unknown CSS property %r ignored; supported properties are: %s.",
+                prop,
+                ", ".join(sorted(CSS_PROPERTY_MAP)),
+            )
 
     return style_attrs
 
@@ -202,6 +218,13 @@ def parse_css(css_content: str) -> dict[str, Style]:
 
     # Process each rule
     for rule in rules:
+        # Surface malformed CSS instead of silently producing an empty theme.
+        if isinstance(rule, tinycss2.ast.ParseError):
+            logger.warning(
+                "Malformed CSS skipped (line %s): %s", rule.source_line, rule.message
+            )
+            continue
+
         # Only process qualified rules (style rules with selectors)
         if not isinstance(rule, tinycss2.ast.QualifiedRule):
             continue
@@ -211,6 +234,13 @@ def parse_css(css_content: str) -> dict[str, Style]:
 
         # Parse declarations from rule content
         declarations = tinycss2.parse_declaration_list(rule.content)
+        for decl in declarations:
+            if isinstance(decl, tinycss2.ast.ParseError):
+                logger.warning(
+                    "Malformed CSS declaration in rule %r skipped: %s",
+                    prelude,
+                    decl.message,
+                )
         style_attrs = _parse_declarations(declarations)
         if not style_attrs:
             continue
@@ -221,6 +251,12 @@ def parse_css(css_content: str) -> dict[str, Style]:
             if not selector:
                 continue
             selector_attrs.setdefault(selector, {}).update(style_attrs)
+
+    if not selector_attrs and css_content.strip():
+        logger.warning(
+            "CSS parsed to an empty theme - no usable style rules were found. "
+            "Check selectors and property names."
+        )
 
     return {selector: Style(**attrs) for selector, attrs in selector_attrs.items()}
 
