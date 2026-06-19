@@ -210,6 +210,28 @@ class Tree(ScrollableElement):
         # State save callback (set by app/template)
         self._state_dict: dict[str, Any] | None = None
 
+        # Re-sync the scroll viewport to the border-adjusted content height now
+        # that border_style is known (the initial ScrollManager above used the
+        # raw height before borders were accounted for).
+        self.scroll_manager.update_viewport_size(self._get_content_height())
+
+    def _get_content_height(self) -> int:
+        """Calculate the visible content height, accounting for borders.
+
+        Returns
+        -------
+        int
+            Number of node rows visible in the viewport. Uses the
+            layout-assigned ``bounds.height`` when available (so a tree sized by
+            the layout engine scrolls correctly), otherwise the constructor
+            ``height``. Two rows are reserved for the top/bottom border when a
+            border style is active.
+        """
+        height = self.bounds.height if self.bounds else self.height
+        if self.border_style != "none":
+            return max(1, height - 2)
+        return height
+
     @property
     def expand_state_key(self) -> str | None:
         """Get the state key for expanded nodes.
@@ -895,9 +917,8 @@ class Tree(ScrollableElement):
                 # Auto-scroll to keep highlighted node visible
                 _, visible_end = self.scroll_manager.get_visible_range()
                 if self.highlighted_index >= visible_end:
-                    self.scroll_manager.scroll_to(
-                        self.highlighted_index - self.height + 1
-                    )
+                    viewport = self.scroll_manager.state.viewport_size
+                    self.scroll_manager.scroll_to(self.highlighted_index - viewport + 1)
                     self._save_scroll_state()
                 if self.on_scroll:
                     invoke_callback(
@@ -950,8 +971,9 @@ class Tree(ScrollableElement):
                         # Ensure visible
                         _, visible_end = self.scroll_manager.get_visible_range()
                         if self.highlighted_index >= visible_end:
+                            viewport = self.scroll_manager.state.viewport_size
                             self.scroll_manager.scroll_to(
-                                self.highlighted_index - self.height + 1
+                                self.highlighted_index - viewport + 1
                             )
                             self._save_scroll_state()
                         return True
@@ -1141,10 +1163,11 @@ class Tree(ScrollableElement):
             "highlighted_index": self.highlighted_index,
             "selected_node_id": self.selected_node_id,
             "expanded_nodes": set(self.expanded_nodes),  # Copy the set
+            # Always preserve multi-select state, even when ``multiple`` is
+            # currently False -- otherwise toggling ``multiple`` off and back on
+            # across re-renders would silently discard the user's selection.
+            "selected_node_ids": set(self.selected_node_ids),
         }
-        # Add multi-select state
-        if self.multiple:
-            state["selected_node_ids"] = set(self.selected_node_ids)
         if self.scroll_manager:
             state["_scroll_position"] = self.scroll_manager.state.scroll_position
         return state
@@ -1161,7 +1184,7 @@ class Tree(ScrollableElement):
             self.highlighted_index = state["highlighted_index"]
         if "selected_node_id" in state:
             self.selected_node_id = state["selected_node_id"]
-        if "selected_node_ids" in state and self.multiple:
+        if "selected_node_ids" in state:
             self.selected_node_ids = set(state["selected_node_ids"])
         if "expanded_nodes" in state:
             self.expanded_nodes = set(state["expanded_nodes"])
@@ -1205,6 +1228,13 @@ class Tree(ScrollableElement):
             border_style = ctx.style_resolver.resolve_style(self, "tree.border:focus")
         else:
             border_style = ctx.style_resolver.resolve_style(self, "tree.border")
+
+        # Re-sync the scroll viewport to the current (possibly layout-resized)
+        # content height before painting, mirroring ListView. Keeps keyboard
+        # auto-scroll math correct when the tree is bordered or resized.
+        content_height = self._get_content_height()
+        if self.scroll_manager.state.viewport_size != content_height:
+            self.scroll_manager.update_viewport_size(content_height)
 
         # Determine if we need borders
         has_borders = self.border_style != "none"
