@@ -538,6 +538,43 @@ class TestInputMouseParsing:
         # Should initialize with mouse disabled
         assert handler.mouse_enabled is False
 
+    @patch("wijjit.terminal.input.create_input")
+    def test_windows_mouse_click_translated(self, mock_create_input):
+        """A Windows-format mouse press+release is translated to a CLICK event.
+
+        On Windows, prompt_toolkit delivers mouse events as
+        ``KeyPress(Keys.WindowsMouseEvent, "<button>;<event>;<x>;<y>")`` rather
+        than a vt100 escape sequence. The handler must recognize that form
+        instead of dropping it as a junk character key.
+        """
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        mock_input = create_mock_input()
+        mock_input.read_keys.side_effect = [
+            [KeyPress(PTKeys.WindowsMouseEvent, "LEFT;MOUSE_DOWN;13;6")],
+            [KeyPress(PTKeys.WindowsMouseEvent, "NONE;MOUSE_UP;13;6")],
+        ]
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler(enable_mouse=True)
+        # enable_mouse_tracking() writes escape sequences to the terminal; set the
+        # flag directly so the read path treats input as mouse-enabled.
+        handler.mouse_enabled = True
+
+        press = handler.read_input(timeout=0.5)
+        assert isinstance(press, MouseEvent)
+        assert press.type == MouseEventType.PRESS
+        assert press.button == MouseButton.LEFT
+        assert (press.x, press.y) == (13, 6)
+
+        click = handler.read_input(timeout=0.5)
+        assert isinstance(click, MouseEvent)
+        assert click.type == MouseEventType.CLICK
+        assert click.button == MouseButton.LEFT
+        assert (click.x, click.y) == (13, 6)
+
+        handler.cleanup()
+
 
 class TestInputThreadSafety:
     """Test thread safety and reader thread lifecycle (Issue 17)."""

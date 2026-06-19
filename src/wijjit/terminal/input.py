@@ -581,6 +581,18 @@ class InputHandler:
             # Mouse sequences start with ESC [ < (SGR format)
             # or ESC [ M (normal format)
             if self.mouse_enabled and self.mouse_parser and key_press.data:
+                # Windows console mouse: prompt_toolkit's Win32 input delivers
+                # the whole event as a ";"-delimited string in a single KeyPress
+                # (e.g. "LEFT;MOUSE_DOWN;13;6") rather than a vt100 escape
+                # sequence, so no byte buffering or lookahead is needed.
+                if key_press.key == PTKeys.WindowsMouseEvent:
+                    mouse_event = self.mouse_parser.parse_windows(key_press.data)
+                    if mouse_event:
+                        return mouse_event
+                    # Unrecognized payload: swallow it instead of letting it fall
+                    # through and be injected as a junk character key.
+                    return None
+
                 data_bytes = (
                     key_press.data.encode("utf-8")
                     if isinstance(key_press.data, str)
@@ -828,6 +840,18 @@ class InputHandler:
             # Mouse sequences start with ESC [ < (SGR format)
             # or ESC [ M (normal format)
             if self.mouse_enabled and self.mouse_parser and key_press.data:
+                # Windows console mouse: prompt_toolkit's Win32 input delivers
+                # the whole event as a ";"-delimited string in a single KeyPress
+                # (e.g. "LEFT;MOUSE_DOWN;13;6") rather than a vt100 escape
+                # sequence, so no byte buffering or lookahead is needed.
+                if key_press.key == PTKeys.WindowsMouseEvent:
+                    mouse_event = self.mouse_parser.parse_windows(key_press.data)
+                    if mouse_event:
+                        return mouse_event
+                    # Unrecognized payload: swallow it instead of letting it fall
+                    # through and be injected as a junk character key.
+                    return None
+
                 data_bytes = (
                     key_press.data.encode("utf-8")
                     if isinstance(key_press.data, str)

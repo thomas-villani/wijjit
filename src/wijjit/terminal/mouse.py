@@ -164,6 +164,14 @@ class MouseEventParser:
     # b, x, y are encoded as bytes (value + 32)
     NORMAL_PREFIX = b"\x1b[M"
 
+    # Windows console mouse format (prompt_toolkit Win32 input): a
+    # ";"-delimited string "<button>;<event>;<x>;<y>", e.g. "LEFT;MOUSE_DOWN;13;6".
+    _WINDOWS_BUTTONS = {
+        "LEFT": MouseButton.LEFT,
+        "MIDDLE": MouseButton.MIDDLE,
+        "RIGHT": MouseButton.RIGHT,
+    }
+
     def __init__(
         self, double_click_threshold: float = 0.5, double_click_distance: int = 2
     ) -> None:
@@ -254,6 +262,68 @@ class MouseEventParser:
         is_release = (button_code & 3) == 3
 
         return self._decode_event(button_code, x, y, is_release)
+
+    def parse_windows(self, data: str) -> MouseEvent | None:
+        """Parse a Windows console mouse event string.
+
+        On Windows, prompt_toolkit's Win32 input does not emit vt100 escape
+        sequences. Instead it delivers a single ``KeyPress`` whose ``data`` is a
+        ``";"``-delimited string of the form ``"<button>;<event>;<x>;<y>"`` (for
+        example ``"LEFT;MOUSE_DOWN;13;6"``). Coordinates are already 0-based.
+
+        Parameters
+        ----------
+        data : str
+            The ``KeyPress.data`` payload for a ``Keys.WindowsMouseEvent``.
+
+        Returns
+        -------
+        MouseEvent or None
+            Parsed (and click-synthesized) mouse event, or None if the payload
+            is not a recognizable Windows mouse string.
+
+        Notes
+        -----
+        Windows reports no button identity on release (``MOUSE_UP`` carries
+        button ``NONE``); click synthesis in :meth:`_synthesize_clicks` adopts
+        the recorded press button so single and double clicks still work.
+        Modifier keys are not encoded in this format and are always reported as
+        not pressed.
+        """
+        parts = data.split(";")
+        if len(parts) != 4:
+            return None
+
+        button_name, event_name, x_str, y_str = parts
+        try:
+            x = int(x_str)
+            y = int(y_str)
+        except ValueError:
+            return None
+
+        # Scroll wheel events carry their own direction and need no synthesis.
+        if event_name == "SCROLL_UP":
+            return MouseEvent(MouseEventType.SCROLL, MouseButton.SCROLL_UP, x, y)
+        if event_name == "SCROLL_DOWN":
+            return MouseEvent(MouseEventType.SCROLL, MouseButton.SCROLL_DOWN, x, y)
+
+        button = self._WINDOWS_BUTTONS.get(button_name, MouseButton.NONE)
+
+        if event_name == "MOUSE_MOVE":
+            event_type = (
+                MouseEventType.DRAG
+                if button != MouseButton.NONE
+                else MouseEventType.MOVE
+            )
+        elif event_name == "MOUSE_DOWN":
+            event_type = MouseEventType.PRESS
+        elif event_name == "MOUSE_UP":
+            event_type = MouseEventType.RELEASE
+        else:
+            return None
+
+        event = MouseEvent(type=event_type, button=button, x=x, y=y)
+        return self._synthesize_clicks(event)
 
     def _decode_event(
         self, button_code: int, x: int, y: int, is_release: bool
@@ -356,14 +426,21 @@ class MouseEventParser:
         elif event.type == MouseEventType.RELEASE and self._last_press:
             press_button, press_x, press_y, press_time = self._last_press
 
-            # Check if release matches the press (same button, close position)
+            # Check if release matches the press (same button, close position).
+            # Some terminals report no button id on release: the Windows console
+            # (MOUSE_UP) and legacy "normal"-mode releases both yield NONE. Treat
+            # a button-less release as matching the recorded press, and carry the
+            # press button into the synthesized click so it has the right button.
             distance = abs(event.x - press_x) + abs(event.y - press_y)
+            button_matches = (
+                event.button == press_button or event.button == MouseButton.NONE
+            )
 
-            if distance <= self.double_click_distance and event.button == press_button:
+            if distance <= self.double_click_distance and button_matches:
                 # This is a click!
                 event = MouseEvent(
                     type=MouseEventType.CLICK,
-                    button=event.button,
+                    button=press_button,
                     x=event.x,
                     y=event.y,
                     shift=event.shift,
