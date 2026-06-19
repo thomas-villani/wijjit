@@ -83,6 +83,23 @@ from wijjit.elements.input import (
     Toggle,
 )
 
+# Elements - dialogs (ModalElement subclasses)
+from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
+
+# Autocomplete (headline feature - re-exported for `from wijjit import ...`).
+# Imported after the element packages: the autocomplete popup depends on the
+# elements layer, so importing it earlier would trigger a circular import.
+# ``isort: split`` keeps this import from being re-sorted above the elements.
+# isort: split
+from wijjit.autocomplete import (
+    AsyncCompleter,
+    CallbackCompleter,
+    Completer,
+    CompleterConfig,
+    StateCompleter,
+    WordCompleter,
+)
+
 # Helpers
 from wijjit.helpers import load_filesystem_tree
 
@@ -107,6 +124,14 @@ from wijjit.terminal.ansi import (
 from wijjit.terminal.input import InputHandler, Key, Keys, KeyType
 from wijjit.terminal.screen import ScreenManager, alternate_screen
 
+# Friendly aliases for the documented element names. The classes are
+# internally suffixed ``Element`` (ModalElement / NotificationElement) but the
+# docs, template tags, and registry refer to them as ``Modal`` / ``Notification``.
+# Both names point at the same class; the ``*Element`` names remain for
+# backward compatibility.
+Modal = ModalElement
+Notification = NotificationElement
+
 __all__ = [
     # Version
     "__version__",
@@ -121,6 +146,13 @@ __all__ = [
     # Inline rendering
     "render_inline",
     "InlineApp",
+    # Autocomplete
+    "Completer",
+    "WordCompleter",
+    "CallbackCompleter",
+    "AsyncCompleter",
+    "StateCompleter",
+    "CompleterConfig",
     # Events
     "Event",
     "EventType",
@@ -166,8 +198,13 @@ __all__ = [
     "ListView",
     "LogView",
     "ModalElement",
+    "Modal",
     "NotificationElement",
+    "Notification",
     "NotificationSeverity",
+    "ConfirmDialog",
+    "AlertDialog",
+    "TextInputDialog",
     "Page",
     "Pager",
     "ProgressBar",
