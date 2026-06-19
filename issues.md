@@ -3,30 +3,33 @@
 - [ ] autocomplete demo - some strange issues when selecting suggestion (doesn't update input immediatley)
 
 - [ ] Tree demo - expand all didn't work, and after expanding, mouse click wasn't working
+    - post-expand mouse click: FIXED batch 1 (Windows mouse). expand-all: pending (group E).
 
 - [ ] layout demo - "features" panel overflows the frame on top during scroll.
     - shows [R], [S], [H], [Q] but those alt/ctrl-keys don't work.
 
 
 - [ ] context menu demo - why are we using a fake list element? use real list?
-    - focus on mouse context menu not working (but keys do)
-    - buttons do wrong thing
+    - focus on mouse context menu not working (but keys do)  [FIXED batch 1 - Windows mouse]
+    - buttons do wrong thing  [pending - group H]
+    - fake list element?  [pending - group H, appears to be a real ListView]
 
-- [ ] dashboard demo - clicking buttons not working
-- [ ] data entry demo - buttons not working on mouse click
+- [x] dashboard demo - clicking buttons not working (FIXED batch 1 - Windows mouse)
+- [x] data entry demo - buttons not working on mouse click (FIXED batch 1 - Windows mouse)
 
 - [ ] event patterns demo - in view2, hitting v or h does nothing
-    - clicking buttons does nothing
+    - clicking buttons does nothing  [FIXED batch 1 - Windows mouse]
+    - v/h in view2: pending (group B - focused field swallows global shortcuts)
 
 - [ ] threadpool executor demo - operaitons log never updates. everything appears blocking
 
-- [ ] form demo - mouse click on buttons not working - list select  swallows mouse click?
+- [x] form demo - mouse click on buttons not working - list select  swallows mouse click? (FIXED batch 1 - Windows mouse; the "list swallows click" theory was wrong, it was the input layer dropping all clicks)
 
 - [ ] frame_overflow_demo.py - seems ok, but middle frame does not extend, and rightmost frame seems cut off and no scroll
 
 - [ ] horizontal scroll demo - horizontal scrolling only works in "textarea with horizontal scroll". also "q" doesn't quit, need to say "Ctrl+q"
 
-- [ ] preferences_demo.py - can't click buttons with mouse (keys ok)
+- [x] preferences_demo.py - can't click buttons with mouse (keys ok) (FIXED batch 1 - Windows mouse)
 
 ## Investigation
 
@@ -92,10 +95,15 @@ to be a real `ListView`; "buttons do wrong thing" unresolved).
 
 ### Fix plan (branch-per-batch)
 
-1. **Batch 1 - Group A (Windows mouse).** Biggest win; unblocks ~7 issues. Add a
-   `WindowsMouseEvent` translation in input.py (button/event/x/y -> `MouseEvent`,
-   routed through the existing press -> release -> click synthesis). Not
-   verifiable in the harness - add a unit test for the translation plus a manual
-   Windows-console check script.
-2. **Batch 2 - Groups B + C** (both confirmed, single-area fixes).
+1. **Batch 1 - Group A (Windows mouse). DONE (PR #8), verified on a real Windows
+   console.** Added `MouseEventParser.parse_windows()` + `WindowsMouseEvent`
+   handling in both `InputHandler` read paths, plus a click-synthesis fix for
+   button-less releases (Windows `MOUSE_UP` and legacy normal-mode releases
+   report button NONE). Closed: dashboard, data_entry, form, preferences (full);
+   the mouse-click portions of event_patterns, context_menu, tree, mouse-demo.
+2. **Batch 2 - Groups B + C** (both confirmed, single-area fixes). NEXT.
+   - B: `event_loop.py:549` skips *all* handler dispatch (incl. global) when a
+     text field is focused; should only skip view-scoped.
+   - C: `frames.py:452` `set_child_content_height` never enables horizontal
+     scroll / focusability for child-content frames.
 3. **Batch 3+ - D/E/F/G/H** after the deeper repros above.
