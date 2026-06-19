@@ -380,6 +380,21 @@ class TestDiffRenderer:
         assert "\x1b[H" in output  # Home cursor command
         assert "A" in output
 
+    def test_full_render_resets_style_before_content(self):
+        """A full repaint resets attributes before the first cell so stale
+        terminal styling cannot bleed onto the first styled cell."""
+        renderer = DiffRenderer()
+        buffer = ScreenBuffer(10, 5)
+        buffer.set_cell(0, 0, Cell("A", bold=True))
+
+        output = renderer.render_diff(None, buffer)
+
+        home = output.index("\x1b[H")
+        first_content = output.index("A")
+        reset = output.index("\x1b[0m")
+        # The reset must come after home-cursor and before the first content.
+        assert home < reset < first_content
+
     def test_diff_render_unchanged(self):
         """Test diff render with no changes.
 
