@@ -515,6 +515,57 @@ class TestPager:
         assert result is None
 
 
+class TestPagerWheelScroll:
+    """Mouse wheel must delegate to the active frame consistently with keys."""
+
+    def _pager_with_fake_frame(self, frame):
+        pager = Pager()
+        pager.add_page(Page(title="Page 1", content="Some text content"))
+        pager.bounds = Bounds(0, 0, 40, 10)
+        pager._frame_cache[0] = frame
+        return pager
+
+    @pytest.mark.asyncio
+    async def test_wheel_delegates_to_frame_handle_scroll(self):
+        class FakeFrame:
+            def __init__(self):
+                self.scrolls = []
+
+            def handle_scroll(self, direction):
+                self.scrolls.append(direction)
+                return True
+
+        frame = FakeFrame()
+        pager = self._pager_with_fake_frame(frame)
+        event = MouseEvent(
+            type=MouseEventType.SCROLL, button=MouseButton.SCROLL_DOWN, x=5, y=5
+        )
+        result = await pager.handle_mouse(event)
+        assert result is True
+        assert frame.scrolls == [1]
+
+    @pytest.mark.asyncio
+    async def test_wheel_falls_back_to_handle_key(self):
+        """Wheel no longer silently no-ops when the frame lacks handle_scroll."""
+
+        class FrameKeyOnly:
+            def __init__(self):
+                self.keys = []
+
+            def handle_key(self, key):
+                self.keys.append(key)
+                return True
+
+        frame = FrameKeyOnly()
+        pager = self._pager_with_fake_frame(frame)
+        event = MouseEvent(
+            type=MouseEventType.SCROLL, button=MouseButton.SCROLL_UP, x=5, y=5
+        )
+        result = await pager.handle_mouse(event)
+        assert result is True
+        assert frame.keys == [Keys.UP, Keys.UP, Keys.UP]
+
+
 class TestPagerMixedContentLayout:
     """Regression test for a page that interleaves text and block elements.
 

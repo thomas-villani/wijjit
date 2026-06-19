@@ -10,7 +10,7 @@ from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Union
 
-from wijjit.elements.base import Container, ElementType
+from wijjit.elements.base import Container, ElementType, delegate_frame_scroll
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width, visible_length
@@ -779,10 +779,9 @@ class TabbedPanel(Container):
                 else:
                     frame = active_content
 
-                if hasattr(frame, "handle_scroll"):
-                    # Convert scroll direction: SCROLL_UP = -1, SCROLL_DOWN = 1
-                    direction = 1 if event.button == MouseButton.SCROLL_DOWN else -1
-                    return frame.handle_scroll(direction)
+                # Convert scroll direction: SCROLL_UP = -1, SCROLL_DOWN = 1
+                direction = 1 if event.button == MouseButton.SCROLL_DOWN else -1
+                return delegate_frame_scroll(frame, direction)
             return False
 
         # Handle left clicks (or press) for tab switching

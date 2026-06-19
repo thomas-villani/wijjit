@@ -591,3 +591,53 @@ class TestTabbedPanelAsyncMouse:
 
         # Should have switched tabs
         assert panel.active_tab_index == 1
+
+
+class TestTabbedPanelWheelScroll:
+    """Mouse wheel must delegate to the active tab's frame like the keys do."""
+
+    def _panel_with_fake_frame(self, frame):
+        panel = TabbedPanel(width=60, height=20)
+        panel.add_tab("Tab 1", frame)
+        panel.bounds = Bounds(0, 0, 60, 20)
+        return panel
+
+    @pytest.mark.asyncio
+    async def test_wheel_delegates_to_frame_handle_scroll(self):
+        class FakeFrame:
+            def __init__(self):
+                self.scrolls = []
+
+            def handle_scroll(self, direction):
+                self.scrolls.append(direction)
+                return True
+
+        frame = FakeFrame()
+        panel = self._panel_with_fake_frame(frame)
+        event = MouseEvent(
+            x=5, y=5, button=MouseButton.SCROLL_DOWN, type=MouseEventType.SCROLL
+        )
+        result = await panel.handle_mouse(event)
+        assert result is True
+        assert frame.scrolls == [1]
+
+    @pytest.mark.asyncio
+    async def test_wheel_falls_back_to_handle_key(self):
+        """Wheel scrolls via synthesized keys when handle_scroll is absent."""
+
+        class FrameKeyOnly:
+            def __init__(self):
+                self.keys = []
+
+            def handle_key(self, key):
+                self.keys.append(key)
+                return True
+
+        frame = FrameKeyOnly()
+        panel = self._panel_with_fake_frame(frame)
+        event = MouseEvent(
+            x=5, y=5, button=MouseButton.SCROLL_UP, type=MouseEventType.SCROLL
+        )
+        result = await panel.handle_mouse(event)
+        assert result is True
+        assert frame.keys == [Keys.UP, Keys.UP, Keys.UP]
