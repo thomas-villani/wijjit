@@ -45,7 +45,9 @@ class CompleterConfig:
         Minimum characters before auto-trigger shows popup. Only used
         when trigger="auto". Default: 1
     trigger_key : str
-        Key combination for manual trigger. Default: "ctrl+space"
+        Key combination for manual trigger. Default: "ctrl+/" (ctrl+space is
+        intercepted or sends NUL in many terminals, so ctrl+/ is the reliable
+        default; set trigger_key="ctrl+space" explicitly to use it).
     case_sensitive : bool
         Whether matching is case-sensitive. Default: False
     match_anywhere : bool

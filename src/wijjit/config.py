@@ -95,19 +95,25 @@ class Config(dict[str, Any]):
         """
         filename = os.path.abspath(filename)
 
+        # ``silent`` suppresses file-access problems (missing file, permission
+        # denied, is-a-directory). A malformed config (syntax or runtime error
+        # during exec) is a genuine error and always propagates, so the user
+        # learns their config is broken rather than having it silently ignored.
         try:
             with open(filename, "rb") as f:
-                namespace: dict[str, Any] = {}
-                exec(compile(f.read(), filename, "exec"), namespace)
-                # Only import uppercase variables
-                for key, value in namespace.items():
-                    if key.isupper():
-                        self[key] = value
-            return True
-        except FileNotFoundError:
+                contents = f.read()
+        except OSError:
             if silent:
                 return False
             raise
+
+        namespace: dict[str, Any] = {}
+        exec(compile(contents, filename, "exec"), namespace)
+        # Only import uppercase variables
+        for key, value in namespace.items():
+            if key.isupper():
+                self[key] = value
+        return True
 
     def from_envvar(self, variable_name: str, silent: bool = False) -> bool:
         """Load config from file path in environment variable.
@@ -189,8 +195,17 @@ class Config(dict[str, Any]):
                     parsed = True
                 elif value.lower() in ("false", "0", "no", "off"):
                     parsed = False
-                elif value.replace(".", "", 1).replace("-", "", 1).isdigit():
-                    parsed = float(value) if "." in value else int(value)
+                else:
+                    # Coerce to int/float only when the value genuinely parses;
+                    # the previous digit-stripping heuristic accepted strings
+                    # like "1-2" and then crashed in int().
+                    try:
+                        parsed = int(value)
+                    except ValueError:
+                        try:
+                            parsed = float(value)
+                        except ValueError:
+                            parsed = value
 
                 self[config_key] = parsed
 

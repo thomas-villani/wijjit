@@ -274,8 +274,19 @@ class ElementRegistry:
                 if param.kind == inspect.Parameter.VAR_KEYWORD:
                     return props
 
-            # Filter to only valid parameters
-            return {k: v for k, v in props.items() if k in valid_params}
+            # Filter to only valid parameters. Log anything dropped at debug
+            # level so a typo'd attribute (e.g. "colour" vs "color") is
+            # discoverable when debugging without warning-spamming normal runs
+            # (many framework props are intentionally not constructor params).
+            filtered = {k: v for k, v in props.items() if k in valid_params}
+            dropped = set(props) - set(filtered)
+            if dropped:
+                logger.debug(
+                    "Dropped unsupported props for %s: %s",
+                    getattr(factory, "__name__", factory),
+                    sorted(dropped),
+                )
+            return filtered
         except (ValueError, TypeError):
             # If we can't inspect, just return all props and let it fail naturally
             return props
