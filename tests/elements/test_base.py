@@ -8,10 +8,12 @@ from wijjit.elements.base import (
     Container,
     Element,
     _background_tasks,
+    delegate_frame_scroll,
     invoke_callback,
 )
 from wijjit.layout.bounds import Bounds
 from wijjit.rendering.paint_context import PaintContext
+from wijjit.terminal.input import Keys
 
 
 # Concrete test implementation of Element
@@ -91,6 +93,64 @@ class TestInvokeCallback:
             wlogger.propagate = prev_propagate
 
         assert any("async callback" in r.getMessage() for r in records)
+
+
+class TestDelegateFrameScroll:
+    """Tests for the delegate_frame_scroll wheel-delegation helper."""
+
+    def test_none_frame_returns_false(self):
+        assert delegate_frame_scroll(None, 1) is False
+
+    def test_prefers_handle_scroll(self):
+        class FrameWithScroll:
+            def __init__(self):
+                self.scrolls = []
+
+            def handle_scroll(self, direction):
+                self.scrolls.append(direction)
+                return True
+
+            def handle_key(self, key):  # should not be used
+                raise AssertionError("handle_key should not be called")
+
+        frame = FrameWithScroll()
+        assert delegate_frame_scroll(frame, 1) is True
+        assert frame.scrolls == [1]
+
+    def test_falls_back_to_handle_key(self):
+        """A frame with only handle_key still scrolls via synthesized keys."""
+
+        class FrameKeyOnly:
+            def __init__(self):
+                self.keys = []
+
+            def handle_key(self, key):
+                self.keys.append(key)
+                return True
+
+        frame = FrameKeyOnly()
+        # Scroll down -> three Down presses (matches Frame's 3-lines-per-notch).
+        assert delegate_frame_scroll(frame, 1) is True
+        assert frame.keys == [Keys.DOWN, Keys.DOWN, Keys.DOWN]
+
+        frame.keys.clear()
+        assert delegate_frame_scroll(frame, -1) is True
+        assert frame.keys == [Keys.UP, Keys.UP, Keys.UP]
+
+    def test_handle_key_fallback_reports_unhandled(self):
+        """If the key path never scrolls, the helper reports False."""
+
+        class FrameKeyOnly:
+            def handle_key(self, key):
+                return False
+
+        assert delegate_frame_scroll(FrameKeyOnly(), 1) is False
+
+    def test_frame_without_either_api_returns_false(self):
+        class Bare:
+            pass
+
+        assert delegate_frame_scroll(Bare(), 1) is False
 
 
 class TestElementBase:

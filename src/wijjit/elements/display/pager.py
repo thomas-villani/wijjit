@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Union
 
-from wijjit.elements.base import Container, ElementType
+from wijjit.elements.base import Container, ElementType, delegate_frame_scroll
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame, FrameStyle
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width
@@ -488,10 +488,8 @@ class Pager(Container):
         # Handle scroll wheel - delegate to active frame
         if event.type == MouseEventType.SCROLL:
             frame = self._get_active_frame()
-            if frame is not None and hasattr(frame, "handle_scroll"):
-                direction = 1 if event.button == MouseButton.SCROLL_DOWN else -1
-                return frame.handle_scroll(direction)
-            return False
+            direction = 1 if event.button == MouseButton.SCROLL_DOWN else -1
+            return delegate_frame_scroll(frame, direction)
 
         # Only handle CLICK events for buttons (not PRESS to avoid double-fire)
         if event.button != MouseButton.LEFT:

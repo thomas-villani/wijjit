@@ -1137,3 +1137,84 @@ class TestTreeMultiSelect:
         result = await tree.handle_mouse(event)
         assert result is True
         assert root_id not in tree.selected_node_ids
+
+
+class TestTreeMultiSelectEphemeral:
+    """Multi-select state must survive reconciliation and ``multiple`` toggles."""
+
+    def _make_tree(self, multiple=True):
+        data = {
+            "label": "Root",
+            "value": "root",
+            "children": [
+                {"label": "Child 1", "value": "c1"},
+                {"label": "Child 2", "value": "c2"},
+                {"label": "Child 3", "value": "c3"},
+            ],
+        }
+        tree = Tree(data=data, multiple=multiple)
+        tree.expand_node("root")
+        return tree
+
+    def test_ephemeral_state_always_includes_selection(self):
+        """selected_node_ids is captured even when ``multiple`` is False."""
+        tree = self._make_tree(multiple=False)
+        # Directly seed a selection (e.g. left over from a multi-select render).
+        child_id = tree.nodes[1]["node"]["id"]
+        tree.selected_node_ids.add(child_id)
+
+        state = tree.get_ephemeral_state()
+
+        assert "selected_node_ids" in state
+        assert state["selected_node_ids"] == {child_id}
+
+    def test_selection_survives_multiple_toggle_off_and_on(self):
+        """Toggling ``multiple`` across renders must not drop the selection."""
+        tree = self._make_tree(multiple=True)
+        c1 = tree.nodes[1]["node"]["id"]
+        c2 = tree.nodes[2]["node"]["id"]
+        tree.toggle_selection(c1)
+        tree.toggle_selection(c2)
+
+        # Simulate reconciliation: capture -> apply prop change -> restore.
+        state = tree.get_ephemeral_state()
+        tree.multiple = False  # _apply_prop_changes toggles multiple off
+        tree.restore_ephemeral_state(state)
+        assert tree.selected_node_ids == {c1, c2}
+
+        # And the selection is still intact when ``multiple`` toggles back on.
+        state2 = tree.get_ephemeral_state()
+        tree.multiple = True
+        tree.restore_ephemeral_state(state2)
+        assert tree.selected_node_ids == {c1, c2}
+
+
+class TestTreeBorderedViewport:
+    """Auto-scroll must use the border-adjusted viewport, like ListView."""
+
+    def _make_tree(self, **kwargs):
+        children = [{"label": f"Child {i}", "value": f"c{i}"} for i in range(20)]
+        data = {"label": "Root", "value": "root", "children": children}
+        tree = Tree(data=data, height=10, **kwargs)
+        tree.expand_node("root")
+        return tree
+
+    def test_bordered_viewport_excludes_border_rows(self):
+        """A bordered tree reserves two rows for the top/bottom border."""
+        tree = self._make_tree(border_style="single")
+        assert tree.scroll_manager.state.viewport_size == 8
+
+    def test_borderless_viewport_is_full_height(self):
+        """A borderless tree uses the full height as its viewport."""
+        tree = self._make_tree(border_style="none")
+        assert tree.scroll_manager.state.viewport_size == 10
+
+    def test_bordered_down_autoscroll_keeps_highlight_visible(self):
+        """Down-arrow auto-scroll keeps the highlight inside the viewport."""
+        tree = self._make_tree(border_style="single")
+        # Walk down past the bottom of the 8-row content viewport.
+        for _ in range(8):
+            tree.handle_key(Keys.DOWN)
+        assert tree.highlighted_index == 8
+        start, end = tree.scroll_manager.get_visible_range()
+        assert start <= tree.highlighted_index < end

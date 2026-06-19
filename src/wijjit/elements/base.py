@@ -36,7 +36,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 from wijjit.logging_config import get_logger
-from wijjit.terminal.input import Key
+from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
@@ -125,6 +125,49 @@ def invoke_callback(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> 
                 logger.exception("Unhandled exception in async callback")
         return None
     return result
+
+
+def delegate_frame_scroll(frame: Any, direction: int) -> bool:
+    """Delegate a mouse-wheel scroll to a frame-like object.
+
+    Container elements (Pager, TabbedPanel) forward wheel events to their
+    active content frame. The frame's wheel API is ``handle_scroll``, but its
+    keyboard API (``handle_key`` with Up/Down) also scrolls. Routing both wheel
+    and keyboard through a single helper keeps the two paths consistent: wheel
+    scrolling no longer silently no-ops on a frame that only implements the
+    keyboard API.
+
+    Parameters
+    ----------
+    frame : Any
+        The active frame (or frame-like object) to scroll. May be ``None``.
+    direction : int
+        Scroll direction: ``-1`` to scroll up, ``1`` to scroll down.
+
+    Returns
+    -------
+    bool
+        True if the scroll was handled, False otherwise.
+
+    Notes
+    -----
+    Prefers ``frame.handle_scroll(direction)`` when present. Otherwise, if the
+    frame exposes ``handle_key``, the wheel notch is translated into three
+    Up/Down key presses (matching ``Frame.handle_scroll``'s three-lines-per-
+    notch convention).
+    """
+    if frame is None:
+        return False
+    if hasattr(frame, "handle_scroll"):
+        return bool(frame.handle_scroll(direction))
+    if hasattr(frame, "handle_key"):
+        key = Keys.DOWN if direction > 0 else Keys.UP
+        handled = False
+        for _ in range(3):
+            if frame.handle_key(key):
+                handled = True
+        return handled
+    return False
 
 
 class ElementType(Enum):

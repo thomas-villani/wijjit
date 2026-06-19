@@ -70,6 +70,28 @@ full suite **2784 passed**, `ruff` / `black` / `mypy --strict` clean.
   Tree, ListView, LogView, ContentView, BarChart constructors accept
   `tab_index` and the tags forward `tabindex`/`tab_index`.
 
+### Fixed in batch 3
+
+Branch `fix/0.1.0-code-review-batch3` (stacked on batch 2). 16 new tests;
+full suite **2798 passed** (excl. benchmarks), `ruff` / `black` / `mypy
+--strict` clean.
+
+- **Tree multi-select dropped on `multiple` toggle (HIGH)** — `selected_node_ids`
+  was only saved/restored when `self.multiple` was True. Since the reconciler
+  captures ephemeral state before applying prop changes and restores it after,
+  toggling `multiple` across a re-render discarded the selection. Now always
+  saved and restored, so the selection survives the round-trip.
+- **Tree bordered auto-scroll viewport (HIGH)** — Down/Right auto-scroll used the
+  raw `self.height` (including border rows), scrolling the highlight off-screen
+  on a bordered tree; the viewport was never re-synced on resize (unlike
+  ListView). Added border-aware `_get_content_height()`, re-sync the viewport in
+  `render_to`, and drive auto-scroll math from the viewport size.
+- **Pager / TabbedPanel wheel vs keyboard API (HIGH)** — wheel delegated to
+  `frame.handle_scroll` while keyboard delegated to `frame.handle_key`; a frame
+  with only the keyboard API silently no-opped on the wheel. New shared
+  `delegate_frame_scroll` helper (`elements/base.py`) prefers `handle_scroll`
+  and falls back to synthesized Up/Down keys; both containers route through it.
+
 ### Checked and rejected (not bugs as described)
 
 - "Removed/None props never cleared" (`reconciler._diff_props`) — the diff
@@ -93,9 +115,9 @@ Highest-value first:
 4. **Input HIGHs (partial)** — ~~Select down-arrow scroll margin overshoot~~ and
    ~~DataGrid Tab/Enter dead-commit + double-commit~~ **done in batch 2**;
    *remaining:* CodeEditor soft-wrap scroll desync (`code_editor.py:478,839`).
-5. **Display HIGHs** — Tree multi-select ephemeral dropped on `multiple` toggle
-   + bordered auto-scroll viewport (`tree.py`); Pager wheel-vs-keyboard Frame
-   API (`pager.py:489`, `tabbed_panel.py:782`).
+5. ~~**Display HIGHs** — Tree multi-select ephemeral dropped on `multiple`
+   toggle + bordered auto-scroll viewport (`tree.py`); Pager wheel-vs-keyboard
+   Frame API (`pager.py:489`, `tabbed_panel.py:782`).~~ — **done in batch 3.**
 6. **Tags HIGHs (partial)** — ~~`tabindex`->`tab_index` normalization on
    focusable display/chart tags~~ **done in batch 2** (Table, Tree, ListView,
    LogView, ContentView, BarChart); *remaining:* menu/dialog tag `tabindex`
