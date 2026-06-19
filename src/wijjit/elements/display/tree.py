@@ -499,9 +499,11 @@ class Tree(ScrollableElement):
         data : dict or list
             New tree data
         """
-        self._raw_data = data
-        self.data = self._normalize_data(data) if data else {}
-        self._rebuild_nodes()
+        # Delegate to the ``data`` setter, which stores the raw value,
+        # normalizes exactly once, and rebuilds the node list. Normalizing
+        # here as well would double-normalize (corrupting ``_raw_data`` and
+        # regenerating child ids), silently breaking expansion/selection state.
+        self.data = data
 
     @property
     def scroll_position(self) -> int:

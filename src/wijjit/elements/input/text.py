@@ -605,6 +605,25 @@ class TextInput(AutocompleteMixin, Element):
         """
         return {"cursor_pos": self.cursor_pos}
 
+    def restore_ephemeral_state(self, state: dict[str, Any]) -> None:
+        """Restore ephemeral state, clamping the cursor into range.
+
+        Parameters
+        ----------
+        state : dict
+            State from :meth:`get_ephemeral_state`.
+
+        Notes
+        -----
+        Called by the reconciler after prop changes are applied, so
+        ``self.value`` already holds the new value. A programmatic value
+        change (e.g. a shrinking state binding) can leave the preserved
+        cursor position past the end of the text; clamping here prevents
+        out-of-range insert/delete.
+        """
+        if "cursor_pos" in state:
+            self.cursor_pos = max(0, min(state["cursor_pos"], len(self.value)))
+
 
 class TextArea(Element):
     """Multiline text area element with scrolling support.

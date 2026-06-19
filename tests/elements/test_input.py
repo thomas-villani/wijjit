@@ -131,6 +131,35 @@ class TestTextInput:
         assert result
         assert input_field.cursor_pos == 5
 
+    def test_cursor_clamped_when_value_shrinks_on_reconcile(self):
+        """Cursor is clamped when a bound value shrinks during reconciliation.
+
+        Reproduces the reconciler lifecycle: ephemeral state (cursor) is
+        captured, the value prop is synced to a shorter string, then the
+        ephemeral state is restored. The restore must clamp the cursor into
+        range rather than leaving it past the end of the text.
+        """
+        input_field = TextInput(value="hello world")
+        input_field.cursor_pos = 11  # at end
+
+        saved = input_field.get_ephemeral_state()
+        # Reconciler applies the (shrunk) value prop, then restores ephemeral.
+        input_field.value = "hi"
+        input_field.restore_ephemeral_state(saved)
+
+        assert input_field.cursor_pos == 2
+
+    def test_cursor_preserved_when_value_unchanged_length(self):
+        """Restoring ephemeral cursor keeps its position when in range."""
+        input_field = TextInput(value="hello")
+        input_field.cursor_pos = 3
+
+        saved = input_field.get_ephemeral_state()
+        input_field.value = "world"
+        input_field.restore_ephemeral_state(saved)
+
+        assert input_field.cursor_pos == 3
+
     def test_insert_middle(self):
         """Test inserting character in middle of text."""
         input_field = TextInput(value="helo")
