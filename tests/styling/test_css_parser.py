@@ -106,6 +106,44 @@ class TestCSSParser:
         assert styles[".text-italic"].italic is True
         assert styles[".text-underline"].underline is True
 
+    def test_parse_grouped_selectors(self):
+        """Comma-separated selectors each get their own entry.
+
+        Regression: grouped selectors were stored under one combined,
+        unsplittable key (".a, .b") that never matched ".a" or ".b".
+        """
+        css = """
+        .one, .two, .three {
+            color: red;
+        }
+        """
+        styles = self.parser.parse(css)
+
+        assert set(styles) >= {".one", ".two", ".three"}
+        for sel in (".one", ".two", ".three"):
+            assert styles[sel].fg_color == (255, 0, 0)
+
+    def test_same_selector_rules_cascade(self):
+        """Repeated rules for one selector cascade per-property.
+
+        Regression: a later rule overwrote the entire previous Style instead
+        of merging, so split-property stylesheets lost the earlier properties.
+        """
+        css = """
+        .btn {
+            color: red;
+        }
+        .btn {
+            background-color: blue;
+        }
+        """
+        styles = self.parser.parse(css)
+
+        style = styles[".btn"]
+        # Both properties survive; later same-property declarations would win.
+        assert style.fg_color == (255, 0, 0)
+        assert style.bg_color == (0, 0, 255)
+
 
 class TestColorParsing:
     """Tests for CSS color parsing."""

@@ -192,7 +192,10 @@ def parse_css(css_content: str) -> dict[str, Style]:
     >>> styles[".btn"].fg_color
     (255, 255, 255)
     """
-    styles: dict[str, Style] = {}
+    # Accumulate attributes per selector so that repeated rules targeting the
+    # same selector cascade per-property (later declarations win) rather than
+    # the whole rule overwriting the previous one.
+    selector_attrs: dict[str, dict[str, Any]] = {}
 
     # Parse CSS using tinycss2
     rules = tinycss2.parse_stylesheet(css_content)
@@ -204,18 +207,22 @@ def parse_css(css_content: str) -> dict[str, Style]:
             continue
 
         # Get selector text from prelude tokens
-        selector = _serialize_tokens(rule.prelude).strip()
+        prelude = _serialize_tokens(rule.prelude).strip()
 
         # Parse declarations from rule content
         declarations = tinycss2.parse_declaration_list(rule.content)
         style_attrs = _parse_declarations(declarations)
+        if not style_attrs:
+            continue
 
-        # Create Style object
-        if style_attrs:
-            style = Style(**style_attrs)
-            styles[selector] = style
+        # Split grouped selectors ("a, b { ... }") so each selector is stored
+        # and matched on its own rather than as one unsplittable key.
+        for selector in (s.strip() for s in prelude.split(",")):
+            if not selector:
+                continue
+            selector_attrs.setdefault(selector, {}).update(style_attrs)
 
-    return styles
+    return {selector: Style(**attrs) for selector, attrs in selector_attrs.items()}
 
 
 def parse_css_file(filepath: str) -> dict[str, Style]:
