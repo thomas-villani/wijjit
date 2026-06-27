@@ -84,9 +84,11 @@ there with reasons.
 .venv/Scripts/python.exe -m mypy src/              # types (CI: strict)
 ```
 
-> NOTE: `ruff check src/` is clean, but `mypy --strict src/` currently reports
-> ~480 errors. The CI `lint` job fails on mypy until this is addressed - see
-> `RELEASE_PLAN.md`.
+> NOTE: both `ruff check src/` and `mypy --strict src/` are clean, so the CI
+> `lint` job is green. A pragmatic set of targeted `[[tool.mypy.overrides]]`
+> blocks in `pyproject.toml` relaxes a few structural-gap modules (layout/engine,
+> core/renderer, core/wiring, ...); everything else is fully strict. See
+> `RELEASE_PLAN.md` Phase 3.
 
 ### Building
 
@@ -282,14 +284,18 @@ defaults; `tests/core/test_config.py` covers it.
 
 `examples/` has ~69 runnable demos, organized into `basic/` (15), `widgets/`
 (30), `advanced/` (21), `styling/` (2), `apps/` (1). Run with
-`python examples/<dir>/<name>.py`. Note: several demos still have known visual/
-behavioral bugs tracked in `etc/issues.md` - see `RELEASE_PLAN.md`.
+`python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
+behavioral bugs deferred to 0.1.1, tracked with root causes in `issues.md` (repo
+root) - see `RELEASE_PLAN.md`.
 
 ## Known Limitations / In-Progress
 
-- `mypy --strict` not yet clean (~480 errors).
-- ~13 demo bugs open (scrolling/clip, modal key-swallowing, table sort,
-  spinner+progress interaction, some layout/missing-element issues).
+- `mypy --strict src/` is clean via targeted per-module overrides (see Phase 3
+  of `RELEASE_PLAN.md`); a full strict pass on the overridden modules is future
+  work.
+- A handful of demo bugs are deferred to 0.1.1 (horizontal child-frame scroll,
+  tree expand-all, autocomplete select, some layout/clip + Windows alt-keys);
+  tracked with root causes in `issues.md`.
 - Headless test harness exists (`wijjit.testing.WijjitHarness`); per-example
   snapshot fixtures and a headless example CLI are still TODO.
 - Sphinx docs scaffold exists but the build emits many warnings.

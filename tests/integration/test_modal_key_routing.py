@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from wijjit.core.app import Wijjit
+from wijjit.core.events import EventType, HandlerScope
 from wijjit.elements.modal import ConfirmDialog, TextInputDialog
 from wijjit.testing import WijjitHarness
 
@@ -277,3 +278,76 @@ class TestDialogFirstKeyActivatesButton:
             h.press("enter")
             assert h.state["cancelled"] is True
             assert h.state["confirmed"] is False
+
+
+class TestFocusedInputKeyScope:
+    """A focused TextInput must suppress only VIEW-scoped key handlers.
+
+    Regression for the bug where a focused input set
+    ``skip_view_handlers_for_input`` and the event loop then skipped *all*
+    handler dispatch - so a global ``@app.on_key("q")`` quit never fired while
+    typing in a field (``horizontal_scroll_demo`` "q doesn't quit"). Global and
+    element handlers must still fire; only view-scoped handlers are suppressed.
+    """
+
+    def _build_app(self) -> Wijjit:
+        app = Wijjit(initial_state={"name": "", "global_fired": 0, "view_fired": 0})
+
+        @app.view("main", default=True)
+        def main_view() -> dict:
+            return {
+                "template": """
+{% frame width=40 height=6 title="Form" %}
+{% textinput id="name" bind="name" %}{% endtextinput %}
+{% endframe %}
+"""
+            }
+
+        @app.on_key("g")
+        def global_handler(_event) -> None:
+            app.state["global_fired"] += 1
+
+        def view_handler(event) -> None:
+            if event.key and event.key.lower() == "v":
+                app.state["view_fired"] += 1
+
+        app.on(
+            EventType.KEY,
+            view_handler,
+            scope=HandlerScope.VIEW,
+            view_name="main",
+        )
+        return app
+
+    def test_global_handler_fires_with_input_focused(self) -> None:
+        app = self._build_app()
+        with WijjitHarness(app, size=(50, 10)) as h:
+            h.press("tab")
+            assert h.focused is not None, "TextInput was not focused"
+            h.press("g")
+            assert h.state["global_fired"] == 1, (
+                "global @app.on_key('g') did not fire while a TextInput was " "focused"
+            )
+
+    def test_view_handler_suppressed_with_input_focused(self) -> None:
+        app = self._build_app()
+        with WijjitHarness(app, size=(50, 10)) as h:
+            h.press("tab")
+            assert h.focused is not None
+            # 'v' is a plain char: it types into the input, the view handler
+            # must NOT fire.
+            h.press("v")
+            assert h.state["view_fired"] == 0, (
+                "view-scoped handler fired for a plain char while a TextInput "
+                "was focused"
+            )
+            assert h.state["name"] == "v", "char was not typed into the input"
+
+    def test_view_handler_fires_without_input_focused(self) -> None:
+        app = self._build_app()
+        with WijjitHarness(app, size=(50, 10)) as h:
+            # No focus yet: the view handler should receive 'v'.
+            h.press("v")
+            assert (
+                h.state["view_fired"] == 1
+            ), "view-scoped handler did not fire when no input was focused"

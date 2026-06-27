@@ -44,6 +44,14 @@ First public release.
 - `Select` now re-clamps scroll position when its option list changes.
 - Pending async tasks spawned from state callbacks are cancelled on shutdown,
   preventing task leaks and exit hangs.
+- Global `@app.on_key` handlers (e.g. a quit hotkey) now fire while a
+  `TextInput`/`TextArea` is focused; only view-scoped key handlers are
+  suppressed so typing a character no longer triggers a view hotkey.
+- Windows console mouse input is parsed correctly (`WindowsMouseEvent`), so
+  clicks reach buttons and other elements on Windows terminals.
+- The source distribution now builds deterministically via an explicit file
+  list, so a stray local virtualenv (e.g. `.venv-wsl/`) no longer breaks
+  `uv build` / packaging.
 
 ### Changed
 - **Inner-text discipline**: `{% textinput %}` now uses its tag body as the

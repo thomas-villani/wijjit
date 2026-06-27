@@ -78,6 +78,18 @@ path = "src/wijjit/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/wijjit"]
 
+# Explicit sdist contents so the build is deterministic and never walks stray
+# local directories (e.g. a `.venv-wsl/` with broken symlinks on Windows).
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/wijjit",
+    "tests",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
