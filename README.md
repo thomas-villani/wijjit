@@ -4,6 +4,12 @@
 
 *Wijjit is Just Jinja in Terminal*
 
+[![PyPI version](https://img.shields.io/pypi/v/wijjit.svg)](https://pypi.org/project/wijjit/)
+[![Python versions](https://img.shields.io/pypi/pyversions/wijjit.svg)](https://pypi.org/project/wijjit/)
+[![CI](https://github.com/thomas-villani/wijjit/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas-villani/wijjit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/thomas-villani/wijjit/blob/main/LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://thomas-villani.github.io/wijjit/)
+
 ---
 
 Wijjit is a Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns. 
@@ -36,8 +42,10 @@ pip install wijjit
 pip install "wijjit[images]"   # ImageView / ASCII image rendering (Pillow)
 ```
 
-> Wijjit is currently in pre-release. Until 0.1.0 is published, install the
-> latest alpha with `pip install --pre wijjit`, or install from source below.
+> **Clipboard note (Linux):** copy/paste uses the system clipboard via
+> `pyperclip`, which needs `xclip` or `xsel` installed. Without them, Wijjit
+> falls back to an internal in-process clipboard (copy/paste still works inside
+> the app, just not across other programs).
 
 ### From source (development)
 

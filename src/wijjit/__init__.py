@@ -4,7 +4,7 @@ A declarative TUI framework using Jinja2 templates for building
 terminal user interfaces with familiar web development patterns.
 """
 
-__version__ = "0.1.0a1"
+__version__ = "0.1.0"
 
 # Core components
 from wijjit.config import Config, DefaultConfig

@@ -4,15 +4,30 @@
 **full polish** - clear the outstanding demo bugs, get the type-check gate
 green, ship docs, then publish.
 
-**Current state (2026-05-26):**
-- Tests: ~2480 passing, 15 skipped. Ruff: clean. Build: works (`uv build`).
-- Version: `0.1.0a1` (single source: `wijjit.__version__`, hatchling dynamic).
-- CI exists (3 OS x Py 3.11-3.13 + lint + coverage) but the **lint job fails**
-  on `mypy --strict` (~480 errors).
-- Packaging metadata fixed (URLs, version, README, CHANGELOG, public API).
+**Current state (2026-06-28):**
+- Tests: ~2480 passing, 15 skipped. Ruff: clean. **mypy --strict: clean**
+  (107 files; Phase 3 done). CI lint job is **green**.
+- CI: 3 OS x Py 3.11-3.13 + lint + coverage, all green.
+- Version: `0.1.0a1` (single source: `wijjit.__version__`, hatchling dynamic) -
+  **not yet bumped** to `0.1.0`.
+- Sphinx docs build clean (0 warnings); docs **hosting decided: GitHub Pages**
+  (not Read the Docs).
+- **Phases 1-4 are effectively complete.** The remaining work is Phase 5
+  (packaging, docs hosting, publish) plus merging the staged PR.
 
-Versioning toward release: `0.1.0a1` (now) -> `0.1.0b1` (after Phase 2) ->
-`0.1.0rc1` (after Phases 3-4) -> `0.1.0` (Phase 5).
+**Staged but not yet on `main` (PR #10, branch `fix/0.1.0-release-batch2`,
+all 13 CI checks green, MERGEABLE/CLEAN):** the Group B global-key-routing fix
++ regression tests, `.github/workflows/release.yml` (OIDC trusted publishing),
+the deterministic-sdist `include` list in `pyproject.toml`, and the
+`issues.md` / `CLAUDE.md` / `CHANGELOG.md` updates.
+
+> WARNING: the deterministic-sdist fix lives only on that branch. On `main`,
+> `uv build --sdist` currently **fails** (hatchling walks a stray `.venv-wsl/`
+> with a broken `bin/python` symlink: `OSError [Errno 22]`). Nothing can be
+> built/released from `main` until PR #10 merges.
+
+Versioning toward release: `0.1.0a1` (now) -> `0.1.0` (Phase 5). Earlier
+intermediate `b1`/`rc1` tags were skipped; the alpha goes straight to `0.1.0`.
 
 ---
 
@@ -287,8 +302,11 @@ closed or explicitly deferred with rationale; harness regression tests added.
       `api_reference/` (10 modules via autosummary + per-class stubs),
       `examples/` (gallery + cookbook), `developer_guide/` (architecture,
       contributing, testing).
-- [ ] Decide on Read the Docs hosting (the project URL already points there).
-- [ ] Per-component example pages (template tag + programmatic) per `etc/todo.md`.
+- [x] Docs hosting decided: **GitHub Pages** (not Read the Docs). The Sphinx
+      site will be built and deployed by a `docs.yml` Actions workflow; the
+      `Documentation` project URL moves to the Pages URL. See Phase 5c.
+- [ ] Per-component example pages (template tag + programmatic) per `etc/todo.md`
+      (deferred to 0.1.1; not a release blocker).
 
 **Acceptance:** `sphinx-build -b html docs/source docs/build/html` succeeds
 with 0 errors and 0 warnings; the getting-started path lets a new user build
@@ -300,46 +318,106 @@ an app in <15 min. **Met for the build-quality gate.**
 > are the load-bearing changes that eliminate the structural duplicate-object
 > warnings without losing API documentation coverage.
 
-## Phase 5 - Packaging & publish (-> 0.1.0)
+## Phase 5 - Packaging, docs hosting & publish (-> 0.1.0)
 
-- [ ] Verify/confirm author email in `pyproject.toml`
-      (`thomas.villani@gmail.com` vs the account `tomrhobus@gmail.com`).
-- [ ] Add `.gitattributes` to normalize line endings (repo currently warns
-      LF->CRLF on every touched file on Windows).
-- [ ] Pin a minimal supported dependency set; smoke-test a clean install in a
-      fresh venv on Linux/macOS/Windows (CI matrix already covers test).
-- [ ] Note `pyperclip`'s Linux clipboard requirement (xclip/xsel) in docs, or
-      degrade gracefully when unavailable.
-- [ ] Add release tooling: `twine` (not currently installed) OR use
-      `uv publish`. Prefer **PyPI Trusted Publishing** (OIDC from GitHub
-      Actions) to avoid storing tokens.
-- [ ] `uv build` + `twine check dist/*` (metadata + long-description render).
-- [ ] Publish to **TestPyPI**; install from TestPyPI in a clean venv and run a
-      smoke test (import + run a headless example).
-- [ ] Bump `__version__` to `0.1.0`; finalize `CHANGELOG.md` (move Unreleased
-      -> `[0.1.0]` with date); tag `v0.1.0`.
-- [ ] Publish to PyPI (ideally via a tag-triggered GitHub Actions release job).
-- [ ] Post-release: create a GitHub Release with notes; verify
-      `pip install wijjit` works.
+Done items already verified this session (no action needed): author email is
+correct (`thomas.villani@gmail.com` = publishing identity); `.gitattributes`,
+`src/wijjit/py.typed`, and the `Typing :: Typed` classifier are in place; the
+wheel ships `py.typed`, leaks no tests, and `twine check` passes; dependency
+lower bounds are pinned; `pyperclip` already degrades gracefully to an internal
+clipboard when no system clipboard backend is present.
+
+### 5a - Merge the staged work (PREREQUISITE - do first)
+
+- [ ] Merge **PR #10**. Build is broken on `main` until this lands (see the
+      `.venv-wsl` sdist warning above). All 13 CI checks are green.
+
+### 5b - Finalize metadata & version (on `main`, post-merge)
+
+- [ ] Bump `src/wijjit/__init__.py` `__version__` `0.1.0a1` -> `0.1.0`.
+- [ ] `CHANGELOG.md`: set the `[0.1.0]` date to the actual release date (it is
+      currently the stale `2026-06-18`); keep an empty `[Unreleased]` stub.
+- [ ] `README.md`: remove the "currently in pre-release / `pip install --pre`"
+      note (~line 39) and any other pre-release language.
+- [ ] Modernize license metadata: replace `license = {text = "MIT"}` with the
+      SPDX form `license = "MIT"` + `license-files = ["LICENSE"]`; confirm the
+      pinned hatchling supports it and `twine check` still passes.
+- [ ] Commit `docs/NEW-ELEMENTS.md` - it is referenced by `CLAUDE.md` but is
+      currently untracked.
+
+### 5c - Docs hosting: GitHub Pages (replaces Read the Docs)
+
+- [ ] Point the `pyproject.toml` `Documentation` URL at GitHub Pages
+      (`https://thomas-villani.github.io/wijjit/`); update README/doc links that
+      reference `readthedocs.io`.
+- [ ] Add `.github/workflows/docs.yml`: Sphinx build of `docs/source` ->
+      `actions/upload-pages-artifact` -> `actions/deploy-pages`; trigger on push
+      to `main` (paths: `docs/**`, `src/wijjit/**`) + `workflow_dispatch`;
+      `permissions: pages: write, id-token: write`.
+- [ ] Enable Pages in repo settings (Source: GitHub Actions). **[user action]**
+- [ ] Verify the published site builds and loads before the URL ships in PyPI
+      metadata.
+
+### 5d - Release pipeline hardening
+
+- [ ] Add an install-smoke step to `release.yml`'s `build` job: in a clean env,
+      `pip install dist/*.whl` then `python -c "import wijjit; print(wijjit.__version__)"`
+      so a broken artifact fails the build before any publish.
+- [ ] (Optional) Add required-reviewer protection to the `pypi` GitHub
+      environment so a tag push can't auto-publish without a human gate.
+
+### 5e - Community health & polish (all in scope per release decision)
+
+- [ ] README badges: PyPI version, CI status, license, supported Python versions.
+- [ ] Add `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`.
+- [ ] Document the `pyperclip` Linux behavior (system clipboard needs
+      xclip/xsel; otherwise falls back to an internal clipboard) in README/docs.
+
+### 5f - Trusted Publishing external setup (one-time) **[user actions]**
+
+- [ ] PyPI: register a pending Trusted Publisher - repo `thomas-villani/wijjit`,
+      workflow `release.yml`, environment `pypi`.
+- [ ] TestPyPI: same, environment `testpypi`.
+- [ ] Create GitHub Actions environments named `pypi` and `testpypi`.
+
+### 5g - Build & TestPyPI dry-run
+
+- [ ] Local: `uv build` + `uvx twine check dist/*`.
+- [ ] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`); then in
+      a clean venv install from TestPyPI and smoke-test (import + a headless
+      example). Note: a TestPyPI version cannot be re-uploaded - bump a local
+      `.devN` if a retry is needed.
+
+### 5h - Cut the release
+
+- [ ] Commit the version bump on `main`, `git tag v0.1.0`, `git push origin
+      v0.1.0`. The tag triggers `release.yml` -> build (+ install-smoke) ->
+      publish to PyPI via OIDC -> GitHub Release from the CHANGELOG section.
+- [ ] Post-release: clean-venv `pip install wijjit` -> import + headless
+      hello-world; confirm the PyPI page renders the README and all project
+      URLs (incl. the new Pages docs URL) resolve.
+
+### 5i - Repo hygiene (before tagging)
+
+- [ ] Triage remaining untracked root WIP (`test-image.png`, scratch `.md`
+      plans such as `inline-app-plan.md`, `cell-based-render-mermaid.md`,
+      `claude-autocomplete-review-issues.md`, `docs/*PLAN*.md`,
+      `docs/OVERLAY-SCROLLING-PLAN.md`): delete or relocate under `etc/`/`docs/`.
+      Keep `docs/NEW-ELEMENTS.md` (committed in 5b).
 
 **Acceptance:** `pip install wijjit` installs `0.1.0` and a hello-world app runs
-on a clean machine across the supported Python/OS matrix.
+on a clean machine across the supported Python/OS matrix; the PyPI page renders
+the README and every project URL (including the GitHub Pages docs) resolves.
 
 ---
 
-## Cross-cutting / housekeeping
-
-- [ ] Repo hygiene: stray debug `*.log` files at root are gitignored - leave
-      or delete. Untracked logo PNGs and scratch `.md` plans: decide what to
-      commit vs move under `etc/`/`plan/` (already gitignored).
-- [ ] Confirm `CLAUDE.md` loads as expected next session.
-- [ ] Consider a `py.typed` marker (the package advertises `Typing :: Typed`).
-- [ ] Keep `CLAUDE.md` as the single source of project guidance.
-
 ## Definition of Done for 0.1.0
 
-1. All examples run without crashes; open `etc/issues.md` bugs closed/deferred.
+1. PR #10 merged; all examples run without crashes; open `etc/issues.md` bugs
+   closed or explicitly deferred to 0.1.1.
 2. CI fully green (tests + ruff + mypy) on all matrix combos.
-3. Docs build cleanly and cover the getting-started path + API reference.
+3. Docs build cleanly, deploy to **GitHub Pages**, and cover the
+   getting-started path + API reference; the `Documentation` URL resolves.
 4. `pip install wijjit==0.1.0` works on Linux/macOS/Windows, Py 3.11-3.13.
-5. Tagged `v0.1.0`, CHANGELOG finalized, GitHub Release published.
+5. Tagged `v0.1.0`, CHANGELOG finalized, GitHub Release published; community
+   health files + README badges in place.

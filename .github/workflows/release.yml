@@ -45,6 +45,15 @@ jobs:
       - name: Check distribution metadata
         run: uvx twine check dist/*
 
+      - name: Smoke-test the built wheel
+        # Install the wheel into a clean throwaway env and import it, so a
+        # broken artifact fails the build before anything is published.
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/python -m pip install --upgrade pip
+          /tmp/smoke/bin/python -m pip install dist/*.whl
+          /tmp/smoke/bin/python -c "import wijjit; print('import OK', wijjit.__version__)"
+
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
