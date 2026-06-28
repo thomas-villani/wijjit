@@ -460,7 +460,10 @@ class HandlerRegistry:
         ]
 
     async def dispatch_async(
-        self, event: Event, executor: ThreadPoolExecutor | None = None
+        self,
+        event: Event,
+        executor: ThreadPoolExecutor | None = None,
+        exclude_scope: HandlerScope | None = None,
     ) -> None:
         """Dispatch an event to matching handlers (async).
 
@@ -477,6 +480,11 @@ class HandlerRegistry:
             handlers run directly on the event loop thread (may block).
             If provided, sync handlers are executed in the thread pool
             to prevent blocking the event loop.
+        exclude_scope : HandlerScope, optional
+            If given, handlers registered at this scope are not dispatched.
+            Used to suppress view-scoped key handlers while a text input is
+            focused (so typing a character does not trigger a view hotkey)
+            without also suppressing global or element-scoped handlers.
 
         Notes
         -----
@@ -489,7 +497,7 @@ class HandlerRegistry:
         - For production use, configure an executor to run sync handlers safely
         """
         # Find matching handlers
-        matching = self._find_matching_handlers(event)
+        matching = self._find_matching_handlers(event, exclude_scope=exclude_scope)
 
         # Execute handlers
         for handler in matching:
@@ -514,13 +522,18 @@ class HandlerRegistry:
                     # WARNING: This may block the event loop if handler does I/O
                     handler.callback(event)
 
-    def _find_matching_handlers(self, event: Event) -> list[Handler]:
+    def _find_matching_handlers(
+        self, event: Event, exclude_scope: HandlerScope | None = None
+    ) -> list[Handler]:
         """Find handlers that match the given event.
 
         Parameters
         ----------
         event : Event
             The event to match
+        exclude_scope : HandlerScope, optional
+            If given, handlers registered at this scope are excluded from the
+            result.
 
         Returns
         -------
@@ -535,6 +548,10 @@ class HandlerRegistry:
                 handler.event_type is not None
                 and handler.event_type != event.event_type
             ):
+                continue
+
+            # Skip handlers at an excluded scope
+            if exclude_scope is not None and handler.scope == exclude_scope:
                 continue
 
             # Check scope-specific matching

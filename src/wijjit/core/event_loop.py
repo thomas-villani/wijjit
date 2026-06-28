@@ -14,7 +14,7 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from wijjit.core.events import KeyEvent
+from wijjit.core.events import HandlerScope, KeyEvent
 from wijjit.logging_config import get_logger
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
@@ -546,14 +546,15 @@ class EventLoop:
         # This prevents hotkeys (like 's', 'e', 'n', etc.) from firing while dialog is open
         # Exception: Tab/Shift+Tab must always be dispatched for focus cycling within modals
         is_tab_key = input_event.name in ("tab", "shift+tab")
-        if skip_view_handlers_for_input:
-            # Skip view-scoped handlers, but still dispatch to global/element handlers
-            # We handle this by going directly to element routing below
-            pass
-        elif not self.app.overlay_manager.should_trap_focus() or is_tab_key:
-            # No modal trapping focus, OR it's Tab key for focus cycling
+        if not self.app.overlay_manager.should_trap_focus() or is_tab_key:
+            # No modal trapping focus, OR it's Tab key for focus cycling.
+            # When a text input is focused, exclude VIEW-scoped handlers so a
+            # plain character does not trigger a view hotkey - but still let
+            # GLOBAL handlers (e.g. an @app.on_key("q") quit) and element
+            # handlers fire.
+            exclude_scope = HandlerScope.VIEW if skip_view_handlers_for_input else None
             await self.app.handler_registry.dispatch_async(
-                event, executor=self.executor
+                event, executor=self.executor, exclude_scope=exclude_scope
             )
         else:
             # Modal is trapping focus - skip global handlers (except Tab)
