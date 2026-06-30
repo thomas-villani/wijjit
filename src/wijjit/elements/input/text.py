@@ -948,6 +948,26 @@ class TextArea(Element):
         if self.wrap_mode == "none" and self.scroll_manager_x:
             self.scroll_manager_x.scroll_to(position)
 
+    @property
+    def value(self) -> str:
+        """Full text content as a single newline-joined string.
+
+        Mirrors :attr:`TextInput.value` so ``element.value`` reads/writes
+        uniformly across text inputs. Assignment delegates to
+        :meth:`set_value` (replacing all content and firing ``on_change``);
+        reading delegates to :meth:`get_value`.
+        """
+        return self.get_value()
+
+    @value.setter
+    def value(self, text: str) -> None:
+        # Guard against no-op writes. ``value`` is reconciled (not ephemeral),
+        # so the reconciler re-assigns it every render; calling set_value
+        # unconditionally would reset the cursor/scroll on each keystroke
+        # round-trip. Only a genuine change replaces content.
+        if text != self.get_value():
+            self.set_value(text)
+
     def get_value(self) -> str:
         """Get the full text content.
 
