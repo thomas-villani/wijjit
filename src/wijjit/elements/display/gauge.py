@@ -115,7 +115,8 @@ class Gauge(Element):
         show_value: bool = True,
         show_minmax: bool = False,
         show_ticks: bool = False,
-        color: Literal["default", "gradient", "threshold"] = "threshold",
+        color_mode: Literal["default", "gradient", "threshold"] = "threshold",
+        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         thresholds: list[tuple[float, tuple[int, int, int]]] | None = None,
         label: str | None = None,
@@ -137,7 +138,8 @@ class Gauge(Element):
         self.show_value = show_value
         self.show_minmax = show_minmax
         self.show_ticks = show_ticks
-        self.color = color
+        # ``color`` is a deprecated alias for the ``color_mode`` enum.
+        self.color_mode = color if color is not None else color_mode
         self.color_scale = color_scale
         self.thresholds = thresholds
         self.label = label
@@ -212,11 +214,20 @@ class Gauge(Element):
         """
         normalized = self.get_normalized()
 
-        if self.color == "gradient":
+        if self.color_mode == "gradient":
             return get_gradient_color(normalized, 0.0, 1.0, self.color_scale)  # type: ignore
-        elif self.color == "threshold":
+        elif self.color_mode == "threshold":
             return get_threshold_color(normalized, self.thresholds)
         return None
+
+    @property
+    def color(self) -> str:
+        """Deprecated alias for :attr:`color_mode`."""
+        return self.color_mode
+
+    @color.setter
+    def color(self, value: str) -> None:
+        self.color_mode = value  # type: ignore[assignment]
 
     def _render_linear(
         self, ctx: PaintContext, avail_width: int, avail_height: int
