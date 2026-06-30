@@ -110,14 +110,23 @@ all churn. Land as one tested batch; gate on full suite + `ruff check src/` +
   select/checkbox/radio groups already aliased `border` via `kwargs.pop`.
   Fixed a latent `calculate_axis_ticks` ZeroDivisionError exposed by short
   bordered charts. Full suite green (2932), no golden shifts.
-- [TODO — Step 3b] Chart mode param `color`→`color_mode` on bar/column/gauge;
-  keep `color` as a deprecated alias (back-compat); reserve `color` for literals
-  long-term (D3, CC-3 / DISPLAY-X1).
-- [TODO — Step 3c] Gap: canonical `spacing` + `row_gap`/`column_gap` everywhere;
-  drop `col_gap` (D4, CC-4 / LAYTERM-X1).
+- [LANDED — Step 3b] Chart mode param `color`→`color_mode` on bar/column/gauge;
+  `color` kept as a deprecated alias (constructor param + property); reserve
+  `color` for literals long-term (D3, CC-3 / DISPLAY-X1).
+- [LANDED — Step 3c] Gap: `column_gap` canonical (matching HStack) + `col_gap`
+  deprecated alias on Grid; `spacing` stays the canonical scalar; `safe_int`
+  for grid numeric attrs (D4, CC-4 / LAYTERM-X1).
 
-**Step 4 — Verify:** regenerate charts + `Tree` border goldens; run full suite
-(`--ignore=tests/benchmarks`) + ruff + mypy. Tick items in this doc as landed.
+**Step 4 — Verify:** [LANDED] No golden regeneration was needed — no test pins
+exact default-chart/Tree output, so the border default flips did not shift any
+golden (the only fallout was two Tree mouse-click tests with stale coordinates,
+fixed in-place). Final gates all green: full suite 2947 passed / 22 skipped
+(`--ignore=tests/benchmarks`, `-p no:wijjit`*), `ruff check src/` clean,
+`mypy --strict src/` clean (108 files).
+
+> *`-p no:wijjit` only because this batch branched off `main`, where the
+> devtools `pytest11` plugin module doesn't exist yet; the venv carried a stale
+> entry point from the unmerged devtools branch. Resolves once that PR lands.
 
 > Deferred to follow-up batches (not in the D1–D6 surface set): the dedup/
 > dead-code cleanups (CC-10, CC-11), logging/loop-convention sweeps (CC-12), the
