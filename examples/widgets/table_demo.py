@@ -8,7 +8,7 @@ This example demonstrates:
 - State binding for dynamic updates
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Sample data
 users_data = [
@@ -81,8 +81,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing table element."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Table Demo - User Directory" border="double" width=100 height=29 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -112,9 +112,8 @@ def main_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """,  # noqa: E501
-        "data": {},
-    }
+        """
+    )  # noqa: E501
 
 
 # Sample user counter for adding users

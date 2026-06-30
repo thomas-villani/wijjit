@@ -18,7 +18,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state and debug logging
 app = Wijjit(
@@ -46,8 +46,8 @@ def main_view():
     dict
         View configuration with template and data
     """
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Context Menu Demo" border="double" width=70 height=20 %}
       Status: {{ state.status }}
       Selected: {{ state.selected_file }}
@@ -80,10 +80,8 @@ def main_view():
     {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "file_list": app.state.get("files", []),
-        },
-    }
+        file_list=app.state.get("files", []),
+    )
 
 
 # Action handlers for menu items and buttons

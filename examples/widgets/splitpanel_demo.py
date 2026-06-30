@@ -11,7 +11,7 @@ Features demonstrated:
 Press 'q' to quit.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def main():
@@ -21,8 +21,8 @@ def main():
     @app.view("main", default=True)
     def main_view():
         """Main view with split panel."""
-        return {
-            "template": """
+        return render_template_string(
+            """
 {% frame title="Split Panel Demo" border="double" width=fill height=fill %}
   {% splitpanel orientation="horizontal" ratio="30:70" collapsible="first" id="main_split" %}
     {% frame title="Sidebar" border="single" %}
@@ -58,10 +58,8 @@ def main():
   {% endsplitpanel %}
 {% endframe %}
 """,
-            "data": {
-                "status": app.state.get("status", "Ready"),
-            },
-        }
+            status=app.state.get("status", "Ready"),
+        )
 
     @app.on_action("nav_home")
     def on_nav_home(event):

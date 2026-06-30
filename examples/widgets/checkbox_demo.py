@@ -16,7 +16,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -35,8 +35,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main form view with checkboxes."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Checkbox Demo" border="double" width=70 height=28 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -81,9 +81,8 @@ def main_view():
     {% endvstack %}
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("submit")

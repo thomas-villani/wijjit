@@ -9,7 +9,7 @@ This example demonstrates:
 - State persistence for expansion and scroll position
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Sample file system tree data
 file_tree_data = {
@@ -169,8 +169,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing tree element."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Tree Demo - File System Explorer" border="double" width=100 height=35 %}
     {{ state.message }}
 
@@ -213,9 +213,8 @@ def main_view():
       {% button id="quit_btn" action="quit" %}Quit{% endbutton %}
     {% endhstack %}
 {% endframe %}
-        """,  # noqa: E501
-        "data": {},
-    }
+        """
+    )  # noqa: E501
 
 
 @app.on_action("file_selected")

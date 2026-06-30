@@ -21,7 +21,7 @@ Controls:
 - Ctrl+C: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.events import EventType, HandlerScope
 from wijjit.logging_config import configure_logging
 
@@ -32,8 +32,8 @@ app = Wijjit()
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% vstack %}
   {% frame border="double" title="Notification System Demo" %}
 
@@ -59,9 +59,8 @@ def main_view():
 
   {% endframe %}
 {% endvstack %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 def action_callback():

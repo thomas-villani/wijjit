@@ -9,6 +9,7 @@ Controls:
     Ctrl+Q - Quit app
 """
 
+from wijjit import render_template_string
 from wijjit.core.app import Wijjit
 from wijjit.elements.modal import ConfirmDialog
 
@@ -20,8 +21,8 @@ state = app.state
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame width=60 height=15 title="Confirm Dialog Demo" %}
     Files in folder:
     {% for item in state['files'] %}
@@ -37,7 +38,7 @@ def main_view():
     Press 'd' to show delete confirmation dialog
 {% endframe %}
         """
-    }
+    )
 
 
 @app.on_key("d")

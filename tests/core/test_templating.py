@@ -8,7 +8,10 @@ legacy ``{"template": ..., "data": {...}}`` dict return.
 
 from __future__ import annotations
 
+import textwrap
+
 import pytest
+from jinja2 import TemplateNotFound
 
 from wijjit import (
     RenderedView,
@@ -16,7 +19,8 @@ from wijjit import (
     render_template,
     render_template_string,
 )
-from wijjit.testing import WijjitHarness
+from wijjit.core.renderer import Renderer
+from wijjit.testing import WijjitHarness, load_example_app
 
 
 class TestRenderHelpers:
@@ -253,3 +257,94 @@ class TestStateInjection:
         with WijjitHarness(app, size=(28, 5)) as h:
             h.tick()
             assert "hello" in h.screen()
+
+
+def _write_app_module(tmp_path, *, with_templates: bool) -> str:
+    """Write a tiny example app module under ``tmp_path`` and return its path.
+
+    The module builds a module-level ``app = Wijjit()`` (no explicit
+    ``template_dir``) so :func:`load_example_app` can exec it from ``tmp_path``
+    and exercise Flask-style ``templates/`` auto-discovery relative to that
+    file. When ``with_templates`` is True a sibling ``templates/home.tui`` is
+    created too.
+    """
+    if with_templates:
+        templates = tmp_path / "templates"
+        templates.mkdir()
+        (templates / "home.tui").write_text(
+            '{% frame title="Home" width=24 height=3 %}'
+            "from file {{ who }}"
+            "{% endframe %}",
+            encoding="utf-8",
+        )
+    module = tmp_path / "demo_app.py"
+    module.write_text(
+        textwrap.dedent(
+            """
+            from wijjit import Wijjit, render_template
+
+            app = Wijjit()
+
+            @app.view("home", default=True)
+            def home():
+                return render_template("home.tui", who="World")
+            """
+        ),
+        encoding="utf-8",
+    )
+    return str(module)
+
+
+class TestTemplateDirDiscovery:
+    """Flask-style auto-discovery of a ``templates/`` directory."""
+
+    def test_auto_discovers_templates_dir_beside_module(self, tmp_path):
+        module = _write_app_module(tmp_path, with_templates=True)
+        app = load_example_app(module)
+        assert app.config["TEMPLATE_DIR"] == str(tmp_path / "templates")
+        assert app.renderer.using_file_loader is True
+
+    def test_no_discovery_when_templates_dir_absent(self, tmp_path):
+        module = _write_app_module(tmp_path, with_templates=False)
+        app = load_example_app(module)
+        assert app.config["TEMPLATE_DIR"] is None
+        assert app.renderer.using_file_loader is False
+
+    def test_explicit_template_dir_overrides_discovery(self, tmp_path):
+        # A real templates/ dir exists beside this test file's tmp module, but
+        # an explicit template_dir must win and discovery must not run.
+        (tmp_path / "templates").mkdir()
+        other = tmp_path / "elsewhere"
+        other.mkdir()
+        app = Wijjit(template_dir=str(other))
+        assert app.config["TEMPLATE_DIR"] == str(other)
+
+    def test_discovered_templates_render_end_to_end(self, tmp_path):
+        module = _write_app_module(tmp_path, with_templates=True)
+        app = load_example_app(module)
+        with WijjitHarness(app, size=(30, 5)) as h:
+            h.tick()
+            screen = h.screen()
+            assert "from file World" in screen
+            assert "Home" in screen
+
+
+class TestFileTemplateErrors:
+    """render_template() against a missing dir / file gives actionable errors."""
+
+    def test_render_template_without_dir_raises_runtime_error(self):
+        renderer = Renderer()  # DictLoader, no template directory
+        with pytest.raises(RuntimeError, match="render_template_string"):
+            renderer.render_with_layout(template_name="home.tui")
+
+    def test_render_file_without_dir_raises_runtime_error(self):
+        renderer = Renderer()
+        with pytest.raises(RuntimeError, match="template directory"):
+            renderer.render_file("home.tui")
+
+    def test_missing_file_reports_searched_directory(self, tmp_path):
+        renderer = Renderer(template_dir=str(tmp_path))
+        with pytest.raises(TemplateNotFound) as excinfo:
+            renderer.render_file("nope.tui")
+        # The wrapped error names the directory that was searched.
+        assert str(tmp_path) in str(excinfo.value)

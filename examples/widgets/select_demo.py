@@ -11,7 +11,7 @@ This example demonstrates:
 - Border color changes when focused (BOLD + CYAN)
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state for selects
 app = Wijjit(
@@ -29,8 +29,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing select elements."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Select List Demo" border="single" width=100 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -142,9 +142,8 @@ def main_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("submit")

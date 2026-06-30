@@ -17,7 +17,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial preferences state
 app = Wijjit(
@@ -52,8 +52,8 @@ def main_view():
     dict
         View configuration with template
     """
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Application Preferences" border="double" width=90 height=45 %}
   {% vstack spacing=1 padding=0 %}
     {{ state.status }}
@@ -144,7 +144,7 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-    }
+    )
 
 
 @app.on_action("save")

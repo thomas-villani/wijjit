@@ -26,7 +26,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.elements.modal import ConfirmDialog, TextInputDialog
 from wijjit.layout.bounds import Bounds
 
@@ -189,8 +189,8 @@ def main_view():
             "completed_ind": completed_indicator,
         }
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame border="rounded" title="Todo App" width=70 height=24 %}
   {% vstack spacing=1 padding=1 %}
 
@@ -232,8 +232,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": get_data,  # Pass callable, not static dict
-    }
+        **get_data(),
+    )
 
 
 # --- Event Handlers ---

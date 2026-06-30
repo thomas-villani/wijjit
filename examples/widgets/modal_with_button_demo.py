@@ -11,7 +11,7 @@ Press ESC to cancel/close modal
 
 import shutil
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.events import ActionEvent
 from wijjit.elements.input.button import Button
 from wijjit.layout.bounds import Bounds
@@ -22,8 +22,8 @@ app = Wijjit()
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% vstack %}
   {% frame border="single" title="Modal with Button Demo" %}
 
@@ -37,11 +37,9 @@ def main_view():
   {% endframe %}
 {% endvstack %}
         """,
-        "data": {
-            "status": app.state.get("status", "Ready"),
-            "click_count": app.state.get("click_count", 0),
-        },
-    }
+        status=app.state.get("status", "Ready"),
+        click_count=app.state.get("click_count", 0),
+    )
 
 
 class ModalWithButton:

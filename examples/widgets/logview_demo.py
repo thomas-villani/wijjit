@@ -14,7 +14,7 @@ This example demonstrates:
 import random
 from datetime import datetime
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.terminal.ansi import ANSIColor, ANSIStyle
 
 # Sample log messages for different levels
@@ -113,8 +113,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing LogView elements."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="LogView Demo - Log Display with Auto-Coloring" border="double" width="fill" height="fill" %}
   {{ state.status }}
     {% vstack %}
@@ -184,9 +184,8 @@ def main_view():
     {% endhstack %}
 
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("add_log")

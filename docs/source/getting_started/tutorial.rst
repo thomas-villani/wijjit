@@ -44,7 +44,7 @@ Start with the imports, storage helpers, and ``Wijjit`` instance:
     from pathlib import Path
     from typing import Any
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
 
     DATA_PATH = Path.home() / ".wijjit_todos.json"
 
@@ -95,8 +95,7 @@ Add the main view below the app definition:
         ]
         completed = sum(1 for todo in todos if todo["done"])
 
-        return {
-            "template": """
+        return render_template_string("""
     {% frame title="Wijjit Todos" border="rounded" width=70 height=24 %}
       {% vstack spacing=1 padding=1 %}
         {{ state.status }}
@@ -134,13 +133,7 @@ Add the main view below the app definition:
         {% endframe %}
       {% endvstack %}
     {% endframe %}
-            """,
-            "data": {
-                "todos": todos,
-                "filtered": filtered,
-                "completed": completed,
-            },
-        }
+            """, todos=todos, filtered=filtered, completed=completed)
 
 Run ``python todo_app.py`` now. You’ll see the frame, inputs, and buttons, though actions don’t do anything yet.
 
@@ -259,7 +252,7 @@ If you prefer a single block to copy, here is the finished script:
     from pathlib import Path
     from typing import Any
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
     from wijjit.core.events import ActionEvent, EventType, HandlerScope
 
     DATA_PATH = Path.home() / ".wijjit_todos.json"
@@ -305,8 +298,7 @@ If you prefer a single block to copy, here is the finished script:
         ]
         completed = sum(1 for todo in todos if todo["done"])
 
-        return {
-            "template": """
+        return render_template_string("""
     {% frame title="Wijjit Todos" border="rounded" width=70 height=24 %}
       {% vstack spacing=1 padding=1 %}
         {{ state.status }}
@@ -342,9 +334,7 @@ If you prefer a single block to copy, here is the finished script:
         {% endframe %}
       {% endvstack %}
     {% endframe %}
-            """,
-            "data": {"todos": todos, "filtered": filtered, "completed": completed},
-        }
+            """, todos=todos, filtered=filtered, completed=completed)
 
 
     def persist() -> None:

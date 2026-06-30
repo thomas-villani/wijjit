@@ -19,6 +19,12 @@ First public release.
   Synchronous view functions are now re-invoked on every render, so context
   derived from state stays live (the old static `data` dict was frozen at first
   render). The legacy dict return still works and is also live now.
+- **Flask-style template directory**: when `template_dir` is not set, Wijjit
+  auto-discovers a `templates/` directory next to the module that constructs the
+  app, so `render_template("home.tui", ...)` works zero-config. `render_template`
+  against a missing directory/file now raises an actionable error, and
+  `TEMPLATE_AUTO_RELOAD` is wired into Jinja2 for hot-reloading file templates
+  during development.
 - Right-aligned (and centered) **table columns** via a per-column `align` key
   (`{"key": "amount", "align": "right"}`).
 - Horizontal **text alignment** for the `{% text %}` tag (`align="left"`,

@@ -12,7 +12,7 @@ Run with: python examples/advanced/complex_layout_demo.py
 Press 'q' to quit.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
@@ -20,8 +20,8 @@ app = Wijjit()
 @app.view("main", default=True)
 def dashboard():
     """Dashboard-like view with three levels of nested layout."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Dashboard - Complex Layout Demo" border="double"
          width="fill" height="fill" %}
   {% vstack spacing=1 padding=1 %}
@@ -113,8 +113,7 @@ This is a **markdown** viewer that automatically fills available space.
   {% endvstack %}
 {% endframe %}
 """,
-        "data": {},
-    }
+    )
 
 
 @app.on_action("noop")

@@ -12,7 +12,7 @@ Try:
 - Press 'q' or click Quit to exit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.logging_config import configure_logging
 
 # Enable debug logging
@@ -32,8 +32,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view with clickable buttons."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Mouse Interaction Demo" border="double" width=60 height=18 %}
   {% vstack spacing=1 padding=2 %}
     {{ state.status }}
@@ -65,9 +65,8 @@ def main_view():
 
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("click1")

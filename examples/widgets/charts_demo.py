@@ -14,7 +14,7 @@ Press 'r' to refresh data, 'q' to quit.
 
 import random
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
@@ -59,8 +59,8 @@ app.state.update(
 @app.view("main", default=True)
 def main_view():
     """Main view displaying all chart types."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Wijjit Charts Demo" border="rounded" width="fill" height="fill" %}
   {% vstack spacing=1 %}
 
@@ -117,8 +117,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
 """,
-        "data": {"state": app.state},
-    }
+        state=app.state,
+    )
 
 
 @app.on_key("r")

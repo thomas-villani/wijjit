@@ -11,7 +11,7 @@ import random
 import threading
 import time
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -30,8 +30,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view - download interface."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="File Download Manager" border="rounded" width=80 height=25 %}
   {% vstack spacing=1 padding=2 %}
     {% vstack spacing=0 %}
@@ -76,8 +76,7 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {},
-    }
+    )
 
 
 # Control flag for canceling download

@@ -16,7 +16,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit(
     initial_state={
@@ -35,8 +35,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view with toggle demos."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Toggle Demo" border="double" width=70 height=28 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -82,9 +82,8 @@ def main_view():
     {% endvstack %}
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("all_on")

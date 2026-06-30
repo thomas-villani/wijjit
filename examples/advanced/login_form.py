@@ -8,7 +8,7 @@ This example showcases:
 - Automatic key routing to focused elements
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -24,8 +24,8 @@ app = Wijjit(
 @app.view("login", default=True)
 def login_view():
     """Login form view."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Login" border="single" width=50 height=15 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.status }}
@@ -40,8 +40,7 @@ def login_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {},
-    }
+    )
 
 
 @app.on_action("login")

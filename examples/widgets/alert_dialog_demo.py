@@ -11,6 +11,7 @@ Controls:
     Ctrl+Q - Quit app
 """
 
+from wijjit import render_template_string
 from wijjit.core.app import Wijjit
 from wijjit.elements.modal import AlertDialog
 from wijjit.logging_config import configure_logging
@@ -23,8 +24,8 @@ configure_logging("alert-demo.log", level="DEBUG")
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame width=60 height=15 title="Alert Dialog Demo" %}
     Button Press Counter: {{ state['counter'] }}
 
@@ -35,7 +36,7 @@ def main_view():
 
 {% endframe %}
 """
-    }
+    )
 
 
 def show_alert(title, message, border_style="single", severity=None):

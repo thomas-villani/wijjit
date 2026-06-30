@@ -18,7 +18,7 @@ Controls:
 import asyncio
 from datetime import datetime
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -169,8 +169,8 @@ def main_view():
     if not errors_text:
         errors_text = "No errors"
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="State Management Demo" border="double" width=100 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -254,11 +254,9 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "change_log_text": change_log_text,
-            "errors_text": errors_text,
-        },
-    }
+        change_log_text=change_log_text,
+        errors_text=errors_text,
+    )
 
 
 # Action handlers

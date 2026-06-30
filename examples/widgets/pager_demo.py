@@ -21,7 +21,7 @@ Controls:
 - q or Ctrl+Q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.logging_config import configure_logging
 
 # Enable debug logging to file
@@ -189,9 +189,7 @@ Left/PgUp: prev | Right/PgDown: next | Home/End: first/last | Q: quit
     {% endvstack %}
     """
 
-    return {
-        "template": template,
-    }
+    return render_template_string(template)
 
 
 @app.on_key("q")

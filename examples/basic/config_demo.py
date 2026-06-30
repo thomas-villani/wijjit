@@ -5,7 +5,7 @@ Shows various ways to configure the application including direct assignment,
 environment variables, and config files.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app - config is automatically initialized with defaults
 app = Wijjit()
@@ -106,12 +106,7 @@ def main_view():
   {% endvstack %}
 {% endframe %}
 """
-    return {
-        "template": template,
-        "data": {
-            "config": app.config,
-        },
-    }
+    return render_template_string(template, config=app.config)
 
 
 # ==============================================================================

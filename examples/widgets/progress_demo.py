@@ -12,7 +12,7 @@ This example demonstrates:
 import threading
 import time
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -33,8 +33,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing progress indicators."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Progress Indicators Demo" border="double" width=120 height=50 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -115,9 +115,8 @@ def main_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 def download_task():

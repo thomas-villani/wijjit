@@ -18,7 +18,7 @@ Controls:
 - Scroll wheel: Scroll content
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
@@ -144,8 +144,8 @@ def main_view():
         app.state["theme"] = "monokai"
         app.state["editor"] = PYTHON_CODE
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame border="rounded" title="CodeEditor Demo - Syntax Highlighting" width=90 height=35 %}
   {% vstack spacing=1 %}
     {% hstack spacing=2 %}
@@ -171,8 +171,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
 """,
-        "data": {"state": app.state},
-    }
+        state=app.state,
+    )
 
 
 @app.on_action("lang_python")

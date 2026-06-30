@@ -6,7 +6,7 @@ Shows THEME_FILE and DEFAULT_THEME config options.
 
 import os
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # ==============================================================================
 # METHOD 1: Load theme via THEME_FILE config
@@ -68,7 +68,7 @@ def demo_default_theme():
   {% endvstack %}
 {% endframe %}
 """
-        return {"template": template}
+        return render_template_string(template)
 
     @app.on_key("q")
     def on_quit(event):
@@ -123,7 +123,7 @@ def demo_config_file():
   {% endvstack %}
 {% endframe %}
 """
-            return {"template": template, "data": {"config": app.config}}
+            return render_template_string(template, config=app.config)
 
         print("\nRunning app with config file settings...")
         app.run()

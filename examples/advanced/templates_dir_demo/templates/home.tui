@@ -1,0 +1,18 @@
+{% frame title=title border="rounded" width=70 height=18 %}
+  {% vstack spacing=1 padding=1 %}
+    {% include "_header.tui" %}
+
+    Welcome to the templates-directory demo.
+
+    These screens are loaded from templates/*.tui files that live next to
+    app.py and were auto-discovered - no template_dir was configured.
+
+    You have clicked {{ clicks }} time(s).
+
+    {% hstack spacing=2 %}
+      {% button action="increment" %}Click me{% endbutton %}
+      {% button action="go_dashboard" %}Go to dashboard{% endbutton %}
+      {% button action="quit" %}Quit{% endbutton %}
+    {% endhstack %}
+  {% endvstack %}
+{% endframe %}

@@ -12,7 +12,7 @@ editing experience with:
 Press Ctrl+Q to quit.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def get_initial_data():
@@ -40,8 +40,8 @@ app = Wijjit(
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="DataGrid Demo - Inventory Manager" border="rounded" width="fill" height="fill" %}
     {% vstack spacing=1 %}
         {% datagrid id="inventory"
@@ -72,18 +72,16 @@ def main_view():
     {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "columns": [
-                {"key": "product", "label": "Product", "width": 20},
-                {"key": "sku", "label": "SKU", "width": 12},
-                {"key": "qty", "label": "Qty", "width": 8},
-                {"key": "price", "label": "Price", "width": 10},
-                {"key": "category", "label": "Category", "width": 15},
-            ],
-            "inventory": app.state.get("inventory", []),
-            "row_count": app.state.get("row_count", 0),
-        },
-    }
+        columns=[
+            {"key": "product", "label": "Product", "width": 20},
+            {"key": "sku", "label": "SKU", "width": 12},
+            {"key": "qty", "label": "Qty", "width": 8},
+            {"key": "price", "label": "Price", "width": 10},
+            {"key": "category", "label": "Category", "width": 15},
+        ],
+        inventory=app.state.get("inventory", []),
+        row_count=app.state.get("row_count", 0),
+    )
 
 
 @app.on_action("add_row")

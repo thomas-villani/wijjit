@@ -39,6 +39,29 @@ Event loop & routing
    wijjit.core.renderer.Renderer
    wijjit.core.render_context.RenderContext
 
+View templating
+---------------
+
+Flask-style helpers a view function returns to describe what to render. See
+:doc:`../user_guide/templates`.
+
+.. autosummary::
+   :toctree: ../api/
+   :nosignatures:
+
+   wijjit.core.templating.RenderedView
+
+.. py:function:: wijjit.render_template_string(source, /, **context)
+
+   Render an inline template string with the given context, returning a
+   :class:`~wijjit.core.templating.RenderedView`. ``state`` is auto-injected.
+
+.. py:function:: wijjit.render_template(name, /, **context)
+
+   Render a template *file* (loaded from the configured ``template_dir`` /
+   auto-discovered ``templates/`` directory) with the given context, returning a
+   :class:`~wijjit.core.templating.RenderedView`.
+
 Virtual DOM & Reconciliation
 ----------------------------
 

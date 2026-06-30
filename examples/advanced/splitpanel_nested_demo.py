@@ -11,7 +11,7 @@ Features demonstrated:
 Press 'q' to quit.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def main():
@@ -21,8 +21,8 @@ def main():
     @app.view("main", default=True)
     def main_view():
         """Main view with nested split panels."""
-        return {
-            "template": """
+        return render_template_string(
+            """
 {% frame title="Nested Split Panel Demo - IDE Layout" border="double" width=fill height=fill %}
   {% splitpanel orientation="horizontal" ratio="25:75" id="outer" %}
 
@@ -85,7 +85,7 @@ $
   {% endsplitpanel %}
 {% endframe %}
 """,
-        }
+        )
 
     @app.on_key("q")
     def on_quit(event):

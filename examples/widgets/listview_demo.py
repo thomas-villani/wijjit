@@ -12,7 +12,7 @@ This example demonstrates:
 - Dynamic updates via state
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Sample data - simple strings
 fruits = ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig"]
@@ -63,8 +63,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing ListView elements."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="ListView Demo - Multiple Styles" border="double" height="auto" %}
     {{ state.message }}
     {% hstack spacing=1 %}
@@ -144,9 +144,8 @@ def main_view():
     {% endhstack %}
 
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 # Sample fruit counter for adding items

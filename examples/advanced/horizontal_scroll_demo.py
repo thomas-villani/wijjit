@@ -16,7 +16,7 @@ Controls:
 - 'q' to quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit(log_level="DEBUG", log_file="horizontal-scroll-demo.log")
 
@@ -45,8 +45,8 @@ def main_view():
         "the visible area. The scrollbar appears at the bottom to indicate scroll position."
     )
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame width="fill" height="fill" border="single" title="Horizontal Scrolling Demo" %}
 
     {# Frame with overflow_x="scroll" - Always shows horizontal scrollbar #}
@@ -87,12 +87,10 @@ Tab: Switch focus | q: Quit
 
 {% endframe %}
 """,
-        "data": {
-            "long_content": long_content,
-            "short_content": short_content,
-            "long_text": long_text,
-        },
-    }
+        long_content=long_content,
+        short_content=short_content,
+        long_text=long_text,
+    )
 
 
 @app.on_key("q")

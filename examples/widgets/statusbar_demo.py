@@ -10,7 +10,7 @@ This example demonstrates the Wijjit framework's status bar feature:
 Run with: python examples/statusbar_demo.py
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.events import EventType, HandlerScope  # Keep for view-scoped handlers
 
 # Create app with initial state
@@ -30,118 +30,6 @@ app = Wijjit(
         "sb_right": "Edits: 0",
     }
 )
-
-
-@app.view("home", default=True)
-def home_view():
-    """Home view with basic status bar."""
-    return {
-        "template": """
-{% frame title="StatusBar Demo - Home" border="rounded" width=80 height=20 %}
-    Welcome to the StatusBar Demo!
-
-    This demo shows view-scoped status bars with:
-    - Left-aligned content (file info)
-    - Center-aligned content (status message)
-    - Right-aligned content (position info)
-
-    Current view: {{ state.view_name }}
-    Edit count: {{ state.edit_count }}
-
-    Press 'e' to increment edit count
-    Press '1' for Editor view (with position tracking)
-    Press '2' for Stats view (with statistics)
-    Press 'q' to quit
-
-    {% hstack spacing=2 %}
-      {% button action="go_to_editor" %}Editor View{% endbutton %}
-      {% button action="go_to_stats" %}Stats View{% endbutton %}
-    {% endhstack %}
-{% endframe %}
-
-{% statusbar left=state.sb_left
-             center=state.sb_center
-             right=state.sb_right %}
-{% endstatusbar %}
-        """,
-        "data": {},
-        "on_enter": setup_home_handlers,
-    }
-
-
-@app.view("editor")
-def editor_view():
-    """Editor view with position tracking in status bar."""
-    return {
-        "template": """
-{% frame title="StatusBar Demo - Editor" border="rounded" width=80 height=20 %}
-    Editor View
-
-    This view shows a status bar with cursor position information.
-    The status bar displays line and column numbers that update
-    when you press the arrow keys.
-
-    Current position: Line {{ state.line_number }}, Column {{ state.column_number }}
-
-    Press arrow keys (Up/Down/Left/Right) to move cursor
-    Press '1' for Home view
-    Press '2' for Stats view
-    Press 'q' to quit
-
-    {% hstack spacing=2 %}
-      {% button action="go_to_home" %}Home{% endbutton %}
-      {% button action="go_to_stats" %}Stats View{% endbutton %}
-    {% endhstack %}
-{% endframe %}
-
-{% statusbar left=state.sb_left
-             center=state.sb_center
-             right=state.sb_right
-             bg_color="blue"
-             text_color="white" %}
-{% endstatusbar %}
-        """,
-        "data": {},
-        "on_enter": setup_editor_handlers,
-    }
-
-
-@app.view("stats")
-def stats_view():
-    """Stats view with document statistics in status bar."""
-    return {
-        "template": """
-{% frame title="StatusBar Demo - Statistics" border="rounded" width=80 height=20 %}
-    Statistics View
-
-    This view shows document statistics in the status bar.
-    The statistics update when you press 'a' to add words.
-
-    Document Statistics:
-    - Characters: {{ state.char_count }}
-    - Words: {{ state.word_count }}
-
-    Press 'a' to add 100 words
-    Press '1' for Home view
-    Press '2' for Editor view
-    Press 'q' to quit
-
-    {% hstack spacing=2 %}
-      {% button action="go_to_home" %}Home{% endbutton %}
-      {% button action="go_to_editor" %}Editor View{% endbutton %}
-    {% endhstack %}
-{% endframe %}
-
-{% statusbar left=state.sb_left
-             center=state.sb_center
-             right=state.sb_right
-             bg_color="green"
-             text_color="black" %}
-{% endstatusbar %}
-        """,
-        "data": {},
-        "on_enter": setup_stats_handlers,
-    }
 
 
 def setup_home_handlers():
@@ -235,6 +123,112 @@ def setup_stats_handlers():
             app.refresh()
 
     app.on(EventType.KEY, on_a_key, scope=HandlerScope.VIEW, view_name="stats")
+
+
+@app.view("home", default=True, on_enter=setup_home_handlers)
+def home_view():
+    """Home view with basic status bar."""
+    return render_template_string(
+        """
+{% frame title="StatusBar Demo - Home" border="rounded" width=80 height=20 %}
+    Welcome to the StatusBar Demo!
+
+    This demo shows view-scoped status bars with:
+    - Left-aligned content (file info)
+    - Center-aligned content (status message)
+    - Right-aligned content (position info)
+
+    Current view: {{ state.view_name }}
+    Edit count: {{ state.edit_count }}
+
+    Press 'e' to increment edit count
+    Press '1' for Editor view (with position tracking)
+    Press '2' for Stats view (with statistics)
+    Press 'q' to quit
+
+    {% hstack spacing=2 %}
+      {% button action="go_to_editor" %}Editor View{% endbutton %}
+      {% button action="go_to_stats" %}Stats View{% endbutton %}
+    {% endhstack %}
+{% endframe %}
+
+{% statusbar left=state.sb_left
+             center=state.sb_center
+             right=state.sb_right %}
+{% endstatusbar %}
+        """
+    )
+
+
+@app.view("editor", on_enter=setup_editor_handlers)
+def editor_view():
+    """Editor view with position tracking in status bar."""
+    return render_template_string(
+        """
+{% frame title="StatusBar Demo - Editor" border="rounded" width=80 height=20 %}
+    Editor View
+
+    This view shows a status bar with cursor position information.
+    The status bar displays line and column numbers that update
+    when you press the arrow keys.
+
+    Current position: Line {{ state.line_number }}, Column {{ state.column_number }}
+
+    Press arrow keys (Up/Down/Left/Right) to move cursor
+    Press '1' for Home view
+    Press '2' for Stats view
+    Press 'q' to quit
+
+    {% hstack spacing=2 %}
+      {% button action="go_to_home" %}Home{% endbutton %}
+      {% button action="go_to_stats" %}Stats View{% endbutton %}
+    {% endhstack %}
+{% endframe %}
+
+{% statusbar left=state.sb_left
+             center=state.sb_center
+             right=state.sb_right
+             bg_color="blue"
+             text_color="white" %}
+{% endstatusbar %}
+        """
+    )
+
+
+@app.view("stats", on_enter=setup_stats_handlers)
+def stats_view():
+    """Stats view with document statistics in status bar."""
+    return render_template_string(
+        """
+{% frame title="StatusBar Demo - Statistics" border="rounded" width=80 height=20 %}
+    Statistics View
+
+    This view shows document statistics in the status bar.
+    The statistics update when you press 'a' to add words.
+
+    Document Statistics:
+    - Characters: {{ state.char_count }}
+    - Words: {{ state.word_count }}
+
+    Press 'a' to add 100 words
+    Press '1' for Home view
+    Press '2' for Editor view
+    Press 'q' to quit
+
+    {% hstack spacing=2 %}
+      {% button action="go_to_home" %}Home{% endbutton %}
+      {% button action="go_to_editor" %}Editor View{% endbutton %}
+    {% endhstack %}
+{% endframe %}
+
+{% statusbar left=state.sb_left
+             center=state.sb_center
+             right=state.sb_right
+             bg_color="green"
+             text_color="black" %}
+{% endstatusbar %}
+        """
+    )
 
 
 # Action handlers for button navigation

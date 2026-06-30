@@ -14,7 +14,7 @@ Controls:
 
 import sys
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.renderer import Renderer
 
 TEMPLATE = """
@@ -58,14 +58,10 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main demo view with scrollable frame containing many child elements."""
-        return {
-            "template": TEMPLATE,
-            "data": {
-                "item_list": [
-                    f"Item {i+1}: Lorem ipsum dolor sit amet" for i in range(30)
-                ]
-            },
-        }
+        return render_template_string(
+            TEMPLATE,
+            item_list=[f"Item {i+1}: Lorem ipsum dolor sit amet" for i in range(30)],
+        )
 
     # Handle quit key
     from wijjit.core.events import EventType, HandlerScope
