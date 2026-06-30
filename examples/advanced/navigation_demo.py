@@ -21,7 +21,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.events import EventType, HandlerScope
 
 # Create app with initial state
@@ -38,162 +38,6 @@ app = Wijjit(
         "notifications": True,
     }
 )
-
-
-@app.view("home", default=True)
-def home_view():
-    """Home view with visit counter and navigation.
-
-    Returns
-    -------
-    dict
-        View configuration with template, data, and lifecycle hooks
-    """
-    return {
-        "template": """
-{% frame title="Home View" border="rounded" width=70 height=22 %}
-  {% vstack spacing=1 padding=2 %}
-    Welcome to the Home View!
-
-    This view has been visited {{ state.home_visits }} time(s).
-    Current user: {{ state.username }}
-
-    {% if state.home_message %}
-    {% vstack spacing=0 %}
-      Message: {{ state.home_message }}
-    {% endvstack %}
-    {% endif %}
-
-    View-Specific Actions:
-    - Press 'h' to show a home-specific message
-
-    {% vstack spacing=1 %}
-      Navigation:
-    {% endvstack %}
-
-    {% hstack spacing=2 %}
-      {% button action="go_to_profile" %}Go to Profile{% endbutton %}
-      {% button action="go_to_settings" %}Go to Settings{% endbutton %}
-    {% endhstack %}
-
-    {% vstack spacing=0 %}
-      Keyboard: [1] Home  [2] Profile  [3] Settings  [q] Quit
-    {% endvstack %}
-  {% endvstack %}
-{% endframe %}
-        """,
-        "data": {},
-        "on_enter": setup_home_handlers,
-        "on_exit": cleanup_home,
-    }
-
-
-@app.view("profile")
-def profile_view():
-    """Profile view with user info and navigation.
-
-    Returns
-    -------
-    dict
-        View configuration with template, data, and lifecycle hooks
-    """
-    return {
-        "template": """
-{% frame title="Profile View" border="rounded" width=70 height=22 %}
-  {% vstack spacing=1 padding=2 %}
-    User Profile: {{ state.username }}
-
-    This view has been visited {{ state.profile_visits }} time(s).
-
-    {% if state.profile_message %}
-    {% vstack spacing=0 %}
-      Message: {{ state.profile_message }}
-    {% endvstack %}
-    {% endif %}
-
-    Profile Information:
-    - Username: {{ state.username }}
-    - Theme: {{ state.theme }}
-    - Notifications: {{ 'Enabled' if state.notifications else 'Disabled' }}
-
-    View-Specific Actions:
-    - Press 'p' to show a profile-specific message
-
-    {% vstack spacing=1 %}
-      Navigation:
-    {% endvstack %}
-
-    {% hstack spacing=2 %}
-      {% button action="go_to_home" %}Go to Home{% endbutton %}
-      {% button action="go_to_settings" %}Go to Settings{% endbutton %}
-    {% endhstack %}
-
-    {% vstack spacing=0 %}
-      Keyboard: [1] Home  [2] Profile  [3] Settings  [q] Quit
-    {% endvstack %}
-  {% endvstack %}
-{% endframe %}
-        """,
-        "data": {},
-        "on_enter": setup_profile_handlers,
-        "on_exit": cleanup_profile,
-    }
-
-
-@app.view("settings")
-def settings_view():
-    """Settings view with configuration options and navigation.
-
-    Returns
-    -------
-    dict
-        View configuration with template, data, and lifecycle hooks
-    """
-    return {
-        "template": """
-{% frame title="Settings View" border="rounded" width=70 height=24 %}
-  {% vstack spacing=1 padding=2 %}
-    Application Settings
-
-    This view has been visited {{ state.settings_visits }} time(s).
-
-    {% if state.settings_message %}
-    {% vstack spacing=0 %}
-      Message: {{ state.settings_message }}
-    {% endvstack %}
-    {% endif %}
-
-    Current Settings:
-    - Theme: {{ state.theme }}
-    - Notifications: {{ 'Enabled' if state.notifications else 'Disabled' }}
-
-    {% vstack spacing=0 %}
-      {% checkbox id="notifications" label="Enable notifications" %}{% endcheckbox %}
-    {% endvstack %}
-
-    View-Specific Actions:
-    - Press 's' to show a settings-specific message
-    - Toggle the checkbox above to change notification settings
-
-    {% vstack spacing=1 %}
-      Navigation:
-    {% endvstack %}
-
-    {% hstack spacing=2 %}
-      {% button action="go_to_home" %}Go to Home{% endbutton %}
-      {% button action="go_to_profile" %}Go to Profile{% endbutton %}
-    {% endhstack %}
-
-    {% vstack spacing=0 %}
-      Keyboard: [1] Home  [2] Profile  [3] Settings  [q] Quit
-    {% endvstack %}
-  {% endvstack %}
-{% endframe %}
-        """,
-        "data": {},
-        "on_enter": setup_settings_handlers,
-        "on_exit": cleanup_settings,
-    }
 
 
 def setup_home_handlers():
@@ -290,6 +134,153 @@ def cleanup_settings():
     Note: View-scoped handlers are automatically cleaned up by the framework.
     """
     pass  # Nothing to clean up manually - handlers are auto-cleaned
+
+
+@app.view("home", default=True, on_enter=setup_home_handlers, on_exit=cleanup_home)
+def home_view():
+    """Home view with visit counter and navigation.
+
+    Returns
+    -------
+    dict
+        View configuration with template, data, and lifecycle hooks
+    """
+    return render_template_string(
+        """
+{% frame title="Home View" border="rounded" width=70 height=22 %}
+  {% vstack spacing=1 padding=2 %}
+    Welcome to the Home View!
+
+    This view has been visited {{ state.home_visits }} time(s).
+    Current user: {{ state.username }}
+
+    {% if state.home_message %}
+    {% vstack spacing=0 %}
+      Message: {{ state.home_message }}
+    {% endvstack %}
+    {% endif %}
+
+    View-Specific Actions:
+    - Press 'h' to show a home-specific message
+
+    {% vstack spacing=1 %}
+      Navigation:
+    {% endvstack %}
+
+    {% hstack spacing=2 %}
+      {% button action="go_to_profile" %}Go to Profile{% endbutton %}
+      {% button action="go_to_settings" %}Go to Settings{% endbutton %}
+    {% endhstack %}
+
+    {% vstack spacing=0 %}
+      Keyboard: [1] Home  [2] Profile  [3] Settings  [q] Quit
+    {% endvstack %}
+  {% endvstack %}
+{% endframe %}
+        """,
+    )
+
+
+@app.view("profile", on_enter=setup_profile_handlers, on_exit=cleanup_profile)
+def profile_view():
+    """Profile view with user info and navigation.
+
+    Returns
+    -------
+    dict
+        View configuration with template, data, and lifecycle hooks
+    """
+    return render_template_string(
+        """
+{% frame title="Profile View" border="rounded" width=70 height=22 %}
+  {% vstack spacing=1 padding=2 %}
+    User Profile: {{ state.username }}
+
+    This view has been visited {{ state.profile_visits }} time(s).
+
+    {% if state.profile_message %}
+    {% vstack spacing=0 %}
+      Message: {{ state.profile_message }}
+    {% endvstack %}
+    {% endif %}
+
+    Profile Information:
+    - Username: {{ state.username }}
+    - Theme: {{ state.theme }}
+    - Notifications: {{ 'Enabled' if state.notifications else 'Disabled' }}
+
+    View-Specific Actions:
+    - Press 'p' to show a profile-specific message
+
+    {% vstack spacing=1 %}
+      Navigation:
+    {% endvstack %}
+
+    {% hstack spacing=2 %}
+      {% button action="go_to_home" %}Go to Home{% endbutton %}
+      {% button action="go_to_settings" %}Go to Settings{% endbutton %}
+    {% endhstack %}
+
+    {% vstack spacing=0 %}
+      Keyboard: [1] Home  [2] Profile  [3] Settings  [q] Quit
+    {% endvstack %}
+  {% endvstack %}
+{% endframe %}
+        """,
+    )
+
+
+@app.view("settings", on_enter=setup_settings_handlers, on_exit=cleanup_settings)
+def settings_view():
+    """Settings view with configuration options and navigation.
+
+    Returns
+    -------
+    dict
+        View configuration with template, data, and lifecycle hooks
+    """
+    return render_template_string(
+        """
+{% frame title="Settings View" border="rounded" width=70 height=24 %}
+  {% vstack spacing=1 padding=2 %}
+    Application Settings
+
+    This view has been visited {{ state.settings_visits }} time(s).
+
+    {% if state.settings_message %}
+    {% vstack spacing=0 %}
+      Message: {{ state.settings_message }}
+    {% endvstack %}
+    {% endif %}
+
+    Current Settings:
+    - Theme: {{ state.theme }}
+    - Notifications: {{ 'Enabled' if state.notifications else 'Disabled' }}
+
+    {% vstack spacing=0 %}
+      {% checkbox id="notifications" label="Enable notifications" %}{% endcheckbox %}
+    {% endvstack %}
+
+    View-Specific Actions:
+    - Press 's' to show a settings-specific message
+    - Toggle the checkbox above to change notification settings
+
+    {% vstack spacing=1 %}
+      Navigation:
+    {% endvstack %}
+
+    {% hstack spacing=2 %}
+      {% button action="go_to_home" %}Go to Home{% endbutton %}
+      {% button action="go_to_profile" %}Go to Profile{% endbutton %}
+    {% endhstack %}
+
+    {% vstack spacing=0 %}
+      Keyboard: [1] Home  [2] Profile  [3] Settings  [q] Quit
+    {% endvstack %}
+  {% endvstack %}
+{% endframe %}
+        """,
+    )
 
 
 # Action handlers for button navigation

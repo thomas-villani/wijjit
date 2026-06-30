@@ -24,15 +24,14 @@ flip it from action handlers:
 
 .. code-block:: python
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
 
     app = Wijjit()
     app.state["show_confirm"] = False
 
     @app.view("home", default=True)
     def home():
-        return {
-            "template": """
+        return render_template_string("""
             {% vstack %}
               {% button action="open" %}Delete project{% endbutton %}
 
@@ -45,8 +44,7 @@ flip it from action handlers:
                 {% endhstack %}
               {% endmodal %}
             {% endvstack %}
-            """
-        }
+            """)
 
     @app.on_action("open")
     def open_modal(event):

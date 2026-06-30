@@ -1,0 +1,16 @@
+{% frame title=title border="rounded" width=70 height=18 %}
+  {% vstack spacing=1 padding=1 %}
+    {% include "_header.tui" %}
+
+    Live metrics (rendered from templates/dashboard.tui):
+
+    {% for row in rows %}
+    - {{ row.label }}: {{ row.value }}
+    {% endfor %}
+
+    {% hstack spacing=2 %}
+      {% button action="go_home" %}Back home{% endbutton %}
+      {% button action="quit" %}Quit{% endbutton %}
+    {% endhstack %}
+  {% endvstack %}
+{% endframe %}

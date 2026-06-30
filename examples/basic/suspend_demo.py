@@ -25,7 +25,7 @@ On Windows, the Ctrl+Z suspend functionality is disabled.
 
 import sys
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def main():
@@ -47,8 +47,8 @@ def main():
             suspend_info = """Note: Ctrl+Z suspend is not available on Windows.
 This feature only works on Unix-like systems (Linux, macOS, BSD)."""
 
-        return {
-            "template": f"""
+        return render_template_string(
+            f"""
 {{% frame title="Suspend Demo" border="double" %}}
 {{% vstack %}}
 
@@ -63,8 +63,8 @@ Press 'q' to quit.
 
 {{% endvstack %}}
 {{% endframe %}}
-""",
-        }
+"""
+        )
 
     @app.on_key("q")
     def on_quit(event):

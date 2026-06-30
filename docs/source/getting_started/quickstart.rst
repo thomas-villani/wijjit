@@ -10,17 +10,10 @@ Let's start with the simplest possible Wijjit app:
 
 .. code-block:: python
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
     from wijjit.core.events import EventType, HandlerScope
 
     app = Wijjit()
-
-    @app.view("main", default=True)
-    def main_view():
-        return {
-            "template": "Hello, World! Press 'q' to quit.",
-            "on_enter": setup_handlers,
-        }
 
     def setup_handlers():
         def on_quit(event):
@@ -28,6 +21,10 @@ Let's start with the simplest possible Wijjit app:
                 app.quit()
 
         app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
+
+    @app.view("main", default=True, on_enter=setup_handlers)
+    def main_view():
+        return render_template_string("Hello, World! Press 'q' to quit.")
 
     if __name__ == "__main__":
         app.run()
@@ -48,8 +45,8 @@ Let's break down what's happening:
 1. **Import Wijjit**: ``from wijjit import Wijjit`` imports the main app class
 2. **Create app**: ``app = Wijjit()`` creates a new Wijjit application
 3. **Define view**: ``@app.view("main", default=True)`` decorates a function that defines the main view
-4. **Return template**: The view function returns a dict with a ``template`` key containing the UI
-5. **Setup handlers**: The ``on_enter`` hook sets up keyboard handlers when the view is entered
+4. **Return template**: The view function returns ``render_template_string(...)`` with the template source containing the UI
+5. **Setup handlers**: The ``on_enter`` hook (passed to ``@app.view(...)``) sets up keyboard handlers when the view is entered
 6. **Run app**: ``app.run()`` starts the event loop
 
 Adding a Frame
@@ -59,25 +56,10 @@ Let's add a border around our text using a frame:
 
 .. code-block:: python
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
     from wijjit.core.events import EventType, HandlerScope
 
     app = Wijjit()
-
-    @app.view("main", default=True)
-    def main_view():
-        return {
-            "template": """
-    {% frame title="Welcome" border="rounded" width=50 height=10 %}
-      Hello, World!
-
-      This is a Wijjit TUI application.
-
-      Press 'q' to quit.
-    {% endframe %}
-            """,
-            "on_enter": setup_handlers,
-        }
 
     def setup_handlers():
         def on_quit(event):
@@ -85,6 +67,18 @@ Let's add a border around our text using a frame:
                 app.quit()
 
         app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
+
+    @app.view("main", default=True, on_enter=setup_handlers)
+    def main_view():
+        return render_template_string("""
+    {% frame title="Welcome" border="rounded" width=50 height=10 %}
+      Hello, World!
+
+      This is a Wijjit TUI application.
+
+      Press 'q' to quit.
+    {% endframe %}
+            """)
 
     if __name__ == "__main__":
         app.run()
@@ -98,7 +92,7 @@ Let's create an interactive app with a text input and button:
 
 .. code-block:: python
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
 
     app = Wijjit(initial_state={
         'name': '',
@@ -107,8 +101,7 @@ Let's create an interactive app with a text input and button:
 
     @app.view("main", default=True)
     def main_view():
-        return {
-            "template": """
+        return render_template_string("""
     {% frame title="Greeting App" border="single" width=60 height=12 %}
       {% vstack spacing=1 padding=1 %}
         {{ state.greeting }}
@@ -124,8 +117,7 @@ Let's create an interactive app with a text input and button:
         {% endhstack %}
       {% endvstack %}
     {% endframe %}
-            """
-        }
+            """)
 
     @app.on_action("greet")
     def handle_greet(event):
@@ -158,7 +150,7 @@ Here's a complete login form with validation:
 
 .. code-block:: python
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
 
     app = Wijjit(initial_state={
         'username': '',
@@ -168,8 +160,7 @@ Here's a complete login form with validation:
 
     @app.view("login", default=True)
     def login_view():
-        return {
-            "template": """
+        return render_template_string("""
     {% frame title="Login" border="single" width=50 height=15 %}
       {% vstack spacing=1 padding=1 %}
         {{ state.status }}
@@ -191,8 +182,7 @@ Here's a complete login form with validation:
         {% endhstack %}
       {% endvstack %}
     {% endframe %}
-            """
-        }
+            """)
 
     @app.on_action("login")
     def handle_login(event):
@@ -264,20 +254,16 @@ Create multiple views and navigate between them:
 
     @app.view("home", default=True)
     def home_view():
-        return {
-            "template": """
+        return render_template_string("""
     {% button action="go_to_settings" %}Settings{% endbutton %}
-            """
-        }
+            """)
 
     @app.view("settings")
     def settings_view():
-        return {
-            "template": """
+        return render_template_string("""
     Settings Page
     {% button action="go_home" %}Back to Home{% endbutton %}
-            """
-        }
+            """)
 
     @app.on_action("go_to_settings")
     def go_to_settings(event):
@@ -302,13 +288,11 @@ Display and interact with lists of data:
     @app.view("main", default=True)
     def main_view():
         items_text = '\n'.join(f"- {item}" for item in app.state['items'])
-        return {
-            "template": f"""
+        return render_template_string("""
     {% frame title="Items" %}
-      {items_text}
+      {{ items_text }}
     {% endframe %}
-            """
-        }
+            """, items_text=items_text)
 
 Next Steps
 ----------

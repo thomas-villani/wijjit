@@ -12,7 +12,7 @@ Press 'f' to fetch data, 'q' to quit.
 
 import asyncio
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 async def fetch_data_from_api(user_id: int):
@@ -52,14 +52,26 @@ def main():
 
     app.state.watch("fetch_count", on_fetch_count_change)
 
+    async def on_enter_async():
+        """Async lifecycle hook called when entering view."""
+        print("[Lifecycle] Entering main view (async)")
+        await asyncio.sleep(0.1)
+        print("[Lifecycle] View initialization complete")
+
+    async def on_exit_async():
+        """Async lifecycle hook called when exiting view."""
+        print("[Lifecycle] Exiting main view (async)")
+        await asyncio.sleep(0.1)
+        print("[Lifecycle] Cleanup complete")
+
     # Async view function. Async views are resolved once on navigation (their
     # body cannot be awaited from the synchronous render path); dynamic content
     # flows through live `state`, so the body stays free of per-render work.
-    @app.view("main", default=True)
+    @app.view("main", default=True, on_enter=on_enter_async, on_exit=on_exit_async)
     async def main_view():
         """Main view with async data loading."""
-        return {
-            "template": """
+        return render_template_string(
+            """
 {% frame title="Async Demo" %}
 Fetch Count: {{ state.fetch_count }}
 
@@ -77,22 +89,8 @@ Fetch Count: {{ state.fetch_count }}
 
 Press 'q' to quit
 {% endframe %}
-""",
-            "on_enter": on_enter_async,
-            "on_exit": on_exit_async,
-        }
-
-    async def on_enter_async():
-        """Async lifecycle hook called when entering view."""
-        print("[Lifecycle] Entering main view (async)")
-        await asyncio.sleep(0.1)
-        print("[Lifecycle] View initialization complete")
-
-    async def on_exit_async():
-        """Async lifecycle hook called when exiting view."""
-        print("[Lifecycle] Exiting main view (async)")
-        await asyncio.sleep(0.1)
-        print("[Lifecycle] Cleanup complete")
+"""
+        )
 
     # Async event handler
     @app.on_key("f")

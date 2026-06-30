@@ -14,6 +14,8 @@ declarative UI patterns.
 """
 
 import asyncio
+import inspect
+import os
 import shutil
 import sys
 import time
@@ -60,6 +62,74 @@ logger = get_logger(__name__)
 # Default refresh interval when auto-refresh is enabled for notifications
 # This is used to check notification expiry without user input
 NOTIFICATION_REFRESH_INTERVAL: float = 0.1
+
+# Root directory of the installed ``wijjit`` package, used to skip the
+# framework's own stack frames when discovering the caller's module (see
+# ``_discover_template_dir``). Normalized for case-insensitive comparison on
+# Windows.
+_WIJJIT_PKG_ROOT = os.path.normcase(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+
+#: Conventional name of the auto-discovered template directory (Flask uses the
+#: same default), looked for beside the app's defining module.
+DEFAULT_TEMPLATE_DIRNAME = "templates"
+
+
+def _discover_template_dir() -> str | None:
+    """Find a Flask-style ``templates/`` directory beside the caller's module.
+
+    Walks the call stack outward from this function to the first frame that is
+    defined *outside* the ``wijjit`` package - i.e. the user's own code that
+    constructed the :class:`Wijjit` app - and looks for a ``templates``
+    subdirectory next to that module's file.
+
+    Returns
+    -------
+    str or None
+        Absolute path to the discovered ``templates`` directory, or ``None``
+        when no such directory exists (the app then stays inline-only). For an
+        interactive / ``exec``-ed caller with no real file on disk, a
+        ``templates`` directory under the current working directory is used as a
+        fallback, matching Flask's behavior for the interactive case.
+
+    Notes
+    -----
+    Discovery is best-effort and never raises: any failure simply yields
+    ``None`` so application construction is unaffected.
+    """
+    frame = inspect.currentframe()
+    try:
+        # Skip this function's own frame to start at the caller.
+        frame = frame.f_back if frame is not None else None
+        while frame is not None:
+            filename = frame.f_code.co_filename
+            abspath = os.path.abspath(filename) if filename else ""
+            inside_pkg = os.path.normcase(abspath).startswith(_WIJJIT_PKG_ROOT + os.sep)
+            if not inside_pkg:
+                # First frame outside the wijjit package == the user's module.
+                base = os.path.basename(filename) if filename else ""
+                is_real_file = (
+                    bool(filename)
+                    and not base.startswith("<")
+                    and os.path.isfile(abspath)
+                )
+                if is_real_file:
+                    candidate = os.path.join(
+                        os.path.dirname(abspath), DEFAULT_TEMPLATE_DIRNAME
+                    )
+                    return candidate if os.path.isdir(candidate) else None
+                # Interactive (REPL) or exec'd caller with no file on disk:
+                # fall back to a templates/ directory under the CWD.
+                cwd_candidate = os.path.join(os.getcwd(), DEFAULT_TEMPLATE_DIRNAME)
+                return cwd_candidate if os.path.isdir(cwd_candidate) else None
+            frame = frame.f_back
+        return None
+    except Exception:  # pragma: no cover - discovery must never break startup
+        return None
+    finally:
+        # Break the reference cycle that holding a frame creates.
+        del frame
 
 
 class Wijjit:
@@ -141,7 +211,12 @@ class Wijjit:
         initial_state : dict[str, Any] or None
             Initial state dictionary
         template_dir : str or None
-            Template directory path (convenience parameter for TEMPLATE_DIR config)
+            Template directory path (convenience parameter for TEMPLATE_DIR
+            config). When omitted, Wijjit auto-discovers a ``templates/``
+            directory next to the module that constructs the app (Flask's
+            convention); pass this to point somewhere else. If neither is set
+            and no ``templates/`` directory exists, the app renders inline
+            templates only and :func:`wijjit.render_template` is unavailable.
         enable_mouse : bool or None
             Enable mouse support (convenience parameter for ENABLE_MOUSE config)
         debug : bool or None
@@ -200,8 +275,21 @@ class Wijjit:
         # Initialize state
         self.state = State(initial_state or {})
 
+        # Flask-style template discovery: if no template directory was set
+        # explicitly (via template_dir=, WIJJIT_TEMPLATE_DIR, or config), look
+        # for a ``templates/`` directory next to the module that built this app
+        # and adopt it automatically. Absent that, the app stays inline-only.
+        if self.config.get("TEMPLATE_DIR") is None:
+            discovered = _discover_template_dir()
+            if discovered is not None:
+                self.config["TEMPLATE_DIR"] = discovered
+                logger.info(f"Auto-discovered template directory: {discovered}")
+
         # Initialize renderer
-        self.renderer = Renderer(template_dir=self.config["TEMPLATE_DIR"])
+        self.renderer = Renderer(
+            template_dir=self.config["TEMPLATE_DIR"],
+            auto_reload=bool(self.config.get("TEMPLATE_AUTO_RELOAD", False)),
+        )
 
         # Set global focus color override from config
         self.renderer.focus_color = self.config.get("FOCUS_COLOR")

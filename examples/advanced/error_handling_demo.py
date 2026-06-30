@@ -17,7 +17,7 @@ Controls:
 import asyncio
 from datetime import datetime
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with error tracking state
 app = Wijjit(
@@ -71,8 +71,8 @@ def main_view():
     if not error_history_text:
         error_history_text = "No errors yet"
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Error Handling Demo" border="double" width=106 height=40 %}
   {% vstack spacing=1 padding=1 %}
     Last Action: {{ state.last_action }}    Total Errors: {{ state.error_count }}
@@ -144,10 +144,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "error_history_text": error_history_text,
-        },
-    }
+        error_history_text=error_history_text,
+    )
 
 
 @app.on_action("divide")

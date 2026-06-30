@@ -16,7 +16,7 @@ Controls:
 
 import shutil
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 from wijjit.layout.bounds import Bounds
 
@@ -89,8 +89,8 @@ def main_view():
     dict
         View configuration with template and data
     """
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Dialog Showcase" border="double" width=90 height=28 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -140,8 +140,8 @@ def main_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """,
-    }
+        """
+    )
 
 
 # Alert Dialog Actions

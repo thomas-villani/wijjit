@@ -16,7 +16,7 @@ Controls:
 
 from datetime import datetime
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with form state
 app = Wijjit(
@@ -115,8 +115,8 @@ def main_view():
     if not errors_text:
         errors_text = "No errors"
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Business Order Entry Form" border="double" width=110 height=45 %}
   {% vstack spacing=1 padding=1 %}
     {% if not state.submitted %}
@@ -307,10 +307,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "errors_text": errors_text,
-        },
-    }
+        errors_text=errors_text,
+    )
 
 
 @app.on_action("validate")

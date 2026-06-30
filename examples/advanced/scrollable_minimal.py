@@ -3,7 +3,7 @@
 Run with: python examples/scrollable_minimal.py
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def create_app():
@@ -13,8 +13,8 @@ def create_app():
     @app.view("main", default=True)
     def main_view():
         """Main view with simple scrollable frame."""
-        return {
-            "template": """
+        return render_template_string(
+            """
 {% frame title="Test" border="double" width=60 height=20 %}
   {% vstack spacing=1 padding=2 %}
     Press Up/Down to scroll, q to quit
@@ -39,8 +39,7 @@ def create_app():
   {% endvstack %}
 {% endframe %}
             """,
-            "data": {},
-        }
+        )
 
     # Track key presses
     from wijjit.core.events import EventType, HandlerScope

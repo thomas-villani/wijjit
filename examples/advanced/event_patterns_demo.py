@@ -15,7 +15,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.events import EventType, HandlerScope
 
 # Create app
@@ -52,7 +52,79 @@ def log_event(source, message):
     app.state["event_log_text"] = "\n".join(app.state["event_log"][-12:])
 
 
-@app.view("view1", default=True)
+def setup_view1_handlers():
+    """Set up View 1 specific handlers."""
+    app.state["current_view"] = "view1"
+    log_event("SYSTEM", "Entered View 1 - view-scoped handlers active")
+
+    def on_v_key(event):
+        """View 1 specific handler for 'v' key."""
+        if event.key == "v":
+            log_event("VIEW1", "View 1 'v' key handler triggered")
+            app.state["key_pressed"] = "v (View 1)"
+
+    app.on(EventType.KEY, on_v_key, scope=HandlerScope.VIEW, view_name="view1")
+
+
+def setup_view2_handlers():
+    """Set up View 2 specific handlers."""
+    app.state["current_view"] = "view2"
+    log_event("SYSTEM", "Entered View 2 - different handlers active")
+
+    def on_v_key(event):
+        """View 2 specific handler for 'v' key - different behavior!"""
+        if event.key == "v":
+            log_event("VIEW2", "View 2 'v' key handler (DIFFERENT from View 1!)")
+            app.state["key_pressed"] = "v (View 2 - different!)"
+
+    app.on(EventType.KEY, on_v_key, scope=HandlerScope.VIEW, view_name="view2")
+
+
+def setup_view3_handlers():
+    """Set up View 3 handlers demonstrating priorities."""
+    app.state["current_view"] = "view3"
+    log_event("SYSTEM", "Entered View 3 - priority demo active")
+
+    def on_p_key_high(event):
+        """High priority handler for 'p' key."""
+        if event.key == "p":
+            log_event("HIGH", "Priority 100 handler (runs first)")
+
+    def on_p_key_medium(event):
+        """Medium priority handler for 'p' key."""
+        if event.key == "p":
+            log_event("MEDIUM", "Priority 50 handler (runs second)")
+
+    def on_p_key_low(event):
+        """Low priority handler for 'p' key."""
+        if event.key == "p":
+            log_event("LOW", "Priority 0 handler (runs third)")
+
+    # Register with different priorities
+    app.on(
+        EventType.KEY,
+        on_p_key_high,
+        scope=HandlerScope.VIEW,
+        view_name="view3",
+        priority=100,
+    )
+    app.on(
+        EventType.KEY,
+        on_p_key_medium,
+        scope=HandlerScope.VIEW,
+        view_name="view3",
+        priority=50,
+    )
+    app.on(
+        EventType.KEY,
+        on_p_key_low,
+        scope=HandlerScope.VIEW,
+        view_name="view3",
+        priority=0,
+    )
+
+
+@app.view("view1", default=True, on_enter=setup_view1_handlers)
 def view1():
     """View 1 with view-scoped handlers.
 
@@ -61,8 +133,8 @@ def view1():
     dict
         View configuration
     """
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Event Patterns Demo - View 1" border="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -140,11 +212,10 @@ def view1():
   {% endvstack %}
 {% endframe %}
         """,
-        "on_enter": setup_view1_handlers,
-    }
+    )
 
 
-@app.view("view2")
+@app.view("view2", on_enter=setup_view2_handlers)
 def view2():
     """View 2 with different view-scoped handlers.
 
@@ -153,8 +224,8 @@ def view2():
     dict
         View configuration
     """
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Event Patterns Demo - View 2" border="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -181,11 +252,10 @@ def view2():
   {% endvstack %}
 {% endframe %}
         """,
-        "on_enter": setup_view2_handlers,
-    }
+    )
 
 
-@app.view("view3")
+@app.view("view3", on_enter=setup_view3_handlers)
 def view3():
     """View 3 demonstrating priority and cancellation.
 
@@ -194,8 +264,8 @@ def view3():
     dict
         View configuration
     """
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Event Patterns Demo - View 3 (Priority Demo)" border="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -222,79 +292,6 @@ def view3():
   {% endvstack %}
 {% endframe %}
         """,
-        "on_enter": setup_view3_handlers,
-    }
-
-
-def setup_view1_handlers():
-    """Set up View 1 specific handlers."""
-    app.state["current_view"] = "view1"
-    log_event("SYSTEM", "Entered View 1 - view-scoped handlers active")
-
-    def on_v_key(event):
-        """View 1 specific handler for 'v' key."""
-        if event.key == "v":
-            log_event("VIEW1", "View 1 'v' key handler triggered")
-            app.state["key_pressed"] = "v (View 1)"
-
-    app.on(EventType.KEY, on_v_key, scope=HandlerScope.VIEW, view_name="view1")
-
-
-def setup_view2_handlers():
-    """Set up View 2 specific handlers."""
-    app.state["current_view"] = "view2"
-    log_event("SYSTEM", "Entered View 2 - different handlers active")
-
-    def on_v_key(event):
-        """View 2 specific handler for 'v' key - different behavior!"""
-        if event.key == "v":
-            log_event("VIEW2", "View 2 'v' key handler (DIFFERENT from View 1!)")
-            app.state["key_pressed"] = "v (View 2 - different!)"
-
-    app.on(EventType.KEY, on_v_key, scope=HandlerScope.VIEW, view_name="view2")
-
-
-def setup_view3_handlers():
-    """Set up View 3 handlers demonstrating priorities."""
-    app.state["current_view"] = "view3"
-    log_event("SYSTEM", "Entered View 3 - priority demo active")
-
-    def on_p_key_high(event):
-        """High priority handler for 'p' key."""
-        if event.key == "p":
-            log_event("HIGH", "Priority 100 handler (runs first)")
-
-    def on_p_key_medium(event):
-        """Medium priority handler for 'p' key."""
-        if event.key == "p":
-            log_event("MEDIUM", "Priority 50 handler (runs second)")
-
-    def on_p_key_low(event):
-        """Low priority handler for 'p' key."""
-        if event.key == "p":
-            log_event("LOW", "Priority 0 handler (runs third)")
-
-    # Register with different priorities
-    app.on(
-        EventType.KEY,
-        on_p_key_high,
-        scope=HandlerScope.VIEW,
-        view_name="view3",
-        priority=100,
-    )
-    app.on(
-        EventType.KEY,
-        on_p_key_medium,
-        scope=HandlerScope.VIEW,
-        view_name="view3",
-        priority=50,
-    )
-    app.on(
-        EventType.KEY,
-        on_p_key_low,
-        scope=HandlerScope.VIEW,
-        view_name="view3",
-        priority=0,
     )
 
 

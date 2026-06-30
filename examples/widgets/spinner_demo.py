@@ -7,7 +7,7 @@ This example demonstrates:
 - Color support
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -23,8 +23,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main view showcasing spinner animations."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Spinner Animations Demo" border="double" width=70 height=30 %}
   {% vstack spacing=2 padding=1 %}
     {% vstack spacing=0 %}
@@ -78,9 +78,8 @@ def main_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """,  # noqa: E501
-        "data": {},
-    }
+        """
+    )  # noqa: E501
 
 
 def update_refresh_interval():

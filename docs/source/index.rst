@@ -17,7 +17,7 @@ Quick Example
 
 .. code-block:: python
 
-    from wijjit import Wijjit
+    from wijjit import Wijjit, render_template_string
 
     app = Wijjit(initial_state={
         "username": "",
@@ -27,8 +27,7 @@ Quick Example
 
     @app.view("login", default=True)
     def login_view():
-        return {
-            "template": """
+        return render_template_string("""
     {% frame title="Login" border="single" width=50 %}
       {% vstack spacing=1 padding=1 %}
         {{ state.status }}
@@ -45,8 +44,7 @@ Quick Example
         {% endhstack %}
       {% endvstack %}
     {% endframe %}
-            """
-        }
+            """)
 
     @app.on_action("login")
     def handle_login(event):

@@ -19,7 +19,7 @@ Controls:
 - q or Ctrl+Q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.logging_config import configure_logging
 
 # Enable debug logging to file
@@ -214,9 +214,7 @@ Left/Right: switch tabs | Up/Down/PgUp/PgDn: scroll | Click tabs | Q to quit
     {% endvstack %}
     """
 
-    return {
-        "template": template,
-    }
+    return render_template_string(template)
 
 
 @app.on_key("q")

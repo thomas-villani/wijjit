@@ -15,7 +15,7 @@ Controls:
 - Ctrl+Q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.autocomplete import CallbackCompleter, WordCompleter
 
 # Sample data for completions
@@ -133,8 +133,8 @@ app.state.tags = [
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame border="single" title="Autocomplete Demo" width="fill" height="fill" %}
   {% vstack spacing=1 %}
 
@@ -205,7 +205,7 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """
-    }
+    )
 
 
 @app.on_action("show_values")

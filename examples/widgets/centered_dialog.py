@@ -13,7 +13,7 @@ Controls:
 
 import shutil
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app
 app = Wijjit()
@@ -27,8 +27,8 @@ def dialog_view():
     # Use terminal height minus a small buffer for safety
     frame_height = max(term_size.lines - 2, 16)
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Desktop" border="double" height=frame_height %}
   {% vstack align_h="center" align_v="middle" %}
 
@@ -51,8 +51,8 @@ def dialog_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {"frame_height": frame_height},
-    }
+        frame_height=frame_height,
+    )
 
 
 @app.on_key("q")

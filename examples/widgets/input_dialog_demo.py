@@ -11,6 +11,7 @@ Controls:
     Ctrl+Q - Quit app
 """
 
+from wijjit import render_template_string
 from wijjit.core.app import Wijjit
 from wijjit.elements.modal import TextInputDialog
 
@@ -26,8 +27,8 @@ state = app.state
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame width=60 height=18 title="Text Input Dialog Demo" %}
         Files:
         {% for file in state['files'] %}
@@ -51,7 +52,7 @@ def main_view():
 
 {% endframe %}
         """
-    }
+    )
 
 
 @app.on_key("n")

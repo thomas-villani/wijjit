@@ -4,7 +4,7 @@ This example demonstrates CSS-style class usage for flexible, composable styling
 Shows how to use utility classes like btn-primary, text-bold, etc. to style elements.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
@@ -63,7 +63,7 @@ def main_view():
     {% endframe %}
     """
 
-    return {"template": template}
+    return render_template_string(template)
 
 
 @app.on_action("primary")

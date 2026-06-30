@@ -6,7 +6,7 @@ Shows how CSS files can define styles for Wijjit applications.
 
 import os
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.styling.theme import Theme
 
 app = Wijjit()
@@ -80,7 +80,7 @@ def main_view():
     {% endframe %}
     """
 
-    return {"template": template}
+    return render_template_string(template)
 
 
 @app.on_action("primary")

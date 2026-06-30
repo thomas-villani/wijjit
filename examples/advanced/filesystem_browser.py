@@ -10,7 +10,7 @@ This example demonstrates:
 import sys
 from pathlib import Path
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.helpers import load_filesystem_tree
 
 # Get directory to browse from command line, default to current directory
@@ -59,8 +59,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main filesystem browser view."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Filesystem Browser" border="double" width=100 height=35 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.message }}
@@ -114,8 +114,7 @@ Type: {{ state.selected_file.get('type', 'unknown') }}
   {% endvstack %}
 {% endframe %}
         """,  # noqa: E501
-        "data": {},
-    }
+    )
 
 
 @app.on_action("file_selected")

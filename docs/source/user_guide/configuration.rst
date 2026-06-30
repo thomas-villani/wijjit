@@ -626,25 +626,28 @@ TEMPLATE_DIR
 
 :Type: ``str`` or ``None``
 :Default: ``None``
-:Description: Template directory path
+:Description: Directory of file templates loaded with :func:`wijjit.render_template`.
+   When left as ``None``, Wijjit auto-discovers a ``templates/`` directory next to
+   the module that constructs the app (Flask's convention). Set this to point
+   elsewhere, which also disables auto-discovery.
 
 .. code-block:: python
 
    app.config['TEMPLATE_DIR'] = 'templates/'
+   # or, equivalently, at construction time:
+   app = Wijjit(template_dir='templates/')
 
 TEMPLATE_AUTO_RELOAD
 ^^^^^^^^^^^^^^^^^^^^
 
 :Type: ``bool``
 :Default: ``False``
-:Description: Automatically reload templates when files change (for development)
+:Description: Automatically reload file templates when they change on disk (for
+   development). Wired into the Jinja2 environment's ``auto_reload``.
 
 .. code-block:: python
 
    app.config['TEMPLATE_AUTO_RELOAD'] = True  # Hot reload templates
-
-.. note::
-   **Status**: Not yet implemented. See Phase 3 in ``claude-config-next-steps.md``
 
 HTML Content (1 option)
 ~~~~~~~~~~~~~~~~~~~~~~~~

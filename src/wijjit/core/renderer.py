@@ -10,7 +10,14 @@ from collections.abc import Callable
 from copy import copy
 from typing import TYPE_CHECKING, Any
 
-from jinja2 import BaseLoader, DictLoader, Environment, FileSystemLoader, Template
+from jinja2 import (
+    BaseLoader,
+    DictLoader,
+    Environment,
+    FileSystemLoader,
+    Template,
+    TemplateNotFound,
+)
 
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.dirty import DirtyRegionManager
@@ -116,6 +123,10 @@ class Renderer:
         Directory containing template files
     autoescape : bool, optional
         Whether to enable autoescaping (default: False for terminal output)
+    auto_reload : bool, optional
+        Whether Jinja2 reloads file templates when they change on disk
+        (default: False). Useful during development; maps to the
+        ``TEMPLATE_AUTO_RELOAD`` config key.
 
     Attributes
     ----------
@@ -126,7 +137,10 @@ class Renderer:
     """
 
     def __init__(
-        self, template_dir: str | None = None, autoescape: bool = False
+        self,
+        template_dir: str | None = None,
+        autoescape: bool = False,
+        auto_reload: bool = False,
     ) -> None:
         # Store template_dir for introspection
         self.template_dir = template_dir
@@ -154,6 +168,7 @@ class Renderer:
         self.env = Environment(
             loader=loader,
             autoescape=autoescape,
+            auto_reload=auto_reload,
             trim_blocks=True,
             lstrip_blocks=True,
             extensions=[
@@ -342,8 +357,52 @@ class Renderer:
             If the template file doesn't exist
         """
         context = context or {}
-        template = self.env.get_template(template_name)
+        template = self._get_file_template(template_name)
         return template.render(**context)
+
+    def _get_file_template(self, template_name: str) -> Template:
+        """Load a file template, raising actionable errors on common mistakes.
+
+        Parameters
+        ----------
+        template_name : str
+            Name of the template file to load from ``template_dir``.
+
+        Returns
+        -------
+        jinja2.Template
+            The loaded (and Jinja-cached) template.
+
+        Raises
+        ------
+        RuntimeError
+            If no template directory is configured (the renderer is using the
+            in-memory ``DictLoader``), so ``render_template()`` cannot resolve a
+            file. The message points at ``template_dir`` / the ``templates/``
+            convention and ``render_template_string()``.
+        jinja2.TemplateNotFound
+            If the file is not present in ``template_dir``; re-raised with the
+            searched directory included in the message.
+        """
+        if not self.using_file_loader:
+            raise RuntimeError(
+                f"render_template({template_name!r}) needs a template directory, "
+                f"but none is configured. Create a 'templates/' directory next to "
+                f"your app module (it is auto-discovered), or pass "
+                f"Wijjit(template_dir='...'). To render an inline string instead, "
+                f"use render_template_string()."
+            )
+        try:
+            return self.env.get_template(template_name)
+        except TemplateNotFound as exc:
+            raise TemplateNotFound(
+                template_name,
+                message=(
+                    f"Template {template_name!r} not found in template directory "
+                    f"{self.template_dir}. Check the filename and that the file "
+                    f"exists in that directory."
+                ),
+            ) from exc
 
     def add_filter(self, name: str, func: Callable[..., Any]) -> None:
         """Add a custom filter to the Jinja2 environment.
@@ -427,8 +486,9 @@ class Renderer:
         with render_context_scope(layout_ctx, context, focused_id) as render_ctx:
             # Compile or load template
             if template_name:
-                # Load template from file (via FileSystemLoader)
-                template = self.env.get_template(template_name)
+                # Load template from file (via FileSystemLoader), with friendly
+                # errors when no template dir is set or the file is missing.
+                template = self._get_file_template(template_name)
             elif template_string in self._string_templates:
                 # Use cached string template
                 template = self._string_templates[template_string]

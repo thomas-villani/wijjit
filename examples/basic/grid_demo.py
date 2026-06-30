@@ -7,7 +7,7 @@ Run with: python examples/basic/grid_demo.py
 Press 'q' to quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app
 app = Wijjit()
@@ -16,8 +16,8 @@ app = Wijjit()
 @app.view("demo", default=True)
 def grid_demo():
     """Grid layout demo view."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Grid Layout Demo" border="double" height="fill" %}
   {% vstack spacing=1 %}
 
@@ -69,9 +69,8 @@ def grid_demo():
 
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("quit")

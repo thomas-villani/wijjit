@@ -409,10 +409,14 @@ class DefaultConfig:
     # TEMPLATES
     # ============================================================
 
-    #: Template directory path
+    #: Template directory path for file-based templates loaded with
+    #: :func:`wijjit.render_template`. When left as ``None``, Wijjit
+    #: auto-discovers a ``templates/`` directory next to the module that
+    #: constructs the app (Flask's convention).
     TEMPLATE_DIR = None
 
-    #: Automatically reload templates when files change (for development)
+    #: Automatically reload file templates when they change on disk (for
+    #: development). Wired into the Jinja2 environment's ``auto_reload``.
     TEMPLATE_AUTO_RELOAD = False
 
     # ============================================================

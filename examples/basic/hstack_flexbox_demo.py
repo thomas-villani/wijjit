@@ -11,7 +11,7 @@ Run with: python examples/basic/hstack_flexbox_demo.py
 Press 'q' to quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
@@ -19,8 +19,8 @@ app = Wijjit()
 @app.view("demo", default=True)
 def flexbox_demo():
     """HStack flexbox features demo view."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="HStack Flexbox Features" border="double" width=80 height=30 %}
   {% vstack spacing=1 %}
 
@@ -104,9 +104,8 @@ def flexbox_demo():
 
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_key("q")

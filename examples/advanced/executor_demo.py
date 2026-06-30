@@ -16,7 +16,7 @@ Controls:
 
 import time
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app, configuring the ThreadPoolExecutor for sync handlers via the
 # constructor. The executor is built during __init__ from these config keys, so
@@ -66,8 +66,8 @@ def main_view():
     if not operation_log_text:
         operation_log_text = "No operations yet..."
 
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="ThreadPoolExecutor Demo" border="double" width=100 height=36 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -156,10 +156,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "operation_log_text": operation_log_text,
-        },
-    }
+        operation_log_text=operation_log_text,
+    )
 
 
 # Quick Tasks

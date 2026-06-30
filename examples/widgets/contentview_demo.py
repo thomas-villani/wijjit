@@ -8,7 +8,7 @@ Use arrow keys to scroll within each view.
 Press Ctrl+Q to quit.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
@@ -85,8 +85,8 @@ for i in range(10):
 @app.view("main", default=True)
 def main_view():
     """Main view showing all content types."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame border="double" title="ContentView Demo - Press Tab to navigate, Ctrl+Q to quit" %}
   {% hstack spacing=1 width="fill" %}
     {% vstack width="50%" %}
@@ -119,15 +119,13 @@ def main_view():
   {% endhstack %}
 {% endframe %}
         """,
-        "data": {
-            "plain_content": PLAIN_CONTENT,
-            "ansi_content": ANSI_CONTENT,
-            "html_content": HTML_CONTENT,
-            "markdown_content": MARKDOWN_CONTENT,
-            "rich_content": RICH_CONTENT,
-            "code_content": CODE_CONTENT,
-        },
-    }
+        plain_content=PLAIN_CONTENT,
+        ansi_content=ANSI_CONTENT,
+        html_content=HTML_CONTENT,
+        markdown_content=MARKDOWN_CONTENT,
+        rich_content=RICH_CONTENT,
+        code_content=CODE_CONTENT,
+    )
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with initial state
 app = Wijjit(
@@ -33,8 +33,8 @@ app = Wijjit(
 @app.view("main", default=True)
 def main_view():
     """Main form view with radio groups."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Radio Button Demo" border="double" width=80 height=32 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -100,9 +100,8 @@ def main_view():
     {% endvstack %}
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 # Size label mapping

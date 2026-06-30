@@ -19,13 +19,14 @@ If any handler raises, ``Wijjit._handle_error`` logs the stack trace via ``wijji
 Views and routing
 -----------------
 
-Views describe what should be rendered for a given route. ``@app.view("name", default=True)`` registers the function with :class:`wijjit.core.view_router.ViewRouter`. Each view returns a configuration dictionary with the following keys:
+Views describe what should be rendered for a given route. ``@app.view("name", default=True)`` registers the function with :class:`wijjit.core.view_router.ViewRouter`. A view returns what to render via the Flask-style helpers:
 
-* ``template`` **or** ``template_file`` – inline Jinja template or a filename inside ``template_dir``.
-* ``data`` – optional dict or callable that builds a context dictionary for the template.
-* ``on_enter`` / ``on_exit`` – lifecycle hooks executed whenever the view is entered or left.
+* :func:`wijjit.render_template_string` – an inline Jinja template plus its context (``return render_template_string(SOURCE, title="Home")``).
+* :func:`wijjit.render_template` – a template *file* from the template directory plus its context (``return render_template("dashboard.tui", stats=stats)``).
 
-``ViewRouter`` lazily evaluates the function the first time the view is used. Static ``data`` dicts are deep-copied so a render cannot mutate the next run. Navigation is performed with ``app.navigate("settings", tab="profile")``; parameters are passed as keyword arguments (``Wijjit.navigate(view_name, **params)``). ``navigate`` auto-detects async view callables, so the same call works for sync and async views. During navigation Wijjit:
+Lifecycle hooks go on the decorator – ``@app.view("name", default=True, on_enter=setup, on_exit=teardown)`` – not in the return value. Context is passed as keyword arguments and flattened into top-level template variables; ``state`` is auto-injected. (The legacy ``{"template"/"template_file"/"data"/"on_enter"/"on_exit": ...}`` dict return is still accepted for backward compatibility.)
+
+``ViewRouter`` lazily evaluates the function the first time the view is used, then **re-invokes a synchronous view on every render** so any derived context stays live. Navigation is performed with ``app.navigate("settings", tab="profile")``; parameters are passed as keyword arguments (``Wijjit.navigate(view_name, **params)``). ``navigate`` auto-detects async view callables, so the same call works for sync and async views. During navigation Wijjit:
 
 1. Initializes the target view if necessary.
 2. Executes the previous view’s ``on_exit`` hook and clears view-scoped handlers.
@@ -54,7 +55,7 @@ Rendering pipeline
 
 Rendering is a multi-step process:
 
-1. **Template rendering** – Wijjit configures a Jinja environment with custom extensions from ``wijjit.tags`` (``{% frame %}``, ``{% vstack %}``, ``{% button %}``, etc.). Your view’s ``template`` is rendered with ``state`` injected as a named object, plus every key from the view’s ``data`` dict flattened into top-level template variables. A ``data`` value of ``{"title": "Home"}`` is therefore referenced as ``{{ title }}``, not ``{{ data.title }}``.
+1. **Template rendering** – Wijjit configures a Jinja environment with custom extensions from ``wijjit.tags`` (``{% frame %}``, ``{% vstack %}``, ``{% button %}``, etc.). Your view’s template (inline or file) is rendered with ``state`` injected as a named object, plus every context keyword argument flattened into a top-level template variable. Passing ``title="Home"`` is therefore referenced as ``{{ title }}``, not ``{{ data.title }}``.
 2. **Layout tree** – tags such as ``{% vstack %}`` emit layout nodes (:class:`wijjit.layout.engine.VStack`, :class:`wijjit.layout.engine.HStack`, :class:`wijjit.layout.engine.FrameNode`) that describe sizing, spacing, and alignment.
 3. **Layout pass** – :mod:`wijjit.layout.engine` performs a bottom-up intrinsic size calculation followed by a top-down assignment of absolute bounds (:class:`wijjit.layout.bounds.Bounds`). Scroll containers report overflow to :mod:`wijjit.layout.scroll`.
 4. **Element painting** – Each :class:`wijjit.elements.base.Element` paints itself into a :class:`wijjit.rendering.paint_context.PaintContext`, which tracks ANSI styling and dirty regions. Elements only redraw when their bounds intersect the dirty set.

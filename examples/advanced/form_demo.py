@@ -17,7 +17,7 @@ Controls:
 
 import re
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Email validation regex
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
@@ -151,8 +151,8 @@ def validate_terms(terms):
 @app.view("main", default=True)
 def main_view():
     """Main registration form view."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Registration Form" border="double" width=90 height=38 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -251,8 +251,7 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {},
-    }
+    )
 
 
 @app.on_action("validate_name")

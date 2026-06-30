@@ -7,7 +7,7 @@ Run with: python examples/alignment_demo.py
 Press 'q' to quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app
 app = Wijjit()
@@ -16,8 +16,8 @@ app = Wijjit()
 @app.view("demo", default=True)
 def alignment_demo():
     """Alignment and margin demo view."""
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="Content Alignment & Margin Demo" border="double" height=20 %}
   {% vstack spacing=1 %}
 
@@ -68,9 +68,8 @@ def alignment_demo():
 
   {% endvstack %}
 {% endframe %}
-        """,
-        "data": {},
-    }
+        """
+    )
 
 
 @app.on_action("quit")

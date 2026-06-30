@@ -67,20 +67,17 @@ pip install -e ".[dev]"
 The simplest possible Wijjit app:
 
 ```python
-from wijjit import Wijjit
-from wijjit.core.events import EventType, HandlerScope
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit()
 
 @app.view("main", default=True)
 def main_view():
-    return {
-        "template": """
+    return render_template_string("""
 {% frame %}
 Hello, World! Press 'q' to quit.
 {% endframe %}
-""",
-    }
+""")
 
 @app.on_key("q")
 def on_quit(event):
@@ -95,7 +92,7 @@ if __name__ == "__main__":
 A complete login form with validation, showing the power of templates:
 
 ```python
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 app = Wijjit(initial_state={
     'username': '',
@@ -105,8 +102,7 @@ app = Wijjit(initial_state={
 
 @app.view("login", default=True)
 def login_view():
-    return {
-        "template": """
+    return render_template_string("""
 {% frame title="Login" border="single" width=50 height=15 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.status }}
@@ -128,8 +124,7 @@ def login_view():
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
-        """
-    }
+        """)
 
 @app.on_action("login")
 def handle_login(event):
@@ -158,21 +153,29 @@ if __name__ == '__main__':
 
 ### Views and Routing
 
-Like Flask, Wijjit uses decorators to define views:
+Like Flask, Wijjit uses decorators to define views. A view returns
+`render_template_string(...)` for an inline template or `render_template(...)`
+for a file in your `templates/` directory; lifecycle hooks go on the decorator:
 
 ```python
-@app.view("main", default=True)
+from wijjit import render_template_string, render_template
+
+@app.view("main", default=True, on_enter=fn, on_exit=fn)
 def main_view():
-    return {
-        "template": "...",  # Jinja2 template string
-        "data": {...},      # Additional template data
-        "on_enter": fn,     # Called when view is entered
-        "on_exit": fn,      # Called when view is exited
-    }
+    # Inline template + context (state is auto-injected):
+    return render_template_string("...", title="Home", items=items)
+
+@app.view("dashboard")
+def dashboard_view():
+    # Or load templates/dashboard.tui:
+    return render_template("dashboard.tui", stats=get_stats())
 
 # Navigate to a different view
 app.navigate("other_view", param=value)
 ```
+
+File templates live in a `templates/` directory next to your app module
+(auto-discovered, Flask-style) or wherever `Wijjit(template_dir=...)` points.
 
 ### State Management
 
@@ -246,19 +249,16 @@ def save(event):
 # Generic event handlers
 from wijjit.core.events import EventType, HandlerScope
 
-@app.view("main", default=True)
-def main_view():
-    return {
-        "template": "...",
-        "on_enter": setup_handlers,
-    }
-
 def setup_handlers():
     def on_key(event):
         if event.key == "q":
             app.quit()
 
     app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
+
+@app.view("main", default=True, on_enter=setup_handlers)
+def main_view():
+    return render_template_string("...")
 ```
 
 ### Element Event Callbacks

@@ -11,7 +11,7 @@ Controls:
 - q: Quit
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def create_app():
@@ -43,8 +43,8 @@ Features:
     @app.view("main", default=True)
     def main_view():
         """Main demo view showing three overflow modes."""
-        return {
-            "template": """
+        return render_template_string(
+            """
 {% frame title="Frame Text Overflow Demo" border="double" width=105 height=26 %}
   {% vstack spacing=0 padding=1 %}
     {{ state.message }}
@@ -73,8 +73,7 @@ Features:
   {% endvstack %}
 {% endframe %}
             """,
-            "data": {},
-        }
+        )
 
     # Handle quit key
     from wijjit.core.events import EventType, HandlerScope

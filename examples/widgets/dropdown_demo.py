@@ -4,7 +4,7 @@ This example demonstrates dropdown menus with keyboard shortcuts.
 Click the buttons to open menus, use arrow keys to navigate, Enter to select.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app
 app = Wijjit()
@@ -59,14 +59,12 @@ TEMPLATE = """
 @app.view("main", default=True)
 def main_view():
     """Main view with dropdown menus."""
-    return {
-        "template": TEMPLATE,
-        "data": {
-            "status": app.state.get("status", "Ready"),
-            "show_file_menu": app.state.get("show_file_menu", False),
-            "show_edit_menu": app.state.get("show_edit_menu", False),
-        },
-    }
+    return render_template_string(
+        TEMPLATE,
+        status=app.state.get("status", "Ready"),
+        show_file_menu=app.state.get("show_file_menu", False),
+        show_edit_menu=app.state.get("show_edit_menu", False),
+    )
 
 
 # Toggle menu actions

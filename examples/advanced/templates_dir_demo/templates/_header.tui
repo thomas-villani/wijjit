@@ -1,0 +1,4 @@
+{# Shared header partial, included by home.tui and dashboard.tui via
+   {% include "_header.tui" %}. It sees the including view's context, so
+   title / state / clicks are all available here. #}
+[ {{ title }} ]  signed in as {{ state.user }}  -  clicks: {{ clicks }}
