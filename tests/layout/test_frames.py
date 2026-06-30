@@ -2,9 +2,41 @@
 
 import pytest
 
-from wijjit.layout.frames import BorderStyle, Frame, FrameStyle, get_border_chars
+from wijjit.layout.frames import (
+    BorderStyle,
+    Frame,
+    FrameStyle,
+    get_border_chars,
+    has_border,
+)
 from wijjit.terminal.input import Key, KeyType
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+
+class TestHasBorder:
+    """Unit tests for the shared has_border predicate."""
+
+    @pytest.mark.parametrize(
+        "value",
+        [None, "none", "None", "NONE", "", "  ", "  none  ", BorderStyle.NONE],
+    )
+    def test_no_border(self, value):
+        assert has_border(value) is False
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "single",
+            "double",
+            "rounded",
+            "SINGLE",
+            BorderStyle.SINGLE,
+            BorderStyle.DOUBLE,
+            BorderStyle.ROUNDED,
+        ],
+    )
+    def test_visible_border(self, value):
+        assert has_border(value) is True
 
 
 class TestFrame:
