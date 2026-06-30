@@ -11,8 +11,58 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from wijjit.layout.frames import BORDER_THICKNESS, has_border
+
 if TYPE_CHECKING:
-    pass
+    from wijjit.rendering.paint_context import PaintContext
+
+
+def begin_chart_border(
+    ctx: PaintContext,
+    element: Any,
+    width: int,
+    height: int,
+    style_class: str,
+) -> tuple[PaintContext, int, int]:
+    """Draw a chart's border (if any) and return the inner drawing context.
+
+    Charts share a uniform border convention: when ``element.border`` denotes a
+    visible border (see :func:`wijjit.layout.frames.has_border`), a box is drawn
+    at the element's outer edge and content is rendered into an inset
+    sub-context one cell in on every side. This keeps each chart's render code
+    border-agnostic -- it draws into the returned context using the returned
+    available width/height regardless of whether a border is present.
+
+    Parameters
+    ----------
+    ctx : PaintContext
+        The element's paint context.
+    element : Any
+        The chart element; its ``border`` attribute is consulted.
+    width : int
+        The element's full width (including any border).
+    height : int
+        The element's full height (including any border).
+    style_class : str
+        Theme style class for the border (e.g. ``"barchart.border"``).
+
+    Returns
+    -------
+    tuple of (PaintContext, int, int)
+        ``(inner_ctx, inner_width, inner_height)``. With no border this is the
+        original context and the full dimensions.
+    """
+    if not has_border(getattr(element, "border", None)):
+        return ctx, width, height
+    border_style = ctx.style_resolver.resolve_style(element, style_class)
+    ctx.draw_border(0, 0, width, height, border_style)
+    thickness = BORDER_THICKNESS
+    inner_width = max(0, width - 2 * thickness)
+    inner_height = max(0, height - 2 * thickness)
+    inner = ctx.sub_context(thickness, thickness, inner_width, inner_height)
+    # Clip content to the inner region so it cannot overdraw the border.
+    inner.clip_region = inner.bounds
+    return inner, inner_width, inner_height
 
 
 # Braille character base and dot positions

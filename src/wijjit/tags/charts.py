@@ -70,10 +70,14 @@ class SparklineExtension(Extension):
         show_minmax: bool = False,
         show_current: bool = False,
         color: str | None = None,
+        border: str | None = None,
+        border_style: str = "none",
         bind: bool = True,
         **kwargs: Any,
     ) -> str:
         """Render the sparkline tag."""
+        if border is not None:
+            border_style = border
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -100,6 +104,7 @@ class SparklineExtension(Extension):
         vnode.set_prop("show_current", bool(show_current))
         if color:
             vnode.set_prop("color", color)
+        vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(

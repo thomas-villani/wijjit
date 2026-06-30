@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
     BrailleCanvas,
+    begin_chart_border,
     extract_values,
     get_block_char,
     normalize_data,
@@ -92,6 +93,7 @@ class Sparkline(Element):
         show_minmax: bool = False,
         show_current: bool = False,
         color: str | None = None,
+        border: str = "none",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -108,6 +110,7 @@ class Sparkline(Element):
         self.show_minmax = show_minmax
         self.show_current = show_current
         self.color = color
+        self.border = border
 
         # Template metadata
         self.action: str | None = None
@@ -359,13 +362,18 @@ class Sparkline(Element):
         # Resolve styles
         base_style = ctx.style_resolver.resolve_style(self, "sparkline")
 
+        # Draw the border (if any) and inset content into the remaining region.
+        ctx, avail_width, avail_height = begin_chart_border(
+            ctx, self, self.width, self.height, "sparkline.border"
+        )
+
         # Calculate chart dimensions
-        chart_width = self.width
+        chart_width = avail_width
         if self.show_current and self.values:
             current_text = f" {self.values[-1]:.0f}"
-            chart_width = max(1, self.width - len(current_text))
+            chart_width = max(1, avail_width - len(current_text))
 
-        chart_height = min(self.height, ctx.bounds.height)
+        chart_height = min(avail_height, ctx.bounds.height)
 
         # Render based on style
         if self.style == "line":
