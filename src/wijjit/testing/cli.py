@@ -56,6 +56,54 @@ def _apply_step(harness: WijjitHarness, step: str) -> None:
         harness.press(step)
 
 
+def run_render(
+    example: Path,
+    size: tuple[int, int] = (80, 24),
+    keys: str = "",
+    tick: int = 0,
+    ansi: bool = False,
+) -> int:
+    """Load an example, apply a scripted input run, and print its screen.
+
+    Shared by this module's ``main`` and the top-level ``wijjit render``
+    subcommand so the rendering behavior stays identical.
+
+    Parameters
+    ----------
+    example : Path
+        Path to an example ``.py`` file.
+    size : tuple of (int, int), optional
+        Terminal ``(cols, rows)`` to render at.
+    keys : str, optional
+        Comma-separated input script (keys, ``type:TEXT``, ``click:X,Y``,
+        ``tick:N``).
+    tick : int, optional
+        Animation frames to advance after the key script.
+    ansi : bool, optional
+        Print the styled ANSI screen instead of plain text.
+
+    Returns
+    -------
+    int
+        Process exit code (0 on success, 1 on load failure).
+    """
+    try:
+        app = load_example_app(example)
+    except ExampleLoadError as exc:
+        print(f"Failed to load example: {exc}", file=sys.stderr)
+        return 1
+
+    with WijjitHarness(app, size=size) as harness:
+        if keys:
+            for step in keys.split(","):
+                _apply_step(harness, step)
+        if tick:
+            harness.tick(tick)
+        sys.stdout.write(harness.screen_ansi() if ansi else harness.screen())
+        sys.stdout.write("\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the headless example CLI.
 
@@ -99,21 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    try:
-        app = load_example_app(args.example)
-    except ExampleLoadError as exc:
-        print(f"Failed to load example: {exc}", file=sys.stderr)
-        return 1
-
-    with WijjitHarness(app, size=args.size) as harness:
-        if args.keys:
-            for step in args.keys.split(","):
-                _apply_step(harness, step)
-        if args.tick:
-            harness.tick(args.tick)
-        sys.stdout.write(harness.screen_ansi() if args.ansi else harness.screen())
-        sys.stdout.write("\n")
-    return 0
+    return run_render(args.example, args.size, args.keys, args.tick, args.ansi)
 
 
 if __name__ == "__main__":

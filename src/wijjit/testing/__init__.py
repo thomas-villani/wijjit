@@ -17,6 +17,7 @@ Example
 ...     print(h.screen())
 """
 
+from wijjit.testing.app_builder import app_from_template
 from wijjit.testing.examples import (
     ExampleLoadError,
     discover_examples,
@@ -27,6 +28,7 @@ from wijjit.testing.harness import ScriptedInputHandler, WijjitHarness
 __all__ = [
     "WijjitHarness",
     "ScriptedInputHandler",
+    "app_from_template",
     "load_example_app",
     "discover_examples",
     "ExampleLoadError",
