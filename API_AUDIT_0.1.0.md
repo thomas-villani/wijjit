@@ -73,13 +73,21 @@ all churn. Land as one tested batch; gate on full suite + `ruff check src/` +
 `mypy --strict src/` all clean before finishing.
 
 **Step 1 — Shared helpers (no behavior change):**
-- One tag normalization path (`class`→`classes`, `tabindex`→`tab_index`) used by
-  *every* tag incl. layout containers; delete `apply_tabindex` and the per-family
-  `kwargs.get("class")` copies (D1, CC-1 / RENDER-X1, RENDER-X2).
-- Add `has_border(value) -> bool` (None/"none"/"" = no border); route all
-  border-overhead checks through it (D2, CC-2 / RENDER-X3).
-- Use `safe_int` for every numeric tag attr (RENDER-X6).
-- Add `BORDER_THICKNESS` constant + `inner_dimensions()` helper (LAYTERM-X3).
+- [LANDED — commit 0fd6852] One tag normalization path (`class`→`classes`,
+  `tabindex`→`tab_index`) used by *every* tag incl. layout containers; delete
+  `apply_tabindex` and the per-family `kwargs.get("class")` copies (D1, CC-1 /
+  RENDER-X1, RENDER-X2). NOTE: layout containers now forward the prop; only
+  `Frame` (a styled Element) is themed by it — `vstack`/`hstack`/`grid` are pure
+  layout nodes with no styling surface, so the prop is carried but inert there.
+- [LANDED — commit 2462604] Add `has_border(value) -> bool` (None/"none"/"" = no
+  border); route the *tag-level* border-overhead checks through it (D2, CC-2 /
+  RENDER-X3). Also fixes the latent "none"-string overhead bug at the tag layer.
+- [LANDED — commit 0fd6852] Use `safe_int` for every numeric tag attr (RENDER-X6).
+- [PARTIAL] Added the `BORDER_THICKNESS` constant (commit 2462604). The
+  `inner_dimensions()` helper + migration of the ~10 `2`/`-2` geometry sites
+  (LAYTERM-X3) is pure internal geometry dedup with golden risk and no API-shape
+  impact — **deferred to fold into Step 3** (which already touches border
+  geometry) or a later dedup batch.
 
 **Step 2 — Constructor params (additive, low risk):**
 - `tab_index: int | None = None` on every focusable element + forward to
