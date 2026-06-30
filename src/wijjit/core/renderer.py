@@ -719,7 +719,9 @@ class Renderer:
                 rows=props.get("rows", 2),
                 cols=props.get("cols", 2),
                 row_gap=props.get("row_gap", 0),
-                col_gap=props.get("col_gap", 0),
+                # The grid tag emits the canonical "column_gap"; fall back to the
+                # legacy "col_gap" prop name for safety.
+                col_gap=props.get("column_gap", props.get("col_gap", 0)),
                 width=layout_spec.width or "fill",
                 height=layout_spec.height or "auto",
                 padding=layout_spec.padding or 0,
