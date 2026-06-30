@@ -98,7 +98,8 @@ class ProgressBar(Element):
         id: str | None = None,
         classes: str | list[str] | set[str] | None = None,
         value: float = 0,
-        max: float = 100,
+        max_value: float = 100,
+        max: float | None = None,
         width: int = 40,
         style: Literal["filled", "percentage", "gradient", "custom"] = "filled",
         bar_style: Literal[
@@ -124,7 +125,8 @@ class ProgressBar(Element):
 
         # Progress properties
         self.value = float(value)
-        self.max = float(max)
+        # ``max`` is a deprecated alias for ``max_value``; honor it when given.
+        self._max_value = float(max if max is not None else max_value)
         self.width = width
         self.style = style
         self.bar_style = bar_style
@@ -154,6 +156,24 @@ class ProgressBar(Element):
         self.action: str | None = None
         self.bind: bool = True
 
+    @property
+    def max_value(self) -> float:
+        """Upper bound of the progress range."""
+        return self._max_value
+
+    @max_value.setter
+    def max_value(self, value: float) -> None:
+        self._max_value = float(value)
+
+    @property
+    def max(self) -> float:
+        """Deprecated alias for :attr:`max_value`."""
+        return self._max_value
+
+    @max.setter
+    def max(self, value: float) -> None:
+        self._max_value = float(value)
+
     def set_progress(self, value: float) -> None:
         """Update progress value.
 
@@ -172,9 +192,9 @@ class ProgressBar(Element):
         float
             Progress percentage (0-100)
         """
-        if self.max <= 0:
+        if self.max_value <= 0:
             return 0.0
-        return min(100.0, max(0.0, (self.value / self.max) * 100.0))
+        return min(100.0, max(0.0, (self.value / self.max_value) * 100.0))
 
     def _get_color_for_percentage(self, percentage: float) -> str | None:
         """Get color based on percentage for gradient style.

@@ -121,7 +121,7 @@ class Table(ScrollableElement):
         # Data and columns
         self._raw_data = data or []
         self._raw_columns = columns or []
-        self.data = self._raw_data.copy()  # Working copy (can be sorted)
+        self._data = self._raw_data.copy()  # Working copy (can be sorted)
         self.columns = self._normalize_columns(self._raw_columns)
 
         # Display properties
@@ -237,16 +237,9 @@ class Table(ScrollableElement):
         changed_props : dict
             Map of prop_name -> (old_value, new_value)
         """
-        # If data changed, update scroll manager content size
-        if "data" in changed_props:
-            old_data, new_data = changed_props["data"]
-            if new_data is not None:
-                self.data = new_data
-                # Re-apply sort if active
-                if self.sort_column:
-                    self._apply_sort()
-                # Update scroll manager with new content size
-                self.scroll_manager.update_content_size(len(self.data))
+        # Data/scroll synchronization is handled by the ``data`` property
+        # setter, which the reconciler invokes via setattr during prop
+        # application; no extra work is needed here.
 
     def can_scroll(self, direction: int) -> bool:
         """Check if the element can scroll in the given direction.
@@ -331,6 +324,31 @@ class Table(ScrollableElement):
             return value
         return "left"
 
+    @property
+    def data(self) -> list[dict]:
+        """Table rows (the working copy, which may be sorted).
+
+        Assignment refreshes the raw backing copy, re-applies any active sort,
+        and re-clamps scroll state -- so ``table.data = rows`` stays in sync
+        the same way :meth:`set_data` does, instead of desyncing ``_raw_data``
+        and the scroll manager.
+        """
+        return self._data
+
+    @data.setter
+    def data(self, rows: list[dict]) -> None:
+        self._raw_data = rows or []
+        self._data = self._raw_data.copy()
+
+        # Re-apply sort if active
+        if self.sort_column:
+            self._apply_sort()
+
+        # Update scroll manager with new content size (absent during __init__)
+        scroll_manager = getattr(self, "scroll_manager", None)
+        if scroll_manager is not None:
+            scroll_manager.update_content_size(len(self._data))
+
     def set_data(self, data: list[dict]) -> None:
         """Update table data and refresh scroll state.
 
@@ -339,15 +357,7 @@ class Table(ScrollableElement):
         data : list of dict
             New table data
         """
-        self._raw_data = data
-        self.data = data.copy()
-
-        # Re-apply sort if active
-        if self.sort_column:
-            self._apply_sort()
-
-        # Update scroll manager with new content size
-        self.scroll_manager.update_content_size(len(self.data))
+        self.data = data
 
     def sort_by_column(self, column_key: str) -> None:
         """Sort table by specified column.
@@ -382,12 +392,12 @@ class Table(ScrollableElement):
         reverse = self.sort_direction == "desc"
 
         try:
-            self.data.sort(
+            self._data.sort(
                 key=lambda row: row.get(self.sort_column, ""), reverse=reverse
             )
         except TypeError:
             # Handle mixed types by converting to string
-            self.data.sort(
+            self._data.sort(
                 key=lambda row: str(row.get(self.sort_column, "")), reverse=reverse
             )
 

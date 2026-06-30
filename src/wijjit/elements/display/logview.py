@@ -157,7 +157,7 @@ class LogView(ScrollableElement):
         self.focusable = True  # Focusable for keyboard scrolling
 
         # Content and display properties
-        self.lines = lines or []
+        self._lines = lines or []
         self.width = width
         self.height = height
         self.auto_scroll = auto_scroll
@@ -401,6 +401,20 @@ class LogView(ScrollableElement):
             self.rendered_lines = [""]
             self._rendered_line_origins = [-1]  # No original line
 
+    @property
+    def lines(self) -> list[str]:
+        """Log lines.
+
+        Assignment delegates to :meth:`set_lines`, so ``logview.lines = rows``
+        re-renders and re-clamps scroll (with auto-scroll) uniformly, instead
+        of leaving the rendered content and scroll manager stale.
+        """
+        return self._lines
+
+    @lines.setter
+    def lines(self, lines: list[str]) -> None:
+        self.set_lines(lines)
+
     def set_lines(self, lines: list[str]) -> None:
         """Update log lines and re-render.
 
@@ -414,7 +428,7 @@ class LogView(ScrollableElement):
         If auto-scroll is enabled and user hasn't manually scrolled up,
         this will automatically scroll to the bottom after updating.
         """
-        self.lines = lines
+        self._lines = lines
         self._render_content()
 
         # Update scroll manager with new content size
@@ -477,12 +491,9 @@ class LogView(ScrollableElement):
         # Track if we need to re-render content
         needs_rerender = False
 
-        # Handle lines change
-        if "lines" in changed_props:
-            old_lines, new_lines = changed_props["lines"]
-            if new_lines is not None:
-                self.lines = new_lines
-                needs_rerender = True
+        # Note: a "lines" change is fully handled by the ``lines`` property
+        # setter (set_lines: re-render + scroll/auto-scroll) invoked via setattr
+        # during prop application, so it is intentionally not handled here.
 
         # Handle display options that affect rendering
         if "show_line_numbers" in changed_props:
