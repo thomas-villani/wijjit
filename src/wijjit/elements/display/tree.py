@@ -150,7 +150,7 @@ class Tree(ScrollableElement):
         show_root: bool = True,
         indent_size: int = 2,
         indicator_style: TreeIndicatorStyle = TreeIndicatorStyle.TRIANGLES_LARGE,
-        border_style: str = "none",
+        border_style: str = "single",
         title: str | None = None,
         action: str | None = None,
         tab_index: int | None = None,

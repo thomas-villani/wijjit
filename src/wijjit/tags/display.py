@@ -255,7 +255,8 @@ class TreeExtension(Extension):
         on_select: str | None = None,
         expanded: str | list[Any] | None = None,
         bind: bool = True,
-        border: str = "none",
+        border: str | None = None,
+        border_style: str = "single",
         title: str | None = None,
         indicator_style: str = "triangles_large",
         **kwargs: Any,
@@ -315,6 +316,9 @@ class TreeExtension(Extension):
         render_ctx = get_render_context()
         context = render_ctx.layout_context
         state = render_ctx.state
+
+        if border is not None:
+            border_style = border
 
         # Store original width/height specs for layout
         width_spec = width
@@ -378,7 +382,7 @@ class TreeExtension(Extension):
         vnode.set_prop("show_root", show_root)
         vnode.set_prop("indent_size", indent_size)
         vnode.set_prop("indicator_style", indicator_style_enum)
-        vnode.set_prop("border_style", border)
+        vnode.set_prop("border_style", border_style)
         if title:
             vnode.set_prop("title", title)
         if on_select:
