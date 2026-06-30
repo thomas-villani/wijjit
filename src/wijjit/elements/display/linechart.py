@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
     BrailleCanvas,
+    begin_chart_border,
     calculate_axis_ticks,
     extract_values,
     format_axis_value,
@@ -55,6 +56,10 @@ class LineChart(Element):
         Color for single series (default: None)
     series_colors : dict, optional
         Colors per series for multi-series (default: None)
+    border : str, optional
+        Border style drawn within the chart's dimensions: "single",
+        "double", "rounded", "heavy", "ascii", or "none" (default: "single").
+        When a visible border is present, all content is inset one cell.
 
     Attributes
     ----------
@@ -100,6 +105,7 @@ class LineChart(Element):
         show_legend: bool = True,
         color: str | None = None,
         series_colors: dict[str, str] | None = None,
+        border: str = "single",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -116,6 +122,7 @@ class LineChart(Element):
         self.show_legend = show_legend
         self.color = color
         self.series_colors = series_colors or {}
+        self.border = border
 
         # Parse data into series format
         self._raw_data = data
@@ -326,14 +333,19 @@ class LineChart(Element):
         label_style = ctx.style_resolver.resolve_style(self, "linechart.label")
         legend_style = ctx.style_resolver.resolve_style(self, "linechart.legend")
 
+        # Draw the border (if any) and inset content into the remaining region.
+        ctx, avail_width, avail_height = begin_chart_border(
+            ctx, self, self.width, self.height, "linechart.border"
+        )
+
         use_unicode = supports_unicode()
 
         # Calculate chart area
         chart_left = self.axis_width if self.show_axis else 0
         chart_bottom = 1 if self.show_labels else 0
         legend_height = 1 if self.show_legend and len(self.series) > 1 else 0
-        chart_height = self.height - chart_bottom - legend_height
-        chart_width = self.width - chart_left
+        chart_height = avail_height - chart_bottom - legend_height
+        chart_width = avail_width - chart_left
 
         if chart_height < 1 or chart_width < 1:
             return
@@ -396,7 +408,7 @@ class LineChart(Element):
             axis_char = "\u2500" if use_unicode else "-"
             axis_y = chart_height
 
-            for x in range(chart_left, self.width):
+            for x in range(chart_left, avail_width):
                 ctx.buffer.set_cell(
                     ctx.bounds.x + x,
                     ctx.bounds.y + axis_y,
@@ -425,7 +437,7 @@ class LineChart(Element):
 
         # Render x-axis labels
         if self.show_labels and self.labels:
-            label_y = self.height - legend_height - 1
+            label_y = avail_height - legend_height - 1
 
             # Calculate label positions
             num_labels = min(len(self.labels), chart_width // 5)  # Max labels that fit
@@ -446,7 +458,7 @@ class LineChart(Element):
 
         # Render legend for multi-series
         if self.show_legend and len(self.series) > 1:
-            legend_y = self.height - 1
+            legend_y = avail_height - 1
             legend_x = chart_left
             legend_parts = []
 
@@ -462,8 +474,8 @@ class LineChart(Element):
 
         # Fill background
         base_attrs = base_style.to_cell_attrs()
-        for y in range(self.height):
-            for x in range(self.width):
+        for y in range(avail_height):
+            for x in range(avail_width):
                 cell = ctx.buffer.get_cell(ctx.bounds.x + x, ctx.bounds.y + y)
                 if cell is None or cell.char == "\x00":
                     ctx.buffer.set_cell(

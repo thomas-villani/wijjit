@@ -15,6 +15,12 @@ from wijjit.elements.display.chart_utils import (
     get_threshold_color,
     normalize_data,
 )
+from wijjit.layout.frames import (
+    BORDER_THICKNESS,
+    BorderStyle,
+    get_border_chars,
+    has_border,
+)
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 
 if TYPE_CHECKING:
@@ -61,8 +67,9 @@ class BarChart(ScrollableElement):
         Color scale for gradient mode (default: "green")
     show_scrollbar : bool, optional
         Show scrollbar when content overflows (default: True)
-    show_border : bool, optional
-        Show border around chart (default: False)
+    border : str, optional
+        Border style: "single", "double", "rounded", or "none"
+        (default: "single")
 
     Attributes
     ----------
@@ -114,7 +121,7 @@ class BarChart(ScrollableElement):
         color: Literal["default", "gradient", "threshold"] = "default",
         color_scale: str = "green",
         show_scrollbar: bool = True,
-        show_border: bool = False,
+        border: str = "single",
         tab_index: int | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
@@ -135,7 +142,7 @@ class BarChart(ScrollableElement):
         self.color = color
         self.color_scale = color_scale
         self.show_scrollbar = show_scrollbar
-        self.show_border = show_border
+        self.border = border
 
         # Auto-calculate label width if not specified
         if label_width is None and show_labels and self.labels:
@@ -145,7 +152,7 @@ class BarChart(ScrollableElement):
 
         # Calculate content height (total rows needed for all bars)
         content_height = len(self.values) * self.bar_height
-        viewport_height = self.height - (2 if show_border else 0)
+        viewport_height = self.height - (2 if has_border(border) else 0)
 
         # Scroll management
         self.scroll_manager = ScrollManager(
@@ -424,7 +431,7 @@ class BarChart(ScrollableElement):
         use_unicode = supports_unicode()
 
         # Calculate dimensions
-        border_offset = 1 if self.show_border else 0
+        border_offset = BORDER_THICKNESS if has_border(self.border) else 0
         viewport_height = self.height - (2 * border_offset)
         viewport_width = self.width - (2 * border_offset)
 
@@ -454,9 +461,24 @@ class BarChart(ScrollableElement):
         last_visible_bar = (scroll_offset + viewport_height) // self.bar_height + 1
 
         # Render border if enabled
-        if self.show_border:
-            border_style = ctx.style_resolver.resolve_style(self, "barchart.border")
-            ctx.draw_border(0, 0, self.width, self.height, border_style)
+        if has_border(self.border):
+            border_box_style = ctx.style_resolver.resolve_style(self, "barchart.border")
+            try:
+                border_enum = (
+                    self.border
+                    if isinstance(self.border, BorderStyle)
+                    else BorderStyle(str(self.border).lower())
+                )
+            except ValueError:
+                border_enum = BorderStyle.SINGLE
+            ctx.draw_border(
+                0,
+                0,
+                self.width,
+                self.height,
+                border_box_style,
+                get_border_chars(border_enum),
+            )
 
         # Render bars
         current_y = border_offset

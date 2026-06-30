@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
+    begin_chart_border,
     calculate_axis_ticks,
     extract_values,
     format_axis_value,
@@ -61,6 +62,10 @@ class ColumnChart(Element):
         Color mode: "default", "gradient", "threshold" (default: "default")
     color_scale : str, optional
         Color scale for gradient mode (default: "green")
+    border : str, optional
+        Border style drawn around the chart (e.g. "single", "double",
+        "rounded", "none"). The border is drawn within ``width``/``height``,
+        insetting the content region (default: "single").
 
     Attributes
     ----------
@@ -107,6 +112,7 @@ class ColumnChart(Element):
         show_grid: bool = False,
         color: Literal["default", "gradient", "threshold"] = "default",
         color_scale: str = "green",
+        border: str = "single",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -127,6 +133,7 @@ class ColumnChart(Element):
         self.show_grid = show_grid
         self.color = color
         self.color_scale = color_scale
+        self.border = border
 
         # Template metadata
         self.action: str | None = None
@@ -236,13 +243,18 @@ class ColumnChart(Element):
         label_style = ctx.style_resolver.resolve_style(self, "columnchart.label")
         grid_style = ctx.style_resolver.resolve_style(self, "columnchart.grid")
 
+        # Draw the border (if any) and inset content into the remaining region.
+        ctx, avail_width, avail_height = begin_chart_border(
+            ctx, self, self.width, self.height, "columnchart.border"
+        )
+
         use_unicode = supports_unicode()
 
         # Calculate chart area dimensions
         chart_left = self.axis_width if self.show_axis else 0
         chart_bottom = 1 if self.show_labels else 0  # Row for labels
-        chart_height = self.height - chart_bottom - 1  # -1 for top margin
-        chart_width = self.width - chart_left
+        chart_height = avail_height - chart_bottom - 1  # -1 for top margin
+        chart_width = avail_width - chart_left
 
         if chart_height < 1 or chart_width < 1:
             return
@@ -305,7 +317,7 @@ class ColumnChart(Element):
                     if self.show_grid and tick_y > 0:
                         grid_char = "\u2500" if use_unicode else "-"
                         grid_attrs = grid_style.to_cell_attrs()
-                        for x in range(chart_left, self.width):
+                        for x in range(chart_left, avail_width):
                             ctx.buffer.set_cell(
                                 ctx.bounds.x + x,
                                 ctx.bounds.y + tick_y,
@@ -318,7 +330,7 @@ class ColumnChart(Element):
             axis_char = "\u2500" if use_unicode else "-"
             bottom_y = chart_height
 
-            for x in range(chart_left, self.width):
+            for x in range(chart_left, avail_width):
                 ctx.buffer.set_cell(
                     ctx.bounds.x + x,
                     ctx.bounds.y + bottom_y,
@@ -339,7 +351,7 @@ class ColumnChart(Element):
         ):
             column_x = chart_left + i * total_column_space
 
-            if column_x >= self.width:
+            if column_x >= avail_width:
                 break
 
             # Calculate column height (in characters)
@@ -365,7 +377,7 @@ class ColumnChart(Element):
 
                 for col_x in range(column_width):
                     x_pos = column_x + col_x
-                    if x_pos >= self.width:
+                    if x_pos >= avail_width:
                         break
 
                     if is_filled:
@@ -389,7 +401,7 @@ class ColumnChart(Element):
                     partial_char = get_block_char(fractional, "vertical", use_unicode)
                     for col_x in range(column_width):
                         x_pos = column_x + col_x
-                        if x_pos >= self.width:
+                        if x_pos >= avail_width:
                             break
                         ctx.buffer.set_cell(
                             ctx.bounds.x + x_pos,
@@ -399,11 +411,11 @@ class ColumnChart(Element):
 
         # Render x-axis labels
         if self.show_labels:
-            label_y = self.height - 1
+            label_y = avail_height - 1
             for i, label in enumerate(self.labels):
                 column_x = chart_left + i * total_column_space
 
-                if column_x >= self.width:
+                if column_x >= avail_width:
                     break
 
                 # Truncate label to column width
@@ -418,8 +430,8 @@ class ColumnChart(Element):
 
         # Fill remaining space with background
         base_attrs = base_style.to_cell_attrs()
-        for y in range(self.height):
-            for x in range(self.width):
+        for y in range(avail_height):
+            for x in range(avail_width):
                 cell = ctx.buffer.get_cell(ctx.bounds.x + x, ctx.bounds.y + y)
                 if cell is None or cell.char == "\x00":
                     ctx.buffer.set_cell(
