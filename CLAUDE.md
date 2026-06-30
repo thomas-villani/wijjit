@@ -76,6 +76,32 @@ with `pytest --golden-update`). Four inline-subsystem / raw-terminal demos and a
 couple of `Renderer`-only diagnostics are not harness-driveable and are skipped
 there with reasons.
 
+**`wijjit` CLI (devtools):** a top-level console script (`wijjit`, also
+`python -m wijjit`) for inspecting/validating apps - the LLM-friendly path to
+diagnose template issues. `validate` and `tree` auto-detect raw template files
+vs `.py` apps by the `.py` suffix:
+
+```bash
+wijjit validate myform.wij --render     # syntax/unknown-tag/undefined-var/attr findings
+wijjit tree myform.wij --json           # dump the VNode "DOM" tree
+wijjit render examples/.../demo.py --keys "tab,enter"   # ports python -m wijjit.testing
+wijjit run -k login tests/              # pytest passthrough
+```
+
+The validator lives in `src/wijjit/devtools/` (`validate.py` -> `ValidationReport`
+of `Finding`s; `tree.py` -> `build_vnode_tree`/`render_tree_text`/`vnode_to_dict`;
+`_render.py` shares the render mechanics). The dispatcher is `src/wijjit/cli.py`;
+`wijjit render` reuses `run_render` from `wijjit.testing.cli`.
+
+**Pytest plugin / fixtures:** installing wijjit registers a `pytest11` plugin
+(`wijjit.testing.pytest_plugin`; opt out `-p no:wijjit`) exposing `harness` and
+`make_app` fixtures plus `wijjit_app`/`wijjit_snapshot` markers.
+`wijjit.testing.app_from_template(template, state=..., actions=..., on_key=...,
+views=...)` (also exported from top-level `wijjit`) builds a ready-to-drive app
+from a bare template - no example `.py` needed. New `WijjitHarness` assertions:
+`assert_no_errors()`, `assert_tree_contains(type=,key=,props=)`,
+`assert_screen(snapshot)`, plus `tree()` / `errors`.
+
 ### Code Quality (CI gates)
 
 ```bash
@@ -255,6 +281,12 @@ HTML, Markdown, or Rich markup.
   `completer.py`, `state.py`, `popup.py`, `mixin.py`, `resolver.py`, `utils.py`.
 - **config.py** - Flask-style `Config`/`DefaultConfig` (see below).
 - **helpers.py** - e.g. `load_filesystem_tree`.
+- **cli.py** - top-level `wijjit` console script (`validate`/`tree`/`render`/`run`).
+- **devtools/** - static analysis for the CLI: `validate.py` (template/app linter),
+  `tree.py` (VNode-tree dump), `_render.py` (shared render mechanics).
+- **testing/** - headless `WijjitHarness`, `load_example_app`, `app_from_template`
+  (build an app from a bare template), and the `pytest_plugin` (`harness`/`make_app`
+  fixtures + markers, auto-loaded via a `pytest11` entry point).
 
 ## Public API
 

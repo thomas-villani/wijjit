@@ -37,6 +37,7 @@ from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
+    from wijjit.core.vdom import VNode
     from wijjit.elements.base import Element
 
 # Friendly key-name -> Key mapping for WijjitHarness.press().
@@ -208,6 +209,12 @@ class WijjitHarness:
         self._orig_get_size = None
         self._started = False
 
+        # Errors routed through app._handle_error while the harness drives the
+        # app (render/action/background-task failures). Captured so tests can
+        # assert the app rendered cleanly via assert_no_errors().
+        self._errors: list[tuple[str, BaseException]] = []
+        self._orig_handle_error = None
+
     # -- lifecycle ---------------------------------------------------------
 
     def start(self) -> WijjitHarness:
@@ -225,6 +232,7 @@ class WijjitHarness:
         self._orig_input = self.app.input_handler
         self.app.input_handler = self._input  # type: ignore[assignment]
         self._apply_headless_config()
+        self._capture_errors()
 
         self._loop = asyncio.new_event_loop()
         self._run(self._startup_async())
@@ -249,6 +257,7 @@ class WijjitHarness:
                 self._loop.close()
         finally:
             self._restore_terminal_size()
+            self._restore_error_handler()
             if self._orig_input is not None:
                 self.app.input_handler = self._orig_input
             self._started = False
@@ -456,6 +465,101 @@ class WijjitHarness:
         screen = self.screen()
         assert text in screen, f"Expected {text!r} on screen but got:\n{screen}"
 
+    def tree(self) -> VNode | None:
+        """Return the last rendered VNode tree (the "DOM"), if any.
+
+        Returns
+        -------
+        VNode or None
+            Root of the last reconciled VNode tree, or ``None`` for a
+            plain-text (non-layout) template that produced no element tree.
+        """
+        return self.app.renderer._last_vnode_tree
+
+    @property
+    def errors(self) -> list[tuple[str, BaseException]]:
+        """Errors the app reported while the harness drove it.
+
+        Returns
+        -------
+        list of (str, BaseException)
+            ``(message, exception)`` pairs captured from ``app._handle_error``
+            (render, action and background-task failures). Empty if the app
+            rendered and dispatched cleanly.
+        """
+        return list(self._errors)
+
+    def assert_no_errors(self) -> None:
+        """Assert the app reported no errors, else raise listing them.
+
+        Raises
+        ------
+        AssertionError
+            If any error was routed through ``app._handle_error``.
+        """
+        if self._errors:
+            detail = "\n".join(f"  {message}: {exc!r}" for message, exc in self._errors)
+            raise AssertionError(
+                f"App reported {len(self._errors)} error(s):\n{detail}"
+            )
+
+    def assert_tree_contains(
+        self,
+        *,
+        type: str | None = None,
+        key: str | None = None,
+        props: dict[str, object] | None = None,
+    ) -> None:
+        """Assert a VNode matching the given criteria exists in the tree.
+
+        Parameters
+        ----------
+        type : str, optional
+            Required VNode type (e.g. ``"Button"``).
+        key : str, optional
+            Required reconciliation key (typically the element id).
+        props : dict, optional
+            Props that must all be present with the given values.
+
+        Raises
+        ------
+        AssertionError
+            If no matching node is found (the tree is included for context).
+        """
+        from wijjit.devtools.tree import render_tree_text, walk_vnodes
+
+        root = self.tree()
+        for node in walk_vnodes(root):
+            if type is not None and node.type != type:
+                continue
+            if key is not None and node.key != key:
+                continue
+            if props is not None and not all(
+                node.get_prop(name) == value for name, value in props.items()
+            ):
+                continue
+            return
+        tree_text = render_tree_text(root) if root is not None else "<no layout tree>"
+        raise AssertionError(
+            f"No VNode matching type={type!r} key={key!r} props={props!r}.\n"
+            f"Tree:\n{tree_text}"
+        )
+
+    def assert_screen(self, snapshot: object) -> None:
+        """Assert the plain-text screen equals a syrupy ``snapshot``.
+
+        Parameters
+        ----------
+        snapshot : object
+            The syrupy ``snapshot`` fixture to compare against.
+
+        Raises
+        ------
+        AssertionError
+            If the screen does not match the stored snapshot.
+        """
+        assert self.screen() == snapshot
+
     @property
     def state(self):
         """The application's reactive state.
@@ -518,6 +622,29 @@ class WijjitHarness:
         # Pin Unicode rendering so snapshots are deterministic across platforms
         # (box-drawing characters would otherwise depend on terminal detection).
         cfg["UNICODE_SUPPORT"] = True
+
+    def _capture_errors(self) -> None:
+        """Wrap ``app._handle_error`` so harness-driven errors are recorded.
+
+        The original handler is still invoked (preserving its logging/stderr
+        and fatal re-raise behavior); we only tee ``(message, exception)`` into
+        ``self._errors`` for later inspection.
+        """
+        self._errors.clear()
+        orig = self.app._handle_error
+        self._orig_handle_error = orig  # type: ignore[assignment]
+        sink = self._errors
+
+        def _capture(message, exception, fatal=False):  # type: ignore[no-untyped-def]
+            sink.append((message, exception))
+            return orig(message, exception, fatal=fatal)
+
+        self.app._handle_error = _capture  # type: ignore[assignment]
+
+    def _restore_error_handler(self) -> None:
+        if self._orig_handle_error is not None:
+            self.app._handle_error = self._orig_handle_error  # type: ignore[assignment]
+            self._orig_handle_error = None
 
     def _patch_terminal_size(self) -> None:
         self._orig_get_size = shutil.get_terminal_size

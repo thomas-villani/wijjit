@@ -129,6 +129,9 @@ from wijjit.terminal.ansi import (
 from wijjit.terminal.input import InputHandler, Key, Keys, KeyType
 from wijjit.terminal.screen import ScreenManager, alternate_screen
 
+# Testing utilities (build an app from a bare template for tests/devtools)
+from wijjit.testing.app_builder import app_from_template
+
 # Friendly aliases for the documented element names. The classes are
 # internally suffixed ``Element`` (ModalElement / NotificationElement) but the
 # docs, template tags, and registry refer to them as ``Modal`` / ``Notification``.
@@ -155,6 +158,8 @@ __all__ = [
     # Inline rendering
     "render_inline",
     "InlineApp",
+    # Testing utilities
+    "app_from_template",
     # Autocomplete
     "Completer",
     "WordCompleter",

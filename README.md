@@ -744,6 +744,79 @@ mypy src/
 ruff check src/ tests/
 ```
 
+## Developer Tooling & Testing
+
+Wijjit ships a `wijjit` command-line tool for inspecting, validating, and
+driving apps - useful both for humans and for LLM agents diagnosing layout or
+template issues. `validate` and `tree` accept **either** a raw template file
+(`.wij` / `.html` / `.txt`) **or** a full example `.py` app (auto-detected by
+the `.py` suffix).
+
+```bash
+# Lint a template (or app): reports syntax errors, unknown tags, undefined
+# variables, unknown element types/attributes. Add --render for a snapshot.
+wijjit validate myform.wij --render
+wijjit validate examples/advanced/login_form.py
+wijjit validate myform.wij --json          # machine-readable findings
+
+# Dump the VNode "DOM" tree a template produces (text or JSON)
+wijjit tree myform.wij
+wijjit tree myform.wij --json
+wijjit tree myform.wij --context ctx.json --size 100x30
+
+# Render an app headlessly with scripted input (ports python -m wijjit.testing)
+wijjit render examples/widgets/spinner_demo.py --tick 5
+wijjit render examples/advanced/login_form.py \
+    --size 100x30 --keys "tab,type:admin,tab,type:secret,enter" --ansi
+
+# Run your test suite (passthrough to pytest)
+wijjit run -k login tests/
+```
+
+`python -m wijjit <command>` works as well, and the older
+`python -m wijjit.testing <example>` still drives the headless renderer.
+
+### Testing your own apps
+
+Installing Wijjit registers a **pytest plugin** that provides `harness` and
+`make_app` fixtures (opt out with `-p no:wijjit`). The `harness` fixture builds
+and starts a `WijjitHarness` from a `Wijjit` app **or** a bare template string,
+and closes it automatically at teardown:
+
+```python
+TEMPLATE = """
+{% frame title="Login" width=40 height=8 %}
+  {% textinput id="user" width=20 %}{% endtextinput %}
+  {% button id="ok" action="login" %}Log in{% endbutton %}
+{% endframe %}
+"""
+
+def test_login_flow(harness):
+    h = harness(TEMPLATE, state={"user": ""})
+    h.press("tab"); h.type("admin"); h.press("tab"); h.press("enter")
+    h.assert_text("admin")
+    h.assert_tree_contains(type="Button", key="ok")
+    h.assert_no_errors()
+```
+
+Build an app from a template without a fixture (e.g. for non-pytest scripts)
+with `app_from_template`:
+
+```python
+from wijjit import app_from_template
+from wijjit.testing import WijjitHarness
+
+app = app_from_template(TEMPLATE, state={"user": ""},
+                        actions={"login": my_login_handler})
+with WijjitHarness(app) as h:
+    ...
+```
+
+New `WijjitHarness` assertions: `assert_no_errors()` (no render/handler errors),
+`assert_tree_contains(type=, key=, props=)`, and `assert_screen(snapshot)` (for
+a syrupy snapshot). The `wijjit_app` / `wijjit_snapshot` markers are registered
+by the plugin.
+
 ## Project Status
 
 Wijjit is approaching its first public release (`0.1.0`). The core framework is

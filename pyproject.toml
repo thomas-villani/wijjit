@@ -48,6 +48,15 @@ Documentation = "https://thomas-villani.github.io/wijjit/"
 Repository = "https://github.com/thomas-villani/wijjit"
 Issues = "https://github.com/thomas-villani/wijjit/issues"
 
+[project.scripts]
+wijjit = "wijjit.cli:main"
+
+# Pytest plugin: once wijjit is installed, the `harness` / `make_app` fixtures
+# and `wijjit_app` / `wijjit_snapshot` markers auto-load. Opt out with
+# `-p no:wijjit`.
+[project.entry-points.pytest11]
+wijjit = "wijjit.testing.pytest_plugin"
+
 [project.optional-dependencies]
 dev = [
     "black>=25.9.0",
