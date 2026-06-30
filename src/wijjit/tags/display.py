@@ -19,6 +19,7 @@ from wijjit.elements.display.modal import ModalElement
 from wijjit.elements.display.statusbar import StatusBar
 from wijjit.elements.display.tabbed_panel import TabPosition
 from wijjit.elements.display.tree import TreeIndicatorStyle
+from wijjit.layout.frames import has_border
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
     apply_common_attributes,
@@ -909,7 +910,7 @@ class LogViewExtension(Extension):
         show_scrollbar = bool(show_scrollbar)
 
         # LogView expects TOTAL dimensions (including borders), so add border space
-        if border_style != "none":
+        if has_border(border_style):
             element_width += 2
             element_height += 2
 
@@ -963,7 +964,7 @@ class LogViewExtension(Extension):
         # Account for borders in layout size if present
         layout_width = width_spec
         layout_height = height_spec
-        if border_style != "none":
+        if has_border(border_style):
             # Add 2 for borders (top+bottom, left+right) if width/height are numeric
             if isinstance(width_spec, int):
                 layout_width = width_spec + 2
@@ -1181,7 +1182,7 @@ class ListViewExtension(Extension):
         # Account for borders in layout size if present
         layout_width = width_spec
         layout_height = height_spec
-        if border_style != "none":
+        if has_border(border_style):
             # Add 2 for borders (top+bottom, left+right) if width/height are numeric
             if isinstance(width_spec, int):
                 layout_width = width_spec + 2

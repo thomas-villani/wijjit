@@ -43,6 +43,40 @@ class BorderStyle(Enum):
     ROUNDED = "rounded"
 
 
+# Cells occupied by a single border edge on one side of a bordered box. A
+# bordered box therefore costs ``2 * BORDER_THICKNESS`` in each dimension.
+BORDER_THICKNESS = 1
+
+
+def has_border(value: object) -> bool:
+    """Return whether a border-style value denotes a visible border.
+
+    Centralizes the "is there a border?" predicate that was previously spelled
+    three incompatible ways across the tag layer (``!= "none"``,
+    ``is not None``, and enum mapping). A border is absent for ``None``, the
+    strings ``"none"``/``""`` (any case/whitespace), and
+    :attr:`BorderStyle.NONE`; every other value denotes a visible border.
+
+    Parameters
+    ----------
+    value : object
+        A border-style specifier: ``None``, a string (e.g. ``"single"``,
+        ``"none"``), or a :class:`BorderStyle` member.
+
+    Returns
+    -------
+    bool
+        ``True`` if the value denotes a visible border.
+    """
+    if value is None:
+        return False
+    if isinstance(value, BorderStyle):
+        return value is not BorderStyle.NONE
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "none")
+    return bool(value)
+
+
 # Unicode border character sets for each style
 BORDER_CHARS_UNICODE = {
     BorderStyle.NONE: {

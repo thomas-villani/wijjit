@@ -16,7 +16,7 @@ from jinja2.parser import Parser
 
 from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
-from wijjit.layout.frames import BorderStyle
+from wijjit.layout.frames import BorderStyle, has_border
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
     get_element_marker,
@@ -500,10 +500,10 @@ class SelectExtension(Extension):
         # Calculate total height accounting for borders
         # - No borders: height = visible_rows (content only)
         # - With borders: height = visible_rows + 2 (top border + content + bottom border)
-        total_height = visible_rows + (2 if border_style is not None else 0)
+        total_height = visible_rows + (2 if has_border(border_style) else 0)
 
         # Width also needs to account for borders (adds 2 columns)
-        total_width = width + (2 if border_style is not None else 0)
+        total_width = width + (2 if has_border(border_style) else 0)
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Select", key=id)
@@ -931,8 +931,8 @@ class CheckboxGroupExtension(Extension):
         is_focused = focused_id and id and focused_id == id
 
         # Calculate total height accounting for borders
-        total_height = len(options) + (2 if border_style is not None else 0)
-        total_width = width + (2 if border_style is not None else 0)
+        total_height = len(options) + (2 if has_border(border_style) else 0)
+        total_width = width + (2 if has_border(border_style) else 0)
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CheckboxGroup", key=id)
@@ -1050,7 +1050,7 @@ class RadioGroupExtension(Extension):
         # Determine if using nested radio tags (no options provided)
         using_nested_radios = len(options) == 0
         using_frame = using_nested_radios and (
-            border_style is not None or title is not None
+            has_border(border_style) or title is not None
         )
 
         if not using_nested_radios:
@@ -1058,8 +1058,8 @@ class RadioGroupExtension(Extension):
             is_focused = focused_id and id and focused_id == id
 
             # Calculate total height accounting for borders
-            total_height = len(options) + (2 if border_style is not None else 0)
-            total_width = width + (2 if border_style is not None else 0)
+            total_height = len(options) + (2 if has_border(border_style) else 0)
+            total_width = width + (2 if has_border(border_style) else 0)
 
             # Create VNode for reconciliation
             vnode = VNodeBuilder("RadioGroup", key=id)
