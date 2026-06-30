@@ -21,8 +21,9 @@ TextInput / TextArea
     .. literalinclude:: ../../../examples/widgets/textarea_demo.py
        :language: jinja
        :caption: Template excerpt from ``examples/widgets/textarea_demo.py``
-       :start-after: "template": """
-       :end-before: """,
+       :dedent:
+       :start-after: return render_template_string(
+       :end-before: lines=content.count
 
 CodeEditor
     Syntax-highlighted code editor (:mod:`wijjit.elements.input.code_editor`). Extends ``TextArea`` with syntax highlighting powered by Pygments. Supports 500+ programming languages, multiple color themes (monokai, dracula, nord, github-light), line numbers, and automatic language detection.
