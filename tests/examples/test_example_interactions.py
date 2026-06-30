@@ -84,6 +84,21 @@ def test_error_handling_demo_json_error_shows_message_not_placeholders():
         assert "Result: Error" in screen
 
 
+def test_radio_demo_submit_does_not_crash_on_directional_padding():
+    """radio_demo submit renders the order summary without a layout crash.
+
+    Submitting reveals an `{% if state.submitted %}` block containing a
+    `{% vstack padding_left=2 %}`. Directional padding reaches the layout node
+    as a 4-tuple, which used to crash the VStack geometry (int + tuple). See
+    issues.md (06-29 review).
+    """
+    app = _load("widgets/radio_demo.py")
+    with WijjitHarness(app, size=(90, 36)) as h:
+        _click_button(h, "Submit Order")
+        assert app.state["submitted"] is True
+        h.assert_text("Order submitted")
+
+
 @pytest.mark.parametrize(
     "rel_path,label,old_key,new_text",
     [

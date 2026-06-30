@@ -119,6 +119,28 @@ class Bounds:
             or self.y >= other.bottom
         )
 
+    def intersect(self, other: Bounds) -> Bounds | None:
+        """Return the overlapping region with another bounds.
+
+        Parameters
+        ----------
+        other : Bounds
+            The other bounds to intersect with.
+
+        Returns
+        -------
+        Bounds or None
+            The intersection rectangle, or ``None`` if the two do not overlap
+            (no positive-area overlap).
+        """
+        ix = max(self.x, other.x)
+        iy = max(self.y, other.y)
+        ix2 = min(self.right, other.right)
+        iy2 = min(self.bottom, other.bottom)
+        if ix2 <= ix or iy2 <= iy:
+            return None
+        return Bounds(x=ix, y=iy, width=ix2 - ix, height=iy2 - iy)
+
     def __repr__(self) -> str:
         """String representation of bounds.
 

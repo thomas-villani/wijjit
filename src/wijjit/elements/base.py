@@ -261,6 +261,13 @@ class Element(ABC):
         self.focused = False
         self.hovered = False
         self.bounds: Bounds | None = None
+        # On-screen rect actually painted last frame: ``bounds`` shifted by any
+        # scrollable-ancestor scroll offset and intersected with the visible
+        # clip region. ``None`` when the element was not painted (e.g. scrolled
+        # out of view). Hit-testing (mouse_router) uses this so clicks land on
+        # an element where it visually appears, not at its unscrolled logical
+        # position. Set by the renderer each paint; do not sync from props.
+        self._screen_bounds: Bounds | None = None
         self.element_type = ElementType.DISPLAY
         self.tab_index = tab_index
         self._parent_frame_ref: weakref.ref[Any] | None = (

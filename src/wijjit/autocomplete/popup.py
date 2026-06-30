@@ -12,6 +12,7 @@ AutocompletePopup
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from wijjit.autocomplete.state import AutocompleteState
@@ -81,6 +82,11 @@ class AutocompletePopup(Element):
         self.max_visible = max_visible
         self.element_type = ElementType.SELECTABLE
         self.focusable = False  # Focus stays on input!
+
+        # Optional callback invoked when a suggestion is chosen by mouse click.
+        # The owning input wires this to its apply-suggestion handler so that
+        # clicking a row both highlights it and commits it to the input.
+        self.on_select: Callable[[], None] | None = None
 
         # Initialize scroll manager
         self._update_scroll_manager()
@@ -375,7 +381,12 @@ class AutocompletePopup(Element):
 
             if 0 <= clicked_index < len(self.suggestions):
                 self.highlighted_index = clicked_index
-                return True  # Signal selection should happen
+                # Commit the clicked suggestion to the owning input. Highlight
+                # alone is not enough - without this the click only moves the
+                # selection and never updates the text field.
+                if self.on_select is not None:
+                    self.on_select()
+                return True  # Signal selection happened
 
         elif event.type == MouseEventType.SCROLL:
             # Check scroll direction via button

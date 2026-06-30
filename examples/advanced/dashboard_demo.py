@@ -17,7 +17,7 @@ Controls:
 import random
 from datetime import datetime
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 # Create app with dashboard state
 app = Wijjit(
@@ -99,16 +99,16 @@ def simulate_data_update():
 def main_view():
     """Main dashboard view.
 
+    Derived display text (recent activity) is passed as live context; the view
+    re-runs each render, so it tracks state without being written back into it.
+
     Returns
     -------
-    dict
-        View configuration with template and data
+    RenderedView
+        The dashboard template plus its render context.
     """
-    # Format metrics for display
-    recent_activity_text = "\n".join(app.state.get("recent_activity", [])[-5:])
-
-    return {
-        "template": """
+    return render_template_string(
+        """
 {% frame title="System Dashboard" border="double" width=120 height=40 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
@@ -216,10 +216,8 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "recent_activity_text": recent_activity_text,
-        },
-    }
+        recent_activity_text="\n".join(app.state.get("recent_activity", [])[-5:]),
+    )
 
 
 @app.on_action("refresh")

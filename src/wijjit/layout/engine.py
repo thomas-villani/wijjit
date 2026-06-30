@@ -357,7 +357,7 @@ class Container(LayoutNode):
         width: int | str | Size = "auto",
         height: int | str | Size = "auto",
         spacing: int = 0,
-        padding: int = 0,
+        padding: int | tuple[int, int, int, int] = 0,
         margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
@@ -366,7 +366,10 @@ class Container(LayoutNode):
         super().__init__(width, height, id)
         self.children = children or []
         self.spacing = spacing
-        self.padding = padding
+        # Normalize padding to a 4-tuple (top, right, bottom, left) so directional
+        # padding (e.g. ``padding_left=2`` from a tag) is honored per-side instead
+        # of being mis-applied as a uniform scalar (or crashing the geometry math).
+        self.padding = parse_margin(padding)
         self.margin = parse_margin(margin)
         self.align_h = align_h
         self.align_v = align_v
@@ -428,7 +431,7 @@ class VStack(Container):
         width: int | str | Size = "fill",
         height: int | str | Size = "fill",
         spacing: int = 0,
-        padding: int = 0,
+        padding: int | tuple[int, int, int, int] = 0,
         margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
@@ -450,15 +453,17 @@ class VStack(Container):
             Calculated constraints
         """
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
+        pad_w = pad_left + pad_right
+        pad_h = pad_top + pad_bottom
 
         if not self.children:
             # Empty container
-            min_size = 2 * self.padding
             self.constraints = SizeConstraints(
-                min_width=min_size + margin_left + margin_right,
-                min_height=min_size + margin_top + margin_bottom,
-                preferred_width=min_size + margin_left + margin_right,
-                preferred_height=min_size + margin_top + margin_bottom,
+                min_width=pad_w + margin_left + margin_right,
+                min_height=pad_h + margin_top + margin_bottom,
+                preferred_width=pad_w + margin_left + margin_right,
+                preferred_height=pad_h + margin_top + margin_bottom,
             )
             return self.constraints
 
@@ -483,8 +488,8 @@ class VStack(Container):
         total_height += self.spacing * (len(self.children) - 1)
 
         # Add padding and margins
-        min_width = max_child_width + 2 * self.padding + margin_left + margin_right
-        min_height = total_height + 2 * self.padding + margin_top + margin_bottom
+        min_width = max_child_width + pad_w + margin_left + margin_right
+        min_height = total_height + pad_h + margin_top + margin_bottom
 
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
@@ -528,10 +533,11 @@ class VStack(Container):
 
         # Apply margins
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
 
         # Calculate available space for children (after margins and padding)
-        content_width = width - 2 * self.padding - margin_left - margin_right
-        content_height = height - 2 * self.padding - margin_top - margin_bottom
+        content_width = width - (pad_left + pad_right) - margin_left - margin_right
+        content_height = height - (pad_top + pad_bottom) - margin_top - margin_bottom
 
         # Save original content_height for alignment calculation
         original_content_height = content_height
@@ -577,8 +583,8 @@ class VStack(Container):
             vertical_offset = 0
 
         # Position children (offset by margins and vertical alignment)
-        current_y = y + margin_top + self.padding + vertical_offset
-        current_x = x + margin_left + self.padding
+        current_y = y + margin_top + pad_top + vertical_offset
+        current_x = x + margin_left + pad_left
 
         for child in self.children:
             if child.height_spec.is_fill:
@@ -685,7 +691,7 @@ class HStack(Container):
         width: int | str | Size = "auto",
         height: int | str | Size = "auto",
         spacing: int = 0,
-        padding: int = 0,
+        padding: int | tuple[int, int, int, int] = 0,
         margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
@@ -1028,15 +1034,17 @@ class HStack(Container):
             Calculated constraints
         """
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
+        pad_w = pad_left + pad_right
+        pad_h = pad_top + pad_bottom
 
         if not self.children:
             # Empty container
-            min_size = 2 * self.padding
             self.constraints = SizeConstraints(
-                min_width=min_size + margin_left + margin_right,
-                min_height=min_size + margin_top + margin_bottom,
-                preferred_width=min_size + margin_left + margin_right,
-                preferred_height=min_size + margin_top + margin_bottom,
+                min_width=pad_w + margin_left + margin_right,
+                min_height=pad_h + margin_top + margin_bottom,
+                preferred_width=pad_w + margin_left + margin_right,
+                preferred_height=pad_h + margin_top + margin_bottom,
             )
             return self.constraints
 
@@ -1074,18 +1082,12 @@ class HStack(Container):
             max_child_height = max(max_child_height, height)
 
         # Add padding and margins
-        preferred_content_width = (
-            total_width + 2 * self.padding + margin_left + margin_right
-        )
-        min_content_height = (
-            max_child_height + 2 * self.padding + margin_top + margin_bottom
-        )
+        preferred_content_width = total_width + pad_w + margin_left + margin_right
+        min_content_height = max_child_height + pad_h + margin_top + margin_bottom
 
         # For wrap mode, min_width only needs to fit widest single child
         if self.wrap:
-            min_content_width = (
-                max_child_width + 2 * self.padding + margin_left + margin_right
-            )
+            min_content_width = max_child_width + pad_w + margin_left + margin_right
         else:
             min_content_width = preferred_content_width
 
@@ -1135,14 +1137,15 @@ class HStack(Container):
 
         # Apply margins
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
 
         # Calculate available space for children (after margins and padding)
-        content_width = width - 2 * self.padding - margin_left - margin_right
-        content_height = height - 2 * self.padding - margin_top - margin_bottom
+        content_width = width - (pad_left + pad_right) - margin_left - margin_right
+        content_height = height - (pad_top + pad_bottom) - margin_top - margin_bottom
 
         # Content area start position
-        content_x = x + margin_left + self.padding
-        content_y = y + margin_top + self.padding
+        content_x = x + margin_left + pad_left
+        content_y = y + margin_top + pad_top
 
         # Check for fill children (disables justify in non-wrap mode)
         fill_children = [c for c in self.children if c.width_spec.is_fill]
@@ -1492,7 +1495,7 @@ class Grid(Container):
         col_gap: int = 0,
         width: int | str | Size = "fill",
         height: int | str | Size = "auto",
-        padding: int = 0,
+        padding: int | tuple[int, int, int, int] = 0,
         margin: int | tuple[int, int, int, int] = 0,
         align_h: HAlign = "stretch",
         align_v: VAlign = "stretch",
@@ -1650,12 +1653,14 @@ class Grid(Container):
             Calculated constraints
         """
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
+        pad_w = pad_left + pad_right
+        pad_h = pad_top + pad_bottom
 
         if not self.children:
-            min_size = 2 * self.padding
             self.constraints = SizeConstraints(
-                min_width=min_size + margin_left + margin_right,
-                min_height=min_size + margin_top + margin_bottom,
+                min_width=pad_w + margin_left + margin_right,
+                min_height=pad_h + margin_top + margin_bottom,
             )
             return self.constraints
 
@@ -1722,8 +1727,8 @@ class Grid(Container):
         total_height = sum(self._row_heights) + self.row_gap * (self.rows - 1)
 
         # Add padding and margins
-        min_width = total_width + 2 * self.padding + margin_left + margin_right
-        min_height = total_height + 2 * self.padding + margin_top + margin_bottom
+        min_width = total_width + pad_w + margin_left + margin_right
+        min_height = total_height + pad_h + margin_top + margin_bottom
 
         # Apply fixed size specs
         if self.width_spec.is_fixed:
@@ -1766,10 +1771,11 @@ class Grid(Container):
             return
 
         margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
 
         # Calculate content area
-        content_x = x + margin_left + self.padding
-        content_y = y + margin_top + self.padding
+        content_x = x + margin_left + pad_left
+        content_y = y + margin_top + pad_top
 
         # Calculate row Y positions
         row_y_positions = [0] * self.rows

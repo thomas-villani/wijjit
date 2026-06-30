@@ -352,6 +352,10 @@ class AutocompleteMixin:
         else:
             # Create popup with reference to state
             self._autocomplete_popup = AutocompletePopup(state)
+            # Wire mouse-click selection back to the input so clicking a
+            # suggestion commits it (keyboard Enter/Tab go through
+            # _handle_autocomplete_key directly).
+            self._autocomplete_popup.on_select = self._apply_selected_suggestion
             self._position_popup()
             # Push to overlay manager if available
             if self._overlay_manager:

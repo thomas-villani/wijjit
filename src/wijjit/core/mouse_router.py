@@ -17,6 +17,7 @@ from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
     from wijjit.elements.base import Element
+    from wijjit.layout.bounds import Bounds
 
 logger = get_logger(__name__)
 
@@ -391,6 +392,49 @@ class MouseEventRouter:
         """
         await self._route_to_element_async(event, target_element)
 
+    @staticmethod
+    def _hit_bounds(elem: Element) -> Bounds | None:
+        """Return the rect to hit-test ``elem`` against.
+
+        Prefer the on-screen rect the renderer actually painted last frame
+        (``_screen_bounds``): the element's logical ``bounds`` shifted by any
+        scrollable-ancestor scroll offset and clipped to the visible area.
+        Using it makes a click land on the element where it visually appears,
+        instead of at its unscrolled logical position (the cross-cutting
+        "must click below a scrolled button" bug).
+
+        Fall back to logical ``bounds`` only when no painted rect exists *and*
+        the element is not inside a scrolling frame. Inside a scrolling frame a
+        missing painted rect means the element was scrolled out of view (or
+        clipped), so it must not be hittable at its old logical position.
+
+        Parameters
+        ----------
+        elem : Element
+            The candidate element.
+
+        Returns
+        -------
+        Bounds or None
+            The rect to test the cursor against, or ``None`` if the element is
+            not currently hittable.
+        """
+        screen_bounds = elem._screen_bounds
+        if screen_bounds is not None:
+            return screen_bounds
+        # No painted rect recorded. If any ancestor frame actually scrolls, the
+        # element is out of view -> not hittable. Otherwise (static layout or
+        # manually positioned elements) fall back to logical bounds.
+        parent = getattr(elem, "parent_frame", None)
+        while parent is not None:
+            style = getattr(parent, "style", None)
+            if getattr(style, "scrollable", False) and getattr(
+                parent, "_needs_scroll", False
+            ):
+                return None
+            parent = getattr(parent, "parent_frame", None)
+        return elem.bounds
+
     def _find_element_at(self, x: int, y: int) -> Element | None:
         """Find the element at the given coordinates.
 
@@ -416,7 +460,8 @@ class MouseEventRouter:
         for elem in reversed(self.app.positioned_elements):
             if isinstance(elem, TextElement):
                 continue
-            if elem.bounds and elem.bounds.contains(x, y):
+            hit = self._hit_bounds(elem)
+            if hit and hit.contains(x, y):
                 return elem  # type: ignore[no-any-return]
         return None
 
@@ -448,7 +493,8 @@ class MouseEventRouter:
             if isinstance(elem, TextElement):
                 continue
 
-            if not elem.bounds or not elem.bounds.contains(x, y):
+            hit = self._hit_bounds(elem)
+            if not hit or not hit.contains(x, y):
                 continue
 
             # Check if it's a TabbedPanel (handles scroll via delegation to frame)

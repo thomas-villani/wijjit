@@ -70,6 +70,11 @@ def demo_default_theme():
 """
         return {"template": template}
 
+    @app.on_key("q")
+    def on_quit(event):
+        """Quit when 'q' is pressed (matches the on-screen hint)."""
+        app.quit()
+
     print("\nRunning app with dark theme...")
     app.run()
 

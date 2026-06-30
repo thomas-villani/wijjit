@@ -52,13 +52,12 @@ def main():
 
     app.state.watch("fetch_count", on_fetch_count_change)
 
-    # Async view function
+    # Async view function. Async views are resolved once on navigation (their
+    # body cannot be awaited from the synchronous render path); dynamic content
+    # flows through live `state`, so the body stays free of per-render work.
     @app.view("main", default=True)
     async def main_view():
         """Main view with async data loading."""
-        # Could load initial data here
-        await asyncio.sleep(0.1)  # Simulate some async work
-
         return {
             "template": """
 {% frame title="Async Demo" %}

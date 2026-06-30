@@ -25,6 +25,10 @@ app = Wijjit(
         "event_log": [],
         "key_pressed": "",
         "handler_count": 0,
+        # Rendered text for the log panel. This MUST live in state (not a
+        # precomputed view ``data`` value): a view function runs once and its
+        # ``data`` dict is frozen, so only ``state`` stays live across renders.
+        "event_log_text": "No events yet... Press some keys!",
     }
 )
 
@@ -44,6 +48,8 @@ def log_event(source, message):
 
     # Keep last 15 events
     app.state["event_log"] = log[-15:]
+    # Refresh the live, rendered log text so the panel updates on re-render.
+    app.state["event_log_text"] = "\n".join(app.state["event_log"][-12:])
 
 
 @app.view("view1", default=True)
@@ -55,10 +61,6 @@ def view1():
     dict
         View configuration
     """
-    event_log_text = "\n".join(app.state.get("event_log", [])[-12:])
-    if not event_log_text:
-        event_log_text = "No events yet... Press some keys!"
-
     return {
         "template": """
 {% frame title="Event Patterns Demo - View 1" border="double" width=100 height=36 %}
@@ -119,7 +121,7 @@ def view1():
       {% vstack spacing=1 width=48 %}
         {% frame title="Event Log" border="single" width="fill" height=26 %}
           {% vstack padding=1 %}
-{{ event_log_text }}
+{{ state.event_log_text }}
           {% endvstack %}
         {% endframe %}
       {% endvstack %}
@@ -138,9 +140,6 @@ def view1():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "event_log_text": event_log_text,
-        },
         "on_enter": setup_view1_handlers,
     }
 
@@ -154,8 +153,6 @@ def view2():
     dict
         View configuration
     """
-    event_log_text = "\n".join(app.state.get("event_log", [])[-12:])
-
     return {
         "template": """
 {% frame title="Event Patterns Demo - View 2" border="double" width=100 height=36 %}
@@ -167,7 +164,7 @@ def view2():
 
     {% frame title="Event Log" border="single" height=25 %}
       {% vstack padding=1 %}
-{{ event_log_text }}
+{{ state.event_log_text }}
       {% endvstack %}
     {% endframe %}
 
@@ -184,9 +181,6 @@ def view2():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "event_log_text": event_log_text,
-        },
         "on_enter": setup_view2_handlers,
     }
 
@@ -200,8 +194,6 @@ def view3():
     dict
         View configuration
     """
-    event_log_text = "\n".join(app.state.get("event_log", [])[-12:])
-
     return {
         "template": """
 {% frame title="Event Patterns Demo - View 3 (Priority Demo)" border="double" width=100 height=36 %}
@@ -213,7 +205,7 @@ def view3():
 
     {% frame title="Event Log" border="single" height=25 %}
       {% vstack padding=1 %}
-{{ event_log_text }}
+{{ state.event_log_text }}
       {% endvstack %}
     {% endframe %}
 
@@ -230,9 +222,6 @@ def view3():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "event_log_text": event_log_text,
-        },
         "on_enter": setup_view3_handlers,
     }
 

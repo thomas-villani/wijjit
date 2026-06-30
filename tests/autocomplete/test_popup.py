@@ -297,6 +297,34 @@ class TestAutocompletePopupMouseHandling:
         assert popup.highlighted_index == 1
 
     @pytest.mark.asyncio
+    async def test_handle_mouse_click_invokes_on_select(self):
+        """Clicking a suggestion fires the on_select callback.
+
+        Regression: previously the click only moved the highlight and returned
+        True; nothing committed the suggestion to the owning input, so
+        mouse-selection silently did nothing.
+        """
+        from wijjit.layout.bounds import Bounds
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        state, popup = make_popup(["apple", "banana", "cherry"])
+        popup.bounds = Bounds(x=10, y=5, width=20, height=5)
+
+        calls: list[int] = []
+        popup.on_select = lambda: calls.append(popup.highlighted_index)
+
+        event = MouseEvent(
+            x=15,
+            y=7,  # second item
+            button=MouseButton.LEFT,
+            type=MouseEventType.CLICK,
+        )
+        result = await popup.handle_mouse(event)
+        assert result is True
+        # Callback fired exactly once, after the highlight moved to the clicked row.
+        assert calls == [1]
+
+    @pytest.mark.asyncio
     async def test_handle_mouse_click_outside(self):
         """Test clicking outside popup returns False."""
         from wijjit.layout.bounds import Bounds

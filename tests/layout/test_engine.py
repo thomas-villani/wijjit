@@ -260,6 +260,36 @@ class TestVStack:
         assert child.bounds.x == 2
         assert child.bounds.y == 2
 
+    def test_directional_tuple_padding_constraints(self):
+        """Tuple padding (top, right, bottom, left) is honored per side.
+
+        Regression: directional padding (e.g. ``padding_left=2`` from a tag)
+        reaches the node as a 4-tuple. The geometry used to assume a scalar and
+        crashed with ``unsupported operand type(s) for +: 'int' and 'tuple'``
+        (radio_demo submit). See issues.md.
+        """
+        child = ElementNode(MockElement(width=10, height=3))
+        # (top, right, bottom, left) = (1, 2, 3, 4)
+        vstack = VStack(children=[child], padding=(1, 2, 3, 4))
+
+        constraints = vstack.calculate_constraints()
+
+        # Width adds left+right = 6, height adds top+bottom = 4.
+        assert constraints.preferred_width == 10 + (4 + 2)
+        assert constraints.preferred_height == 3 + (1 + 3)
+
+    def test_directional_tuple_padding_position(self):
+        """Children are offset by left/top padding, not a uniform value."""
+        child = ElementNode(MockElement(width=10, height=2))
+        vstack = VStack(children=[child], padding=(1, 2, 3, 4))
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 30, 10)
+
+        # x offset by left padding (4), y by top padding (1).
+        assert child.bounds.x == 4
+        assert child.bounds.y == 1
+
     def test_fill_height_distribution(self):
         """Test fill height distributed among children."""
         child1 = ElementNode(MockElement(width=10, height=2), height="fill")

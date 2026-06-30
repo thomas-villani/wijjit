@@ -35,7 +35,7 @@ Controls:
 
 import shutil
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.logging_config import configure_logging
 
 # Enable debug logging
@@ -120,27 +120,25 @@ def create_app():
 
     @app.view("main", default=True)
     def main_view():
-        """Main textarea view."""
-        # Calculate dynamic values
+        """Main textarea view.
+
+        Derived values (line/char counts) are passed straight to the template as
+        live context - the view re-runs each render, so they stay current
+        without writing them back into state.
+        """
         content = app.state.get("content", "")
-        lines = content.count("\n") + 1 if content else 0
-        chars = len(content)
-        wrap_mode_display = app.state.get("wrap_mode", "none").upper()
-
-        # Update state with computed values
-        app.state["lines"] = lines
-        app.state["chars"] = chars
-        app.state["wrap_display"] = wrap_mode_display
-
-        return {
-            "template": """{% frame height="fill" title="TextArea demo" %}
+        return render_template_string(
+            """{% frame height="fill" title="TextArea demo" %}
 {% textarea id="content" height=10 width=80 show_scrollbar=true border="single" %}{% endtextarea %}
 
-  Lines: {{ state.lines }}  |  Chars: {{ state.chars }}  |  Wrap: {{ state.wrap_display }}
+  Lines: {{ lines }}  |  Chars: {{ chars }}  |  Wrap: {{ wrap_display }}
   [Shift+Arrows] Select  [Ctrl+C/X/V] Clipboard  [Ctrl+A] Select All  [Ctrl+Q] Quit
 {% endframe %}
 """,
-        }
+            lines=content.count("\n") + 1 if content else 0,
+            chars=len(content),
+            wrap_display=app.state.get("wrap_mode", "none").upper(),
+        )
 
     return app
 

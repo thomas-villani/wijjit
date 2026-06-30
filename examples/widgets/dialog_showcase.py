@@ -26,6 +26,10 @@ app = Wijjit(
         "last_dialog": "None",
         "dialog_result": "",
         "action_log": [],
+        # Rendered text for the log panel. This MUST live in state (not a
+        # precomputed view ``data`` value): a view function runs once and its
+        # ``data`` dict is frozen, so only ``state`` stays live across renders.
+        "action_log_text": "No actions yet...",
     }
 )
 
@@ -45,6 +49,8 @@ def log_action(action, result):
 
     # Keep last 10 actions
     app.state["action_log"] = log[-10:]
+    # Refresh the live, rendered log text so the panel updates on re-render.
+    app.state["action_log_text"] = "\n".join(app.state["action_log"][-8:])
 
 
 def show_centered_dialog(dialog):
@@ -83,10 +89,6 @@ def main_view():
     dict
         View configuration with template and data
     """
-    action_log_text = "\n".join(app.state.get("action_log", [])[-8:])
-    if not action_log_text:
-        action_log_text = "No actions yet..."
-
     return {
         "template": """
 {% frame title="Dialog Showcase" border="double" width=90 height=28 %}
@@ -126,7 +128,7 @@ def main_view():
 
         {% frame title="Action Log" border="single" width="fill" height=12 %}
           {% vstack padding=1 %}
-{{ action_log_text }}
+{{ state.action_log_text }}
           {% endvstack %}
         {% endframe %}
       {% endvstack %}
@@ -139,9 +141,6 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        "data": {
-            "action_log_text": action_log_text,
-        },
     }
 
 
@@ -432,6 +431,7 @@ def handle_clear_log(event):
         The action event
     """
     app.state["action_log"] = []
+    app.state["action_log_text"] = "No actions yet..."
     app.state["dialog_result"] = "Log cleared"
 
 
