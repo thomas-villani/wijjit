@@ -99,14 +99,15 @@ class Toggle(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         checked: bool = False,
         label: str | None = None,
         on_label: str = "ON",
         off_label: str = "OFF",
         label_mode: LabelMode = "single",
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.BUTTON  # Interactive like button
         self.focusable = True
 

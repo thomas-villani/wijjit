@@ -83,7 +83,7 @@ class NotificationElement(OverlayElement):
         self,
         message: str,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         severity: str | NotificationSeverity = NotificationSeverity.INFO,
         action_label: str | None = None,
         action_callback: Callable[..., Any] | None = None,

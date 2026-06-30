@@ -108,7 +108,7 @@ class ImageView(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         src: ImageSource = None,
         width: int | str | None = None,
         height: int | str | None = None,

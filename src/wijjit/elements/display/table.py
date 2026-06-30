@@ -103,7 +103,7 @@ class Table(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         data: list[dict] | None = None,
         columns: list[str] | list[dict] | None = None,
         width: int = 60,

@@ -99,7 +99,7 @@ class Gauge(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         value: float = 0,
         min_value: float = 0,
         max_value: float = 100,

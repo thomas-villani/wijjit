@@ -88,7 +88,7 @@ class LineChart(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         data: list[Any] | dict[str, list[Any]] | None = None,
         width: int = 60,
         height: int = 12,

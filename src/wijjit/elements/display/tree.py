@@ -140,7 +140,7 @@ class Tree(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         data: dict[str, Any] | list | None = None,
         multiple: bool = False,
         selected_ids: list[str] | None = None,

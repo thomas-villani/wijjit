@@ -102,7 +102,7 @@ class MenuElement(OverlayElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         items: list[MenuItem] | None = None,
         width: int = 30,
         border_style: BorderStyle | str = BorderStyle.SINGLE,
@@ -547,7 +547,7 @@ class DropdownMenu(MenuElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         items: list[MenuItem] | None = None,
         trigger_text: str = "Menu",
         trigger_key: str | None = None,
@@ -598,7 +598,7 @@ class ContextMenu(MenuElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         items: list[MenuItem] | None = None,
         target_element_id: str | None = None,
         width: int = 30,
