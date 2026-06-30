@@ -1118,7 +1118,7 @@ class GridExtension(Extension):
 
     Syntax::
 
-        {% grid rows=2 cols=3 row_gap=1 col_gap=2 %}
+        {% grid rows=2 cols=3 row_gap=1 column_gap=2 %}
             ... children ...
         {% endgrid %}
     """
@@ -1157,7 +1157,8 @@ class GridExtension(Extension):
         rows: int = 2,
         cols: int = 2,
         row_gap: int = 0,
-        col_gap: int = 0,
+        column_gap: int = 0,
+        col_gap: int | None = None,
         width: int | str = "fill",
         height: int | str = "auto",
         padding: int | str | tuple[int, ...] = 0,
@@ -1179,8 +1180,11 @@ class GridExtension(Extension):
             Number of columns in the grid (default: 2)
         row_gap : int
             Vertical gap between rows (default: 0)
-        col_gap : int
-            Horizontal gap between columns (default: 0)
+        column_gap : int
+            Horizontal gap between columns (default: 0). Matches HStack's
+            ``column_gap``.
+        col_gap : int, optional
+            Deprecated alias for ``column_gap``.
         width : int or str
             Width specification (default: "fill")
         height : int or str
@@ -1208,10 +1212,14 @@ class GridExtension(Extension):
         # Parse attributes
         width_parsed = parse_size_attr(width)
         height_parsed = parse_size_attr(height)
-        rows_int = int(rows)
-        cols_int = int(cols)
-        row_gap_int = int(row_gap)
-        col_gap_int = int(col_gap)
+        # "col_gap" is a deprecated alias for the canonical "column_gap"
+        # (matching HStack, which already spells the full word).
+        if col_gap is not None:
+            column_gap = col_gap
+        rows_int = safe_int(rows, default=2, name="rows")
+        cols_int = safe_int(cols, default=2, name="cols")
+        row_gap_int = safe_int(row_gap, default=0, name="row_gap")
+        column_gap_int = safe_int(column_gap, default=0, name="column_gap")
 
         # Parse padding and margin
         _, _, _, padding_parsed, margin_parsed = _parse_for_render(
@@ -1224,7 +1232,7 @@ class GridExtension(Extension):
         vnode.set_prop("rows", rows_int)
         vnode.set_prop("cols", cols_int)
         vnode.set_prop("row_gap", row_gap_int)
-        vnode.set_prop("col_gap", col_gap_int)
+        vnode.set_prop("column_gap", column_gap_int)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
