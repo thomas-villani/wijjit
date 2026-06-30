@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
+    begin_chart_border,
     get_gradient_color,
     get_threshold_color,
 )
@@ -63,6 +64,11 @@ class Gauge(Element):
         Label text displayed above gauge (default: None)
     unit : str, optional
         Unit suffix for value display (default: "")
+    border : str, optional
+        Border style drawn around the gauge: "none", "single", "double",
+        "rounded", "heavy", "ascii" (default: "none"). When a visible border is
+        set, it is drawn within the element's ``width``/``height`` and content
+        is inset one cell on every side.
 
     Attributes
     ----------
@@ -114,6 +120,7 @@ class Gauge(Element):
         thresholds: list[tuple[float, tuple[int, int, int]]] | None = None,
         label: str | None = None,
         unit: str = "",
+        border: str = "none",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -135,6 +142,7 @@ class Gauge(Element):
         self.thresholds = thresholds
         self.label = label
         self.unit = unit
+        self.border = border
 
         # Auto-calculate height based on style unless an explicit integer is
         # given. The layout layer may pass a non-integer height spec such as
@@ -210,13 +218,19 @@ class Gauge(Element):
             return get_threshold_color(normalized, self.thresholds)
         return None
 
-    def _render_linear(self, ctx: PaintContext) -> None:
+    def _render_linear(
+        self, ctx: PaintContext, avail_width: int, avail_height: int
+    ) -> None:
         """Render linear (horizontal bar) gauge style.
 
         Parameters
         ----------
         ctx : PaintContext
-            Paint context
+            Paint context (already inset inside any border)
+        avail_width : int
+            Available content width (excluding any border)
+        avail_height : int
+            Available content height (excluding any border)
         """
         from wijjit.terminal.ansi import supports_unicode
         from wijjit.terminal.cell import Cell
@@ -238,11 +252,11 @@ class Gauge(Element):
             current_y += 1
 
         # Calculate bar dimensions
-        bar_width = self.width
+        bar_width = avail_width
         if self.show_value:
             # Reserve space for value display
             value_text = f"{self.value:.0f}{self.unit}"
-            bar_width = max(1, self.width - len(value_text) - 1)
+            bar_width = max(1, avail_width - len(value_text) - 1)
 
         # Get normalized value and color
         normalized = self.get_normalized()
@@ -304,13 +318,19 @@ class Gauge(Element):
             max_x = max(0, bar_width - len(max_text))
             ctx.write_text(max_x, current_y, max_text, label_style)
 
-    def _render_arc(self, ctx: PaintContext) -> None:
+    def _render_arc(
+        self, ctx: PaintContext, avail_width: int, avail_height: int
+    ) -> None:
         """Render arc (semi-circular) gauge style.
 
         Parameters
         ----------
         ctx : PaintContext
-            Paint context
+            Paint context (already inset inside any border)
+        avail_width : int
+            Available content width (excluding any border)
+        avail_height : int
+            Available content height (excluding any border)
         """
         from wijjit.terminal.ansi import supports_unicode
         from wijjit.terminal.cell import Cell
@@ -329,13 +349,13 @@ class Gauge(Element):
         # Render label if present
         if self.label:
             # Center label
-            label_x = max(0, (self.width - len(self.label)) // 2)
+            label_x = max(0, (avail_width - len(self.label)) // 2)
             ctx.write_text(label_x, current_y, self.label, label_style)
             current_y += 1
 
         # Arc parameters
-        arc_width = self.width
-        arc_height = self.height - current_y - 1  # Leave room for value
+        arc_width = avail_width
+        arc_height = avail_height - current_y - 1  # Leave room for value
         center_x = arc_width // 2
         center_y = arc_height
 
@@ -397,8 +417,8 @@ class Gauge(Element):
         # Render value at center bottom
         if self.show_value:
             value_text = f"{self.value:.0f}{self.unit}"
-            value_x = max(0, (self.width - len(value_text)) // 2)
-            value_y = self.height - 1
+            value_x = max(0, (avail_width - len(value_text)) // 2)
+            value_y = avail_height - 1
             ctx.write_text(value_x, value_y, value_text, value_style)
 
         # Render min/max at arc ends
@@ -408,7 +428,7 @@ class Gauge(Element):
 
             min_y = current_y + arc_height - 1
             ctx.write_text(0, min_y, min_text, label_style)
-            max_x = max(0, self.width - len(max_text))
+            max_x = max(0, avail_width - len(max_text))
             ctx.write_text(max_x, min_y, max_text, label_style)
 
     def render_to(self, ctx: PaintContext) -> None:
@@ -429,8 +449,16 @@ class Gauge(Element):
         - ``gauge.empty``: Empty portion style
         - ``gauge.label``: Label text style
         - ``gauge.value``: Value text style
+        - ``gauge.border``: Border style (when ``border`` is set)
         """
+        # Draw the border (if any) and inset content into the remaining region.
+        # With the default border ("none") this returns the original context and
+        # full dimensions, so the render is unchanged.
+        ctx, avail_width, avail_height = begin_chart_border(
+            ctx, self, self.width, self.height, "gauge.border"
+        )
+
         if self.style == "arc":
-            self._render_arc(ctx)
+            self._render_arc(ctx, avail_width, avail_height)
         else:
-            self._render_linear(ctx)
+            self._render_linear(ctx, avail_width, avail_height)

@@ -172,11 +172,14 @@ class BarChartExtension(Extension):
         color: Literal["default", "gradient", "threshold"] = "default",
         color_scale: str = "green",
         show_scrollbar: bool = True,
-        show_border: bool = False,
+        border: str | None = None,
+        border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
     ) -> str:
         """Render the barchart tag."""
+        if border is not None:
+            border_style = border
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -211,7 +214,7 @@ class BarChartExtension(Extension):
         vnode.set_prop("color", color)
         vnode.set_prop("color_scale", color_scale)
         vnode.set_prop("show_scrollbar", bool(show_scrollbar))
-        vnode.set_prop("show_border", bool(show_border))
+        vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -279,10 +282,14 @@ class ColumnChartExtension(Extension):
         show_grid: bool = False,
         color: Literal["default", "gradient", "threshold"] = "default",
         color_scale: str = "green",
+        border: str | None = None,
+        border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
     ) -> str:
         """Render the columnchart tag."""
+        if border is not None:
+            border_style = border
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -314,6 +321,7 @@ class ColumnChartExtension(Extension):
         vnode.set_prop("show_grid", bool(show_grid))
         vnode.set_prop("color", color)
         vnode.set_prop("color_scale", color_scale)
+        vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -380,10 +388,14 @@ class LineChartExtension(Extension):
         show_points: bool = False,
         show_legend: bool = True,
         color: str | None = None,
+        border: str | None = None,
+        border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
     ) -> str:
         """Render the linechart tag."""
+        if border is not None:
+            border_style = border
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -412,6 +424,7 @@ class LineChartExtension(Extension):
         vnode.set_prop("show_points", bool(show_points))
         vnode.set_prop("show_legend", bool(show_legend))
         vnode.set_prop("color", color)
+        vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -481,10 +494,14 @@ class GaugeExtension(Extension):
         color_scale: str = "green",
         label: str | None = None,
         unit: str = "",
+        border: str | None = None,
+        border_style: str = "none",
         bind: bool = True,
         **kwargs: Any,
     ) -> str:
         """Render the gauge tag."""
+        if border is not None:
+            border_style = border
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -524,6 +541,7 @@ class GaugeExtension(Extension):
             vnode.set_prop("label", label)
         if unit:
             vnode.set_prop("unit", unit)
+        vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -592,10 +610,14 @@ class HeatMapExtension(Extension):
         col_labels: list[str] | None = None,
         min_value: float | None = None,
         max_value: float | None = None,
+        border: str | None = None,
+        border_style: str = "single",
         bind: bool = True,
         **kwargs: Any,
     ) -> str:
         """Render the heatmap tag."""
+        if border is not None:
+            border_style = border
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -633,6 +655,7 @@ class HeatMapExtension(Extension):
             vnode.set_prop("min_value", float(min_value))
         if max_value is not None:
             vnode.set_prop("max_value", float(max_value))
+        vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(

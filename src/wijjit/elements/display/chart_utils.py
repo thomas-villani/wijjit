@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from wijjit.layout.frames import BORDER_THICKNESS, has_border
+from wijjit.layout.frames import (
+    BORDER_THICKNESS,
+    BorderStyle,
+    get_border_chars,
+    has_border,
+)
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -52,10 +57,20 @@ def begin_chart_border(
         ``(inner_ctx, inner_width, inner_height)``. With no border this is the
         original context and the full dimensions.
     """
-    if not has_border(getattr(element, "border", None)):
+    border_value = getattr(element, "border", None)
+    if not has_border(border_value):
         return ctx, width, height
-    border_style = ctx.style_resolver.resolve_style(element, style_class)
-    ctx.draw_border(0, 0, width, height, border_style)
+    style = ctx.style_resolver.resolve_style(element, style_class)
+    # Honor the requested box style (single/double/rounded), not just single.
+    try:
+        border_enum = (
+            border_value
+            if isinstance(border_value, BorderStyle)
+            else BorderStyle(str(border_value).lower())
+        )
+    except ValueError:
+        border_enum = BorderStyle.SINGLE
+    ctx.draw_border(0, 0, width, height, style, get_border_chars(border_enum))
     thickness = BORDER_THICKNESS
     inner_width = max(0, width - 2 * thickness)
     inner_height = max(0, height - 2 * thickness)
@@ -473,6 +488,12 @@ def calculate_axis_ticks(
     """
     if min_val == max_val:
         return [min_val]
+
+    # Need at least two ticks to span a range; fewer (e.g. a very short chart,
+    # or one whose height was reduced by a border) degenerates to the endpoints
+    # rather than dividing by zero.
+    if max_ticks < 2:
+        return [min_val, max_val]
 
     range_val = max_val - min_val
 

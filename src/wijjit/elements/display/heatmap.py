@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
-from wijjit.elements.display.chart_utils import get_gradient_color
+from wijjit.elements.display.chart_utils import begin_chart_border, get_gradient_color
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -53,6 +53,9 @@ class HeatMap(Element):
         Minimum value for color scaling (default: auto)
     max_value : float, optional
         Maximum value for color scaling (default: auto)
+    border : str, optional
+        Border style drawn within the element bounds (e.g. ``"single"``,
+        ``"double"``, ``"rounded"``, ``"none"``) (default: ``"single"``)
 
     Attributes
     ----------
@@ -104,6 +107,7 @@ class HeatMap(Element):
         col_labels: list[str] | None = None,
         min_value: float | None = None,
         max_value: float | None = None,
+        border: str = "single",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -126,6 +130,7 @@ class HeatMap(Element):
         self.col_labels = col_labels or []
         self.min_value = min_value
         self.max_value = max_value
+        self.border = border
 
         # Template metadata
         self.action: str | None = None
@@ -242,6 +247,11 @@ class HeatMap(Element):
         label_style = ctx.style_resolver.resolve_style(self, "heatmap.label")
         legend_style = ctx.style_resolver.resolve_style(self, "heatmap.legend")
 
+        # Draw the border (if any) and inset content into the remaining region.
+        ctx, avail_width, avail_height = begin_chart_border(
+            ctx, self, self.width, self.height, "heatmap.border"
+        )
+
         # use_unicode = supports_unicode()
 
         # Calculate layout
@@ -254,8 +264,8 @@ class HeatMap(Element):
 
         grid_left = label_width
         grid_top = label_height
-        grid_height = self.height - label_height - legend_height
-        grid_width = self.width - label_width
+        grid_height = avail_height - label_height - legend_height
+        grid_width = avail_width - label_width
 
         # Get value range for color scaling
         min_val, max_val = self._get_value_range()
@@ -279,7 +289,7 @@ class HeatMap(Element):
         for row_idx, row in enumerate(self._grid[:visible_rows]):
             y = grid_top + row_idx * self.cell_height
 
-            if y >= self.height - legend_height:
+            if y >= avail_height - legend_height:
                 break
 
             # Row label
@@ -291,7 +301,7 @@ class HeatMap(Element):
             for col_idx, value in enumerate(row[:visible_cols]):
                 x = grid_left + col_idx * self.cell_width
 
-                if x >= self.width:
+                if x >= avail_width:
                     break
 
                 # Get color for this cell
@@ -320,9 +330,9 @@ class HeatMap(Element):
                 # Render cell
                 for char_idx, char in enumerate(value_str):
                     cell_x = x + char_idx
-                    if cell_x < self.width:
+                    if cell_x < avail_width:
                         for cell_y_offset in range(self.cell_height):
-                            if y + cell_y_offset < self.height - legend_height:
+                            if y + cell_y_offset < avail_height - legend_height:
                                 ctx.buffer.set_cell(
                                     ctx.bounds.x + cell_x,
                                     ctx.bounds.y + y + cell_y_offset,
@@ -331,8 +341,8 @@ class HeatMap(Element):
 
         # Render legend
         if self.show_legend:
-            legend_y = self.height - 1
-            # legend_width = min(20, self.width - 10)
+            legend_y = avail_height - 1
+            # legend_width = min(20, avail_width - 10)
 
             # Legend label
             min_label = f"{min_val:.0f}"
@@ -342,7 +352,7 @@ class HeatMap(Element):
 
             # Gradient bar
             bar_start = len(min_label) + 1
-            bar_end = self.width - len(max_label) - 1
+            bar_end = avail_width - len(max_label) - 1
             bar_width = bar_end - bar_start
 
             for i in range(bar_width):
@@ -359,8 +369,8 @@ class HeatMap(Element):
 
         # Fill background for empty areas
         base_attrs = base_style.to_cell_attrs()
-        for y in range(self.height):
-            for x in range(self.width):
+        for y in range(avail_height):
+            for x in range(avail_width):
                 cell = ctx.buffer.get_cell(ctx.bounds.x + x, ctx.bounds.y + y)
                 if cell is None or cell.char == "\x00":
                     ctx.buffer.set_cell(
