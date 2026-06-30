@@ -110,7 +110,8 @@ class ColumnChart(Element):
         show_axis: bool = True,
         axis_width: int = 6,
         show_grid: bool = False,
-        color: Literal["default", "gradient", "threshold"] = "default",
+        color_mode: Literal["default", "gradient", "threshold"] = "default",
+        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         border: str = "single",
     ) -> None:
@@ -131,7 +132,8 @@ class ColumnChart(Element):
         self.show_axis = show_axis
         self.axis_width = axis_width
         self.show_grid = show_grid
-        self.color = color
+        # ``color`` is a deprecated alias for the ``color_mode`` enum.
+        self.color_mode = color if color is not None else color_mode
         self.color_scale = color_scale
         self.border = border
 
@@ -199,13 +201,22 @@ class ColumnChart(Element):
         tuple of int or None
             RGB color tuple, or None for default
         """
-        if self.color == "gradient":
+        if self.color_mode == "gradient":
             return get_gradient_color(
                 normalized, 0.0, 1.0, self.color_scale  # type: ignore
             )
-        elif self.color == "threshold":
+        elif self.color_mode == "threshold":
             return get_threshold_color(normalized)
         return None
+
+    @property
+    def color(self) -> str:
+        """Deprecated alias for :attr:`color_mode`."""
+        return self.color_mode
+
+    @color.setter
+    def color(self, value: str) -> None:
+        self.color_mode = value  # type: ignore[assignment]
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the column chart using cell-based rendering.

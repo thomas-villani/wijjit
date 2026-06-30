@@ -169,7 +169,8 @@ class BarChartExtension(Extension):
         show_values: bool = True,
         label_width: int | None = None,
         value_width: int = 6,
-        color: Literal["default", "gradient", "threshold"] = "default",
+        color_mode: Literal["default", "gradient", "threshold"] = "default",
+        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         show_scrollbar: bool = True,
         border: str | None = None,
@@ -211,7 +212,9 @@ class BarChartExtension(Extension):
         vnode.set_prop(
             "value_width", safe_int(value_width, default=6, name="value_width")
         )
-        vnode.set_prop("color", color)
+        if color is not None:
+            color_mode = color
+        vnode.set_prop("color_mode", color_mode)
         vnode.set_prop("color_scale", color_scale)
         vnode.set_prop("show_scrollbar", bool(show_scrollbar))
         vnode.set_prop("border", border_style)
@@ -280,7 +283,8 @@ class ColumnChartExtension(Extension):
         show_axis: bool = True,
         axis_width: int = 6,
         show_grid: bool = False,
-        color: Literal["default", "gradient", "threshold"] = "default",
+        color_mode: Literal["default", "gradient", "threshold"] = "default",
+        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         border: str | None = None,
         border_style: str = "single",
@@ -319,7 +323,9 @@ class ColumnChartExtension(Extension):
         vnode.set_prop("show_axis", bool(show_axis))
         vnode.set_prop("axis_width", safe_int(axis_width, default=6, name="axis_width"))
         vnode.set_prop("show_grid", bool(show_grid))
-        vnode.set_prop("color", color)
+        if color is not None:
+            color_mode = color
+        vnode.set_prop("color_mode", color_mode)
         vnode.set_prop("color_scale", color_scale)
         vnode.set_prop("border", border_style)
         vnode.set_prop("bind", bind)
@@ -490,7 +496,8 @@ class GaugeExtension(Extension):
         show_value: bool = True,
         show_minmax: bool = False,
         show_ticks: bool = False,
-        color: Literal["default", "gradient", "threshold"] = "threshold",
+        color_mode: Literal["default", "gradient", "threshold"] = "threshold",
+        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         label: str | None = None,
         unit: str = "",
@@ -535,7 +542,9 @@ class GaugeExtension(Extension):
         vnode.set_prop("show_value", bool(show_value))
         vnode.set_prop("show_minmax", bool(show_minmax))
         vnode.set_prop("show_ticks", bool(show_ticks))
-        vnode.set_prop("color", color)
+        if color is not None:
+            color_mode = color
+        vnode.set_prop("color_mode", color_mode)
         vnode.set_prop("color_scale", color_scale)
         if label:
             vnode.set_prop("label", label)
