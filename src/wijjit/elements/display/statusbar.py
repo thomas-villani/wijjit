@@ -58,7 +58,7 @@ class StatusBar(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         left: str = "",
         center: str = "",
         right: str = "",

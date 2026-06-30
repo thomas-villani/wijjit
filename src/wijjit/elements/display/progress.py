@@ -96,7 +96,7 @@ class ProgressBar(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         value: float = 0,
         max: float = 100,
         width: int = 40,

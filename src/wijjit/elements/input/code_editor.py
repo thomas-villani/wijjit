@@ -467,7 +467,8 @@ class CodeEditor(TextArea):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         value: str = "",
         language: str | None = "python",
         theme: str = DEFAULT_THEME,
@@ -483,6 +484,7 @@ class CodeEditor(TextArea):
         super().__init__(
             id=id,
             classes=classes,
+            tab_index=tab_index,
             value="",  # Set value later after highlighter is ready
             width=width,
             height=height,

@@ -98,7 +98,8 @@ class Slider(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         min_val: float = 0,
         max_val: float = 100,
         value: float | None = None,
@@ -108,7 +109,7 @@ class Slider(Element):
         label: str | None = None,
         show_value: bool = True,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
         self.focusable = True
 

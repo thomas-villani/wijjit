@@ -197,7 +197,8 @@ class DataGrid(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         data: DataInput | None = None,
         columns: list[str] | list[dict[str, Any]] | None = None,
         width: int = 60,
@@ -207,7 +208,7 @@ class DataGrid(ScrollableElement):
         border_style: BorderStyle | str = "single",
         show_scrollbar: bool = True,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
         self.focusable = True
 

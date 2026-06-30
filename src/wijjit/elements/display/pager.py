@@ -118,6 +118,7 @@ class Pager(Container):
         self,
         id: str | None = None,
         classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         width: int = 60,
         height: int = 20,
         border_style: str = "single",
@@ -127,7 +128,7 @@ class Pager(Container):
         loop: bool = False,
         current_page: int = 0,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True
 

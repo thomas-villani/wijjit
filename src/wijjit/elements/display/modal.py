@@ -54,7 +54,7 @@ class ModalElement(OverlayElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         title: str | None = None,
         width: int = 50,
         height: int = 10,

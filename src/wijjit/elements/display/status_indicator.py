@@ -86,7 +86,7 @@ class StatusIndicator(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         status: str = "info",
         label: str | None = None,
         custom_statuses: dict[str, str | tuple[str, str]] | None = None,

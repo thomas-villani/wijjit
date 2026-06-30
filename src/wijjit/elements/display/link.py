@@ -71,9 +71,10 @@ class Link(Element):
         action: str | None = None,
         id: str | None = None,
         classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         on_click: Callable[[], None] | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.text = text
         self.action = action
         self.on_click = on_click

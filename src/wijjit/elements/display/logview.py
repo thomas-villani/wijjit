@@ -138,7 +138,7 @@ class LogView(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         lines: list[str] | None = None,
         width: int = 80,
         height: int = 20,

@@ -78,12 +78,13 @@ class Button(Element):
         self,
         label: str,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         on_click: Callable[[ActionEvent], None] | None = None,
         style: ButtonStyle = ButtonStyle.BRACKETS,
         action: str | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.BUTTON
         self.focusable = True
         self.label = label

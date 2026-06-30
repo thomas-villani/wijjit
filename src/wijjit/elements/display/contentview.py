@@ -121,7 +121,7 @@ class ContentView(ScrollableElement):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         content: str = "",
         content_type: str | ContentType = "plain",
         language: str = "python",

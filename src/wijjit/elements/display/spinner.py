@@ -102,7 +102,7 @@ class Spinner(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
         active: bool = True,
         style: Literal["dots", "line", "bouncing", "clock"] = "dots",
         label: str = "",

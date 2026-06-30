@@ -106,7 +106,8 @@ class TextInput(AutocompleteMixin, Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         placeholder: str = "",
         value: str = "",
         width: int = 20,
@@ -117,7 +118,7 @@ class TextInput(AutocompleteMixin, Element):
         action: str | None = None,
         bind: bool = True,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
         self.focusable = True
         self.value = value
@@ -683,7 +684,8 @@ class TextArea(Element):
     def __init__(
         self,
         id: str | None = None,
-        classes: str | list[str] | None = None,
+        classes: str | list[str] | set[str] | None = None,
+        tab_index: int | None = None,
         value: str = "",
         width: int = 40,
         height: int = 10,
@@ -700,7 +702,7 @@ class TextArea(Element):
         autosize: bool = False,
         max_height: int | None = None,
     ):
-        super().__init__(id=id, classes=classes)
+        super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
         self.focusable = True
 
