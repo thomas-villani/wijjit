@@ -564,15 +564,25 @@ class Wijjit:
         self,
         name: str,
         default: bool = False,
+        on_enter: Callable[..., Any] | None = None,
+        on_exit: Callable[..., Any] | None = None,
     ) -> Callable:
         """Decorator to register a view (delegates to ViewRouter).
 
-        The decorated function should return a dict with:
-        - template: str - Inline template string (use this OR template_file)
-        - template_file: str - Template filename to load from template_dir (use this OR template)
-        - data: dict (optional) - Data for template rendering
-        - on_enter: callable (optional) - Hook for view entry
-        - on_exit: callable (optional) - Hook for view exit
+        The decorated function returns what to render. Prefer the Flask-style
+        helpers :func:`wijjit.render_template_string` /
+        :func:`wijjit.render_template`, which package the template and its
+        (live) context::
+
+            @app.view("main", default=True, on_enter=setup)
+            def main_view():
+                return render_template_string(TEMPLATE, title="Home")
+
+        The view function is re-invoked on every render, so any context it
+        computes stays live. The legacy ``{"template": ..., "data": {...}}``
+        dict return is still accepted; note that values placed in a static
+        ``data`` dict are frozen at the first render (use the context kwargs
+        above, or a ``data`` callable, for values that must update).
 
         Parameters
         ----------
@@ -580,6 +590,12 @@ class Wijjit:
             Unique name for this view
         default : bool
             Whether this is the default view (default: False)
+        on_enter : callable, optional
+            Hook called when navigating to this view (sync or async). Takes
+            precedence over an ``on_enter`` key in a legacy dict return.
+        on_exit : callable, optional
+            Hook called when navigating away from this view (sync or async).
+            Takes precedence over an ``on_exit`` key in a legacy dict return.
 
         Returns
         -------
@@ -588,25 +604,21 @@ class Wijjit:
 
         Examples
         --------
-        Inline template:
+        Inline template (preferred):
 
         >>> @app.view("main", default=True)
         ... def main_view():
-        ...     return {
-        ...         "template": "Hello, {{ name }}!",
-        ...         "data": {"name": "World"},
-        ...     }
+        ...     return render_template_string("Hello, {{ name }}!", name="World")
 
-        Load from file:
+        Load from a file:
 
         >>> @app.view("dashboard")
         ... def dashboard_view():
-        ...     return {
-        ...         "template_file": "dashboard.tui",
-        ...         "data": {"stats": get_stats()},
-        ...     }
+        ...     return render_template("dashboard.tui", stats=get_stats())
         """
-        return self.view_router.view_decorator(name, default)
+        return self.view_router.view_decorator(
+            name, default, on_enter=on_enter, on_exit=on_exit
+        )
 
     def _initialize_view(self, view_config: ViewConfig) -> None:
         """Initialize a view config (delegates to ViewRouter).
@@ -970,22 +982,22 @@ class Wijjit:
         self._initialize_view(view)
 
         try:
-            # Get data for template
-            data = {}
-            if view.data:
-                data = view.data(**self.current_view_params)
+            # Evaluate the view to get the template + context for THIS render.
+            # Synchronous views are re-invoked every render, so any context they
+            # compute stays live; async/legacy views fall back to their once-
+            # resolved template + data callable. See ViewRouter.evaluate_render.
+            rendered = self.view_router.evaluate_render(view, self.current_view_params)
+            template = rendered.template
+            template_file = rendered.template_file
+            data = dict(rendered.context)
 
-            # Add state to template context
-            data["state"] = self.state
+            # Add state to template context (templates can always use
+            # {{ state.x }}); an explicit `state` in the context wins.
+            data.setdefault("state", self.state)
 
-            # Determine which template to use (file or inline string)
-            # template_content = view.template_file or view.template
-
-            # Check if template has layout tags (only for inline templates)
-            # File-based templates are always rendered with layout engine
-            has_layout = bool(view.template_file) or self._has_layout_tags(
-                view.template
-            )
+            # Check if template has layout tags (only for inline templates).
+            # File-based templates are always rendered with layout engine.
+            has_layout = bool(template_file) or self._has_layout_tags(template)
             logger.debug(f"View has layout tags: {has_layout}")
 
             if has_layout:
@@ -1002,10 +1014,10 @@ class Wijjit:
 
                 # Render with layout (elements will be created with correct focus state)
                 term_size = shutil.get_terminal_size()
-                if view.template_file:
+                if template_file:
                     # Load from file
                     output, elements, layout_ctx = self.renderer.render_with_layout(
-                        template_name=view.template_file,
+                        template_name=template_file,
                         context=data,
                         width=term_size.columns,
                         height=term_size.lines,
@@ -1014,7 +1026,7 @@ class Wijjit:
                 else:
                     # Inline template string
                     output, elements, layout_ctx = self.renderer.render_with_layout(
-                        template_string=view.template,
+                        template_string=template,
                         context=data,
                         width=term_size.columns,
                         height=term_size.lines,
@@ -1053,7 +1065,7 @@ class Wijjit:
                 self._wire_element_callbacks(self.positioned_elements)
             else:
                 # Use simple string rendering for non-layout templates
-                output = self.renderer.render_string(view.template, context=data)
+                output = self.renderer.render_string(template, context=data)
                 # Note: positioned_elements may have been set by the view for manual
                 # element positioning. Don't clear it - preserve what the view set.
                 # Wire up element callbacks if elements were positioned

@@ -161,7 +161,17 @@ preserves cursor/scroll/selection state across renders.
   z-index, click-outside, auto-positioning, focus trapping.
 - **notification_manager.py** - Notification lifecycle/positioning/expiry.
 - **view_router.py** - View registration/navigation, `ViewConfig`, async views
-  and lifecycle hooks (on_enter/on_exit).
+  and lifecycle hooks (on_enter/on_exit). **Synchronous view functions are
+  re-invoked on every render** (`evaluate_render`), so any context they compute
+  stays live; async views are resolved once (their body can't be awaited from
+  the sync render path) and rely on `state` / a `data` callable for liveness.
+- **templating.py** - Flask-style view API: `render_template_string(src, **ctx)`
+  / `render_template(name, **ctx)` returning a `RenderedView`. This is the
+  preferred view return shape; `on_enter`/`on_exit` go on the `@app.view(...)`
+  decorator. The legacy `{"template": ..., "data": {...}}` dict return is still
+  supported (and is now live thanks to per-render re-invocation). Note: pass
+  changing values via **context kwargs** (live), not by interpolating state into
+  the template *source* string (defeats the compiled-template cache).
 - **wiring.py** - `ElementWiringManager`: binds element ids to state keys.
 - **suspend.py** - Ctrl+Z (SIGTSTP/SIGCONT) suspend/resume on Unix (no-op on
   Windows).
@@ -250,9 +260,19 @@ HTML, Markdown, or Rich markup.
 
 The top-level `wijjit` package re-exports the supported public API (see
 `src/wijjit/__init__.py`): `Wijjit`, `Config`, `State`, `Renderer`,
-`FocusManager`, `ViewConfig`, `render_inline`, `InlineApp`, event types,
-core elements, layout (`Frame`, `Bounds`, ...), and terminal/ANSI helpers.
-Prefer importing from `wijjit` directly in examples and docs.
+`FocusManager`, `ViewConfig`, `RenderedView`, `render_template_string`,
+`render_template`, `render_inline`, `InlineApp`, event types, core elements,
+layout (`Frame`, `Bounds`, ...), and terminal/ANSI helpers. Prefer importing
+from `wijjit` directly in examples and docs.
+
+The idiomatic view returns `render_template_string` / `render_template` with
+live context:
+
+```python
+@app.view("main", default=True, on_enter=setup)
+def main_view():
+    return render_template_string(TEMPLATE, count=app.state.n * 10)
+```
 
 ## Configuration System (`app.config`)
 

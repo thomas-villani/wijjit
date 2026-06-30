@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from wijjit.core.templating import RenderedView
 from wijjit.logging_config import get_logger
 
 if TYPE_CHECKING:
@@ -81,6 +82,14 @@ class ViewConfig:
         default=None, repr=False
     )
     initialized: bool = False
+    # True when view_func is a coroutine function. Such views are resolved once
+    # (their async body cannot be awaited from the synchronous render path); use
+    # a ``data`` callable for per-render liveness. Synchronous views are instead
+    # re-invoked every render so their context stays live.
+    is_async: bool = False
+    # Tracks which lifecycle hooks were supplied on the @app.view decorator, so
+    # lazy initialization does not overwrite them from a legacy dict return.
+    hooks_from_decorator: dict[str, bool] = field(default_factory=dict)
 
 
 class ViewRouter:
@@ -127,15 +136,17 @@ class ViewRouter:
         self,
         name: str,
         default: bool = False,
+        on_enter: Callable[..., Any] | None = None,
+        on_exit: Callable[..., Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Create a decorator to register a view.
 
-        The decorated function should return a dict with:
-        - template: str - Inline template string (use this OR template_file)
-        - template_file: str - Template filename to load from template_dir (use this OR template)
-        - data: dict (optional) - Data for template rendering
-        - on_enter: callable (optional) - Hook for view entry
-        - on_exit: callable (optional) - Hook for view exit
+        The decorated function returns what to render - preferably via
+        :func:`wijjit.render_template_string` / :func:`wijjit.render_template`,
+        which package the template and its live context. A synchronous view
+        function is re-invoked on every render, so any context it computes stays
+        current. The legacy ``{"template": ..., "data": {...}}`` dict and a bare
+        template string are also accepted.
 
         Parameters
         ----------
@@ -143,6 +154,12 @@ class ViewRouter:
             Unique name for this view
         default : bool
             Whether this is the default view (default: False)
+        on_enter : callable, optional
+            Hook called when navigating to this view. Takes precedence over an
+            ``on_enter`` key in a legacy dict return.
+        on_exit : callable, optional
+            Hook called when navigating away from this view. Takes precedence
+            over an ``on_exit`` key in a legacy dict return.
 
         Returns
         -------
@@ -151,38 +168,40 @@ class ViewRouter:
 
         Examples
         --------
-        Inline template string:
+        Inline template (preferred):
 
-        >>> @app.view("main", default=True)
+        >>> @app.view("main", default=True, on_enter=setup)
         ... def main_view():
-        ...     return {
-        ...         "template": "Hello, {{ name }}!",
-        ...         "data": {"name": "World"},
-        ...     }
+        ...     return render_template_string("Hello, {{ name }}!", name="World")
 
-        Load from file:
+        Load from a file:
 
         >>> @app.view("dashboard")
         ... def dashboard_view():
-        ...     return {
-        ...         "template_file": "dashboard.tui",
-        ...         "data": {"stats": get_stats()},
-        ...     }
+        ...     return render_template("dashboard.tui", stats=get_stats())
         """
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             # Store the function and create a lazy ViewConfig
-            # We'll extract the actual config when the view is first accessed
+            # We'll extract the actual config when the view is first accessed.
+            # Hooks declared on the decorator are set now and take precedence
+            # over any on_enter/on_exit in a legacy dict return.
             view_config = ViewConfig(
                 name=name,
                 template="",  # Will be set lazily
                 data=None,  # Will be set lazily
-                on_enter=None,  # Will be set lazily
-                on_exit=None,  # Will be set lazily
+                on_enter=on_enter,  # Decorator-provided (preferred)
+                on_exit=on_exit,  # Decorator-provided (preferred)
                 is_default=default,
                 view_func=func,  # Store the original function
                 initialized=False,
             )
+            # Remember which hooks came from the decorator so lazy init does
+            # not overwrite them from the returned dict.
+            view_config.hooks_from_decorator = {
+                "on_enter": on_enter is not None,
+                "on_exit": on_exit is not None,
+            }
 
             self.views[name] = view_config
 
@@ -201,9 +220,11 @@ class ViewRouter:
     def _initialize_view(self, view_config: ViewConfig) -> None:
         """Initialize a view config by calling its view function (synchronous).
 
-        This is called lazily the first time a view is accessed.
-        For async view functions, this will raise an error. Use
-        _initialize_view_async() instead.
+        This is called lazily the first time a view is accessed. It records the
+        view's async-ness, its lifecycle hooks (from a legacy dict return, unless
+        already set on the decorator), and a frozen template/data fallback used
+        by async views. For synchronous views the per-render template and context
+        come from :meth:`evaluate_render`, which re-invokes the view function.
 
         Parameters
         ----------
@@ -219,48 +240,16 @@ class ViewRouter:
             return  # Already initialized
 
         if view_config.view_func:
-            # Check if view function is async
-            if asyncio.iscoroutinefunction(view_config.view_func):
+            view_config.is_async = asyncio.iscoroutinefunction(view_config.view_func)
+            if view_config.is_async:
                 raise RuntimeError(
                     f"View '{view_config.name}' has async view function. "
                     f"Use navigate_async() or call from async context."
                 )
 
-            # Call the view function ONCE to get the config dict
+            # Call the view function ONCE to capture hooks + a frozen fallback.
             result = view_config.view_func()
-            # Ensure result is a dict (not Awaitable)
-            if not isinstance(result, dict):
-                raise TypeError(f"View function must return dict, got {type(result)}")
-            config_dict: dict[str, Any] = result
-
-            # Extract static config components
-            view_config.template = config_dict.get("template", "")
-            view_config.template_file = config_dict.get("template_file", "")
-            view_config.on_enter = config_dict.get("on_enter")
-            view_config.on_exit = config_dict.get("on_exit")
-
-            # Extract data - could be a dict or a callable
-            data_value = config_dict.get("data", {})
-
-            if callable(data_value):
-                # User provided a data callback - use it directly
-                view_config.data = data_value
-            else:
-                # User provided static data dict - wrap in lambda
-                # Type assertion: we know data_value should be dict-like if not callable
-                static_data: dict[str, Any] = (
-                    data_value if isinstance(data_value, dict) else {}
-                )
-
-                def data_func(**kwargs: Any) -> dict[str, Any]:
-                    # Return a deep copy to prevent mutations from persisting across renders
-                    # Deep copy is necessary because nested dicts/lists would be shared
-                    # with shallow copy, allowing template mutations to leak across renders
-                    return copy.deepcopy(static_data)
-
-                view_config.data = data_func
-
-            view_config.initialized = True
+            self._store_initial_config(view_config, result)
 
     async def _initialize_view_async(self, view_config: ViewConfig) -> None:
         """Initialize a view config by calling its view function (async).
@@ -277,40 +266,148 @@ class ViewRouter:
             return  # Already initialized
 
         if view_config.view_func:
-            # Call the view function ONCE to get the config dict
-            if asyncio.iscoroutinefunction(view_config.view_func):
-                config_dict = await view_config.view_func()
+            view_config.is_async = asyncio.iscoroutinefunction(view_config.view_func)
+            if view_config.is_async:
+                result = await view_config.view_func()
             else:
-                config_dict = view_config.view_func()
+                result = view_config.view_func()
+            self._store_initial_config(view_config, result)
 
-            # Extract static config components
-            view_config.template = config_dict.get("template", "")
-            view_config.template_file = config_dict.get("template_file", "")
-            view_config.on_enter = config_dict.get("on_enter")
-            view_config.on_exit = config_dict.get("on_exit")
+    def _store_initial_config(self, view_config: ViewConfig, result: Any) -> None:
+        """Populate a ViewConfig from a view function's first return value.
 
-            # Extract data - could be a dict or a callable
-            data_value = config_dict.get("data", {})
+        Handles the :class:`~wijjit.core.templating.RenderedView`, bare-string,
+        and legacy ``dict`` return shapes. Lifecycle hooks from a legacy dict are
+        applied only when the matching hook was not already supplied on the
+        ``@app.view`` decorator.
 
+        Parameters
+        ----------
+        view_config : ViewConfig
+            The view configuration to populate.
+        result : Any
+            The value returned by the view function.
+        """
+        if isinstance(result, RenderedView):
+            view_config.template = result.template
+            view_config.template_file = result.template_file
+            frozen: dict[str, Any] = dict(result.context)
+
+            def data_func(**kwargs: Any) -> dict[str, Any]:
+                return copy.deepcopy(frozen)
+
+            view_config.data = data_func
+        elif isinstance(result, str):
+            view_config.template = result
+            view_config.template_file = ""
+            view_config.data = lambda **kwargs: {}
+        elif isinstance(result, dict):
+            view_config.template = result.get("template", "")
+            view_config.template_file = result.get("template_file", "")
+            # Decorator-provided hooks win; otherwise take them from the dict.
+            if not view_config.hooks_from_decorator.get("on_enter"):
+                view_config.on_enter = result.get("on_enter")
+            if not view_config.hooks_from_decorator.get("on_exit"):
+                view_config.on_exit = result.get("on_exit")
+
+            data_value = result.get("data", {})
             if callable(data_value):
-                # User provided a data callback - use it directly
                 view_config.data = data_value
             else:
-                # User provided static data dict - wrap in lambda
-                # Type assertion: we know data_value should be dict-like if not callable
                 static_data: dict[str, Any] = (
                     data_value if isinstance(data_value, dict) else {}
                 )
 
                 def data_func(**kwargs: Any) -> dict[str, Any]:
-                    # Return a deep copy to prevent mutations from persisting across renders
-                    # Deep copy is necessary because nested dicts/lists would be shared
-                    # with shallow copy, allowing template mutations to leak across renders
+                    # Deep copy so template mutations don't leak across renders.
                     return copy.deepcopy(static_data)
 
                 view_config.data = data_func
+        else:
+            raise TypeError(
+                "View function must return a RenderedView, dict, or str, "
+                f"got {type(result)}"
+            )
 
-            view_config.initialized = True
+        view_config.initialized = True
+
+    def evaluate_render(
+        self, view_config: ViewConfig, params: dict[str, Any] | None = None
+    ) -> RenderedView:
+        """Resolve the template + context to render for the current frame.
+
+        Synchronous views are re-invoked on every render so any context they
+        compute stays live (the whole point of the Flask-style API). Async views
+        cannot be awaited from the synchronous render path, so they fall back to
+        the template + ``data`` callable captured at initialization.
+
+        Parameters
+        ----------
+        view_config : ViewConfig
+            The view to evaluate (already initialized).
+        params : dict, optional
+            Navigation parameters passed to the view/data callable.
+
+        Returns
+        -------
+        RenderedView
+            The template (inline or file) and context for this render.
+        """
+        call_params = params or {}
+
+        if view_config.view_func is not None and not view_config.is_async:
+            result = view_config.view_func(**call_params)
+            return self._normalize_render(result, call_params)
+
+        # Async or function-less views: use the once-resolved fallback.
+        context: dict[str, Any] = {}
+        if view_config.data is not None:
+            context = view_config.data(**call_params)
+        return RenderedView(
+            template=view_config.template,
+            template_file=view_config.template_file,
+            context=context,
+        )
+
+    def _normalize_render(self, result: Any, params: dict[str, Any]) -> RenderedView:
+        """Coerce a view function's return value into a :class:`RenderedView`.
+
+        Parameters
+        ----------
+        result : Any
+            The view function's return: a ``RenderedView``, a legacy
+            ``{"template"/"template_file"/"data": ...}`` dict, or a bare template
+            string.
+        params : dict
+            Navigation parameters, forwarded to a legacy ``data`` callable.
+
+        Returns
+        -------
+        RenderedView
+            Normalized template + context (lifecycle hooks are ignored here -
+            they are captured once at initialization).
+        """
+        if isinstance(result, RenderedView):
+            return result
+        if isinstance(result, str):
+            return RenderedView(template=result)
+        if isinstance(result, dict):
+            data_value = result.get("data", {})
+            if callable(data_value):
+                context = data_value(**params)
+            elif isinstance(data_value, dict):
+                context = dict(data_value)
+            else:
+                context = {}
+            return RenderedView(
+                template=result.get("template", ""),
+                template_file=result.get("template_file", ""),
+                context=context,
+            )
+        raise TypeError(
+            "View function must return a RenderedView, dict, or str, "
+            f"got {type(result)}"
+        )
 
     def navigate(
         self,

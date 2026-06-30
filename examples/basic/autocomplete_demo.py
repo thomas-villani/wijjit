@@ -113,24 +113,26 @@ app.register_completer(
     "search", CallbackCompleter(search_items, trigger="auto", min_chars=1)
 )
 
+# Dynamic word list for the state-reference autocomplete. Set once at startup -
+# view functions run every render, so one-time setup belongs out here, not in
+# the view body.
+app.state.tags = [
+    "python",
+    "javascript",
+    "rust",
+    "go",
+    "typescript",
+    "react",
+    "vue",
+    "angular",
+    "svelte",
+    "django",
+    "flask",
+]
+
 
 @app.view("main", default=True)
 def main_view():
-    # Set up dynamic word list in state
-    app.state.tags = [
-        "python",
-        "javascript",
-        "rust",
-        "go",
-        "typescript",
-        "react",
-        "vue",
-        "angular",
-        "svelte",
-        "django",
-        "flask",
-    ]
-
     return {
         "template": """
 {% frame border="single" title="Autocomplete Demo" width="fill" height="fill" %}

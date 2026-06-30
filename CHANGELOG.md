@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 First public release.
 
 ### Added
+- **Flask-style view rendering**: `render_template_string(src, **context)` and
+  `render_template(name, **context)` return a `RenderedView`, replacing the
+  `{"template": ..., "data": {...}}` dict as the idiomatic view return. Lifecycle
+  hooks move onto the decorator (`@app.view(name, on_enter=..., on_exit=...)`).
+  Synchronous view functions are now re-invoked on every render, so context
+  derived from state stays live (the old static `data` dict was frozen at first
+  render). The legacy dict return still works and is also live now.
 - Right-aligned (and centered) **table columns** via a per-column `align` key
   (`{"key": "amount", "align": "right"}`).
 - Horizontal **text alignment** for the `{% text %}` tag (`align="left"`,
@@ -41,6 +48,11 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **Autocomplete mouse selection**: clicking a suggestion in the popup now
+  commits it to the input (previously only the keyboard Enter/Tab path applied
+  the selection; a click just moved the highlight).
+- Mouse hit-testing on scrolled frames: clicks now register against the painted
+  (scroll-adjusted) position of an element instead of its pre-scroll bounds.
 - `Select` now re-clamps scroll position when its option list changes.
 - Pending async tasks spawned from state callbacks are cancelled on shutdown,
   preventing task leaks and exit hangs.

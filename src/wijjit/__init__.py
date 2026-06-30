@@ -23,6 +23,11 @@ from wijjit.core.events import (
 from wijjit.core.focus import FocusManager
 from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
+from wijjit.core.templating import (
+    RenderedView,
+    render_template,
+    render_template_string,
+)
 from wijjit.core.view_router import ViewConfig
 
 # Elements - base
@@ -143,6 +148,10 @@ __all__ = [
     "Renderer",
     "FocusManager",
     "ViewConfig",
+    # Templating (Flask-style view rendering)
+    "RenderedView",
+    "render_template_string",
+    "render_template",
     # Inline rendering
     "render_inline",
     "InlineApp",

@@ -61,13 +61,13 @@ async def demo_multi_task():
 {% frame title="Installation Progress" border="single" %}
   {% vstack spacing=1 %}
     {% hstack %}
-      Task 1: {% progressbar value=state.task1 max=100 width=20 %}{% endprogressbar %} {{ state.task1 }}%
+      Task 1: {% progressbar value=state.task1 max=100 width=20 %}{% endprogressbar %}
     {% endhstack %}
     {% hstack %}
-      Task 2: {% progressbar value=state.task2 max=100 width=20 %}{% endprogressbar %} {{ state.task2 }}%
+      Task 2: {% progressbar value=state.task2 max=100 width=20 %}{% endprogressbar %}
     {% endhstack %}
     {% hstack %}
-      Task 3: {% progressbar value=state.task3 max=100 width=20 %}{% endprogressbar %} {{ state.task3 }}%
+      Task 3: {% progressbar value=state.task3 max=100 width=20 %}{% endprogressbar %}
     {% endhstack %}
     Status: {{ state.status }}
   {% endvstack %}

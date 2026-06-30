@@ -4,7 +4,7 @@ Run with: python examples/hello_world.py
 Press 'q' to quit.
 """
 
-from wijjit import Wijjit
+from wijjit import Wijjit, render_template_string
 
 
 def main():
@@ -14,8 +14,8 @@ def main():
     @app.view("main", default=True)
     def main_view():
         """Main view."""
-        return {
-            "template": """
+        return render_template_string(
+            """
 {% frame %}
 Hello, World!
 
@@ -23,8 +23,8 @@ This is a simple Wijjit TUI application.
 
 Press 'q' to quit.
 {% endframe %}
-""",
-        }
+"""
+        )
 
     @app.on_key("q")
     def on_quit(event):

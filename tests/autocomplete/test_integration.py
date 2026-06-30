@@ -241,6 +241,39 @@ class TestAutocompleteKeyHandling:
         assert elem._autocomplete_state.is_open is False
         assert elem.value == "apple"
 
+    @pytest.mark.asyncio
+    async def test_mouse_click_applies_suggestion(self):
+        """Clicking a suggestion in the popup should commit it to the input.
+
+        Regression: mouse-click selection only moved the highlight - the popup's
+        handle_mouse returned True but nothing applied the suggestion, so the
+        input value never changed and the popup stayed open. The popup now
+        carries an ``on_select`` callback wired to the input's apply handler.
+        """
+        from wijjit.layout.bounds import Bounds
+        from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+        completer = WordCompleter(["apple", "apricot"])
+        elem = TextInput(id="test", value="ap", completer=completer)
+        elem.cursor_pos = 2
+
+        elem._trigger_autocomplete()
+        assert elem._autocomplete_state.is_open is True
+        popup = elem._autocomplete_popup
+        assert popup is not None
+        # The mixin must wire the click->apply callback when it builds the popup.
+        assert popup.on_select is not None
+
+        # Give the popup bounds so the click hit-tests onto a suggestion row.
+        # Top border at y=1, first item y=2, second item ("apricot") y=3.
+        popup.bounds = Bounds(x=0, y=1, width=20, height=5)
+        event = MouseEvent(x=2, y=3, button=MouseButton.LEFT, type=MouseEventType.CLICK)
+        handled = await popup.handle_mouse(event)
+
+        assert handled is True
+        assert elem.value == "apricot"
+        assert elem._autocomplete_state.is_open is False
+
     def test_down_arrow_navigates_suggestions(self):
         """Down arrow should move highlight in suggestions."""
         from wijjit.terminal.input import Keys

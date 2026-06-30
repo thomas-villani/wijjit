@@ -1304,6 +1304,11 @@ class Renderer:
             if element.bounds is None:
                 continue
 
+            # Reset the painted-bounds cache; it is set below only if the
+            # element is actually painted this frame (not clipped/scrolled out),
+            # so hit-testing never matches a stale or invisible position.
+            element._screen_bounds = None
+
             # Check if element is inside one or more frames (scrollable or not).
             # Walk the FULL parent_frame chain so the element is clipped to the
             # intersection of every ancestor frame's visible content area, and
@@ -1427,6 +1432,14 @@ class Renderer:
             # Render element using cell-based rendering
             element.render_to(ctx)
 
+            # Record the on-screen rect actually painted (scroll-adjusted and
+            # clipped to the visible area) so mouse hit-testing matches where
+            # the element visually appears, not its unscrolled logical bounds.
+            if clip_region is not None:
+                element._screen_bounds = adjusted_bounds.intersect(clip_region)
+            else:
+                element._screen_bounds = adjusted_bounds
+
         # Third pass: Render statusbar if present
         if statusbar is not None:
             # Position statusbar at bottom of screen
@@ -1504,6 +1517,10 @@ class Renderer:
                 return
             style = frame.style
 
+            # Reset painted-bounds cache; set below once the frame is confirmed
+            # at least partially visible (see the element pass for rationale).
+            frame._screen_bounds = None
+
             # Adjust bounds for scroll offset if inside a scrollable parent
             if scroll_offset != 0:
                 adjusted_bounds = Bounds(
@@ -1524,8 +1541,29 @@ class Renderer:
                 if adjusted_bounds.y >= clip_bottom:
                     return  # Frame is below visible area
 
-            # Resolve frame border style from theme
-            border_style = style_resolver.resolve_style_by_class("frame.border")
+            # Record the frame's painted on-screen rect for hit-testing (e.g.
+            # routing scroll-wheel events to a scrolled, nested frame).
+            frame._screen_bounds = (
+                adjusted_bounds.intersect(clip_region)
+                if clip_region is not None
+                else adjusted_bounds
+            )
+
+            # Resolve frame border style from theme. Mirror Frame.render_to's
+            # focus handling: a frame whose body holds child elements draws its
+            # top/bottom borders (focus-aware) in Frame.render_to but skips the
+            # body, so the vertical side borders come only from THIS pass. If we
+            # ignored focus here, those verticals would stay the unfocused color
+            # while the top/bottom went focus-colored - the "half-highlighted"
+            # frame glitch. Resolving the ``:focus`` border when focused keeps
+            # all four sides consistent.
+            prefix = frame.style_prefix
+            if frame.focused:
+                border_style = style_resolver.resolve_style(
+                    frame, f"{prefix}.border:focus"
+                )
+            else:
+                border_style = style_resolver.resolve_style_by_class(f"{prefix}.border")
 
             # Get border characters
             border_chars = BORDER_CHARS.get(

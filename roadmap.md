@@ -92,6 +92,139 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
   sentinel continuation cell) plus a sweep of the remaining ``len()`` width
   math. Tracked from the 0.1.0 code review (Theme A, CRITICALs #2/#3/#5).
 
+## 0.1.1 — deferred from the 0.1.0 example pass
+
+Items surfaced by the manual ``examples/`` walkthrough (06-29) and the earlier
+demo-bug triage (groups A-H). The cross-cutting / crash items were fixed in
+0.1.0; everything below is cosmetic, demo-level, platform-specific, or an
+architecture-level refactor not worth the risk days before tagging. Root causes
+are in ``issues.md``. Pull individual items forward as use cases demand.
+
+**Already resolved in 0.1.0** (for reference): mouse hit-testing offset on
+scrolled frames; radio_demo layout crash (directional padding on
+VStack/HStack/Grid); theme_config_demo quit-key hang; inline_progress double
+percentage; **focus-border left/right** (frame-border pass made focus-aware);
+**autocomplete mouse-select** (clicking a suggestion now commits it - the popup
+gained an ``on_select`` callback wired to the input's apply handler; Enter/Tab
+already worked); **dialog_showcase / event_patterns log panels** (rewrote the
+demos to keep the rendered log text in ``state`` instead of a precomputed view
+``data`` value - see the frozen-``data`` note below); **select_demo "Submit"**
+(was the scrolled-frame click offset, fixed by the mouse hit-testing work; the
+handler was always correct).
+
+### Rendering / layout architecture (highest leverage)
+
+- [ ] **Unify the dual frame-render path.** Frame borders are drawn by two
+  paths: the renderer's ``_render_frames_to_buffer`` (pass 1, all frames) and
+  ``Frame.render_to`` (pass 2, only frames with content / scroll / id). The
+  ``FrameNode.collect_elements`` docstring already calls pass 1 the "legacy"
+  path. Collapse to a single ``Element.render_to`` path: (1) always include the
+  ``Frame`` in ``collect_elements``; (2) delete ``_render_frames_to_buffer``;
+  (3) move its recursive ``scroll_offset``/``clip_region`` border plumbing into
+  the pass-2 per-element path; (4) regenerate affected golden/snapshot fixtures.
+  Medium-high risk (touches every frame render + the scroll/clip code). The
+  0.1.0 focus-border fix made pass 1 focus-aware as a stopgap; unification
+  removes the duplication entirely.
+- [ ] **Group C — horizontal scroll for child-content frames.** Child
+  ``TextElement`` bodies only ever compute vertical scroll; ``_content_width`` /
+  ``_needs_scroll_x`` are never set, children are clamped to inner width, and the
+  renderer threads only a vertical ``scroll_offset``. Needs intrinsic-width
+  layout under ``overflow_x``, a horizontal scroll manager, and an x-clip/offset
+  through the renderer. (Works today for TextArea + frame *text* content.)
+- [ ] **Group D — frame overflow / clip clamping.** ``content_view_demo``:
+  scrolling the outer frame lets children escape the frame *top* (clip not
+  clamped to the border row). ``frame_overflow_demo``: 3x50%-in-one-row HStack
+  width distribution. Needs a focused layout-engine repro.
+
+### Ephemeral-state preservation contract (reconciler)
+
+Originally filed as a "repaint-timing family," but the 06-29 dig found repaints
+*do* fire (``_on_state_change`` marks the screen dirty on every state write).
+The real conflict is the reconciler's ephemeral-state preservation contract
+(``reconciler.py``): on re-render it saves ``get_ephemeral_state()``, applies
+prop changes, then ``restore_ephemeral_state()`` — so transient state in
+``EPHEMERAL_PROPS`` (cursor/scroll/selection/expansion) is intentionally *not*
+synced from props, which is exactly what fights programmatic/bound writes to
+those same fields.
+
+- [ ] **Group E — Tree "expand all / collapse all".** The genuine
+  ephemeral-contract item. ``expanded_nodes`` lives in the protected bucket, so
+  a programmatic expand-all is overwritten by the restored prior expansion.
+  Three compounding causes: the tree tag never calls ``set_prop("id")`` (so no
+  ``expand_state_key``; sweep Table/Progress/Spinner/Modal/Link/ImageView for
+  the same omission); the ``expanded="<key>"`` two-way binding is dropped at
+  element creation; and expansion writes need a "bound prop lets state win, else
+  preserve" rule. Needs a reconciler design pass. Also (cosmetic): ``tree_demo``
+  color behind the ``>`` selector ignores the BG; right panel shrinks to
+  content; add-node button.
+
+### Frozen view-``data`` snapshot (DX trap) — RESOLVED 0.1.0
+
+- [x] **Reactive derived view data.** Previously a view function ran *once* and
+  its returned ``data`` dict was deep-copied and frozen, so any value derived
+  from state never refreshed — only ``state`` stayed live. This silently bit six
+  demos (``dialog_showcase``, ``event_patterns``, ``dashboard``, ``data_entry``,
+  ``error_handling``, ``executor`` — the last looked like a hung executor).
+  Fixed at the framework level: **synchronous view functions are now re-invoked
+  every render** (``ViewRouter.evaluate_render``), so derived context is always
+  live. Added a Flask-style API — ``render_template_string(src, **ctx)`` /
+  ``render_template(name, **ctx)`` returning a ``RenderedView`` — with
+  ``on_enter``/``on_exit`` moved onto the ``@app.view`` decorator. The legacy
+  ``{"template": ..., "data": {...}}`` dict return still works (and is now live
+  too). Async views keep once-resolution (their body can't be awaited from the
+  sync render path) and use ``state`` / a ``data`` callable for liveness. Audit
+  confirmed only 3 of 70 demo view bodies had side effects; all three were fixed
+  (state-setup hoisted out / artificial ``sleep`` dropped). Compiled templates
+  are cached by source, so per-frame re-render stays cheap. Tests:
+  ``tests/core/test_templating.py``.
+
+- [ ] **autocomplete language toggle** leaves the old caret un-erased (overlaps
+  the last typed char) — caret-erase on re-render. (Separate paint/erase bug,
+  not the contract above.)
+- [ ] **complex_layout** log is editable (should be read-only) — demo/element
+  config (set the LogView/TextArea read-only).
+- [ ] **context_menu** right-click menu (Copy is only reachable there) — the
+  buttons work; the right-click path is the experimental context-menu /
+  real-terminal mouse concern the demo itself flags. Needs a real-console repro.
+
+### Cosmetic / theming
+
+- [ ] **Modal severity coloring** — ``alert_dialog_demo`` / ``dialog_showcase``
+  error/success/info modals should be colored by severity.
+- [ ] **centered_dialog** is not vertically centered as claimed (overlay
+  v-centering).
+- [ ] **datagrid** selection indicator overdraws the right border (minor);
+  **grid** rowspan/colspan cells render without borders.
+- [ ] **tabbed_panel** welcome pane overlaps its left/right border (only that
+  pane); **radio_demo** "Shipping method" radiogroup intersects the right frame
+  border.
+- [ ] **status_indicator** — add a blinking state / blink-after-change option.
+
+### Viewport / scrolling UX
+
+- [ ] **Auto-scroll to new content.** ``listview_demo`` add works but the new row
+  lands below the fold; ``logview_demo`` streaming log should scroll to bottom
+  (or expose an option). ``textarea_demo`` should reveal the end of long lines.
+- [ ] **listview / logview demo layout** — rightmost list / buttons overflow the
+  panel to the right.
+- [ ] **code_editor_demo** — buttons don't fit and the editor escapes the frame;
+  add a CodeEditor option to capture Tab instead of moving focus.
+- [ ] **event_patterns_demo button row off-screen** — the fixed ``height=36``
+  frame holds two tall side panels plus a 26-row log, pushing the action-button
+  row (``Go to View 2`` … ``Quit``) to ~row 50, below the viewport. Keys all
+  work; the buttons are simply laid out past the visible area. Needs the frame
+  content to fit (or scroll) the viewport — a demo-layout + overflow concern.
+
+### Platform-specific (Windows, real-terminal only)
+
+- [ ] **Group G — ``alt+`` / ``ctrl+`` hint keys on Win32.** The layout demo's
+  ``[R][S][H][Q]`` combos likely aren't synthesized by the Windows ESC-timeout
+  lookahead in ``terminal/input.py``. Needs a real-console repro; may be a
+  prompt_toolkit/Win32 limitation to document rather than patch.
+- [ ] **spinner_demo on scroll** — trailing ``.`` of the ellipsis ghosts in its
+  column; the emoji clock frame ("Working with clock..k") is sized with
+  ``len()``. Ties into the wide-character correctness item above.
+
 ## 0.2+ (new scope, post-0.1)
 
 Clearly new functionality or substantial subsystems. Worth doing, not now.
