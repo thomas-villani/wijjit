@@ -102,12 +102,19 @@ all churn. Land as one tested batch; gate on full suite + `ruff check src/` +
   across input + display + menu/modal elements (CC-9).
 
 **Step 3 — Renames with aliases:**
-- Border: `border` canonical, `border_style` alias, uniform default `"single"`,
-  replace BarChart `show_border` with `border` (D2 / RENDER-X4, DISPLAY-X4).
-- Chart mode param `color`→`color_mode` on bar/column/gauge; reserve `color` for
-  literals (D3, CC-3 / DISPLAY-X1).
-- Gap: canonical `spacing` + `row_gap`/`column_gap` everywhere; drop `col_gap`
-  (D4, CC-4 / LAYTERM-X1).
+- [LANDED — Step 3a] Border: `border` canonical, `border_style` alias, uniform
+  default `"single"`, replace BarChart `show_border` with `border` (D2 /
+  RENDER-X4, DISPLAY-X4). **Scope expanded by maintainer:** all six charts gained
+  real border-rendering (shared `begin_chart_border` helper) — default `"single"`
+  except sparkline/gauge (compact, default `"none"`). Tree flipped `none`→`single`.
+  select/checkbox/radio groups already aliased `border` via `kwargs.pop`.
+  Fixed a latent `calculate_axis_ticks` ZeroDivisionError exposed by short
+  bordered charts. Full suite green (2932), no golden shifts.
+- [TODO — Step 3b] Chart mode param `color`→`color_mode` on bar/column/gauge;
+  keep `color` as a deprecated alias (back-compat); reserve `color` for literals
+  long-term (D3, CC-3 / DISPLAY-X1).
+- [TODO — Step 3c] Gap: canonical `spacing` + `row_gap`/`column_gap` everywhere;
+  drop `col_gap` (D4, CC-4 / LAYTERM-X1).
 
 **Step 4 — Verify:** regenerate charts + `Tree` border goldens; run full suite
 (`--ignore=tests/benchmarks`) + ruff + mypy. Tick items in this doc as landed.
