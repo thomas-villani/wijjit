@@ -4,30 +4,29 @@
 **full polish** - clear the outstanding demo bugs, get the type-check gate
 green, ship docs, then publish.
 
-**Current state (2026-06-28):**
-- Tests: ~2480 passing, 15 skipped. Ruff: clean. **mypy --strict: clean**
-  (107 files; Phase 3 done). CI lint job is **green**.
+**Current state (2026-06-30):**
+- Tests: green (full suite + `mypy --strict` confirmed by maintainer this
+  session). Ruff: clean. `uv build` produces both sdist and wheel cleanly.
+  CI lint job is **green**.
 - CI: 3 OS x Py 3.11-3.13 + lint + coverage, all green.
-- Version: `0.1.0a1` (single source: `wijjit.__version__`, hatchling dynamic) -
-  **not yet bumped** to `0.1.0`.
-- Sphinx docs build clean (0 warnings); docs **hosting decided: GitHub Pages**
-  (not Read the Docs).
-- **Phases 1-4 are effectively complete.** The remaining work is Phase 5
-  (packaging, docs hosting, publish) plus merging the staged PR.
+- Version: **`0.1.0`** (single source: `wijjit.__version__`, hatchling dynamic).
+  Bumped from `0.1.0a1`.
+- Sphinx docs build clean (0 warnings); docs **hosting: GitHub Pages**
+  (not Read the Docs); the `Documentation` project URL points at the Pages site.
+- **Phases 1-4 complete.** Phase 5 is **substantially done** (PR #10 merged;
+  metadata, community files, docs workflow, release-pipeline hardening, and the
+  Flask-style `render_template_string`/`render_template` API all landed). The
+  remaining work is the external, user-gated publish steps (Trusted Publishing
+  setup, enable Pages, TestPyPI dry-run, tag) plus the final CHANGELOG date.
 
-**Staged but not yet on `main` (PR #10, branch `fix/0.1.0-release-batch2`,
-all 13 CI checks green, MERGEABLE/CLEAN):** the Group B global-key-routing fix
-+ regression tests, `.github/workflows/release.yml` (OIDC trusted publishing),
-the deterministic-sdist `include` list in `pyproject.toml`, and the
-`issues.md` / `CLAUDE.md` / `CHANGELOG.md` updates.
+> RESOLVED: PR #10 is **merged** (commit `6116a35`); the global-key-routing fix,
+> `release.yml`, and the deterministic-sdist `include` list are on `main`. The
+> stray `.venv-wsl/` that broke `uv build --sdist` is gone, and the explicit
+> sdist `include` list means the build no longer walks stray local directories.
+> `uv build` succeeds on `main`.
 
-> WARNING: the deterministic-sdist fix lives only on that branch. On `main`,
-> `uv build --sdist` currently **fails** (hatchling walks a stray `.venv-wsl/`
-> with a broken `bin/python` symlink: `OSError [Errno 22]`). Nothing can be
-> built/released from `main` until PR #10 merges.
-
-Versioning toward release: `0.1.0a1` (now) -> `0.1.0` (Phase 5). Earlier
-intermediate `b1`/`rc1` tags were skipped; the alpha goes straight to `0.1.0`.
+Versioning toward release: `0.1.0a1` -> **`0.1.0`** (done). Earlier intermediate
+`b1`/`rc1` tags were skipped; the alpha went straight to `0.1.0`.
 
 ---
 
@@ -329,28 +328,25 @@ clipboard when no system clipboard backend is present.
 
 ### 5a - Merge the staged work (PREREQUISITE - do first)
 
-- [ ] Merge **PR #10**. Build is broken on `main` until this lands (see the
-      `.venv-wsl` sdist warning above). All 13 CI checks are green.
+- [x] Merge **PR #10** (commit `6116a35`). `uv build` succeeds on `main`.
 
 ### 5b - Finalize metadata & version (on `main`, post-merge)
 
-- [ ] Bump `src/wijjit/__init__.py` `__version__` `0.1.0a1` -> `0.1.0`.
+- [x] Bump `src/wijjit/__init__.py` `__version__` `0.1.0a1` -> `0.1.0`.
 - [ ] `CHANGELOG.md`: set the `[0.1.0]` date to the actual release date (it is
-      currently the stale `2026-06-18`); keep an empty `[Unreleased]` stub.
-- [ ] `README.md`: remove the "currently in pre-release / `pip install --pre`"
-      note (~line 39) and any other pre-release language.
-- [ ] Modernize license metadata: replace `license = {text = "MIT"}` with the
-      SPDX form `license = "MIT"` + `license-files = ["LICENSE"]`; confirm the
-      pinned hatchling supports it and `twine check` still passes.
-- [ ] Commit `docs/NEW-ELEMENTS.md` - it is referenced by `CLAUDE.md` but is
-      currently untracked.
+      currently `2026-06-28`); keep an empty `[Unreleased]` stub. **Finalize at
+      tag time.**
+- [x] `README.md`: removed the "currently in pre-release / `pip install --pre`"
+      note and other pre-release language.
+- [x] Modernized license metadata: `license = "MIT"` (SPDX) +
+      `license-files = ["LICENSE"]`.
+- [x] Committed `docs/NEW-ELEMENTS.md`.
 
 ### 5c - Docs hosting: GitHub Pages (replaces Read the Docs)
 
-- [ ] Point the `pyproject.toml` `Documentation` URL at GitHub Pages
-      (`https://thomas-villani.github.io/wijjit/`); update README/doc links that
-      reference `readthedocs.io`.
-- [ ] Add `.github/workflows/docs.yml`: Sphinx build of `docs/source` ->
+- [x] Pointed the `pyproject.toml` `Documentation` URL at GitHub Pages
+      (`https://thomas-villani.github.io/wijjit/`); README links updated.
+- [x] Added `.github/workflows/docs.yml`: Sphinx build of `docs/source` ->
       `actions/upload-pages-artifact` -> `actions/deploy-pages`; trigger on push
       to `main` (paths: `docs/**`, `src/wijjit/**`) + `workflow_dispatch`;
       `permissions: pages: write, id-token: write`.
@@ -360,16 +356,17 @@ clipboard when no system clipboard backend is present.
 
 ### 5d - Release pipeline hardening
 
-- [ ] Add an install-smoke step to `release.yml`'s `build` job: in a clean env,
-      `pip install dist/*.whl` then `python -c "import wijjit; print(wijjit.__version__)"`
+- [x] Added an install-smoke step to `release.yml`'s `build` job: in a clean
+      venv, `pip install dist/*.whl` then `import wijjit; print(__version__)`
       so a broken artifact fails the build before any publish.
 - [ ] (Optional) Add required-reviewer protection to the `pypi` GitHub
       environment so a tag push can't auto-publish without a human gate.
 
 ### 5e - Community health & polish (all in scope per release decision)
 
-- [ ] README badges: PyPI version, CI status, license, supported Python versions.
-- [ ] Add `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`.
+- [x] README badges: PyPI version, supported Python versions, CI status,
+      license, docs.
+- [x] Added `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`.
 - [ ] Document the `pyperclip` Linux behavior (system clipboard needs
       xclip/xsel; otherwise falls back to an internal clipboard) in README/docs.
 
@@ -399,11 +396,12 @@ clipboard when no system clipboard backend is present.
 
 ### 5i - Repo hygiene (before tagging)
 
-- [ ] Triage remaining untracked root WIP (`test-image.png`, scratch `.md`
-      plans such as `inline-app-plan.md`, `cell-based-render-mermaid.md`,
-      `claude-autocomplete-review-issues.md`, `docs/*PLAN*.md`,
-      `docs/OVERLAY-SCROLLING-PLAN.md`): delete or relocate under `etc/`/`docs/`.
-      Keep `docs/NEW-ELEMENTS.md` (committed in 5b).
+- [x] Triaged untracked root WIP: scratch `.md` plans removed; `test-image.png`
+      downscaled to 256x256 (~79 KB) and committed under `examples/assets/` with
+      the `imageview_demo` wired to it via `__file__`-relative path (commit
+      `6dea06a`). `docs/NEW-ELEMENTS.md` kept (committed in 5b).
+- [ ] Delete the last scratch file `todo-release.md` (0.1.1 example ideas)
+      before tagging. **[user will remove]**
 
 **Acceptance:** `pip install wijjit` installs `0.1.0` and a hello-world app runs
 on a clean machine across the supported Python/OS matrix; the PyPI page renders
