@@ -845,6 +845,18 @@ class Renderer:
                     reconciled_map[frame_key] = frame_element
                 logger.debug(f"Created new Frame {frame_key}")
 
+            # Apply the shared 'class'/'classes' template attribute. Frame is a
+            # styled Element (unlike the pure-layout VStack/HStack nodes), so it
+            # participates in class-based theming like every other element. The
+            # tag layer already normalized 'class' -> 'classes'. Re-apply on
+            # every render so a changed class set is reflected on a reused frame.
+            frame_classes = vnode.props_dict().get("classes")
+            if frame_classes is not None:
+                if isinstance(frame_classes, str):
+                    frame_element.classes = set(frame_classes.split())
+                else:
+                    frame_element.classes = set(frame_classes)
+
             # Create FrameNode with content container
             from wijjit.layout.engine import FrameNode, VStack
 

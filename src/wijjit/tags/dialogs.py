@@ -14,7 +14,11 @@ from wijjit.core.overlay import LayerType
 from wijjit.core.render_context import get_render_context
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import parse_tag_attributes
+from wijjit.tags.layout import (
+    normalize_element_kwargs,
+    parse_tag_attributes,
+    safe_int,
+)
 
 if TYPE_CHECKING:
     pass
@@ -128,8 +132,8 @@ class ConfirmDialogExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -158,8 +162,8 @@ class ConfirmDialogExtension(Extension):
             caller()
 
         # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        width = safe_int(width, default=50, name="width")
+        height = safe_int(height, default=10, name="height")
 
         # Auto-generate ID if not provided
         if id is None:
@@ -297,8 +301,8 @@ class AlertDialogExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -327,8 +331,8 @@ class AlertDialogExtension(Extension):
             caller()
 
         # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        width = safe_int(width, default=50, name="width")
+        height = safe_int(height, default=8, name="height")
 
         # Auto-generate ID if not provided
         if id is None:
@@ -474,8 +478,8 @@ class TextInputDialogExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -497,9 +501,9 @@ class TextInputDialogExtension(Extension):
             return ""
 
         # Convert numeric parameters
-        width = int(width)
-        height = int(height)
-        input_width = int(input_width)
+        width = safe_int(width, default=50, name="width")
+        height = safe_int(height, default=12, name="height")
+        input_width = safe_int(input_width, default=30, name="input_width")
 
         # Consume body (should be empty)
         caller()

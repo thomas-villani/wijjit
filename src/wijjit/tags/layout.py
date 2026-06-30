@@ -143,23 +143,35 @@ def normalize_element_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def apply_tabindex(vnode: Any, kwargs: dict[str, Any]) -> None:
-    """Forward a ``tabindex``/``tab_index`` tag attribute onto a VNode.
+def apply_common_attributes(vnode: Any, kwargs: dict[str, Any]) -> None:
+    """Forward the common normalized template attributes onto a VNode.
 
-    Display/chart tags collect extra attributes in ``kwargs`` rather than as
-    explicit parameters, so (unlike the input tags) they never normalized the
-    HTML-style ``tabindex``. Without this, focusable display elements such as
-    Table and Tree silently ignored an author-supplied tab order.
+    Every element shares two HTML-style attributes whose spelling differs from
+    the Python prop name: ``class`` (-> ``classes``, since ``class`` is a Python
+    keyword) and ``tabindex`` (-> ``tab_index``). This helper applies the single
+    normalization rule from :func:`normalize_element_kwargs` and sets the
+    resulting props, so every tag - including the layout containers that
+    historically dropped ``class`` - handles them identically.
+
+    Tags that forward arbitrary leftover kwargs (the input tags) instead call
+    :func:`normalize_element_kwargs` directly so they can pop these keys before
+    the forward loop; this helper is for tags that read named parameters and do
+    not forward extras (layout containers, charts, display, dialogs, menus).
 
     Parameters
     ----------
     vnode : VNodeBuilder
         The VNode builder being populated for the element.
     kwargs : dict
-        Raw keyword arguments captured from the template tag. Either
-        ``tabindex`` (HTML-style) or ``tab_index`` (Python-style) is accepted.
+        Raw keyword arguments captured from the template tag. Both the
+        HTML-style (``class``/``tabindex``) and Python-style
+        (``classes``/``tab_index``) spellings are accepted.
     """
-    tab_index = kwargs.get("tabindex", kwargs.get("tab_index"))
+    normalized = normalize_element_kwargs(kwargs)
+    classes = normalized.get("classes")
+    if classes is not None:
+        vnode.set_prop("classes", classes)
+    tab_index = normalized.get("tab_index")
     if tab_index is not None:
         vnode.set_prop("tab_index", tab_index)
 
@@ -618,6 +630,7 @@ class VStackExtension(Extension):
 
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("VStack", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
@@ -798,6 +811,7 @@ class HStackExtension(Extension):
 
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("HStack", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(
             width=width_parsed,
             height=height_parsed,
@@ -1041,6 +1055,7 @@ class FrameExtension(Extension):
         # Create VNode builder for reconciliation
         # The renderer will create the actual Frame element from these props
         vnode = VNodeBuilder("Frame", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("border_style", border_style_enum)
         vnode.set_prop("title", title)
         vnode.set_prop("scrollable", scrollable)
@@ -1205,6 +1220,7 @@ class GridExtension(Extension):
 
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("Grid", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("rows", rows_int)
         vnode.set_prop("cols", cols_int)
         vnode.set_prop("row_gap", row_gap_int)
@@ -1527,6 +1543,7 @@ class SplitPanelExtension(Extension):
 
         # Create VNode builder for reconciliation
         vnode = VNodeBuilder("SplitPanel", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("orientation", orientation)
         vnode.set_prop("ratio", ratio)
         vnode.set_prop("resizable", resizable)

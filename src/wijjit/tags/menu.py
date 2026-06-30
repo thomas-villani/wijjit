@@ -14,7 +14,11 @@ from wijjit.core.overlay import LayerType
 from wijjit.core.render_context import get_render_context
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuItem
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import parse_tag_attributes
+from wijjit.tags.layout import (
+    normalize_element_kwargs,
+    parse_tag_attributes,
+    safe_int,
+)
 
 if TYPE_CHECKING:
     pass
@@ -95,8 +99,8 @@ class MenuItemExtension(Extension):
         str
             Rendered output (empty string, item is added to parent menu)
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Get the current menu being built from RenderContext
         render_ctx = get_render_context()
@@ -217,8 +221,8 @@ class DropdownExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -249,7 +253,7 @@ class DropdownExtension(Extension):
         render_ctx.pop_menu()
 
         # Convert numeric parameters
-        width = int(width)
+        width = safe_int(width, default=30, name="width")
 
         # IMPORTANT: Always create the dropdown element, even if not visible
         # This allows shortcuts to be registered. The overlay manager will
@@ -363,8 +367,8 @@ class ContextMenuExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -395,7 +399,7 @@ class ContextMenuExtension(Extension):
         render_ctx.pop_menu()
 
         # Convert numeric parameters
-        width = int(width)
+        width = safe_int(width, default=30, name="width")
 
         # IMPORTANT: Always create the context menu element, even if not visible
         # This allows right-click detection to be registered.

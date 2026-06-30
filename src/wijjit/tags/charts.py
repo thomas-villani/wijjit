@@ -14,7 +14,11 @@ from jinja2.parser import Parser
 from wijjit.core.render_context import get_render_context
 from wijjit.core.vdom import VNodeBuilder
 from wijjit.logging_config import get_logger
-from wijjit.tags.layout import apply_tabindex, get_element_marker
+from wijjit.tags.layout import (
+    apply_common_attributes,
+    get_element_marker,
+    safe_int,
+)
 
 logger = get_logger(__name__)
 
@@ -70,8 +74,6 @@ class SparklineExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the sparkline tag."""
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -90,6 +92,7 @@ class SparklineExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Sparkline", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
         vnode.set_prop("style", style)
@@ -97,11 +100,12 @@ class SparklineExtension(Extension):
         vnode.set_prop("show_current", bool(show_current))
         if color:
             vnode.set_prop("color", color)
-        if classes:
-            vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
-        vnode.set_layout(width=int(width), height=int(height))
+        vnode.set_layout(
+            width=safe_int(width, default=20, name="width"),
+            height=safe_int(height, default=1, name="height"),
+        )
 
         context.add_vnode(vnode)
 
@@ -168,8 +172,6 @@ class BarChartExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the barchart tag."""
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -188,24 +190,29 @@ class BarChartExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("BarChart", key=id)
-        apply_tabindex(vnode, kwargs)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("bar_height", int(bar_height))
+        vnode.set_prop("bar_height", safe_int(bar_height, default=1, name="bar_height"))
         vnode.set_prop("show_labels", bool(show_labels))
         vnode.set_prop("show_values", bool(show_values))
         if label_width is not None:
-            vnode.set_prop("label_width", int(label_width))
-        vnode.set_prop("value_width", int(value_width))
+            vnode.set_prop(
+                "label_width", safe_int(label_width, default=0, name="label_width")
+            )
+        vnode.set_prop(
+            "value_width", safe_int(value_width, default=6, name="value_width")
+        )
         vnode.set_prop("color", color)
         vnode.set_prop("color_scale", color_scale)
         vnode.set_prop("show_scrollbar", bool(show_scrollbar))
         vnode.set_prop("show_border", bool(show_border))
-        if classes:
-            vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
-        vnode.set_layout(width=int(width), height=int(height))
+        vnode.set_layout(
+            width=safe_int(width, default=40, name="width"),
+            height=safe_int(height, default=10, name="height"),
+        )
 
         context.add_vnode(vnode)
 
@@ -271,8 +278,6 @@ class ColumnChartExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the columnchart tag."""
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -291,21 +296,25 @@ class ColumnChartExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("ColumnChart", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("column_width", int(column_width))
-        vnode.set_prop("spacing", int(spacing))
+        vnode.set_prop(
+            "column_width", safe_int(column_width, default=3, name="column_width")
+        )
+        vnode.set_prop("spacing", safe_int(spacing, default=1, name="spacing"))
         vnode.set_prop("show_labels", bool(show_labels))
         vnode.set_prop("show_axis", bool(show_axis))
-        vnode.set_prop("axis_width", int(axis_width))
+        vnode.set_prop("axis_width", safe_int(axis_width, default=6, name="axis_width"))
         vnode.set_prop("show_grid", bool(show_grid))
         vnode.set_prop("color", color)
         vnode.set_prop("color_scale", color_scale)
-        if classes:
-            vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
-        vnode.set_layout(width=int(width), height=int(height))
+        vnode.set_layout(
+            width=safe_int(width, default=60, name="width"),
+            height=safe_int(height, default=15, name="height"),
+        )
 
         context.add_vnode(vnode)
 
@@ -370,8 +379,6 @@ class LineChartExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the linechart tag."""
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -390,20 +397,22 @@ class LineChartExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("LineChart", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data)
         vnode.set_prop("style", style)
         vnode.set_prop("show_axis", bool(show_axis))
-        vnode.set_prop("axis_width", int(axis_width))
+        vnode.set_prop("axis_width", safe_int(axis_width, default=6, name="axis_width"))
         vnode.set_prop("show_labels", bool(show_labels))
         vnode.set_prop("show_points", bool(show_points))
         vnode.set_prop("show_legend", bool(show_legend))
         vnode.set_prop("color", color)
-        if classes:
-            vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
-        vnode.set_layout(width=int(width), height=int(height))
+        vnode.set_layout(
+            width=safe_int(width, default=60, name="width"),
+            height=safe_int(height, default=12, name="height"),
+        )
 
         context.add_vnode(vnode)
 
@@ -471,8 +480,6 @@ class GaugeExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the gauge tag."""
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -491,10 +498,13 @@ class GaugeExtension(Extension):
 
         # Determine actual height (Gauge computes this based on style)
         # For VNode, we'll use the requested height or let the element decide
-        actual_height = int(height) if height is not None else "auto"
+        actual_height = (
+            safe_int(height, default=0, name="height") if height is not None else "auto"
+        )
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Gauge", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("value", float(value))
         vnode.set_prop("min_value", float(min_value))
@@ -509,11 +519,11 @@ class GaugeExtension(Extension):
             vnode.set_prop("label", label)
         if unit:
             vnode.set_prop("unit", unit)
-        if classes:
-            vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
-        vnode.set_layout(width=int(width), height=actual_height)
+        vnode.set_layout(
+            width=safe_int(width, default=20, name="width"), height=actual_height
+        )
 
         context.add_vnode(vnode)
 
@@ -581,8 +591,6 @@ class HeatMapExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the heatmap tag."""
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -601,10 +609,13 @@ class HeatMapExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("HeatMap", key=id)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data or [])
-        vnode.set_prop("cell_width", int(cell_width))
-        vnode.set_prop("cell_height", int(cell_height))
+        vnode.set_prop("cell_width", safe_int(cell_width, default=2, name="cell_width"))
+        vnode.set_prop(
+            "cell_height", safe_int(cell_height, default=1, name="cell_height")
+        )
         vnode.set_prop("color_scale", color_scale)
         vnode.set_prop("show_values", bool(show_values))
         vnode.set_prop("show_legend", bool(show_legend))
@@ -617,11 +628,12 @@ class HeatMapExtension(Extension):
             vnode.set_prop("min_value", float(min_value))
         if max_value is not None:
             vnode.set_prop("max_value", float(max_value))
-        if classes:
-            vnode.set_prop("classes", classes)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
-        vnode.set_layout(width=int(width), height=int(height))
+        vnode.set_layout(
+            width=safe_int(width, default=40, name="width"),
+            height=safe_int(height, default=10, name="height"),
+        )
 
         context.add_vnode(vnode)
 

@@ -21,9 +21,10 @@ from wijjit.elements.display.tabbed_panel import TabPosition
 from wijjit.elements.display.tree import TreeIndicatorStyle
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
-    apply_tabindex,
+    apply_common_attributes,
     get_element_marker,
     interleave_text_and_vnode_builders,
+    normalize_element_kwargs,
     parse_tag_attributes,
     process_body_content,
     safe_int,
@@ -133,8 +134,6 @@ class TableExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -175,7 +174,6 @@ class TableExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("Table", key=id)
-        apply_tabindex(vnode, kwargs)
         vnode.set_prop("data", data)
         vnode.set_prop("columns", columns)
         vnode.set_prop("sortable", sortable)
@@ -183,8 +181,7 @@ class TableExtension(Extension):
         vnode.set_prop("show_scrollbar", show_scrollbar)
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width_spec, height=height_spec)
 
         context.add_vnode(vnode)
@@ -312,8 +309,6 @@ class TreeExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -324,7 +319,7 @@ class TreeExtension(Extension):
         width_spec = width
         height_spec = height
 
-        indent_size = int(indent_size)
+        indent_size = safe_int(indent_size, default=2, name="indent_size")
         show_scrollbar = bool(show_scrollbar)
         show_root = bool(show_root)
 
@@ -374,7 +369,6 @@ class TreeExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("TreeView", key=id)
-        apply_tabindex(vnode, kwargs)
         vnode.set_prop("data", data)
         vnode.set_prop("multiple", multiple)
         if selected_ids is not None:
@@ -392,8 +386,7 @@ class TreeExtension(Extension):
         if expanded is not None:
             vnode.set_prop("expanded", expanded)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width_spec, height=height_spec)
 
         context.add_vnode(vnode)
@@ -602,8 +595,6 @@ class ProgressBarExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -613,7 +604,7 @@ class ProgressBarExtension(Extension):
         # Convert numeric parameters
         value = float(value)
         max_val = float(max)
-        width = int(width)
+        width = safe_int(width, default=40, name="width")
 
         # Auto-generate ID if not provided
         if id is None:
@@ -646,8 +637,7 @@ class ProgressBarExtension(Extension):
         if empty_char:
             vnode.set_prop("empty_char", empty_char)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width, height=1)
 
         context.add_vnode(vnode)
@@ -732,8 +722,6 @@ class SpinnerExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -767,8 +755,7 @@ class SpinnerExtension(Extension):
         if color:
             vnode.set_prop("color", color)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=spinner_width, height=1)
 
         context.add_vnode(vnode)
@@ -889,8 +876,6 @@ class LogViewExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -955,7 +940,6 @@ class LogViewExtension(Extension):
         # Create VNode for reconciliation - NO direct Element instantiation
         # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("LogView", key=id)
-        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("lines", lines)
         vnode.set_prop("width", element_width)
@@ -970,8 +954,7 @@ class LogViewExtension(Extension):
         vnode.set_prop("bind", bind)
         if title:
             vnode.set_prop("title", title)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
 
         # Check if this element should be focused
         if focused_id and id and focused_id == id:
@@ -1112,8 +1095,6 @@ class ListViewExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1130,16 +1111,16 @@ class ListViewExtension(Extension):
         if isinstance(width, str) and not width.isdigit():
             element_width = 60  # Default for initial render
         else:
-            element_width = int(width)
+            element_width = safe_int(width, default=40, name="width")
 
         if isinstance(height, str) and not height.isdigit():
             element_height = 20  # Default for initial render
         else:
-            element_height = int(height)
+            element_height = safe_int(height, default=10, name="height")
 
         show_dividers = bool(show_dividers)
         show_scrollbar = bool(show_scrollbar)
-        indent_details = int(indent_details)
+        indent_details = safe_int(indent_details, default=2, name="indent_details")
         dim_details = bool(dim_details)
 
         # Auto-generate ID if not provided
@@ -1178,7 +1159,6 @@ class ListViewExtension(Extension):
         # Create VNode for reconciliation - NO direct Element instantiation
         # The reconciler will create the Element from this VNode
         vnode = VNodeBuilder("ListView", key=id)
-        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("items", items)
         vnode.set_prop("width", element_width)
@@ -1192,8 +1172,7 @@ class ListViewExtension(Extension):
         vnode.set_prop("bind", bind)
         if title:
             vnode.set_prop("title", title)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
 
         # Check if this element should be focused
         if focused_id and id and focused_id == id:
@@ -1301,8 +1280,6 @@ class ModalExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1311,9 +1288,12 @@ class ModalExtension(Extension):
         # Note: Visibility is checked in _sync_template_overlays based on visible_state_key
         # We always create the element here to enable pre-registration of shortcuts/metadata
 
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
+
         # Convert numeric parameters
-        width = int(width)
-        height = int(height)
+        width = safe_int(width, default=50, name="width")
+        height = safe_int(height, default=12, name="height")
 
         # Auto-generate ID if not provided
         if id is None:
@@ -1359,8 +1339,7 @@ class ModalExtension(Extension):
         vnode.set_prop("centered", True)
         if visible:
             vnode.set_prop("visible_state_key", visible)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         # Store body content in VNode for comparison
         vnode.set_prop("content", body_content)
         vnode.set_layout(width=width, height=height)
@@ -1451,13 +1430,14 @@ class StatusBarExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         layout_context = render_ctx.layout_context
         state = render_ctx.state
+
+        # Normalize the shared 'class' -> 'classes' template attribute.
+        classes = normalize_element_kwargs(kwargs).get("classes")
 
         # Auto-generate ID if not provided
         if id is None:
@@ -1514,8 +1494,7 @@ class StatusBarExtension(Extension):
             vnode.set_prop("bg_color", bg_color)
         if text_color:
             vnode.set_prop("text_color", text_color)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         # StatusBar doesn't use layout dimensions (it's fixed to bottom)
         vnode.set_layout(width="fill", height=1)
 
@@ -1604,8 +1583,6 @@ class TextExtension(Extension):
         str
             Rendered output
         """
-        # Handle 'class' attribute (rename to 'classes' since 'class' is a Python keyword)
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1629,8 +1606,7 @@ class TextExtension(Extension):
             vnode.set_prop("html", html)
         if align and align != "left":
             vnode.set_prop("align", align)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width, height=height)
 
         context.add_vnode(vnode)
@@ -1856,8 +1832,6 @@ class TabbedPanelExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1888,8 +1862,7 @@ class TabbedPanelExtension(Extension):
         vnode.set_prop("tab_position", tab_pos)
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
 
         # Push VNode to stack - TabExtension children will add TabContent VNodes
         context.push_vnode(vnode)
@@ -1998,9 +1971,6 @@ class LinkExtension(Extension):
             Rendered output
         """
 
-        # Handle 'class' attribute
-        classes = kwargs.get("class", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -2012,8 +1982,7 @@ class LinkExtension(Extension):
         vnode = VNodeBuilder("Link", key=id)
         vnode.set_prop("text", text_content)
         vnode.set_prop("action", action)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width="auto", height="auto")
         context.add_vnode(vnode)
 
@@ -2138,8 +2107,6 @@ class ContentViewExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute (rename to 'classes')
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -2174,7 +2141,6 @@ class ContentViewExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("ContentView", key=id)
-        apply_tabindex(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("content", content)
         vnode.set_prop("content_type", content_type)
@@ -2187,8 +2153,7 @@ class ContentViewExtension(Extension):
         if title:
             vnode.set_prop("title", title)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width_spec, height=height_spec)
 
         context.add_vnode(vnode)
@@ -2409,8 +2374,6 @@ class PagerExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Handle 'class' attribute
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -2435,8 +2398,7 @@ class PagerExtension(Extension):
         vnode.set_prop("loop", bool(loop))
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
 
         # Push VNode to stack - PageExtension children will add PageContent VNodes
         context.push_vnode(vnode)
@@ -2564,8 +2526,6 @@ class ImageViewExtension(Extension):
         str
             Rendered output marker
         """
-        # Handle 'class' attribute
-        classes = kwargs.get("class", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -2600,8 +2560,7 @@ class ImageViewExtension(Extension):
         vnode.set_prop("invert", invert)
         vnode.set_prop("background", background)
         vnode.set_prop("bind", bind)
-        if classes:
-            vnode.set_prop("classes", classes)
+        apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width_spec, height=height_spec)
 
         context.add_vnode(vnode)
