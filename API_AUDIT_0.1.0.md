@@ -89,12 +89,17 @@ all churn. Land as one tested batch; gate on full suite + `ruff check src/` +
   impact — **deferred to fold into Step 3** (which already touches border
   geometry) or a later dedup batch.
 
-**Step 2 — Constructor params (additive, low risk):**
-- `tab_index: int | None = None` on every focusable element + forward to
-  `super().__init__` (D5, CC-5 / INPUT-X1, DISPLAY-X5).
-- `value` property on TextArea/CodeEditor; `data` on Table; `lines` on LogView;
-  ProgressBar `max`→`max_value` (alias `max`) (D6, CC-6 / INPUT-2, DISPLAY-1/3).
-- Widen `classes` annotations to `str | list[str] | set[str] | None` (CC-9).
+**Step 2 — Constructor params (additive, low risk):** [LANDED — commits 14de967, b4ed603]
+- [LANDED] `tab_index: int | None = None` on every focusable element + forward to
+  `super().__init__` (D5, CC-5 / INPUT-X1, DISPLAY-X5). Non-focusable charts
+  intentionally excluded (inert). Link/Pager/TabbedPanel tab_index kept distinct
+  from TabbedPanel.active_tab_index.
+- [LANDED] `value` property on TextArea/CodeEditor (no-op-write guarded so the
+  reconciled prop doesn't reset the cursor); `data` on Table (syncs _raw_data +
+  sort + scroll); `lines` on LogView (delegates to set_lines); ProgressBar
+  `max`→`max_value` (alias `max`) (D6, CC-6 / INPUT-2, DISPLAY-1/3).
+- [LANDED] Widen `classes` annotations to `str | list[str] | set[str] | None`
+  across input + display + menu/modal elements (CC-9).
 
 **Step 3 — Renames with aliases:**
 - Border: `border` canonical, `border_style` alias, uniform default `"single"`,
