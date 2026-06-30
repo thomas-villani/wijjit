@@ -540,7 +540,9 @@ class TestTreeMouseInteraction:
             ],
         }
 
-        tree = Tree(data=data, width=40, height=10)
+        # border="none" so row N renders at screen row N (the default border
+        # would inset content by one row and shift these click coordinates).
+        tree = Tree(data=data, width=40, height=10, border_style="none")
         tree.expand_node("root")
 
         # Set bounds for coordinate calculation
@@ -1115,7 +1117,9 @@ class TestTreeMultiSelect:
                 {"label": "Child", "value": "child"},
             ],
         }
-        tree = Tree(data=data, multiple=True, width=40, height=10)
+        # border="none" so row N renders at screen row N (the default border
+        # would inset content by one row and shift these click coordinates).
+        tree = Tree(data=data, multiple=True, width=40, height=10, border_style="none")
         tree.expand_node("root")
         tree.bounds = Bounds(x=0, y=0, width=40, height=10)
 
