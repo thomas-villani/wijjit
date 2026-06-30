@@ -8,27 +8,47 @@ tab order.
 
 from wijjit import Wijjit
 from wijjit.core.vdom import VNodeBuilder
-from wijjit.tags.layout import apply_tabindex
+from wijjit.tags.layout import apply_common_attributes
 from wijjit.testing.harness import WijjitHarness
 
 
-class TestApplyTabindexHelper:
-    """Unit tests for the apply_tabindex helper."""
+class TestApplyCommonAttributesHelper:
+    """Unit tests for the apply_common_attributes helper.
+
+    This single helper subsumes the former ``apply_tabindex`` and the
+    per-family ``class`` -> ``classes`` copies, handling both the HTML-style
+    and Python-style spellings of each shared attribute.
+    """
 
     def test_html_style_tabindex(self):
         vnode = VNodeBuilder("Table", key="t")
-        apply_tabindex(vnode, {"tabindex": 4})
+        apply_common_attributes(vnode, {"tabindex": 4})
         assert vnode.props["tab_index"] == 4
 
     def test_python_style_tab_index(self):
         vnode = VNodeBuilder("Table", key="t")
-        apply_tabindex(vnode, {"tab_index": 2})
+        apply_common_attributes(vnode, {"tab_index": 2})
         assert vnode.props["tab_index"] == 2
 
-    def test_absent_leaves_prop_unset(self):
+    def test_tabindex_absent_leaves_prop_unset(self):
         vnode = VNodeBuilder("Table", key="t")
-        apply_tabindex(vnode, {"other": 1})
+        apply_common_attributes(vnode, {"other": 1})
         assert "tab_index" not in vnode.props
+
+    def test_html_style_class(self):
+        vnode = VNodeBuilder("Table", key="t")
+        apply_common_attributes(vnode, {"class": "card"})
+        assert vnode.props["classes"] == "card"
+
+    def test_python_style_classes(self):
+        vnode = VNodeBuilder("Table", key="t")
+        apply_common_attributes(vnode, {"classes": "card"})
+        assert vnode.props["classes"] == "card"
+
+    def test_class_absent_leaves_prop_unset(self):
+        vnode = VNodeBuilder("Table", key="t")
+        apply_common_attributes(vnode, {"other": 1})
+        assert "classes" not in vnode.props
 
 
 def _render_and_get(template: str, element_id: str):
@@ -79,3 +99,63 @@ class TestDisplayTagTabindex:
         )
         assert elem is not None
         assert elem.tab_index is None
+
+
+class TestLayoutContainerClasses:
+    """The ``class`` attribute now reaches the layout containers.
+
+    Previously frame/vstack/hstack/grid/splitpanel dropped ``class`` entirely
+    (``{% frame class="card" %}`` produced no ``classes`` prop). The shared
+    normalization path now forwards it like every other tag.
+
+    ``Frame`` is a styled ``Element``, so its ``classes`` are applied to the
+    element and participate in class-based theming. ``vstack``/``hstack``/
+    ``grid`` are realized as pure layout nodes with no styling surface, so the
+    contract there is only that the tag emits the normalized ``classes`` prop
+    (verified at the VNode level rather than on a styled element).
+    """
+
+    def test_frame_class_applied_to_element(self):
+        elem = _render_and_get(
+            '{% frame id="fr" class="card" %}hello{% endframe %}', "fr"
+        )
+        assert elem is not None
+        assert elem.classes == {"card"}
+
+    def test_frame_multiple_classes(self):
+        elem = _render_and_get(
+            '{% frame id="fr2" class="card highlight" %}hi{% endframe %}', "fr2"
+        )
+        assert elem is not None
+        assert elem.classes == {"card", "highlight"}
+
+    def _vnode_classes(self, template: str):
+        """Render a template and return the classes prop on its single VNode."""
+        app = Wijjit()
+        app.view("main", default=True)(lambda: {"template": template})
+        with WijjitHarness(app, size=(60, 20)) as h:
+            h.tick(frames=1)
+            tree = h.app.renderer._last_vnode_tree
+            found = []
+
+            def walk(node):
+                if node is None:
+                    return
+                props = node.props_dict()
+                if "classes" in props:
+                    found.append(props["classes"])
+                for child in getattr(node, "children", []) or []:
+                    walk(child)
+
+            walk(tree)
+            return found
+
+    def test_vstack_emits_classes_prop(self):
+        assert "col" in self._vnode_classes(
+            '{% vstack id="vs" class="col" %}hello{% endvstack %}'
+        )
+
+    def test_hstack_emits_classes_prop(self):
+        assert "row" in self._vnode_classes(
+            '{% hstack id="hs" class="row" %}hello{% endhstack %}'
+        )
