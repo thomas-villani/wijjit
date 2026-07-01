@@ -51,12 +51,12 @@ This is a **markdown** viewer that automatically fills available space.
         {% endframe %}
 
         {% frame border="rounded" title="Log" height=fill %}
-          {% textarea border="none" width=fill height=fill %}
+          {% contentview border="none" width=fill height=fill %}
 [INFO] Application started
 [INFO] Layout engine initialized
 [DEBUG] Rendering complete
 [INFO] All systems operational
-          {% endtextarea %}
+          {% endcontentview %}
         {% endframe %}
       {% endvstack %}
 
