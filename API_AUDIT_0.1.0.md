@@ -62,6 +62,13 @@ aliases so the ~69 examples/goldens don't all churn at once.
   `data` property on Table; `lines` property on LogView; ProgressBar
   `max`→`max_value` (keep `max` alias). All delegate to existing setters so
   reactive assignment is uniform.
+- **D7 (CC-7) — Boolean-input callbacks:** `on_change` is the canonical
+  "state changed" callback across Checkbox/Radio/Toggle (JS `onChange`
+  semantics). Make `checked` a firing property on Checkbox/Radio (matching
+  Toggle) with an equality guard, so a reconciler-driven `checked` change fires
+  `on_change` on all three, not just Toggle. `on_action` stays the activation
+  hook; Toggle gains it and keeps `on_toggle` as a deprecated alias. Button is
+  unchanged (no value -> no `on_change`).
 
 ---
 
@@ -131,9 +138,38 @@ fixed in-place). Final gates all green: full suite 2947 passed / 22 skipped
 > Deferred to follow-up batches (not in the D1–D6 surface set): the dedup/
 > dead-code cleanups (CC-10, CC-11), logging/loop-convention sweeps (CC-12), the
 > public-docstring corrections (CC-13), and the internal manager naming (CC-14).
-> Two "out of scope" notes are arguably real bugs worth their own look: the
-> uncapped `read_input_async` paste loop (LAYTERM B.4) and
-> `Config.from_object` dotted-path import (API B.6).
+
+## Batch 2 — D7 + CC-8 + out-of-scope bugs (fix/0.1.0-api-audit-batch2)
+
+A second small batch off `main`, closing the remaining pre-release-relevant
+items surfaced by this audit. All test-backed; full suite 3003 passed / 22
+skipped, `ruff check src/` + `mypy --strict src/` clean (116 files).
+
+- [LANDED — D7/CC-7] Boolean-input `on_change` unified. `checked` is now a
+  firing property on Checkbox/Radio (mirroring Toggle) with an equality guard,
+  so user interaction, programmatic assignment, and reconciler prop-sync all
+  fire `on_change` consistently across the three widgets. Toggle gained
+  `on_action` (canonical activation) with `on_toggle` kept as a fired alias.
+  Radio select/deselect route firing through the setter (one fire each, self +
+  siblings). Toggle was the existence proof this is safe with two-way binding.
+  15 new parametrized tests.
+- [LANDED — CC-8/DISPLAY-X3] The six overlay/display callbacks (Notification
+  `on_dismiss`/`action_callback`, Pager `on_page_change`, TabbedPanel
+  `on_tab_change`, Menu `on_item_select`/`close_callback`) now route through
+  `invoke_callback`, so async handlers are awaited instead of created-and-
+  dropped. Completes the Theme-B async-dispatch sweep. 4 new async-handler tests.
+- [LANDED — LAYTERM B.4] `read_input_async` paste aggregation capped at
+  `MAX_PASTE_SIZE` with a truncation warning, mirroring the sync path; the async
+  loop was previously `while True` and unbounded on the primary runtime path.
+- [LANDED — API B.6] `Config.from_object("pkg.sub.Class")` now resolves the
+  dotted module/attribute path via a Flask-style `import_string` (also accepts
+  `module:attr`) instead of `__import__`, which returned the top-level package.
+
+> Still deferred (no compat risk / need design, tracked above and in
+> `CODE_REVIEW_0.1.0.md`): CC-10/11 dedup + dead code, CC-12 logging sweeps,
+> CC-13 docstring corrections, CC-14 manager naming; and from the correctness
+> review: Theme A wide-char buffer, reconciler keyless-element state, CodeEditor
+> soft-wrap, unknown-attribute forwarding, legacy mouse mode.
 
 ---
 
