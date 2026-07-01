@@ -10,7 +10,12 @@ from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Union
 
-from wijjit.elements.base import Container, ElementType, delegate_frame_scroll
+from wijjit.elements.base import (
+    Container,
+    ElementType,
+    delegate_frame_scroll,
+    invoke_callback,
+)
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width, visible_length
@@ -207,7 +212,7 @@ class TabbedPanel(Container):
             # Emit callback
             if self.on_tab_change:
                 label = self.tabs[self.active_tab_index][0]
-                self.on_tab_change(self.active_tab_index, label)
+                invoke_callback(self.on_tab_change, self.active_tab_index, label)
 
     def _save_active_tab_state(self) -> None:
         """Save active tab index to app state if available."""

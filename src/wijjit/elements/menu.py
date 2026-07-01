@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from wijjit.elements.base import ElementType, OverlayElement
+from wijjit.elements.base import ElementType, OverlayElement, invoke_callback
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.terminal.ansi import ANSIStyle, clip_to_width, visible_length
@@ -207,7 +207,7 @@ class MenuElement(OverlayElement):
         # Escape - close menu
         if key == Keys.ESCAPE:
             if self.close_callback:
-                self.close_callback()
+                invoke_callback(self.close_callback)
             return True
 
         # Enter - select highlighted item
@@ -318,11 +318,11 @@ class MenuElement(OverlayElement):
         """
         # Call selection callback
         if self.on_item_select and item.action:
-            self.on_item_select(item.action, item)
+            invoke_callback(self.on_item_select, item.action, item)
 
         # Close menu
         if self.close_callback:
-            self.close_callback()
+            invoke_callback(self.close_callback)
 
     def get_ephemeral_state(self) -> dict:
         """Get ephemeral state for reconciliation.
