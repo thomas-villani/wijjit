@@ -88,7 +88,9 @@ class Radio(Element):
         self.focusable = True
         self.name = name  # Group identifier
         self.label = label
-        self.checked = checked
+        # Backing field set directly to avoid firing on_change during __init__
+        # (the callback is not attached yet).
+        self._checked = checked
         self.value = value
 
         # Callbacks
@@ -102,16 +104,46 @@ class Radio(Element):
         # Group navigation
         self.radio_group: list[Radio] | None = None  # Set by app
 
+    @property
+    def checked(self) -> bool:
+        """Get the checked state.
+
+        Returns
+        -------
+        bool
+            Current checked state
+        """
+        return self._checked
+
+    @checked.setter
+    def checked(self, value: bool) -> None:
+        """Set the checked state, firing ``on_change`` when it changes.
+
+        Assigning ``checked`` fires ``on_change`` on any real change -- whether
+        from user interaction, programmatic assignment, or reconciler-driven
+        prop sync -- mirroring Toggle so the three boolean inputs behave
+        identically. Assigning the same value is a no-op (no callback).
+
+        Parameters
+        ----------
+        value : bool
+            New checked state
+        """
+        old_value = self._checked
+        self._checked = value
+        if old_value != value:
+            self._emit_change(old_value, value)
+
     def select(self) -> None:
         """Select this radio button, deselecting same-group siblings.
 
         Selecting a radio deselects every other radio in ``radio_group`` that
         shares this radio's ``name`` (mutual exclusion). For radios bound to
         state this is reinforced by the state round-trip, but performing it here
-        means unbound radios behave correctly too.
+        means unbound radios behave correctly too. The ``checked`` setter fires
+        this radio's ``on_change``; each deselected sibling fires its own.
         """
-        if not self.checked:
-            old_value = self.checked
+        if not self._checked:
             self.checked = True
             # Deselect same-group siblings so only one radio stays checked.
             if self.radio_group:
@@ -122,14 +154,10 @@ class Radio(Element):
                         and sibling.checked
                     ):
                         sibling.deselect()
-            self._emit_change(old_value, self.checked)
 
     def deselect(self) -> None:
         """Deselect this radio button (called by group management)."""
-        if self.checked:
-            old_value = self.checked
-            self.checked = False
-            self._emit_change(old_value, self.checked)
+        self.checked = False
 
     def _emit_change(self, old_value: bool, new_value: bool) -> None:
         """Emit change event.

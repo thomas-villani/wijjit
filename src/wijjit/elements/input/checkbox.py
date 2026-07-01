@@ -76,7 +76,9 @@ class Checkbox(Element):
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
         self.focusable = True
         self.label = label
-        self.checked = checked
+        # Backing field set directly to avoid firing on_change during __init__
+        # (the callback is not attached yet).
+        self._checked = checked
         self.value = value
 
         # Callbacks
@@ -87,11 +89,39 @@ class Checkbox(Element):
         self.action: str | None = None
         self.bind: bool = True
 
+    @property
+    def checked(self) -> bool:
+        """Get the checked state.
+
+        Returns
+        -------
+        bool
+            Current checked state
+        """
+        return self._checked
+
+    @checked.setter
+    def checked(self, value: bool) -> None:
+        """Set the checked state, firing ``on_change`` when it changes.
+
+        Assigning ``checked`` fires ``on_change`` on any real change -- whether
+        from user interaction, programmatic assignment, or reconciler-driven
+        prop sync -- mirroring Toggle so the three boolean inputs behave
+        identically. Assigning the same value is a no-op (no callback).
+
+        Parameters
+        ----------
+        value : bool
+            New checked state
+        """
+        old_value = self._checked
+        self._checked = value
+        if old_value != value:
+            self._emit_change(old_value, value)
+
     def toggle(self) -> None:
         """Toggle the checked state and emit change event."""
-        old_value = self.checked
-        self.checked = not self.checked
-        self._emit_change(old_value, self.checked)
+        self.checked = not self._checked
 
     def _emit_change(self, old_value: bool, new_value: bool) -> None:
         """Emit change event.
