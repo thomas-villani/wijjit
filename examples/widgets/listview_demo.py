@@ -71,7 +71,7 @@ def main_view():
         {% listview id="fruits_bullet"
                     items=state.fruits
                     bullet="bullet"
-                    width=24
+                    width=21
                     height=7
                     border="single"
                     title="Bullets"
@@ -81,7 +81,7 @@ def main_view():
         {% listview id="fruits_number"
                     items=state.fruits
                     bullet="number"
-                    width=24
+                    width=21
                     height=7
                     border="rounded"
                     title="Numbered"
@@ -90,7 +90,7 @@ def main_view():
         {% listview id="fruits_dash"
                     items=state.fruits
                     bullet="dash"
-                    width=24
+                    width=21
                     height=7
                     border="double"
                     title="Dashes"
@@ -99,7 +99,7 @@ def main_view():
         {% listview id="fruits_plain"
                     items=state.fruits
                     bullet=none
-                    width=24
+                    width=21
                     height=7
                     border="single"
                     title="Plain"
@@ -112,7 +112,7 @@ def main_view():
                     items=state.languages
                     bullet="bullet"
                     show_dividers=false
-                    width=48
+                    width=45
                     height=8
                     border="single"
                     title="Languages (Details)"
@@ -125,7 +125,7 @@ def main_view():
                     items=state.tasks
                     bullet="number"
                     show_dividers=true
-                    width=48
+                    width=45
                     height=8
                     border="double"
                     title="Tasks (Dividers)"

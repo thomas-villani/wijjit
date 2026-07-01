@@ -153,6 +153,9 @@ def main_view():
       {% button action="lang_python" %}Python{% endbutton %}
       {% button action="lang_js" %}JavaScript{% endbutton %}
       {% button action="lang_rust" %}Rust{% endbutton %}
+    {% endhstack %}
+
+    {% hstack spacing=2 %}
       Theme:
       {% button action="theme_monokai" %}Monokai{% endbutton %}
       {% button action="theme_dracula" %}Dracula{% endbutton %}
@@ -161,7 +164,7 @@ def main_view():
     {% endhstack %}
 
     {% codeeditor id="editor" language=state.language theme=state.theme
-                  width=86 height=15 show_line_numbers=True %}
+                  width=84 height=15 show_line_numbers=True %}
     {% endcodeeditor %}
 
     {% hstack spacing=2 %}

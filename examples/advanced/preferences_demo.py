@@ -59,7 +59,7 @@ def main_view():
     {{ state.status }}
 
     {% hstack spacing=2 align_v="top" %}
-      {% vstack spacing=0 width=28 %}
+      {% vstack spacing=0 width=27 %}
         {% frame title="Appearance" border="single" width="fill" %}
           {% vstack spacing=1 padding=0 %}
             Theme:
@@ -80,7 +80,7 @@ def main_view():
         {% endframe %}
       {% endvstack %}
 
-      {% vstack spacing=1 width=28 %}
+      {% vstack spacing=1 width=27 %}
         {% frame title="Editor" border="single" width="fill" %}
           {% vstack spacing=1 padding=0 %}
             Font Size:
@@ -108,7 +108,7 @@ def main_view():
         {% endframe %}
       {% endvstack %}
 
-      {% vstack spacing=1 width=28 %}
+      {% vstack spacing=1 width=27 %}
         {% frame title="Notifications" border="single" width="fill" %}
           {% vstack spacing=1 padding=0 %}
             Alert Channels:
