@@ -36,10 +36,6 @@ Controls:
 import shutil
 
 from wijjit import Wijjit, render_template_string
-from wijjit.logging_config import configure_logging
-
-# Enable debug logging
-configure_logging(filename="textarea-demo.log", level="DEBUG")
 
 # Initial content for the textarea
 INITIAL_CONTENT = """Welcome to Wijjit TextArea!

@@ -14,12 +14,9 @@ Controls:
 from wijjit import render_template_string
 from wijjit.core.app import Wijjit
 from wijjit.elements.modal import AlertDialog
-from wijjit.logging_config import configure_logging
 
 app = Wijjit(initial_state={"counter": 0})
 state = app.state
-
-configure_logging("alert-demo.log", level="DEBUG")
 
 
 @app.view("main", default=True)

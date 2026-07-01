@@ -77,6 +77,8 @@ Documentation Contents
    getting_started/installation
    getting_started/quickstart
    getting_started/tutorial
+   getting_started/tutorial_chatbot
+   getting_started/tutorial_spreadsheet
 
 .. toctree::
    :maxdepth: 2

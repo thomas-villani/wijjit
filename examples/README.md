@@ -68,8 +68,10 @@ Individual examples showcasing specific UI elements and components.
 
 Complete mini-applications and advanced usage patterns.
 
-**Complete Applications:**
-- **todo_app.py** - Full-featured todo list with add/delete/toggle/filter
+**Complete Applications** (under [apps/](apps/)):
+- **apps/todo_app.py** - Full-featured todo list with add/delete/toggle/filter
+- **apps/chatbot.py** - Conversational TUI: scrollable history + rule-based bot (has a tutorial)
+- **apps/spreadsheet.py** - Editable DataGrid with a live chart and .xlsx/CSV save (has a tutorial)
 - **form_demo.py** - Registration form with comprehensive validation (email, age, required fields)
 - **data_entry_demo.py** - Business order entry form with multiple sections
 - **preferences_demo.py** - Settings/preferences editor with multiple categories

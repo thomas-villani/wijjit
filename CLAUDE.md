@@ -337,8 +337,8 @@ defaults; `tests/core/test_config.py` covers it.
 `examples/` has ~69 runnable demos, organized into `basic/` (15), `widgets/`
 (30), `advanced/` (21), `styling/` (2), `apps/` (1). Run with
 `python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
-behavioral bugs deferred to 0.1.1, tracked with root causes in `issues.md` (repo
-root) - see `RELEASE_PLAN.md`.
+behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
+(Part 2).
 
 ## Known Limitations / In-Progress
 
