@@ -9,7 +9,7 @@ Form inputs
 -----------
 
 TextInput / TextArea
-    Single-line and multi-line editors (:mod:`wijjit.elements.input.text`). Support placeholder text, max length, width/height control, Enter actions, selection, copy/paste (via ``pyperclip``), and cursor movement. Both emit ``ChangeEvent`` on edits and update ``state[id]`` automatically. Use ``bind=False`` to manage the value manually (useful for formatted or derived inputs) and attach ``action=...`` to submit on Enter.
+    Single-line and multi-line editors (:mod:`wijjit.elements.input.text`). Support placeholder text, max length, width/height control, Enter actions, selection, copy/paste (via ``pyperclip``), and cursor movement. Both emit ``ChangeEvent`` on edits and update ``state[id]`` automatically. Use ``bind=False`` to manage the value manually (useful for formatted or derived inputs) and attach ``action=...`` to submit on Enter. To read or write the text from Python, use the ``.value`` property — it is available uniformly on ``TextInput``, ``TextArea``, and ``CodeEditor`` (assigning ``element.value = "..."`` replaces the content and fires ``on_change``).
 
     .. literalinclude:: ../../../examples/basic/simple_input_test.py
        :language: python
@@ -250,7 +250,7 @@ ContentView
     See ``examples/widgets/contentview_demo.py`` for a complete demonstration of all content types.
 
 Table
-    Feature-rich table control with column sizing, alignment, zebra striping, sorting, and optional selection/highlighting. Works well for log viewers, data dashboards, and admin lists. Consider pairing with scrollable frames for large datasets or binding button actions to operate on selected rows.
+    Feature-rich table control with column sizing, alignment, zebra striping, sorting, and optional selection/highlighting. Works well for log viewers, data dashboards, and admin lists. Consider pairing with scrollable frames for large datasets or binding button actions to operate on selected rows. Assign ``table.data = rows`` to swap the contents reactively — it re-applies any active sort and re-clamps scroll, staying in sync (do not mutate the underlying list in place).
 
     .. literalinclude:: ../../../examples/widgets/table_demo.py
        :language: python
@@ -264,7 +264,7 @@ ListView
     Scrollable vertical list that highlights the selected row. Great for menus, chat transcripts, or search results. Works nicely with ``app.on_action`` handlers that parse the row id (``row_selected_<id>`` pattern).
 
 LogView
-    Tail-like streaming buffer with manual/auto-scroll toggles. Supports severity coloring and timestamp columns. Pair it with background tasks to watch long-running jobs.
+    Tail-like streaming buffer with manual/auto-scroll toggles. Supports severity coloring and timestamp columns. Pair it with background tasks to watch long-running jobs. Assign ``logview.lines = [...]`` (or the equivalent ``set_lines(...)``) to replace the buffer reactively — it re-renders, re-clamps scroll, and honours auto-scroll. To append, reassign with the new list (``logview.lines = logview.lines + [entry]``).
 
 StatusIndicator
     Colored status indicator with extensible presets (:mod:`wijjit.elements.display.status_indicator`). Displays a colored circle (or other shape) to indicate status. Non-interactive display element perfect for dashboards and system status displays.
@@ -377,12 +377,12 @@ BarChart
     * ``data`` - List of values, tuples ``(label, value)``, or dicts ``{"label": ..., "value": ...}``
     * ``width`` / ``height`` - Display dimensions
     * ``show_values`` - Display numeric values on bars
-    * ``color`` - Color mode: ``default``, ``gradient``, or ``threshold``
+    * ``color_mode`` - Color mode: ``default``, ``gradient``, or ``threshold``
     * ``max_value`` - Override automatic scaling
 
     .. code-block:: jinja
 
-       {% barchart data=sales_by_region width=40 height=8 show_values=True color="gradient" %}{% endbarchart %}
+       {% barchart data=sales_by_region width=40 height=8 show_values=True color_mode="gradient" %}{% endbarchart %}
 
 ColumnChart
     Vertical column chart with Y-axis (:mod:`wijjit.elements.display.columnchart`). Uses block characters for rendering with optional grid lines and axis labels.
@@ -393,7 +393,7 @@ ColumnChart
     * ``width`` / ``height`` - Display dimensions
     * ``show_axis`` - Display Y-axis with tick marks
     * ``show_labels`` - Display X-axis labels
-    * ``color`` - Color mode for columns
+    * ``color_mode`` - Color mode for columns
 
     .. code-block:: jinja
 
@@ -422,7 +422,7 @@ Gauge
     * ``value`` - Current value
     * ``min_value`` / ``max_value`` - Value range (default: 0-100)
     * ``style`` - Display style: ``linear`` (horizontal bar) or ``arc`` (semi-circular)
-    * ``color`` - Color mode: ``default``, ``gradient``, or ``threshold``
+    * ``color_mode`` - Color mode: ``default``, ``gradient``, or ``threshold``
     * ``label`` - Optional label text above gauge
     * ``unit`` - Unit suffix for value display (e.g., ``%``, ``MB``)
     * ``show_value`` - Display current value
@@ -430,7 +430,7 @@ Gauge
 
     .. code-block:: jinja
 
-       {% gauge value=cpu_usage style="arc" label="CPU" unit="%" color="threshold" %}{% endgauge %}
+       {% gauge value=cpu_usage style="arc" label="CPU" unit="%" color_mode="threshold" %}{% endgauge %}
 
 HeatMap
     2D grid visualization with color intensity (:mod:`wijjit.elements.display.heatmap`). Uses block characters with RGB coloring to represent values. Great for correlation matrices, activity grids, or geographic data.

@@ -113,6 +113,16 @@ Load configuration from a class or module:
    else:
        app.config.from_object(DevelopmentConfig)
 
+``from_object`` also accepts a dotted **string** path, resolved Flask-style, so
+the config target can be selected entirely from configuration/environment without
+importing it yourself:
+
+.. code-block:: python
+
+   app.config.from_object('myproject.settings')             # a module
+   app.config.from_object('myproject.settings.ProdConfig')  # module attribute
+   app.config.from_object('myproject.settings:ProdConfig')  # explicit module:attr form
+
 5. From Environment Variable
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -716,7 +726,7 @@ Development Environment
    SHOW_FPS = True
    WARN_SLOW_RENDER_MS = 50
    DEBUG_INPUT_KEYBOARD = True
-   TEMPLATE_AUTO_RELOAD = True  # When implemented
+   TEMPLATE_AUTO_RELOAD = True
 
 .. code-block:: python
 

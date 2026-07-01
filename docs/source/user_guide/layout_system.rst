@@ -45,6 +45,37 @@ Stacks
 
 Stacks can contain other stacks, frames, inputs, or display elements. They map to :class:`wijjit.layout.engine.VStack` / :class:`wijjit.layout.engine.HStack`.
 
+Grid
+----
+
+``{% grid %}``
+    Arranges children into a fixed grid, filling cells left-to-right, top-to-bottom.
+    Attributes: ``rows`` (default ``2``), ``cols`` (default ``2``),
+    ``row_gap`` / ``column_gap`` (blank rows/columns between cells; ``column_gap``
+    matches ``{% hstack %}``), ``width`` (default ``"fill"``), ``height`` (default
+    ``"auto"``), ``padding``, ``margin``, and ``align_h`` / ``align_v`` (cell
+    alignment, ``"stretch"`` by default).
+
+    Wrap a child in ``{% colspan cols=N %}`` or ``{% rowspan rows=N %}`` to make it
+    span multiple cells:
+
+    .. code-block:: jinja
+
+        {% grid rows=2 cols=3 row_gap=1 column_gap=2 %}
+          {% colspan cols=2 %}
+            {% frame border="double" %}Wide header{% endframe %}
+          {% endcolspan %}
+          {% frame border="single" %}A{% endframe %}
+          {% frame border="single" %}B{% endframe %}
+          {% frame border="single" %}C{% endframe %}
+          {% frame border="single" %}D{% endframe %}
+        {% endgrid %}
+
+    .. note::
+
+       ``column_gap`` is canonical (matching ``{% hstack %}``); ``col_gap`` still
+       works as a deprecated alias.
+
 Frames
 ------
 
