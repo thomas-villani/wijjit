@@ -593,7 +593,7 @@ class ViewRouter:
                         await current.on_exit()
                     else:
                         # Run sync hook in executor
-                        loop = asyncio.get_event_loop()
+                        loop = asyncio.get_running_loop()
                         await loop.run_in_executor(None, current.on_exit)
                 except Exception as e:
                     self.app._handle_error(
@@ -622,7 +622,7 @@ class ViewRouter:
                     await new_view.on_enter()
                 else:
                     # Run sync hook in executor
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(None, new_view.on_enter)
             except Exception as e:
                 self.app._handle_error(f"Error in on_enter for view '{view_name}'", e)

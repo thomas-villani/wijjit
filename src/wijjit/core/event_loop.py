@@ -153,7 +153,7 @@ class EventLoop:
                     await initial_view.on_enter()
                 else:
                     # Run sync hook in executor
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(None, initial_view.on_enter)
             except Exception as e:
                 self.app._handle_error(

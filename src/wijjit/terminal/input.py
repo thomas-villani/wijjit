@@ -419,7 +419,7 @@ class InputHandler:
             List of key presses, or None on timeout/error.
         """
         self._ensure_reader_thread()
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             keys = await asyncio.wait_for(
                 loop.run_in_executor(
@@ -718,7 +718,7 @@ class InputHandler:
         avoid spawning new executor tasks for every timeout-based read,
         preventing task leaks.
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         try:
             # Enter raw mode if not already in it
