@@ -743,20 +743,24 @@ class Wijjit:
     def on(
         self,
         event_type: EventType,
-        callback: Callable[[Event], None],
+        callback: Callable[[Event], None] | None = None,
         scope: HandlerScope = HandlerScope.GLOBAL,
         view_name: str | None = None,
         element_id: str | None = None,
         priority: int = 0,
-    ) -> None:
-        """Register an event handler.
+    ) -> Any:
+        """Register an event handler, directly or as a decorator.
+
+        Called with a ``callback`` it registers immediately and returns it;
+        called without one it returns a decorator, matching the
+        ``@app.on_key`` / ``@app.on_action`` decorator style.
 
         Parameters
         ----------
         event_type : EventType
             Type of event to handle
-        callback : Callable[[Event], None]
-            Function to call when event occurs
+        callback : Callable[[Event], None] or None
+            Function to call when event occurs. Omit to use as a decorator.
         scope : HandlerScope
             Scope at which handler operates (default: GLOBAL)
         view_name : str or None
@@ -765,15 +769,40 @@ class Wijjit:
             Element ID for element-scoped handlers
         priority : int
             Handler priority (higher = earlier, default: 0)
+
+        Returns
+        -------
+        Callable
+            The registered callback (direct form), or a decorator that
+            registers and returns the callback it wraps (decorator form).
+
+        Examples
+        --------
+        Direct registration::
+
+            app.on(EventType.KEY, handler)
+
+        As a decorator::
+
+            @app.on(EventType.KEY)
+            def handler(event):
+                ...
         """
-        self.handler_registry.register(
-            callback=callback,
-            scope=scope,
-            event_type=event_type,
-            view_name=view_name,
-            element_id=element_id,
-            priority=priority,
-        )
+
+        def _register(cb: Callable[[Event], None]) -> Callable[[Event], None]:
+            self.handler_registry.register(
+                callback=cb,
+                scope=scope,
+                event_type=event_type,
+                view_name=view_name,
+                element_id=element_id,
+                priority=priority,
+            )
+            return cb
+
+        if callback is None:
+            return _register
+        return _register(callback)
 
     def on_key(
         self,
@@ -1823,6 +1852,26 @@ class Wijjit:
             dimmed_background=False,
             on_close=None,
         )
+
+    def close_overlay(self, overlay: "Overlay | None" = None) -> "Overlay | None":
+        """Close an overlay opened by ``show_modal``/``show_dropdown``/``show_tooltip``.
+
+        The public counterpart to those ``show_*`` methods, so callers do not
+        have to reach into ``overlay_manager`` to dismiss what they opened.
+        With no argument, closes the topmost overlay.
+
+        Parameters
+        ----------
+        overlay : Overlay or None
+            The overlay returned by a ``show_*`` call, or None to close the
+            topmost overlay.
+
+        Returns
+        -------
+        Overlay or None
+            The closed overlay, or None if there was nothing to close.
+        """
+        return self.overlay_manager.pop(overlay)
 
     def notify(
         self,

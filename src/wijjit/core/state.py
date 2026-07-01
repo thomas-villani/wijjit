@@ -237,6 +237,28 @@ class State(UserDict[str, Any]):
                 f"(async={is_async})"
             )
 
+    def off_change(
+        self,
+        callback: (
+            Callable[[str, Any, Any], None] | Callable[[str, Any, Any], Awaitable[None]]
+        ),
+    ) -> None:
+        """Unregister a global state-change callback.
+
+        The counterpart to :meth:`on_change` (mirrors :meth:`watch` /
+        :meth:`unwatch`). Removing a callback that was never registered is a
+        no-op.
+
+        Parameters
+        ----------
+        callback : callable or async callable
+            The callback previously passed to :meth:`on_change`.
+        """
+        if callback in self._change_callbacks:
+            self._change_callbacks.remove(callback)
+            callback_name = getattr(callback, "__name__", repr(callback))
+            logger.debug(f"Unregistered global state change callback: {callback_name}")
+
     def watch(
         self,
         key: str,

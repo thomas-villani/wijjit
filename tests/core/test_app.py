@@ -393,6 +393,35 @@ class TestEventHandlers:
         assert len(called) == 1
 
     @pytest.mark.asyncio
+    async def test_on_decorator_form(self):
+        """`@app.on(EventType.KEY)` (no callback) registers and returns the fn."""
+        app = Wijjit()
+        called = []
+
+        @app.on(EventType.KEY)
+        def handler(event):
+            called.append(event)
+
+        # The decorator returns the original function unchanged.
+        assert handler.__name__ == "handler"
+        test_handlers = [
+            h for h in app.handler_registry.handlers if h.callback == handler
+        ]
+        assert len(test_handlers) == 1
+
+        await app.handler_registry.dispatch_async(KeyEvent(key="a"))
+        assert len(called) == 1
+
+    def test_on_direct_form_returns_callback(self):
+        """The direct `app.on(type, cb)` form returns the callback."""
+        app = Wijjit()
+
+        def handler(event):
+            pass
+
+        assert app.on(EventType.KEY, handler) is handler
+
+    @pytest.mark.asyncio
     async def test_register_view_handler(self):
         """Test registering a view-scoped handler."""
         app = Wijjit()
@@ -724,3 +753,24 @@ class TestKeyHandlers:
         assert "q" in app._key_handler_registrations
         assert "enter" in app._key_handler_registrations
         assert len(app._key_handler_registrations) == 3
+
+
+class TestOverlays:
+    """Tests for the public overlay open/close surface."""
+
+    def test_close_overlay_removes_shown_overlay(self):
+        """close_overlay dismisses an overlay opened via show_modal."""
+        from wijjit import Frame
+
+        app = Wijjit()
+        overlay = app.show_modal(Frame(width=10, height=3))
+        assert overlay in app.overlay_manager.overlays
+
+        closed = app.close_overlay(overlay)
+        assert closed is overlay
+        assert overlay not in app.overlay_manager.overlays
+
+    def test_close_overlay_empty_returns_none(self):
+        """close_overlay with nothing open returns None."""
+        app = Wijjit()
+        assert app.close_overlay() is None
