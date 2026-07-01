@@ -56,9 +56,13 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
 - [ ] alert_dialog_demo.py - should color the error / success / info alert modals
       (DEFERRED 0.1.1 - severity-based modal theming; cosmetic enhancement.)
 - [ ] centered_dialog.py - is not vertically centered as claimed (DEFERRED 0.1.1 - overlay v-centering.)
-- [ ] code_editor_demo.py - the buttons don't fit, and the editor goes off the frame.
+- [~] code_editor_demo.py - the buttons don't fit, and the editor goes off the frame.
+      LAYOUT FIXED (demo, 0.1.0): the 7-button Language/Theme row (~103 cols)
+      was clipped and the codeeditor (width=86) ate the frame's right padding.
+      Split into two button rows; trimmed the editor to width=84. Verified via
+      the right-border overflow sweep at 100x30.
      - hitting tab switches to the next element, should probably disable or allow to disable
-     (DEFERRED 0.1.1 - demo layout + CodeEditor tab-capture option.)
+     (CodeEditor tab-capture option still DEFERRED 0.1.1.)
 
 - [ ] content_view_demo.py - scrolling main frame causes elements to escape top of parent frame
       (DEFERRED 0.1.1 - group D clip-region not clamping to frame borders on scroll.)
@@ -75,12 +79,16 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
       Root cause (frozen view-`data` snapshot) tracked in roadmap.md.
       (Modal severity coloring is separate, still DEFERRED 0.1.1.)
 
-- [ ] listview_demo.py - rightmost list extends outside of frame.
+- [~] listview_demo.py - rightmost list extends outside of frame.
+      OVERFLOW FIXED (demo, 0.1.0): listview `width` is the *content* width
+      (borders add 2), so 4x24 (top) + 2x48 (bottom) overran the ~96-col frame
+      content region, dropping the rightmost list's border and the frame's own
+      right border. Sized to 4x21 / 2x45 to fit at 100 cols with the border
+      intact (right-border overflow sweep clean).
      - "Add Fruit" and "Add Task" doesn't seem to actually add to the lists, just says "Added New Fruit .. to the fruits list"
      (PARTIAL: the add DOES work - verified headlessly the item is appended and
      rendered; it just lands below the visible viewport in a full list (no
-     auto-scroll to the new row). Rightmost-list-overflow + scroll-to-new-row
-     DEFERRED 0.1.1.)
+     auto-scroll to the new row). Scroll-to-new-row DEFERRED 0.1.1.)
 
 - [ ] logview_demo.py - streaming log should probably scroll to bottom (or at least have option)
     - buttons go off edge of panel to right
@@ -119,8 +127,10 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
     - expand all and collapse all didn't do anything
 
 
-- [ ] complex_layout_demo.py - why can I edit the log?
-      (DEFERRED 0.1.1 - demo/element config: make the LogView/TextArea read-only.)
+- [x] complex_layout_demo.py - why can I edit the log?
+      FIXED (demo, 0.1.0): the "Log" panel was an editable TextArea. Swapped to
+      a non-editable contentview (the same element already used for the demo's
+      markdown panel), so the log is display-only.
 - [~] context_menu_demo.py - copy and rename don't do anything - intentional?
       PARTIAL: the buttons work (verified - Rename sets `state.status` to
       "Renaming ..."). "Copy" is only reachable via the right-click context menu;
@@ -135,7 +145,13 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
       `height=36` frame (~row 50), so it sits off-screen; that off-screen/overflow
       layout item is DEFERRED 0.1.1 (tracked in roadmap.md Viewport section).
 
-- [ ] executor_demo.py -- appears to block, operation log never changes, not working properly.
+- [~] executor_demo.py -- appears to block, operation log never changes, not working properly.
+      The load-time crash (wrong `app.configure(...)` args) was fixed earlier
+      (see etc/issues.md); the demo now loads and renders cleanly at 100x40.
+      The operation-log/threaded-executor behavior needs real wall-clock thread
+      completion, which the headless harness (frame-stepped) cannot drive, so
+      the runtime behavior is unverified here - DEFERRED to a real-terminal
+      check for 0.1.1.
 
 ---
 
