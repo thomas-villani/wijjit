@@ -1670,16 +1670,15 @@ class Wijjit:
         --------
         Show a confirmation dialog::
 
-            from wijjit.elements.overlay import ConfirmDialog
+            from wijjit import ConfirmDialog
 
-            def on_confirm()::
-
+            def on_confirm():
                 state.file_deleted = True
 
             dialog = ConfirmDialog(
                 title="Confirm Delete",
                 message="Are you sure?",
-                on_confirm=on_confirm
+                on_confirm=on_confirm,
             )
             app.show_modal(dialog)
         """
@@ -1732,12 +1731,12 @@ class Wijjit:
         --------
         Show a dropdown menu below a button::
 
-            from wijjit.elements.overlay import DropdownMenu
+            from wijjit.elements.menu import DropdownMenu, MenuItem
 
-            button = app.get_element("menu_button")
+            button = app.get_element_by_id("menu_button")
             menu = DropdownMenu(items=[
-                {"label": "Open", "action": "open"},
-                {"label": "Save", "action": "save"},
+                MenuItem(label="Open", action="open"),
+                MenuItem(label="Save", action="save"),
             ])
 
             app.show_dropdown(
@@ -1803,9 +1802,9 @@ class Wijjit:
         --------
         Show a tooltip on hover::
 
-            from wijjit.elements.overlay import Tooltip
+            from wijjit import Frame
 
-            tooltip = Tooltip(text="Click to open file")
+            tooltip = Frame(width=30, height=3)
             app.show_tooltip(tooltip, x=mouse_x + 1, y=mouse_y + 1)
         """
         # Set element position

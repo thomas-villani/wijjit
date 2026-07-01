@@ -408,12 +408,12 @@ def render_horizontal_scrollbar(
 
     Notes
     -----
-    For "simple" style:
-    - Track character: - (U+2500 Box Drawings Light Horizontal)
-    - Thumb character: = (U+2501 Box Drawings Heavy Horizontal)
+    For "simple" style, ASCII characters are used for maximum compatibility:
+    - Track character: ``-`` (hyphen-minus)
+    - Thumb character: ``=`` (equals sign)
 
-    The heavy horizontal line provides visual contrast with the light
-    horizontal track while maintaining a consistent single-line height.
+    The equals sign provides visual contrast with the hyphen track while
+    maintaining a consistent single-line height.
     """
     # Simple style characters - use ASCII for compatibility
     track_char = "-"
