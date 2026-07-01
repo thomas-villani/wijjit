@@ -165,11 +165,48 @@ skipped, `ruff check src/` + `mypy --strict src/` clean (116 files).
   dotted module/attribute path via a Flask-style `import_string` (also accepts
   `module:attr`) instead of `__import__`, which returned the top-level package.
 
-> Still deferred (no compat risk / need design, tracked above and in
-> `CODE_REVIEW_0.1.0.md`): CC-10/11 dedup + dead code, CC-12 logging sweeps,
-> CC-13 docstring corrections, CC-14 manager naming; and from the correctness
+## Batch 3 — P2/P3 tail: CC-11/12/13/14 (fix/0.1.0-demo-polish)
+
+A third batch off `main` clearing the release-relevant P2/P3 tail (the
+low-risk, user-facing cleanups). All test-backed; full suite 3011 passed / 22
+skipped, `ruff check src/` + `mypy --strict src/` clean (116 files).
+
+- [LANDED — CC-12] Deprecated-loop + logging sweep. Replaced
+  `asyncio.get_event_loop()` with `get_running_loop()` at all seven
+  in-coroutine sites (events, event_loop, view_router x2, harness, input x2) —
+  kills the 3.12+ DeprecationWarning. `autocomplete/resolver.py` and
+  `rendering/html_adapter.py` now use the mandated `get_logger`.
+- [LANDED — CC-13] Corrected public docstrings that referenced nonexistent
+  names: `app.show_modal`/`show_dropdown`/`show_tooltip` examples (now runnable:
+  `ConfirmDialog`/`Frame` from `wijjit`, `DropdownMenu`+`MenuItem` from
+  `wijjit.elements.menu`, `get_element_by_id`); `logging_config`
+  (`configure_logging_from_environment`); `focus_next`/`focus_previous`
+  (cyclic wrap); `load_filesystem_tree` (dropped the never-emitted `mtime`);
+  `ScreenBuffer.get_merged_dirty_regions` (per-row strips, not merged rects);
+  horizontal scrollbar glyphs (ASCII `-`/`=`, not U+2500/U+2501);
+  `RenderContext.item_stack` added to the Attributes block.
+- [LANDED — CC-11] Removed genuinely-dead / deprecated-on-arrival code with
+  zero importers: `Direction` enum, `ViewRouter.register_view`, BrailleCanvas
+  `render()`/`render_to_string()`, HeatMap `_grid` dead comments, and the
+  fully-commented `layout/__init__.py` block. **Deliberately kept** (audit was
+  stale — still tested or in use): `BORDER_CHARS`, `is_ephemeral_prop`,
+  `Style.to_ansi`, the autocomplete/utils + inline/cursor helpers, `CSSParser`.
+- [LANDED — CC-14] Additive API symmetry: `State.off_change()` (mirrors
+  `unwatch`), `app.close_overlay()` (public wrapper over `overlay_manager.pop`),
+  and decorator-form `app.on(EventType.X)` (matches `on_key`/`on_action`).
+
+Also in this batch (devtools/demo polish, tracked in the repo `issues.md`):
+the `wijjit render --keys` parser now keeps `click:X,Y` coordinates intact
+(the documented syntax was severed by a naive comma split), and four bundled
+demos (code_editor, listview, complex_layout, preferences) had their
+frame-overflow / editable-log first-impression issues fixed.
+
+> Still deferred (need design / larger refactor, tracked in
+> `CODE_REVIEW_0.1.0.md`): CC-10 internal dedup; and from the correctness
 > review: Theme A wide-char buffer, reconciler keyless-element state, CodeEditor
-> soft-wrap, unknown-attribute forwarding, legacy mouse mode.
+> soft-wrap, unknown-attribute forwarding, legacy mouse mode. `CC-14`'s
+> remaining internal manager-naming nits (`clear_cache`, DI styles, verb/noun
+> getter parity) are left as non-release-blocking cleanup.
 
 ---
 
