@@ -55,7 +55,16 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
 
 - [ ] alert_dialog_demo.py - should color the error / success / info alert modals
       (DEFERRED 0.1.1 - severity-based modal theming; cosmetic enhancement.)
-- [ ] centered_dialog.py - is not vertically centered as claimed (DEFERRED 0.1.1 - overlay v-centering.)
+- [x] centered_dialog.py - is not vertically centered as claimed
+      FIXED (demo, 0.1.0): not an overlay bug. The dialog lives in a
+      `{% vstack align_h="center" align_v="middle" %}`, but the vstack had no
+      height so it shrink-wrapped to its single child (the Welcome frame),
+      leaving no empty vertical space for `align_v="middle"` to distribute -
+      hence top-aligned. VStack's align_v logic is correct; it just needs a
+      container taller than its content. Added `height="fill"` to the vstack so
+      it occupies the full Desktop frame; the dialog now centers vertically.
+      (align_h="center" already worked because the vstack fills width by
+      default.)
 - [~] code_editor_demo.py - the buttons don't fit, and the editor goes off the frame.
       LAYOUT FIXED (demo, 0.1.0): the 7-button Language/Theme row (~103 cols)
       was clipped and the codeeditor (width=86) ate the frame's right padding.
