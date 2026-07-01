@@ -31,12 +31,40 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-from wijjit import Wijjit, render_template_string
+from wijjit import ANSIColor, Wijjit, colorize, render_template_string
 
 # Seconds between words while streaming the bot's reply.
 STREAM_DELAY = 0.05
 
+# Colors for each speaker's prefix. LogView passes ANSI through untouched, so we
+# color the "You:"/"Bot:" prefix at render time and keep the stored transcript
+# plain text. colorize() honors NO_COLOR, so this degrades gracefully.
+SPEAKER_COLORS = {
+    "You:": ANSIColor.BRIGHT_CYAN,
+    "Bot:": ANSIColor.BRIGHT_GREEN,
+}
+
 WELCOME = "Bot: Hi! I'm a little Wijjit bot. Type 'help' to see what I can do."
+
+
+def colorize_line(line: str) -> str:
+    """Color a transcript line's speaker prefix for display.
+
+    Parameters
+    ----------
+    line : str
+        A plain transcript line such as ``"You: hello"``.
+
+    Returns
+    -------
+    str
+        The line with its ``You:``/``Bot:`` prefix colorized (unchanged if it
+        has no known prefix).
+    """
+    for prefix, color in SPEAKER_COLORS.items():
+        if line.startswith(prefix):
+            return colorize(prefix, color=color, bold=True) + line[len(prefix) :]
+    return line
 
 
 def bot_reply(message: str) -> str:
@@ -106,6 +134,7 @@ def main_view():
         auto_scroll=True
         soft_wrap=True
         detect_log_levels=False
+        bind=False
         border="single" %}
     {% endlogview %}
 
@@ -121,7 +150,7 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        history=app.state["history"],
+        history=[colorize_line(line) for line in app.state["history"]],
     )
 
 
