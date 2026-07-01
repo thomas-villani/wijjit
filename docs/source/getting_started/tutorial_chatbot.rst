@@ -41,11 +41,26 @@ the ``LogView`` widget consumes.
     import asyncio
     from datetime import datetime
 
-    from wijjit import Wijjit, render_template_string
+    from wijjit import ANSIColor, Wijjit, colorize, render_template_string
 
     STREAM_DELAY = 0.05  # seconds between words while streaming
 
+    # LogView passes ANSI through untouched, so we color the speaker prefix at
+    # render time and keep the stored transcript plain. colorize() honors
+    # NO_COLOR, so this degrades gracefully on color-free terminals.
+    SPEAKER_COLORS = {
+        "You:": ANSIColor.BRIGHT_CYAN,
+        "Bot:": ANSIColor.BRIGHT_GREEN,
+    }
+
     WELCOME = "Bot: Hi! I'm a little Wijjit bot. Type 'help' to see what I can do."
+
+
+    def colorize_line(line: str) -> str:
+        for prefix, color in SPEAKER_COLORS.items():
+            if line.startswith(prefix):
+                return colorize(prefix, color=color, bold=True) + line[len(prefix):]
+        return line
 
 
     def bot_reply(message: str) -> str:
@@ -93,7 +108,7 @@ colored as if they were log levels.
 
         {% logview id="history" lines=history width="fill" height=15
             auto_scroll=True soft_wrap=True detect_log_levels=False
-            border="single" %}
+            bind=False border="single" %}
         {% endlogview %}
 
         {% hstack spacing=1 %}
@@ -106,12 +121,15 @@ colored as if they were log levels.
 
       {% endvstack %}
     {% endframe %}
-            """, history=app.state["history"])
+            """, history=[colorize_line(line) for line in app.state["history"]])
 
 The ``textinput`` ``id="chat_input"`` binds to ``state["chat_input"]``
 automatically, and its ``action="send"`` fires the ``send`` action when you press
-Enter in the box. ``history`` is passed as **live context** (recomputed every
-render), so the log always reflects the current transcript.
+Enter in the box. We pass the colorized transcript as **live context**
+(recomputed every render). Note ``bind=False``: by default LogView would bind its
+``lines`` to ``state["history"]`` (our *plain* transcript), which would override
+the colorized context - turning binding off lets the ``lines=history`` value win,
+and LogView renders the embedded ANSI via its passthrough support.
 
 Step 3 - stream the reply
 -------------------------
