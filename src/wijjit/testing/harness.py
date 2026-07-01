@@ -687,7 +687,7 @@ class WijjitHarness:
             if asyncio.iscoroutinefunction(initial_view.on_enter):
                 await initial_view.on_enter()
             else:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, initial_view.on_enter)
 
         event_loop.running = True

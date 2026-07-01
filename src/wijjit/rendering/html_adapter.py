@@ -9,16 +9,16 @@ output to Wijjit's Cell system with theme-based styling support.
 
 from __future__ import annotations
 
-import logging
 import re
 import xml.parsers.expat
 from typing import TYPE_CHECKING, Any
 
 from prompt_toolkit.formatted_text import HTML
 
+from wijjit.logging_config import get_logger
 from wijjit.terminal.cell import Cell
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from wijjit.styling.resolver import StyleResolver

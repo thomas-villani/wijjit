@@ -11,15 +11,15 @@ resolve_autocomplete
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 from wijjit.autocomplete.completer import Completer, StateCompleter, WordCompleter
+from wijjit.logging_config import get_logger
 
 if TYPE_CHECKING:
     from wijjit import Wijjit
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def resolve_autocomplete(

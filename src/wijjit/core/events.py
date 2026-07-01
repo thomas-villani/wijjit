@@ -515,7 +515,7 @@ class HandlerRegistry:
                 # Handle sync callback
                 if executor is not None:
                     # Run sync callback in thread pool to avoid blocking event loop
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     await loop.run_in_executor(executor, handler.callback, event)
                 else:
                     # Run sync callback directly on main thread
