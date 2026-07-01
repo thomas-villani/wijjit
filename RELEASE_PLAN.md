@@ -168,9 +168,10 @@ Lower-severity items surfaced by the code review, not release-blocking:
   `handle_mouse` never chains to `super()`, so `on_double_click`/`on_context_menu`
   never fire for inputs.
 - **Display:** Table sort not stable + string-coerces mixed types; LogView
-  auto-scroll suppressed when content shrinks/equal (breaks tailing rotated logs);
-  ContentView re-renders content every frame; Pager `remove_page` leaves
-  scroll-state keys pointing at the wrong page.
+  `set_lines` only auto-scrolls when content *grew*, so a direct-set replacement
+  of equal/shorter length doesn't re-tail (the reconcile/prop-sync path used by
+  apps is fixed - see Completed); ContentView re-renders content every frame;
+  Pager `remove_page` leaves scroll-state keys pointing at the wrong page.
 - **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
   ticks/min-max not reserved in auto-height; HeatMap legend `bar_width` can go
   negative; ImageView broad `except` + brittle duck-typing.
@@ -194,8 +195,8 @@ Open items from the demo sweep; each is demo-scoped unless noted:
   (severity-based modal theming).
 - `content_view_demo.py` - scrolling main frame lets elements escape the top of
   the parent frame (clip-region clamp on scroll; see 2a frame overflow).
-- `logview_demo.py` - streaming log should scroll to bottom (auto-scroll option);
-  buttons run off the right edge.
+- `logview_demo.py` - buttons run off the right edge (demo layout). The
+  streaming-log auto-scroll-to-bottom is now fixed (see Completed).
 - `status_indicator_demo.py` - support a blinking state / blink after a change.
 - `textarea_demo.py` - need to show the end of long lines.
 - `tree_demo.py` - right panel shrinks to content; "add test node" button no-ops;
@@ -232,7 +233,10 @@ the cross-cutting scrolled-frame mouse hit-test offset; Windows mouse input
 global key shortcuts; frame focus-border on all four sides; autocomplete
 mouse-click select; frozen view-`data` snapshot log panels (dialog_showcase,
 event_patterns); DataGrid selection-overlay right-border erase; spinner wide-char
-label offset; plus per-demo layout/overflow fixes.
+label offset; LogView auto-scroll-to-bottom across re-renders (the reconciler
+captured the pre-append scroll position and `restore_ephemeral_state` clobbered
+`set_lines`' auto-scroll; it now re-asserts the bottom when auto-scroll is on and
+the user hasn't scrolled up); plus per-demo layout/overflow fixes.
 
 **Correctness code review (5 batches, merged)** - async dispatch (Theme B):
 app-owned task set + `invoke_callback` everywhere, thread-safe State scheduling,
