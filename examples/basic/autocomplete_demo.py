@@ -87,7 +87,7 @@ LANGUAGES = [
 ]
 
 
-app = Wijjit(log_file="autocomplete_demo.log", log_level="DEBUG")
+app = Wijjit()
 
 # Register a completer by name for use in templates
 app.register_completer(

@@ -18,7 +18,7 @@ Controls:
 
 from wijjit import Wijjit, render_template_string
 
-app = Wijjit(log_level="DEBUG", log_file="horizontal-scroll-demo.log")
+app = Wijjit()
 
 
 @app.view("main", default=True)

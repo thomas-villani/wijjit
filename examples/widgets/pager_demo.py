@@ -22,10 +22,6 @@ Controls:
 """
 
 from wijjit import Wijjit, render_template_string
-from wijjit.logging_config import configure_logging
-
-# Enable debug logging to file
-configure_logging("pager-debug.log", level="DEBUG")
 
 app = Wijjit(enable_mouse=True)
 

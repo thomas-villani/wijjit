@@ -76,6 +76,11 @@ dev = [
 images = [
     "pillow>=12.0.0",
 ]
+# Used only by the examples/apps/spreadsheet.py demo for .xlsx read/write; the
+# demo falls back to stdlib CSV when this is not installed.
+xlsx = [
+    "openpyxl>=3.1.0",
+]
 
 [build-system]
 requires = ["hatchling"]

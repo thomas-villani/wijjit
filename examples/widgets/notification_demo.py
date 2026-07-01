@@ -23,9 +23,6 @@ Controls:
 
 from wijjit import Wijjit, render_template_string
 from wijjit.core.events import EventType, HandlerScope
-from wijjit.logging_config import configure_logging
-
-configure_logging("notification-demo.log", "DEBUG")
 
 app = Wijjit()
 

@@ -7,7 +7,7 @@ Wijjit ships with 69 runnable scripts under ``examples/``. Use them as living do
 * ``examples/widgets`` (30) – component spotlights (tables, trees, dialogs, etc.).
 * ``examples/advanced`` (21) – multi-view apps, complex layouts, and performance patterns.
 * ``examples/styling`` (2) – CSS theming and style-class demos.
-* ``examples/apps`` (1) – complete sample applications.
+* ``examples/apps`` (3) – complete sample applications.
 
 Running an example
 ------------------
@@ -63,6 +63,8 @@ Advanced workflows
 * ``examples/advanced/dashboard_demo.py`` – monitoring layout built from stacks, frames, and tables.
 * ``examples/advanced/filesystem_browser.py`` – list + tree composition that mirrors a file explorer.
 * ``examples/apps/todo_app.py`` – CRUD todo list with filters, persistence hooks, and overlays.
+* ``examples/apps/chatbot.py`` – conversational TUI with a scrollable history and a rule-based responder (:doc:`tutorial <../getting_started/tutorial_chatbot>`).
+* ``examples/apps/spreadsheet.py`` – editable ``DataGrid`` with a live chart and ``.xlsx``/CSV persistence (:doc:`tutorial <../getting_started/tutorial_spreadsheet>`).
 * ``examples/advanced/state_management_demo.py`` / ``event_patterns_demo.py`` – reactors, watchers, and custom event scopes.
 * ``examples/advanced/scroll_demo.py`` / ``scrollable_children_demo.py`` / ``frame_overflow_demo.py`` – focus-preserving scrolling patterns.
 * ``examples/advanced/executor_demo.py`` / ``download_simulator.py`` – background workers and progress coordination.

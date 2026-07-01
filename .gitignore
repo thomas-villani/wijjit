@@ -24,3 +24,8 @@ docs/sphinx-build-current.txt
 htmlcov
 .coverage
 *.log
+
+# Files written by example demos when run
+todo.md
+examples/apps/budget.xlsx
+examples/apps/budget.csv

@@ -54,7 +54,7 @@ in the PR if so.
 
 `CLAUDE.md` documents the architecture and conventions in depth and is a good
 orientation for where things live. Outstanding work is tracked in
-`RELEASE_PLAN.md` and `issues.md`.
+`RELEASE_PLAN.md`.
 
 By contributing, you agree that your contributions are licensed under the
 project's [MIT License](LICENSE).

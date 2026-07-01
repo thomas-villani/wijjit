@@ -98,7 +98,7 @@ Items surfaced by the manual ``examples/`` walkthrough (06-29) and the earlier
 demo-bug triage (groups A-H). The cross-cutting / crash items were fixed in
 0.1.0; everything below is cosmetic, demo-level, platform-specific, or an
 architecture-level refactor not worth the risk days before tagging. Root causes
-are in ``issues.md``. Pull individual items forward as use cases demand.
+are in ``RELEASE_PLAN.md`` (Part 2). Pull individual items forward as use cases demand.
 
 **Already resolved in 0.1.0** (for reference): mouse hit-testing offset on
 scrolled frames; radio_demo layout crash (directional padding on
