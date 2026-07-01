@@ -57,7 +57,10 @@ Hover effects & tooltips
     if self.hovered:
         style = style.with_background("yellow")
 
-To show tooltips, create a ``Tooltip`` element and push it on the ``LayerType.TOOLTIP`` overlay whenever ``hovered`` becomes true.
+To show a tooltip, call ``app.show_tooltip(element, x, y)`` with a small element
+(typically a ``Frame`` with content) positioned near the cursor; it opens on the
+``LayerType.TOOLTIP`` overlay without trapping focus. Dismiss it with
+``app.close_overlay(overlay)`` using the ``Overlay`` returned by ``show_tooltip``.
 
 Menus & context clicks
 ----------------------

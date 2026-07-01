@@ -33,7 +33,16 @@ Wijjit exposes decorator helpers on the app instance:
     Decorator that subscribes to a specific action id. Handy for buttons and dialogs.
 
 ``app.on(EventType.CHANGE, handler, scope=HandlerScope.VIEW)``
-    Lowest-level API. **Note:** ``Wijjit.on`` is *not* a decorator – ``callback`` is a required positional argument. Define the handler function, then pass it to ``app.on(...)``.
+    Lowest-level API, and the only one that reaches every ``EventType`` and any
+    ``HandlerScope``. It works both ways: pass a ``callback`` to register
+    immediately, or omit it to use ``@app.on(...)`` as a decorator (matching the
+    ``@app.on_key`` / ``@app.on_action`` style):
+
+    .. code-block:: python
+
+        @app.on(EventType.CHANGE, scope=HandlerScope.VIEW, view_name="signup")
+        def on_change(event):
+            ...
 
 Handlers receive one argument (the event object). They can be synchronous or ``async``; Wijjit detects coroutines automatically. Example:
 
@@ -158,6 +167,20 @@ In addition to app-level handlers, elements expose callback attributes for direc
 * ``on_paste(text) -> str | None`` – Modify pasted text, return None to use original
 * ``on_file_path_paste(paths) -> bool`` – File paths detected in paste, return True to prevent
 
+**Checkbox / Radio / Toggle Callbacks**:
+
+These boolean inputs share one callback vocabulary — ``on_change`` = *the value
+changed*, ``on_action`` = *the user activated the control*:
+
+* ``on_change(old, new)`` – Checked state changed (``old``/``new`` are booleans).
+  Fires on user interaction, programmatic assignment, and reconciler prop-sync
+  alike, because ``checked`` is a firing property on all three widgets:
+  ``checkbox.checked = True`` triggers ``on_change`` the same as a click.
+  (``CheckboxGroup`` passes selection lists: ``on_change(old_values, new_values)``.)
+* ``on_action()`` – The control was toggled/activated (no arguments). On
+  ``Toggle`` this is the canonical activation hook; ``on_toggle()`` remains as a
+  deprecated alias and is still fired for back-compat.
+
 Example:
 
 .. code-block:: python
@@ -192,6 +215,6 @@ Best practices
 * Prefer specific scopes. Global handlers are powerful but can cause conflicts as your app grows.
 * Use actions for semantic events (“save”, “submit”) and key handlers for physical keystrokes. That way you can trigger the same action from buttons, menus, or keyboard shortcuts without duplicating code.
 * Cancel events when you consume them to prevent downstream handlers from running unnecessarily.
-* Remove long-lived handlers you register manually (using ``handler_registry.unregister``) when they’re no longer needed to avoid memory leaks.
+* Remove long-lived handlers you register manually when they’re no longer needed to avoid memory leaks — ``app.unregister_key(key)`` removes a handler bound via ``@app.on_key``, and ``handler_registry.unregister`` covers the general case.
 
 Next, read :doc:`layout_system` and :doc:`components` to see how these events translate into UI building blocks.

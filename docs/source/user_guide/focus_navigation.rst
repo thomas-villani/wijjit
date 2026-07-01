@@ -96,17 +96,32 @@ Scrollable frames keep child bounds relative to the frame viewport. Focused elem
 Managing focus manually
 -----------------------
 
-You can direct focus programmatically:
+You can direct focus programmatically. The app offers a one-call helper that
+looks the element up by id:
 
 .. code-block:: python
 
+    app.focus_element_by_id("search_box")   # returns True if the element was focused
+
+    # equivalent lower-level form:
     app.focus_manager.focus_element(app.get_element_by_id("search_box"))
 
-or use helper methods:
+To wire a hotkey that jumps focus to a named element, use
+``app.bind_focus_key(key, element_id, priority=0)`` (e.g. ``/`` to focus a search
+box):
+
+.. code-block:: python
+
+    app.bind_focus_key("/", "search_box")
+
+The ``FocusManager`` also exposes helper methods:
 
 * ``focus_first()`` – highlight the first focusable element.
 * ``focus_last()`` – highlight the last element (useful when opening popovers).
 * ``get_focused_element()`` – inspect the current element (handy in debugging).
+
+To disable Tab/Shift+Tab navigation entirely (e.g. for a display-only app), call
+``app.configure_focus(enabled=False)``.
 
 For multi-pane apps where each pane should maintain its own focus, save the focus state (``focus_manager.save_state()``) before switching panes and restore with ``focus_manager.restore_state(saved)`` later. Overlays already do this automatically.
 

@@ -67,8 +67,24 @@ for modal-layer overlays.
 Creating overlays programmatically
 ----------------------------------
 
-For full control you can instantiate a :class:`wijjit.elements.display.modal.ModalElement`
-and push it onto the overlay manager yourself:
+The app exposes one-call helpers that build the overlay entry for you and return
+the ``Overlay`` handle:
+
+* ``app.show_modal(element, on_close=None, dim_background=True, close_on_escape=True, close_on_click_outside=False)`` – focus-trapping modal on the ``MODAL`` layer.
+* ``app.show_dropdown(element, x, y, on_close=None, close_on_click_outside=True, close_on_escape=True)`` – positioned dropdown on the ``DROPDOWN`` layer.
+* ``app.show_tooltip(element, x, y, close_on_click_outside=True)`` – transient tooltip on the ``TOOLTIP`` layer (see :doc:`mouse_support`).
+
+.. code-block:: python
+
+    from wijjit.elements.display.modal import ModalElement
+
+    def show_confirm():
+        modal = ModalElement(title="Delete project?", width=44, height=9, border_style="rounded")
+        overlay = app.show_modal(modal, on_close=lambda: app.state.update({"dirty": False}))
+
+For full control — custom layer, z-index, or dim behaviour — you can instead
+instantiate a :class:`wijjit.elements.display.modal.ModalElement` and push it onto
+the overlay manager yourself:
 
 .. code-block:: python
 
@@ -143,7 +159,7 @@ Ways an overlay can close:
 
 * User clicks outside (``close_on_click_outside``).
 * User presses Escape (``close_on_escape``).
-* An action handler calls ``app.overlay_manager.pop(overlay)`` to close one overlay, or ``app.overlay_manager.pop_layer(LayerType.MODAL)`` to close every overlay in a layer.
+* An action handler calls ``app.close_overlay(overlay)`` — the public counterpart to the ``show_*`` helpers — to dismiss the overlay it returned (or ``app.close_overlay()`` with no argument to close the topmost). For lower-level control, ``app.overlay_manager.pop(overlay)`` closes one overlay and ``app.overlay_manager.pop_layer(LayerType.MODAL)`` closes every overlay in a layer.
 * Overlays tied to state (e.g., notifications) update their ``visible_state_key`` to ``False``.
 
 When closing, the overlay manager restores the previous focus state so the user returns to the element they were interacting with before the modal opened.

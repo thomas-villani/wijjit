@@ -42,6 +42,24 @@ Each assignment normally fires its own change callbacks immediately. To coalesce
 
 In async code, prefer ``async with state.async_batch_update():`` so async callbacks are awaited before the context exits.
 
+Multi-key and whole-state updates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To set several keys from a dict in one call, use ``update()`` (each changed key
+fires its callbacks, and reserved names are validated):
+
+.. code-block:: python
+
+    app.state.update({"name": name, "email": email}, verified=True)
+
+To replace the entire state (or clear it), use ``reset()``. It fires change
+callbacks for every key that was removed or modified:
+
+.. code-block:: python
+
+    app.state.reset({"count": 0, "items": []})   # replace all keys
+    app.state.reset()                             # clear everything
+
 Watching specific keys
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -53,6 +71,15 @@ Watching specific keys
     app.state.watch("username", log_change)
 
 If you need to react to multiple keys, register multiple watchers or use ``on_change`` and branch on ``key``. Watchers run synchronously unless they are ``async`` coroutines, in which case Wijjit schedules them on the running loop.
+
+To stop listening, use the removal counterparts. ``unwatch(key, callback)`` drops
+one watcher (or every watcher for the key if ``callback`` is omitted), and
+``off_change(callback)`` unregisters a global ``on_change`` callback:
+
+.. code-block:: python
+
+    app.state.unwatch("username", log_change)   # or unwatch("username") for all
+    app.state.off_change(log_change)
 
 Async and background work
 -------------------------
@@ -70,6 +97,12 @@ Long-running operations should not block the event loop. Typical pattern:
             app.state.loading = False
 
 ``State`` ensures watchers run on the loop thread; avoid mutating state from raw background threads. If you must, schedule back onto the loop using ``asyncio.run_coroutine_threadsafe`` or ``loop.call_soon_threadsafe``. To run heavy synchronous handlers off the main loop, set the config keys ``RUN_SYNC_IN_EXECUTOR = True`` (and optionally ``EXECUTOR_MAX_WORKERS``); they can then update state safely afterward.
+
+A plain assignment fires async watchers but does not wait for them (they run as
+background tasks). When you need the callbacks to finish before continuing, use
+``await state.set_async(key, value)``, which sets the value and awaits every
+triggered callback. To drain any still-pending async callbacks (e.g. before
+shutdown or in a test), ``await state.flush_pending_async()``.
 
 Derived & computed data
 -----------------------
@@ -125,7 +158,7 @@ Testing tips
 ------------
 
 * Instantiate ``State`` directly in unit tests to verify watchers and validation logic without booting a full Wijjit app.
-* Use ``pytest.mark.asyncio`` for async watchers and leverage ``asyncio.sleep(0)`` to flush pending tasks.
+* Use ``pytest.mark.asyncio`` for async watchers and ``await state.flush_pending_async()`` to deterministically drain pending async callbacks (preferred over ``asyncio.sleep(0)``).
 * Snapshot rendered templates (see ``syrupy`` integration) after mutating state to ensure UI changes match expectations.
 
 Next steps: dive into :doc:`templates` to see how state binds to UI elements, then :doc:`event_handling` to wire user input back into your data model.
