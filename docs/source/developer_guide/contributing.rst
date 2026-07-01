@@ -11,7 +11,7 @@ Environment setup
 
    .. code-block:: bash
 
-       uv pip install -e ".[dev]"
+       uv sync --all-extras    # runtime + dev + images + xlsx into .venv
 
    or with ``pip``:
 

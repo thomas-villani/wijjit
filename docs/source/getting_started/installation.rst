@@ -13,39 +13,46 @@ Requirements
 Install Wijjit
 --------------
 
-Using ``uv`` (recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+From PyPI (recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Using ``uv`` — add Wijjit to an existing project, or install it into the active environment:
+
+.. code-block:: bash
+
+    uv add wijjit          # add to a uv-managed project's pyproject.toml
+    # or
+    uv pip install wijjit  # install into the current environment
+
+Using ``pip``:
+
+.. code-block:: bash
+
+    pip install wijjit
+
+``uv`` creates and manages an isolated environment (``.venv``) and reuses cached wheels for fast, reproducible installs.
+
+From source (development)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Clone the repository and install in editable mode with the ``dev`` extra (tests, linting, types, and docs):
 
 .. code-block:: bash
 
     git clone https://github.com/thomas-villani/wijjit.git
     cd wijjit
-    uv pip install -e .
+    uv sync --all-extras          # runtime + dev + images + xlsx into .venv
 
-``uv`` will create an isolated environment (``.venv``) and reuse cached wheels for fast rebuilds.
-
-Using ``pip``
-~~~~~~~~~~~~~
+The equivalent with ``pip``:
 
 .. code-block:: bash
 
     python -m venv .venv
-    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+    source .venv/bin/activate      # or .venv\Scripts\activate on Windows
     pip install -U pip setuptools wheel
-    pip install -e .
-
-Development dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Install everything needed for tests, linting, types, and documentation:
-
-.. code-block:: bash
-
-    uv pip install -e ".[dev]"
-    # or
     pip install -e ".[dev]"
 
-This pulls in ``pytest``, ``pytest-cov``, ``ruff``, ``mypy``, ``sphinx``, ``myst-parser``, ``sphinx-copybutton``, and other tools listed in :file:`pyproject.toml`.
+This pulls in ``pytest``, ``pytest-cov``, ``ruff``, ``mypy``, ``sphinx``, ``myst-parser``, ``sphinx-copybutton``, and the other tools listed in :file:`pyproject.toml`.
 
 Verify your environment
 -----------------------
@@ -80,11 +87,11 @@ Optional ``images`` extra:
 
 .. code-block:: bash
 
-    pip install -e ".[images]"
+    uv add "wijjit[images]"
     # or
-    uv sync --extra images
+    pip install "wijjit[images]"
 
-This installs ``Pillow`` to enable the ``ImageView`` element (ASCII/ANSI image rendering).
+This installs ``Pillow`` to enable the ``ImageView`` element (ASCII/ANSI image rendering). From a source checkout, use ``uv sync --extra images`` or ``pip install -e ".[images]"`` instead.
 
 Optional additions in ``.[dev]``:
 
@@ -110,6 +117,8 @@ Ensure locale variables are set:
     export LANG=en_US.UTF-8
     export LC_ALL=en_US.UTF-8
 
+Clipboard copy/paste uses the system clipboard via ``pyperclip``, which needs ``xclip`` or ``xsel`` installed (e.g. ``sudo apt install xclip``). Without them, Wijjit falls back to an internal in-process clipboard — copy/paste still works inside the app, just not across other programs.
+
 macOS
 ~~~~~
 
@@ -119,7 +128,7 @@ Troubleshooting
 ---------------
 
 ``ImportError: No module named 'wijjit'``
-    Confirm the package is installed in editable mode (``pip install -e .``) and that your virtual environment is active.
+    Confirm the package is installed (``uv add wijjit`` / ``pip install wijjit``, or ``pip install -e .`` for a source checkout) and that the correct virtual environment is active.
 
 Broken borders or glyphs
     Switch to a font with box-drawing characters (e.g., Fira Code, JetBrains Mono). On Windows, prefer Windows Terminal over ``cmd.exe``.

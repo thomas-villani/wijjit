@@ -35,7 +35,13 @@ applications. We built this library to bring the syntactic elegance of Flask's d
 ## Installation
 
 ```bash
-# From PyPI
+# Add to your project using uv (recommended)
+uv add wijjit
+
+# Optional extra for ImageView / ASCII image rendering (Pillow)
+uv add "wijjit[images]"
+
+# Or with pip from PyPI
 pip install wijjit
 
 # Optional extras
