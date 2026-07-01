@@ -3,6 +3,25 @@
 import json
 
 from wijjit.cli import main
+from wijjit.testing.cli import _tokenize_keys
+
+
+def test_tokenize_keys_keeps_click_coords_together():
+    # The documented ``click:X,Y`` step contains its own comma; the naive
+    # ``keys.split(",")`` used to sever the coordinates.
+    assert _tokenize_keys("tab,type:admin,click:10,6,tick:3,click:22,11") == [
+        "tab",
+        "type:admin",
+        "click:10,6",
+        "tick:3",
+        "click:22,11",
+    ]
+
+
+def test_tokenize_keys_click_without_coord_not_greedily_joined():
+    # A ``type:`` payload that happens to be digits must not be swallowed onto
+    # a preceding complete ``click:X,Y``.
+    assert _tokenize_keys("click:1,2,type:9") == ["click:1,2", "type:9"]
 
 GOOD = """
 {% frame title="CLI" width=30 height=5 %}

@@ -38,6 +38,39 @@ def _parse_size(text: str) -> tuple[int, int]:
         ) from exc
 
 
+def _tokenize_keys(keys: str) -> list[str]:
+    """Split a ``--keys`` script into steps, keeping ``click:X,Y`` intact.
+
+    Steps are comma-separated, but the documented ``click:X,Y`` step contains
+    its own comma. A naive ``keys.split(",")`` would sever the coordinates, so
+    a bare-integer token immediately following a ``click:X`` fragment is
+    re-joined onto it.
+
+    Parameters
+    ----------
+    keys : str
+        The comma-separated input script.
+
+    Returns
+    -------
+    list of str
+        The reassembled step tokens.
+    """
+    steps: list[str] = []
+    for part in keys.split(","):
+        token = part.strip()
+        if (
+            steps
+            and token.isdigit()
+            and steps[-1].startswith("click:")
+            and "," not in steps[-1]
+        ):
+            steps[-1] = f"{steps[-1]},{token}"
+        else:
+            steps.append(token)
+    return steps
+
+
 def _apply_step(harness: WijjitHarness, step: str) -> None:
     """Apply a single ``--keys`` script step to the harness."""
     step = step.strip()
@@ -95,7 +128,7 @@ def run_render(
 
     with WijjitHarness(app, size=size) as harness:
         if keys:
-            for step in keys.split(","):
+            for step in _tokenize_keys(keys):
                 _apply_step(harness, step)
         if tick:
             harness.tick(tick)
