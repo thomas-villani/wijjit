@@ -1706,7 +1706,7 @@ class DataGrid(ScrollableElement):
                 # Render selected cell with highlight
                 if self.cursor_row == data_row_idx and self.focused:
                     self._render_selected_cell(
-                        ctx, row_y, row_num_width, selected_style
+                        ctx, row_y, row_num_width, selected_style, inner_width
                     )
             else:
                 # Empty row (include scrollbar space)
@@ -1726,6 +1726,7 @@ class DataGrid(ScrollableElement):
         row_y: int,
         row_num_width: int,
         selected_style,
+        inner_width: int,
     ) -> None:
         """Render the selected cell with highlight.
 
@@ -1739,6 +1740,10 @@ class DataGrid(ScrollableElement):
             Width of row number column
         selected_style : Style
             Style for selected cell
+        inner_width : int
+            Inner content width (excluding borders and scrollbar). Used to clip
+            the selection overlay so its closing bracket never overwrites the
+            right border or the vertical scrollbar column.
         """
         # Calculate x position of selected column
         x_offset = 1 + row_num_width  # Border + row numbers
@@ -1762,7 +1767,15 @@ class DataGrid(ScrollableElement):
         # Wrap with selection indicator
         selected_text = f"[{cell_padded}]"
         # Adjust x for the bracket
-        ctx.write_text(x_offset - 1, row_y, selected_text, selected_style)
+        start_x = x_offset - 1
+        # Clip the overlay to the grid's inner content region (x in
+        # [1, inner_width]) so a selection on the rightmost visible column does
+        # not overwrite the vertical scrollbar or the frame's right border with
+        # its closing bracket.
+        available = inner_width - start_x + 1
+        if available > 0 and visible_length(selected_text) > available:
+            selected_text = clip_to_width(selected_text, available, ellipsis="")
+        ctx.write_text(start_x, row_y, selected_text, selected_style)
 
     def _render_separator(
         self,

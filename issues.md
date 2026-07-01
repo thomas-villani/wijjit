@@ -76,8 +76,18 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
 - [ ] content_view_demo.py - scrolling main frame causes elements to escape top of parent frame
       (DEFERRED 0.1.1 - group D clip-region not clamping to frame borders on scroll.)
 
-- [ ] datagrid_demo.py - EXCELLENT. Selection indicator causes right border to erase sometimes, minor
-      (DEFERRED 0.1.1 - minor; selection indicator overdraws the right border.)
+- [x] datagrid_demo.py - EXCELLENT. Selection indicator causes right border to erase sometimes, minor
+      FIXED (framework, 0.1.0): `DataGrid._render_selected_cell` drew the
+      `[cell]` selection overlay (width col_width + 2) at `x_offset - 1` with no
+      clip to the grid's inner content width. For a middle column the two extra
+      bracket columns land on the inter-column separator spaces, but when the
+      selected cell is the rightmost visible column (content reaching the
+      content edge), the closing `]` was written onto the vertical scrollbar /
+      right-border column, erasing it. The overlay is now clipped to the inner
+      content region (`x in [1, inner_width]`), so the border survives; on a
+      hard edge the closing bracket is dropped rather than the border. Regression
+      test: `tests/elements/test_datagrid.py::TestDataGridRendering::
+      test_selected_rightmost_cell_keeps_right_border`.
 - [x] dialog_showcase.py - "Action Log" never populates.
       FIXED (demo): the log text was precomputed at the top of the view function
       and passed via `data`. A view function runs once and its `data` dict is
