@@ -57,9 +57,11 @@ class Toggle(Element):
     label_mode : str
         Label display mode
     on_change : callable or None
-        Callback (old_value, new_value) when state changes
+        Callback (old_value, new_value) when the checked state changes
+    on_action : callable or None
+        Callback when the toggle is activated (space/enter/click)
     on_toggle : callable or None
-        Callback when toggle is activated
+        Deprecated alias for ``on_action``; still fired for back-compat
     action : str or None
         Action ID to dispatch (set by template extension)
     bind : bool
@@ -117,8 +119,11 @@ class Toggle(Element):
         self.off_label = off_label
         self.label_mode = label_mode
 
-        # Callbacks
+        # Callbacks. ``on_action`` is the canonical "user activated it" hook,
+        # aligning Toggle with Checkbox/Radio; ``on_toggle`` is a deprecated
+        # alias kept for back-compat and fired alongside it.
         self.on_change: Callable[[bool, bool], None] | None = None
+        self.on_action: Callable[[], None] | None = None
         self.on_toggle: Callable[[], None] | None = None
 
         # Template metadata
@@ -155,9 +160,13 @@ class Toggle(Element):
     def toggle(self) -> None:
         """Toggle the current state.
 
-        Flips the checked state and triggers on_toggle callback.
+        Flips the checked state (which fires ``on_change``) and then fires the
+        activation callbacks: ``on_action`` (canonical) and ``on_toggle``
+        (deprecated alias).
         """
         self.checked = not self._checked
+        if self.on_action:
+            invoke_callback(self.on_action)
         if self.on_toggle:
             invoke_callback(self.on_toggle)
 
