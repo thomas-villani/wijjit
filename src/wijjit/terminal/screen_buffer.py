@@ -276,17 +276,20 @@ class ScreenBuffer:
         return self.dirty_regions.copy()
 
     def get_merged_dirty_regions(self) -> list[tuple[int, int, int, int]]:
-        """Get dirty regions merged into non-overlapping rectangles.
+        """Get dirty regions collapsed to full-width rows.
 
         Returns
         -------
         list of tuple
-            List of (x, y, width, height) tuples representing merged dirty rectangles
+            One ``(x, y, width, height)`` tuple per dirty row: each spans the
+            full buffer width with height 1, i.e. ``(0, row, width, 1)``.
 
         Notes
         -----
-        This merges overlapping or adjacent 1x1 dirty regions into larger rectangles
-        to minimize the number of regions the diff renderer needs to process.
+        Rather than computing minimal bounding rectangles, every touched row is
+        returned as a single full-width strip. This is cheaper to compute and,
+        for the common case of scattered single-cell changes spread over a few
+        rows, keeps the number of regions the diff renderer processes small.
         """
         if not self.dirty_regions:
             return []

@@ -36,8 +36,9 @@ If you want full control over logging for the 'wijjit' namespace::
 
 Usage
 -----
-Consumers can explicitly call configure_logging() or configure_from_environment()
-to set up logging. Logging is not configured automatically on import.
+Consumers can explicitly call configure_logging() or
+configure_logging_from_environment() to set up logging. Logging is not
+configured automatically on import.
 
 Examples
 --------

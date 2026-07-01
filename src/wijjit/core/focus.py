@@ -158,10 +158,14 @@ class FocusManager:
     def focus_next(self) -> bool:
         """Move focus to the next element.
 
+        Focus wraps cyclically: advancing past the last element returns to
+        the first.
+
         Returns
         -------
         bool
-            True if focus moved, False if already at last element
+            True if focus moved; False only when there are no focusable
+            elements.
         """
         if not self.elements:
             return False
@@ -177,10 +181,14 @@ class FocusManager:
     def focus_previous(self) -> bool:
         """Move focus to the previous element.
 
+        Focus wraps cyclically: moving back past the first element returns to
+        the last.
+
         Returns
         -------
         bool
-            True if focus moved, False if already at first element
+            True if focus moved; False only when there are no focusable
+            elements.
         """
         if not self.elements:
             return False

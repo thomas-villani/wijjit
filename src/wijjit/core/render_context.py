@@ -76,6 +76,8 @@ class RenderContext:
         Stack of active radio group names (for nesting)
     menu_stack : list of list of MenuItem
         Stack of menu item lists being built
+    item_stack : list of list
+        Stack of generic item lists being collected by container tags
     frame_counter : int
         Counter for auto-generating frame IDs
     overlays : list

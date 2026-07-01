@@ -35,7 +35,7 @@ def load_filesystem_tree(
     include_files : bool
         Include files in the tree (default: True)
     include_metadata : bool
-        Include file size and modification time (default: True)
+        Include the human-readable file size (default: True)
     exclude : list of str, optional
         List of glob patterns to exclude (e.g., ``["*.pyc", "__pycache__"]``)
     filter_func : callable, optional
@@ -50,7 +50,6 @@ def load_filesystem_tree(
         - type: "folder" or "file"
         - children: List of child nodes (for folders)
         - size: Human-readable size (if include_metadata=True and is file)
-        - mtime: Modification time (if include_metadata=True)
 
     Examples
     --------
@@ -127,8 +126,6 @@ def load_filesystem_tree(
                 stat = path.stat()
                 if path.is_file():
                     node["size"] = _format_size(stat.st_size)
-                # Could add mtime if needed:
-                # node["mtime"] = stat.st_mtime
             except (OSError, PermissionError):
                 # Skip metadata if we can't access it
                 pass
