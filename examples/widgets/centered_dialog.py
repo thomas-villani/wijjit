@@ -30,7 +30,7 @@ def dialog_view():
     return render_template_string(
         """
 {% frame title="Desktop" border="double" height=frame_height %}
-  {% vstack align_h="center" align_v="middle" %}
+  {% vstack align_h="center" align_v="middle" height="fill" %}
 
     {% frame title="Welcome!"
              border="rounded"
