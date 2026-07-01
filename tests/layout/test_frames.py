@@ -1255,6 +1255,36 @@ class TestFrameBorderAlignment:
             bottom = frame._render_bottom_border(chars)
             assert len(top) == len(bottom) == width
 
+    def test_child_bearing_frame_paints_side_borders_cell_path(self):
+        """A child-bearing frame paints its vertical borders in render_to.
+
+        Regression: a frame with children but no text content
+        (``_has_children`` set via ``set_child_content_height``) previously
+        skipped the left/right border columns for its content rows in
+        ``render_to``, leaving them to the renderer's separate frame-border
+        pass. When ``render_to`` runs standalone - e.g. a ``TabbedPanel`` tab
+        whose content holds a child element - that pass never fires, so the
+        frame lost its left and right borders (the tabbedpanel_demo Welcome
+        tab). ``render_to`` must now draw the side borders itself.
+        """
+        from tests.helpers import render_element
+
+        style = FrameStyle(border_style=BorderStyle.SINGLE, scrollable=False)
+        frame = Frame(width=20, height=6, style=style)
+        # Mark the frame as child-bearing (no text content) the way the
+        # layout engine does for a frame that contains child elements.
+        frame.set_child_content_height(2)
+
+        lines = render_element(frame, width=25, height=6).split("\n")
+
+        # Every interior row (between the top and bottom border) keeps the
+        # vertical border glyph on both edges.
+        for row in lines[1:5]:
+            assert row[0] == "│", f"missing left border: {row!r}"
+            assert self._right_border_col(row) == 19, (
+                f"missing/misplaced right border: {row!r}"
+            )
+
 
 class TestFrameBodyTextOverflow:
     """Regression tests for body text honoring a frame's overflow_x.

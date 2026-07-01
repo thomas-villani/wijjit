@@ -103,8 +103,16 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
       normalized to a 4-tuple (like margin) and applied per-side. Regression
       tests in `tests/layout/test_engine.py` and
       `tests/examples/test_example_interactions.py`.
-- [ ] radio_demo.py - "Shipping method" intersects right frame border, strange drawing overlap where parent frame drawn into the "shipping method" box.
-      (DEFERRED 0.1.1 - radiogroup/frame border overlap; cosmetic, separate from the crash.)
+- [x] radio_demo.py - "Shipping method" intersects right frame border, strange drawing overlap where parent frame drawn into the "shipping method" box.
+      FIXED (demo, 0.1.0): not a radiogroup bug - a plain overflow. Three
+      width=25 columns + 2x2 gaps (79) plus the outer vstack padding (2) and
+      frame borders (2) needed 83 cols, but the main frame was width=80, so the
+      third ("Shipping Method") column's border collided with the main frame's
+      right border. The columns must stay 25 to fit "Standard (5-7 days)"
+      (radiogroup reserves 1 col of side padding, so a narrower column clips the
+      label), so widened the main frame to width=84. All three groups now close
+      inside the main border with labels intact (right-border sweep clean;
+      golden regenerated).
 
 - [x] select_demo.py - "Submit" doesn't do anything.
       FIXED (no demo change): the handler was always correct - verified headlessly
@@ -117,7 +125,21 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
 
 - [ ] status_indicator_demo.py - would be good to blink after a change, and to allow a blinking state
 
-- [ ] tabbed_panel_demo.py - the welcome pane seems to overlap its border on the left and right? Only the welcome pane, all others are fine
+- [x] tabbedpanel_demo.py - the welcome pane seems to overlap its border on the left and right? Only the welcome pane, all others are fine
+      FIXED (framework, 0.1.0): the Welcome tab is the only one whose content
+      contains a child element (a `{% button %}`), making its content frame
+      child-bearing. `Frame.render_to`, in the `_has_children and not content`
+      branch, painted the scrollbar (if any) but skipped the left/right border
+      columns for content rows, relying on the renderer's separate frame-border
+      pass (`_render_frames_to_buffer`) for the verticals. TabbedPanel renders a
+      tab's content frame by calling `render_to` standalone, so that pass never
+      runs and the Welcome pane lost its inner side borders. `render_to` now
+      paints the two side-border columns for the content rows itself, so a
+      standalone-rendered child-bearing frame is complete. This also aligns the
+      `Renderer.render_with_layout` path with the real app render (wizard_progress
+      golden updated to match). Regression test:
+      `tests/layout/test_frames.py::TestFrameBorderAlignment::
+      test_child_bearing_frame_paints_side_borders_cell_path`.
 
 - [ ] textarea_demo.py - we need to be able to show the end of long lines
 

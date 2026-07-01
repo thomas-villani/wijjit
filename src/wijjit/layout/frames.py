@@ -1539,32 +1539,45 @@ class Frame(ScrollableElement):
 
         # Render content based on mode
         if self._has_children and not self.content:
-            # Frame with children - only render scrollbar if needed, don't fill content
-            # Child elements/frames are rendered separately and should not be overwritten
-            if self.style.scrollable and self._needs_scroll and self.scroll_manager:
+            # Frame with children - the child elements/frames are rendered
+            # separately and must not be overwritten, so we only paint the
+            # frame chrome for the content rows: the left/right border columns
+            # and, when scrollable, the scrollbar column. Painting the vertical
+            # borders here (rather than relying on the renderer's separate
+            # frame-border pass) keeps a frame correct when render_to is called
+            # standalone, e.g. a child-bearing TabbedPanel tab, which would
+            # otherwise be missing its left/right borders.
+            content_start_y = current_y
+            border_cell = get_pooled_cell(char=chars["v"], **border_attrs)
+            for i in range(inner_height):
+                ctx.write_cell(0, content_start_y + i, border_cell)
+                ctx.write_cell(self.width - 1, content_start_y + i, border_cell)
+
+            if (
+                self.style.scrollable
+                and self._needs_scroll
+                and self.scroll_manager
+                and self.style.show_scrollbar
+            ):
                 # Render just the scrollbar column without overwriting content area
                 scrollbar_chars = render_vertical_scrollbar(
                     self.scroll_manager.state, inner_height, style="simple"
                 )
-                # Only render scrollbar if it needs to be shown
-                if self.style.show_scrollbar:
-                    scrollbar_x = self.width - 2  # Right side, inside border
-                    for i in range(inner_height):
-                        scrollbar_char = (
-                            scrollbar_chars[i] if i < len(scrollbar_chars) else " "
-                        )
-                        # Use thumb style for thumb char, track style for track char
-                        is_thumb = scrollbar_char == "\u2588"  # Full block
-                        sb_attrs = (
-                            scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
-                        )
-                        cell = Cell(char=scrollbar_char, **sb_attrs)
-                        ctx.write_cell(scrollbar_x, current_y, cell)
-                        current_y += 1
-            else:
-                # No scrolling needed, children render themselves
-                # Just advance current_y to skip the content area
-                current_y += inner_height
+                scrollbar_x = self.width - 2  # Right side, inside border
+                for i in range(inner_height):
+                    scrollbar_char = (
+                        scrollbar_chars[i] if i < len(scrollbar_chars) else " "
+                    )
+                    # Use thumb style for thumb char, track style for track char
+                    is_thumb = scrollbar_char == "\u2588"  # Full block
+                    sb_attrs = (
+                        scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
+                    )
+                    cell = Cell(char=scrollbar_char, **sb_attrs)
+                    ctx.write_cell(scrollbar_x, content_start_y + i, cell)
+
+            # Children render themselves; advance past the content area
+            current_y += inner_height
         elif self.style.scrollable and self._needs_scroll and self.scroll_manager:
             # Scrollable frame with text content (vertical + optional horizontal)
             start_line, end_line = self.scroll_manager.get_visible_range()
