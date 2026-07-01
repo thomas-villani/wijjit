@@ -462,6 +462,37 @@ class TestDataGridRendering:
         output = render_element(grid, width=30, height=8)
         assert isinstance(output, str)
 
+    def test_selected_rightmost_cell_keeps_right_border(self):
+        """Selecting the edge column must not erase the frame's right border.
+
+        Regression: `_render_selected_cell` drew the ``[cell]`` overlay without
+        clipping to the grid's inner width, so selecting the rightmost visible
+        column (whose content reaches the content edge) wrote the closing
+        bracket onto the border column, erasing it - the datagrid_demo
+        "selection indicator causes right border to erase" report. The overlay
+        is now clipped to the inner content region, so the border survives.
+        """
+        # A single column whose content fills the content region: the naive
+        # "[cell]" overlay would place its closing bracket on the border column.
+        grid = DataGrid(
+            data=[["Electronics"], ["Accessories"]],
+            columns=["Category"],
+            width=15,
+            height=8,
+        )
+        grid.set_bounds(Bounds(0, 0, 15, 8))
+        grid.focused = True
+        grid.cursor_row = 0
+        grid.cursor_col = 0
+
+        lines = render_element(grid, width=15, height=8).split("\n")
+
+        # Every non-blank rendered row must still close with the right border.
+        border_rows = [ln for ln in lines if ln.strip().startswith("│")]
+        assert border_rows, "grid did not render any bordered rows"
+        for line in border_rows:
+            assert line.rstrip().endswith("│"), f"right border erased: {line!r}"
+
     def test_intrinsic_size(self):
         """Test intrinsic size calculation."""
         grid = DataGrid(width=60, height=15)
