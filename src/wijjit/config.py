@@ -13,8 +13,53 @@ Examples
 >>> app.config.from_envvar('WIJJIT_SETTINGS')
 """
 
+import importlib
 import os
 from typing import Any
+
+
+def _import_string(import_name: str) -> Any:
+    """Import an object or module from a dotted (or colon) path.
+
+    Mirrors Flask's ``import_string``: the full dotted path is first tried as a
+    module (``"pkg.settings"`` -> the settings module); if that import fails,
+    the last segment is treated as an attribute of the parent module
+    (``"pkg.settings.ProdConfig"`` -> ``ProdConfig``). A colon may separate the
+    module from the attribute explicitly (``"pkg.settings:ProdConfig"``).
+
+    Parameters
+    ----------
+    import_name : str
+        Dotted path to a module, or to an attribute within a module.
+
+    Returns
+    -------
+    Any
+        The imported module or attribute.
+
+    Raises
+    ------
+    ImportError
+        If the module cannot be imported.
+    AttributeError
+        If the module imports but the named attribute does not exist.
+    """
+    if ":" in import_name:
+        module_name, _, attr = import_name.partition(":")
+    else:
+        module_name, attr = import_name, ""
+
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        # No module by that full path -- fall back to treating the last dotted
+        # segment as an attribute of its parent module.
+        if attr or "." not in module_name:
+            raise
+        module_name, _, attr = module_name.rpartition(".")
+        module = importlib.import_module(module_name)
+
+    return getattr(module, attr) if attr else module
 
 
 class Config(dict[str, Any]):
@@ -65,9 +110,14 @@ class Config(dict[str, Any]):
         ...     DEBUG = True
         ...     ENABLE_MOUSE = False
         >>> app.config.from_object(Config)
+
+        A dotted string path is resolved to the module or attribute it names::
+
+        >>> app.config.from_object("myproject.settings")
+        >>> app.config.from_object("myproject.settings.ProdConfig")
         """
         if isinstance(obj, str):
-            obj = __import__(obj)
+            obj = _import_string(obj)
 
         for key in dir(obj):
             if key.isupper():

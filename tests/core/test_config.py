@@ -82,6 +82,56 @@ class TestConfigClass:
         assert config["DEBUG"] is True
         assert config["VALUE"] == 42
 
+    def test_from_object_dotted_attribute_path(self):
+        """A dotted string resolves to an attribute of a module, not the
+        top-level package (out-of-scope bug: __import__ returned the top pkg).
+
+        Returns
+        -------
+        None
+        """
+        config = Config()
+        # DefaultConfig lives in wijjit.config and carries uppercase keys.
+        config.from_object("wijjit.config.DefaultConfig")
+
+        from wijjit.config import DefaultConfig
+
+        # A representative uppercase key is loaded from the class, proving the
+        # dotted path resolved to DefaultConfig rather than the wijjit package.
+        assert "DEFAULT_THEME" in config
+        assert config["DEFAULT_THEME"] == DefaultConfig.DEFAULT_THEME
+
+    def test_from_object_colon_attribute_path(self):
+        """The Flask-style ``module:attr`` separator also resolves.
+
+        Returns
+        -------
+        None
+        """
+        config = Config()
+        config.from_object("wijjit.config:DefaultConfig")
+
+        assert "DEFAULT_THEME" in config
+
+    def test_from_object_module_path(self):
+        """A dotted string naming a module imports that submodule (not the
+        top-level package).
+
+        Returns
+        -------
+        None
+        """
+        config = Config()
+        # os.path is a submodule; __import__("os.path") used to return os.
+        # Loading it should not raise and should treat os.path as the object.
+        config.from_object("os.path")
+        # os.path has no uppercase attrs we depend on; the point is it resolved
+        # the submodule without error rather than silently loading os.
+        import os.path as _ospath
+
+        expected = {k for k in dir(_ospath) if k.isupper()}
+        assert set(config.keys()) == expected
+
     def test_from_pyfile(self):
         """Config can load from a Python file.
 
