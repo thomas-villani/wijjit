@@ -172,6 +172,48 @@ class TestLogView:
         logview.handle_key(Keys.END)
         assert logview._user_scrolled_up is False
 
+    def test_auto_scroll_survives_reconcile_append(self):
+        """Auto-scroll keeps tailing across a reconcile-style prop update.
+
+        The reconciler captures ephemeral scroll state *before* applying the
+        grown ``lines`` prop, then restores it afterwards. Restoring the stale
+        position would undo set_lines' auto-scroll, so restore_ephemeral_state
+        must re-assert the bottom when auto-scroll is on and the user is at the
+        bottom.
+        """
+        lines = [f"Line {i}" for i in range(20)]
+        logview = LogView(lines=lines, height=10, auto_scroll=True)
+
+        # Simulate the reconciler round-trip: capture, apply new lines, restore.
+        captured = logview.get_ephemeral_state()
+        logview.lines = lines + [f"New line {i}" for i in range(10)]
+        logview.restore_ephemeral_state(captured)
+
+        assert (
+            logview.scroll_manager.state.scroll_position
+            == logview.scroll_manager.state.max_scroll
+        )
+
+    def test_reconcile_preserves_manual_scroll_position(self):
+        """A user who scrolled up keeps their position across a reconcile."""
+        lines = [f"Line {i}" for i in range(50)]
+        logview = LogView(lines=lines, height=10, auto_scroll=True)
+
+        # User scrolls up to read history.
+        logview.handle_key(Keys.UP)
+        logview.handle_key(Keys.UP)
+        assert logview._user_scrolled_up is True
+        manual_pos = logview.scroll_manager.state.scroll_position
+
+        # Reconcile round-trip with new content appended.
+        captured = logview.get_ephemeral_state()
+        logview.lines = lines + ["New line"]
+        logview.restore_ephemeral_state(captured)
+
+        # Position preserved (not yanked to the bottom).
+        assert logview.scroll_manager.state.scroll_position == manual_pos
+        assert logview._user_scrolled_up is True
+
     def test_soft_wrap_enabled(self):
         """Test soft-wrap wraps long lines."""
         long_line = "A" * 100

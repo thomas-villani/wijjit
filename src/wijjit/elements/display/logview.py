@@ -552,11 +552,23 @@ class LogView(ScrollableElement):
         ----------
         state : dict
             State from get_ephemeral_state()
+
+        Notes
+        -----
+        The reconciler captures scroll position *before* the new ``lines`` prop
+        is applied, so restoring it verbatim would undo the auto-scroll that
+        :meth:`set_lines` performs when content grows. To keep tailing behavior
+        working across re-renders, when auto-scroll is enabled and the user has
+        not scrolled up we re-assert the bottom instead of the stale position.
+        A user who has scrolled up to read history keeps their exact position.
         """
-        if "scroll_position" in state and self.scroll_manager:
-            self.scroll_manager.scroll_to(state["scroll_position"])
         if "_user_scrolled_up" in state:
             self._user_scrolled_up = state["_user_scrolled_up"]
+        if self.scroll_manager:
+            if self.auto_scroll and not self._user_scrolled_up:
+                self.scroll_manager.scroll_to_bottom()
+            elif "scroll_position" in state:
+                self.scroll_manager.scroll_to(state["scroll_position"])
 
     def can_scroll(self, direction: int) -> bool:
         """Check if the element can scroll in the given direction.

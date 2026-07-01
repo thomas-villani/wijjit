@@ -1,46 +1,50 @@
-"""Chatbot - A simple conversational TUI built with Wijjit.
+"""Chatbot - a streaming conversational TUI built with Wijjit.
 
 A rule-based chatbot that demonstrates the core Wijjit building blocks in a
-compact, real-world app: reactive state, a live template, a scrollable
-conversation log, and action handlers wired to a text input.
+compact, real-world app: reactive state, a live template, a self-scrolling
+conversation log, action handlers, and an ``async`` handler that streams the
+reply one word at a time - exactly the shape you'd use to render tokens from a
+streaming LLM response.
 
 There is no network or LLM dependency - the "bot" is a small rule-based
-responder (`bot_reply`), so the demo runs anywhere. Swap `bot_reply` for a call
-to your favourite API to turn it into a real assistant.
+responder (`bot_reply`). To turn this into a real assistant, replace the body of
+`stream_bot_reply` with an ``async for`` over your provider's streaming API (see
+the note on that function).
 
 Features:
-- Scrollable conversation history (you + bot turns)
+- Self-scrolling conversation history (a LogView that tails new messages)
+- Word-by-word streaming of the bot's reply
 - Send a message with Enter or the Send button
 - Rule-based replies (greetings, help, time, echo)
 - Clear the conversation
 
 Controls:
+- Tab/Shift+Tab: Move focus (the history, then the input, then the buttons)
 - Enter: Send the message in the input box
-- Tab/Shift+Tab: Move focus between the input and buttons
+- In the history: arrows/PageUp/PageDown to scroll (auto-scroll pauses while you
+  read older messages and resumes when you scroll back to the bottom)
 - Ctrl+Q: Quit
 """
 
 from __future__ import annotations
 
-import textwrap
+import asyncio
 from datetime import datetime
 
 from wijjit import Wijjit, render_template_string
 
-# Width (in columns) available for a message line inside the history frame.
-# Messages are wrapped to this width in Python so long replies stay readable.
-HISTORY_WIDTH = 62
+# Seconds between words while streaming the bot's reply.
+STREAM_DELAY = 0.05
 
-# The greeting the bot opens with. Each message is a (speaker, text) pair;
-# speaker is "You" or "Bot".
-WELCOME = ("Bot", "Hi! I'm a little Wijjit bot. Type 'help' to see what I can do.")
+WELCOME = "Bot: Hi! I'm a little Wijjit bot. Type 'help' to see what I can do."
 
 
 def bot_reply(message: str) -> str:
     """Produce a canned reply for a user message.
 
     This is deliberately simple - it keeps the demo dependency-free. Replace it
-    with a call to a chat API to build a real assistant.
+    (and the streaming loop in `stream_bot_reply`) with a call to a chat API to
+    build a real assistant.
 
     Parameters
     ----------
@@ -75,48 +79,35 @@ def bot_reply(message: str) -> str:
 
 app = Wijjit(
     initial_state={
-        "messages": [WELCOME],
+        # Each entry is one line of the transcript; the LogView soft-wraps long
+        # lines and tails the bottom as new ones arrive.
+        "history": [WELCOME],
         "chat_input": "",
-        "status": "Type a message and press Enter",
+        "status": "Tab to the message box, type, and press Enter",
     }
 )
 
 
-def wrap_history() -> list[str]:
-    """Flatten the conversation into wrapped display lines.
-
-    Each (speaker, text) turn becomes one or more physical lines (wrapped to
-    ``HISTORY_WIDTH``) followed by a blank separator line.
-
-    Returns
-    -------
-    list[str]
-        Display-ready lines for the history frame.
-    """
-    lines: list[str] = []
-    for speaker, text in app.state["messages"]:
-        wrapped = textwrap.wrap(f"{speaker}: {text}", width=HISTORY_WIDTH) or [""]
-        lines.extend(wrapped)
-        lines.append("")  # blank line between turns
-    return lines
-
-
 @app.view("main", default=True)
 def main_view():
-    """Render the chat window with a live conversation log."""
+    """Render the chat window with a self-scrolling conversation log."""
     return render_template_string(
         """
 {% frame border="rounded" title="Wijjit Chatbot" width=72 height=24 %}
   {% vstack spacing=1 padding=1 %}
 
-    {# Scrollable conversation history #}
-    {% frame border="single" height=15 scrollable=True show_scrollbar=True %}
-      {% vstack spacing=0 %}
-        {% for line in history %}
-          {% text %}{{ line }}{% endtext %}
-        {% endfor %}
-      {% endvstack %}
-    {% endframe %}
+    {# A LogView tails the newest line automatically (auto_scroll) and wraps
+       long messages (soft_wrap). detect_log_levels is off so ordinary words
+       aren't colored as if they were log levels. #}
+    {% logview id="history"
+        lines=history
+        width="fill"
+        height=15
+        auto_scroll=True
+        soft_wrap=True
+        detect_log_levels=False
+        border="single" %}
+    {% endlogview %}
 
     {# Input row - Enter in the textinput fires the "send" action #}
     {% hstack spacing=1 %}
@@ -130,30 +121,61 @@ def main_view():
   {% endvstack %}
 {% endframe %}
         """,
-        history=wrap_history(),
+        history=app.state["history"],
     )
 
 
+async def stream_bot_reply(reply: str) -> None:
+    """Append the bot's reply one word at a time (simulated streaming).
+
+    This mirrors how you'd render a streaming LLM response: append a placeholder
+    line, then rewrite its tail as each chunk arrives. Every assignment to
+    ``state["history"]`` schedules a render, and the ``await`` yields to the
+    event loop so the UI repaints between words.
+
+    To use a real model, replace the ``for word in reply.split()`` loop with an
+    ``async for`` over your provider's stream, e.g.::
+
+        partial = "Bot:"
+        async for chunk in client.stream(...):
+            partial += chunk
+            app.state["history"] = app.state["history"][:-1] + [partial]
+
+    Parameters
+    ----------
+    reply : str
+        The full text the bot will "type out".
+    """
+    app.state["history"] = app.state["history"] + ["Bot:"]
+    app.state["status"] = "Bot is typing..."
+
+    partial = "Bot:"
+    for word in reply.split():
+        partial = f"{partial} {word}"
+        # Rewrite the last line in place as the reply grows.
+        app.state["history"] = app.state["history"][:-1] + [partial]
+        await asyncio.sleep(STREAM_DELAY)
+
+    app.state["status"] = f"{len(app.state['history'])} messages - Ctrl+Q to quit"
+
+
 @app.on_action("send")
-def send_message(event):
-    """Append the user's message, generate a reply, and clear the input."""
+async def send_message(event):
+    """Append the user's message, then stream the bot's reply."""
     text = app.state.get("chat_input", "").strip()
     if not text:
         app.state["status"] = "Nothing to send - type a message first."
         return
 
-    # Append both turns. Reassign the list (not .append) so State detects the
-    # change and schedules a re-render.
-    messages = app.state["messages"] + [("You", text), ("Bot", bot_reply(text))]
-    app.state["messages"] = messages
     app.state["chat_input"] = ""
-    app.state["status"] = f"{len(messages)} messages - Ctrl+Q to quit"
+    app.state["history"] = app.state["history"] + [f"You: {text}"]
+    await stream_bot_reply(bot_reply(text))
 
 
 @app.on_action("clear")
 def clear_conversation(event):
     """Reset the conversation to just the welcome message."""
-    app.state["messages"] = [WELCOME]
+    app.state["history"] = [WELCOME]
     app.state["status"] = "Conversation cleared"
 
 
