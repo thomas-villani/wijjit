@@ -270,10 +270,6 @@ class HeatMap(Element):
         # Get value range for color scaling
         min_val, max_val = self._get_value_range()
 
-        # Calculate visible cells
-        # num_rows = len(self._grid)
-        # num_cols = max((len(row) for row in self._grid), default=0)
-
         # Adjust cell size if needed to fit grid
         visible_cols = grid_width // self.cell_width
         visible_rows = grid_height // self.cell_height

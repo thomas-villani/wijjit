@@ -14,7 +14,6 @@ The layout system supports:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from typing import Literal
 
 from wijjit.elements.base import Element
@@ -25,13 +24,6 @@ from wijjit.logging_config import get_logger
 
 # Module logger
 logger = get_logger(__name__)
-
-
-class Direction(Enum):
-    """Layout direction for stacking containers."""
-
-    VERTICAL = "vertical"
-    HORIZONTAL = "horizontal"
 
 
 # Type aliases for alignment options
