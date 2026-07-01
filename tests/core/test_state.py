@@ -114,6 +114,28 @@ class TestState:
         callback1.assert_called_once_with("value", None, 42)
         callback2.assert_called_once_with("value", None, 42)
 
+    def test_off_change_stops_callback(self):
+        """off_change unregisters a global callback (counterpart to on_change)."""
+        state = State({"count": 0})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["count"] = 1
+        callback.assert_called_once_with("count", 0, 1)
+
+        state.off_change(callback)
+        state["count"] = 2
+        # No further calls after removal.
+        callback.assert_called_once_with("count", 0, 1)
+
+    def test_off_change_unregistered_callback_is_noop(self):
+        """off_change on a never-registered callback does nothing."""
+        state = State({"count": 0})
+        callback = Mock()
+        state.off_change(callback)  # should not raise
+        state["count"] = 1
+        callback.assert_not_called()
+
     def test_on_change_no_trigger_on_same_value(self):
         """Test callback not triggered when value doesn't change."""
         state = State({"count": 5})
