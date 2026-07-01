@@ -315,31 +315,6 @@ class BrailleCanvas:
             lines.append(line)
         return lines
 
-    def render(self) -> list[str]:
-        """Convert the canvas to a list of braille character strings (DEPRECATED).
-
-        .. deprecated:: 0.1.0
-
-            Use ``to_lines()`` instead. This method is kept for
-            backwards compatibility.
-
-        Returns
-        -------
-        list of str
-            Lines of braille characters representing the canvas
-        """
-        return self.to_lines()
-
-    def render_to_string(self) -> str:
-        """Convert the canvas to a single string with newlines.
-
-        Returns
-        -------
-        str
-            Complete canvas as a string
-        """
-        return "\n".join(self.to_lines())
-
 
 def normalize_data(
     data: list[float | int],
