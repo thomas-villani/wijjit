@@ -427,6 +427,33 @@ class TestSpinner:
         stripped = strip_ansi(output)
         assert " " in stripped  # Space separator
 
+    def test_wide_char_clock_frame_label_offset(self):
+        """A wide (2-column) spinner glyph must not shift or ghost the label.
+
+        Regression: the clock style uses emoji clock faces (U+1F550...), each
+        a single code point but two terminal columns wide. `get_intrinsic_size`
+        and the label offset used ``len()`` instead of ``visible_length()``, so
+        the label was placed one column too early - overlapping the glyph and
+        leaving a ghost of its trailing character ("Working with clock..k") -
+        and the under-sized clear left a dangling column behind on scroll.
+        """
+        from wijjit.terminal.ansi import visible_length
+
+        label = "Working with clock..."
+        spinner = Spinner(active=True, style="clock", label=label)
+
+        # Intrinsic width must account for the 2-column glyph: glyph + space +
+        # label, not len(glyph)==1 + space + label.
+        width, height = spinner.get_intrinsic_size()
+        assert width == 2 + 1 + visible_length(label)
+        assert height == 1
+
+        # The glyph sits at column 0 and the full label renders intact after
+        # it (no overlap, no truncated/ghosted trailing character).
+        output = strip_ansi(render_element(spinner, width=width + 5, height=1))
+        assert output.startswith(spinner._get_current_frame())
+        assert label in output
+
     def test_multiple_frame_advances(self):
         """Test advancing frames multiple times.
 

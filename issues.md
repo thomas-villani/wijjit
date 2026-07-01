@@ -139,8 +139,19 @@ preservation contract (tree expand-all), and the log-panel bugs were a separate
       symptom was the scrolled-frame mouse hit-test offset (this frame is
       height=38 and scrolls), resolved by the 0.1.0 mouse hit-testing fix.
 
-- [ ] spinner_demo.py - it looks like the last `.` in the ellipses sometimes doesn't get erased on scroll, leading to ghost dots in the same column that scroll
+- [x] spinner_demo.py - it looks like the last `.` in the ellipses sometimes doesn't get erased on scroll, leading to ghost dots in the same column that scroll
     - turning off clock shows "Working with clock..k" --- probably emoji related?
+      FIXED (framework, 0.1.0): both symptoms were the same wide-char bug. The
+      "clock" style uses emoji clock faces (U+1F550...), each a single code
+      point but two terminal columns wide. `Spinner.get_intrinsic_size` used
+      `max(len(f) ...)` and `render_to` wrote the label at `len(frame) + 1` -
+      both `len()`-on-terminal-text violations. The label was thus placed one
+      column too early, overlapping the glyph's second cell and ghosting the
+      label's trailing character ("...k"), and the under-sized intrinsic width
+      left the last column uncleared (the scroll ghost dots). Switched both to
+      `visible_length()` (and the label length too). Regression test:
+      `tests/elements/test_spinner.py::TestSpinner::
+      test_wide_char_clock_frame_label_offset`.
 
 - [ ] status_indicator_demo.py - would be good to blink after a change, and to allow a blinking state
 

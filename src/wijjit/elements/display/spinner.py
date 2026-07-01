@@ -8,6 +8,7 @@ including dots, lines, bouncing, and various other patterns.
 from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
+from wijjit.terminal.ansi import visible_length
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -189,13 +190,15 @@ class Spinner(Element):
         tuple[int, int]
             (width, height) tuple
         """
-        # Get max frame width across all frames in the current style
+        # Get max frame width across all frames in the current style. Use the
+        # visible (terminal-column) width, not len(): several styles (e.g. the
+        # emoji "clock" faces) are single code points but occupy two columns.
         frames = self._get_style_frames(self.style)
-        max_frame_len = max(len(f) for f in frames) if frames else 1
+        max_frame_len = max(visible_length(f) for f in frames) if frames else 1
 
         if self.label:
             # frame + space + label
-            width = max_frame_len + 1 + len(self.label)
+            width = max_frame_len + 1 + visible_length(self.label)
         else:
             width = max_frame_len
 
@@ -247,5 +250,8 @@ class Spinner(Element):
 
         # Render label if present
         if self.label:
-            # Frame + space + label
-            ctx.write_text(len(frame) + 1, 0, self.label, text_style)
+            # Frame + space + label. Offset by the frame's visible width, not
+            # len(): a wide (2-column) frame glyph such as an emoji clock face
+            # would otherwise place the label one column too early, overlapping
+            # the glyph and leaving a ghost of the label's trailing character.
+            ctx.write_text(visible_length(frame) + 1, 0, self.label, text_style)
