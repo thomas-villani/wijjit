@@ -35,7 +35,7 @@ def main_view():
     """Main form view with radio groups."""
     return render_template_string(
         """
-{% frame title="Radio Button Demo" border="double" width=80 height=32 %}
+{% frame title="Radio Button Demo" border="double" width=84 height=32 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       {{ state.status }}
