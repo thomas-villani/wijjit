@@ -767,7 +767,8 @@ class InputHandler:
                         logger.debug(f"Detected paste start: {len(paste_chars)} chars")
 
                         # Continue aggregating with short timeout (20ms window)
-                        while True:
+                        # Apply MAX_PASTE_SIZE limit to prevent unbounded growth
+                        while len(paste_chars) < MAX_PASTE_SIZE:
                             more_keys = await self._get_keys_from_queue_async(
                                 timeout=0.02
                             )
@@ -788,6 +789,9 @@ class InputHandler:
                                 for k in more_keys:
                                     self._key_queue.append(k)
                                 break
+
+                        if len(paste_chars) >= MAX_PASTE_SIZE:
+                            logger.warning(f"Paste truncated at {MAX_PASTE_SIZE} chars")
 
                         pasted_text = "".join(paste_chars)
                         logger.debug(f"Detected paste: {pasted_text!r}")

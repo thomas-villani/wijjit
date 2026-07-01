@@ -1,5 +1,6 @@
 """Tests for keyboard input handling."""
 
+import asyncio
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -453,6 +454,47 @@ class TestInputPasteDetection:
         # Should detect paste (implementation may vary)
         # At minimum, should return first character
         assert result is not None
+
+    @pytest.mark.asyncio
+    @patch("wijjit.terminal.input.create_input")
+    async def test_async_paste_aggregation_is_capped(
+        self, mock_create_input, monkeypatch
+    ):
+        """read_input_async caps paste aggregation at MAX_PASTE_SIZE.
+
+        The async paste-continuation loop used ``while True`` and relied on the
+        continuation reader eventually timing out. On an unbounded printable
+        stream it never terminated -- unlike the sync path, which was capped.
+        This drives an endless printable stream and asserts the loop stops.
+        Without the cap this test hangs (and fails via wait_for).
+        """
+        import wijjit.terminal.input as input_mod
+
+        # Shrink the cap so the test is fast and deterministic.
+        monkeypatch.setattr(input_mod, "MAX_PASTE_SIZE", 20)
+
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        # Feed the initial paste batch directly; skip the real reader thread.
+        monkeypatch.setattr(handler, "_ensure_reader_thread", lambda: None)
+        handler._input_queue.put([KeyPress("a", "a"), KeyPress("b", "b")])
+
+        # Continuation always yields more printable keys -> unbounded without cap.
+        async def endless_printables(timeout=0.0):
+            return [KeyPress("x", "x"), KeyPress("y", "y"), KeyPress("z", "z")]
+
+        monkeypatch.setattr(handler, "_get_keys_from_queue_async", endless_printables)
+
+        result = await asyncio.wait_for(
+            handler.read_input_async(timeout=1.0), timeout=5.0
+        )
+
+        assert result is not None
+        assert result.char is not None
+        # Bounded near MAX_PASTE_SIZE (may overshoot by up to one batch).
+        assert 20 <= len(result.char) < 20 + 3
 
 
 class TestInputEscapeSequences:
