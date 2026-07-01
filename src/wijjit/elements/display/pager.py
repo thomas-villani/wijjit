@@ -11,7 +11,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Union
 
-from wijjit.elements.base import Container, ElementType, delegate_frame_scroll
+from wijjit.elements.base import (
+    Container,
+    ElementType,
+    delegate_frame_scroll,
+    invoke_callback,
+)
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame, FrameStyle
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width
@@ -291,7 +296,7 @@ class Pager(Container):
         self._save_page_state()
 
         if self.on_page_change:
-            self.on_page_change(old_index, index)
+            invoke_callback(self.on_page_change, old_index, index)
 
         return True
 

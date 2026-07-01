@@ -10,7 +10,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
-from wijjit.elements.base import OverlayElement
+from wijjit.elements.base import OverlayElement, invoke_callback
 from wijjit.elements.input.button import Button
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import BorderStyle, Frame, FrameStyle
@@ -171,11 +171,11 @@ class NotificationElement(OverlayElement):
         # This ensures the notification is removed before any new notifications
         # are created by the callback, preventing ghost remnants
         if self.dismiss_on_action and self.on_dismiss is not None:
-            self.on_dismiss()
+            invoke_callback(self.on_dismiss)
 
         # Execute user callback after dismissal
         if self.action_callback:
-            self.action_callback()
+            invoke_callback(self.action_callback)
 
     def _get_icon(self) -> str:
         """Get icon for the notification based on severity.
@@ -342,7 +342,7 @@ class NotificationElement(OverlayElement):
         # Any other click on notification dismisses it
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             if self.on_dismiss:
-                self.on_dismiss()
+                invoke_callback(self.on_dismiss)
             return True
 
         return False
