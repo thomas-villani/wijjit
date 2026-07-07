@@ -23,6 +23,7 @@ def test_tokenize_keys_click_without_coord_not_greedily_joined():
     # a preceding complete ``click:X,Y``.
     assert _tokenize_keys("click:1,2,type:9") == ["click:1,2", "type:9"]
 
+
 GOOD = """
 {% frame title="CLI" width=30 height=5 %}
   {% button id="ok" action="go" %}Go{% endbutton %}

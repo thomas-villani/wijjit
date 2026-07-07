@@ -1281,9 +1281,9 @@ class TestFrameBorderAlignment:
         # vertical border glyph on both edges.
         for row in lines[1:5]:
             assert row[0] == "│", f"missing left border: {row!r}"
-            assert self._right_border_col(row) == 19, (
-                f"missing/misplaced right border: {row!r}"
-            )
+            assert (
+                self._right_border_col(row) == 19
+            ), f"missing/misplaced right border: {row!r}"
 
 
 class TestFrameBodyTextOverflow:

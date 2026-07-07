@@ -6,7 +6,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
-    { name = "Thomas Villani", email = "thomas.villani@gmail.com" }
+    { name = "Tom Villani, Ph.D.", email = "thomas.villani@gmail.com" }
 ]
 requires-python = ">=3.11"
 keywords = [
@@ -98,6 +98,7 @@ packages = ["src/wijjit"]
 include = [
     "src/wijjit",
     "tests",
+    "examples",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",

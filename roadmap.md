@@ -5,7 +5,7 @@ update as items move between buckets.
 
 ## 0.1.0 (current release target)
 
-The framework is feature-complete for a credible first release: ~2702 tests
+The framework is feature-complete for a credible first release: ~3000 tests
 passing, ruff clean, `mypy --strict` clean, Sphinx docs build with zero
 warnings. The remaining 0.1.0 work is a tight set of quality-of-life fixes
 that would otherwise embarrass the first public release.
@@ -181,8 +181,9 @@ those same fields.
 - [ ] **autocomplete language toggle** leaves the old caret un-erased (overlaps
   the last typed char) — caret-erase on re-render. (Separate paint/erase bug,
   not the contract above.)
-- [ ] **complex_layout** log is editable (should be read-only) — demo/element
-  config (set the LogView/TextArea read-only).
+- [x] **complex_layout** log is editable (should be read-only) — already
+  resolved: the demo now renders the log through a read-only ``ContentView``
+  (verified headless: typed input does not alter the pane).
 - [ ] **context_menu** right-click menu (Copy is only reachable there) — the
   buttons work; the right-click path is the experimental context-menu /
   real-terminal mouse concern the demo itself flags. Needs a real-console repro.
