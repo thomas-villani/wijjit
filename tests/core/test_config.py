@@ -414,7 +414,6 @@ class TestDefaultConfig:
             "UNICODE_SUPPORT",
             # Performance
             "REFRESH_INTERVAL",
-            "DEFAULT_ANIMATION_FPS",
             "MAX_FPS",
             "RUN_SYNC_IN_EXECUTOR",
             "EXECUTOR_MAX_WORKERS",
@@ -428,7 +427,6 @@ class TestDefaultConfig:
             # Logging
             "LOG_LEVEL",
             "LOG_FILE",
-            "LOG_TO_CONSOLE",
             "LOG_FORMAT",
             # Debug
             "DEBUG",
@@ -469,7 +467,6 @@ class TestDefaultConfig:
         assert DefaultConfig.UNICODE_SUPPORT == "auto"
 
         assert DefaultConfig.REFRESH_INTERVAL is None
-        assert DefaultConfig.DEFAULT_ANIMATION_FPS == 5
         assert DefaultConfig.MAX_FPS is None
         assert DefaultConfig.RUN_SYNC_IN_EXECUTOR is False
 

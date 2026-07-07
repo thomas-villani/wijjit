@@ -8,6 +8,7 @@ including dots, lines, bouncing, and various other patterns.
 from typing import TYPE_CHECKING, Literal
 
 from wijjit.elements.base import Element, ElementType
+from wijjit.styling.style import Style, parse_color
 from wijjit.terminal.ansi import visible_length
 
 if TYPE_CHECKING:
@@ -82,7 +83,9 @@ class Spinner(Element):
     label : str, optional
         Label text to display next to spinner (default: "")
     color : str, optional
-        Color name for the spinner (default: None)
+        Foreground color for the spinner glyph, on top of the theme style.
+        Accepts a named color, ``#RRGGBB`` hex, or ``rgb(r, g, b)`` (default:
+        None, use the theme color).
     frame_index : int, optional
         Current animation frame index (default: 0)
 
@@ -244,6 +247,13 @@ class Spinner(Element):
 
         # Resolve style for active spinner
         spinner_style = ctx.style_resolver.resolve_style(self, "spinner.active")
+
+        # Apply an explicit color override (the ``color`` prop) to the spinner
+        # glyph, on top of the theme style.
+        if self.color:
+            rgb = parse_color(self.color)
+            if rgb is not None:
+                spinner_style = spinner_style.merge(Style(fg_color=rgb))
 
         # Render spinner frame
         ctx.write_text(0, 0, frame, spinner_style)

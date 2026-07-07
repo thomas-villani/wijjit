@@ -34,8 +34,6 @@ class Checkbox(Element):
         Label text displayed next to checkbox (default: "")
     checked : bool, optional
         Initial checked state (default: False)
-    value : str, optional
-        Value to associate with this checkbox (default: "")
 
     Attributes
     ----------
@@ -43,8 +41,6 @@ class Checkbox(Element):
         Label text
     checked : bool
         Current checked state
-    value : str
-        Associated value
     on_change : callable or None
         Callback (old_value, new_value) when state changes
     on_action : callable or None
@@ -70,7 +66,6 @@ class Checkbox(Element):
         tab_index: int | None = None,
         label: str = "",
         checked: bool = False,
-        value: str = "",
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
@@ -79,7 +74,6 @@ class Checkbox(Element):
         # Backing field set directly to avoid firing on_change during __init__
         # (the callback is not attached yet).
         self._checked = checked
-        self.value = value
 
         # Callbacks
         self.on_change: Callable[[bool, bool], None] | None = None

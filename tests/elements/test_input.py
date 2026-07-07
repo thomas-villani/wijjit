@@ -203,6 +203,28 @@ class TestTextInput:
         assert "test" in result
         assert "[" in result
 
+    def test_password_masks_value_on_screen(self):
+        """A password input renders mask chars, never the literal value."""
+        input_field = TextInput(value="secret", width=15, password=True)
+        result = render_element(input_field, width=15, height=1)
+        assert "secret" not in result
+        assert "*" * 6 in result
+        # The real value is still available programmatically.
+        assert input_field.value == "secret"
+
+    def test_password_custom_mask_char(self):
+        """The mask glyph is configurable via mask_char."""
+        input_field = TextInput(value="pw", width=15, password=True, mask_char="#")
+        result = render_element(input_field, width=15, height=1)
+        assert "##" in result
+        assert "pw" not in result
+
+    def test_password_shows_placeholder_when_empty(self):
+        """An empty password field still shows its (unmasked) placeholder."""
+        input_field = TextInput(placeholder="Password", width=15, password=True)
+        result = render_element(input_field, width=15, height=1)
+        assert "Password" in result
+
     def test_width_padding(self):
         """Test that short text is padded to width."""
         # Create input and verify it was created with correct width
@@ -566,29 +588,6 @@ class TestSelect:
         # B is disabled, so value should not change
         assert select.value is None
         callback.assert_not_called()
-
-    def test_custom_renderer(self):
-        """Test custom item renderer.
-
-        Note: Custom renderers are not yet fully supported in cell-based rendering.
-        This test verifies basic rendering works. Full custom renderer support
-        is tracked as a future enhancement.
-        """
-
-        def custom_renderer(option, is_selected, is_highlighted, is_disabled):
-            # Options can be strings or dicts - handle both
-            label = option.get("label", option) if isinstance(option, dict) else option
-            return f"CUSTOM: {label}"
-
-        select = Select(
-            options=["A", "B"],
-            item_renderer=custom_renderer,
-        )
-
-        # Verify options render (custom rendering not yet supported in cell-based)
-        rendered = render_element(select, width=20, height=5)
-        assert "A" in rendered
-        assert "B" in rendered
 
     def test_render_list(self):
         """Test rendering scrollable list."""

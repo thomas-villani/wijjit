@@ -62,6 +62,45 @@ def render_element(element, width=80, height=24):
     return buffer.to_text()
 
 
+def render_element_buffer(element, width=80, height=24):
+    """Render an element and return the raw ScreenBuffer.
+
+    Like :func:`render_element` but returns the buffer so tests can inspect
+    per-cell attributes (e.g. ``fg_color``) rather than just text.
+
+    Parameters
+    ----------
+    element : Element
+        Element to render.
+    width : int, optional
+        Width of rendering area (default: 80).
+    height : int, optional
+        Height of rendering area (default: 24).
+
+    Returns
+    -------
+    ScreenBuffer
+        The buffer after rendering.
+    """
+    buffer = ScreenBuffer(width, height)
+    theme_manager = ThemeManager()
+    style_resolver = StyleResolver(theme_manager.get_theme())
+    if element.bounds is None:
+        element.set_bounds(Bounds(0, 0, width, height))
+    ctx = PaintContext(buffer, style_resolver, element.bounds)
+    element.render_to(ctx)
+    return buffer
+
+
+def buffer_has_fg(buffer, rgb):
+    """Return True if any cell in the buffer uses ``rgb`` as its foreground."""
+    for row in buffer.cells:
+        for cell in row:
+            if cell.fg_color == rgb:
+                return True
+    return False
+
+
 def assert_renders_correctly(
     element,
     expected_width: int = None,

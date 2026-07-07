@@ -85,7 +85,8 @@ vs `.py` apps by the `.py` suffix:
 wijjit validate myform.wij --render     # syntax/unknown-tag/undefined-var/attr findings
 wijjit tree myform.wij --json           # dump the VNode "DOM" tree
 wijjit render examples/.../demo.py --keys "tab,enter"   # ports python -m wijjit.testing
-wijjit run -k login tests/              # pytest passthrough
+wijjit run examples/.../demo.py         # launch a .py app in this terminal
+wijjit test -k login tests/             # pytest passthrough
 ```
 
 The validator lives in `src/wijjit/devtools/` (`validate.py` -> `ValidationReport`
@@ -94,8 +95,8 @@ of `Finding`s; `tree.py` -> `build_vnode_tree`/`render_tree_text`/`vnode_to_dict
 `wijjit render` reuses `run_render` from `wijjit.testing.cli`.
 
 **Pytest plugin / fixtures:** installing wijjit registers a `pytest11` plugin
-(`wijjit.testing.pytest_plugin`; opt out `-p no:wijjit`) exposing `harness` and
-`make_app` fixtures plus `wijjit_app`/`wijjit_snapshot` markers.
+(`wijjit.testing.pytest_plugin`; opt out `-p no:wijjit`) exposing `wijjit_harness`
+and `wijjit_make_app` fixtures plus `wijjit_app`/`wijjit_snapshot` markers.
 `wijjit.testing.app_from_template(template, state=..., actions=..., on_key=...,
 views=...)` (also exported from top-level `wijjit`) builds a ready-to-drive app
 from a bare template - no example `.py` needed. New `WijjitHarness` assertions:
@@ -285,7 +286,7 @@ HTML, Markdown, or Rich markup.
 - **devtools/** - static analysis for the CLI: `validate.py` (template/app linter),
   `tree.py` (VNode-tree dump), `_render.py` (shared render mechanics).
 - **testing/** - headless `WijjitHarness`, `load_example_app`, `app_from_template`
-  (build an app from a bare template), and the `pytest_plugin` (`harness`/`make_app`
+  (build an app from a bare template), and the `pytest_plugin` (`wijjit_harness`/`wijjit_make_app`
   fixtures + markers, auto-loaded via a `pytest11` entry point).
 
 ## Public API

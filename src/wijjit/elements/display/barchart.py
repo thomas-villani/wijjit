@@ -67,7 +67,7 @@ class BarChart(ScrollableElement):
         Color scale for gradient mode (default: "green")
     show_scrollbar : bool, optional
         Show scrollbar when content overflows (default: True)
-    border : str, optional
+    border_style : str, optional
         Border style: "single", "double", "rounded", or "none"
         (default: "single")
 
@@ -122,7 +122,7 @@ class BarChart(ScrollableElement):
         color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         show_scrollbar: bool = True,
-        border: str = "single",
+        border_style: str = "single",
         tab_index: int | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
@@ -144,7 +144,7 @@ class BarChart(ScrollableElement):
         self.color_mode = color if color is not None else color_mode
         self.color_scale = color_scale
         self.show_scrollbar = show_scrollbar
-        self.border = border
+        self.border_style = border_style
 
         # Auto-calculate label width if not specified
         if label_width is None and show_labels and self.labels:
@@ -154,7 +154,7 @@ class BarChart(ScrollableElement):
 
         # Calculate content height (total rows needed for all bars)
         content_height = len(self.values) * self.bar_height
-        viewport_height = self.height - (2 if has_border(border) else 0)
+        viewport_height = self.height - (2 if has_border(border_style) else 0)
 
         # Scroll management
         self.scroll_manager = ScrollManager(
@@ -442,7 +442,7 @@ class BarChart(ScrollableElement):
         use_unicode = supports_unicode()
 
         # Calculate dimensions
-        border_offset = BORDER_THICKNESS if has_border(self.border) else 0
+        border_offset = BORDER_THICKNESS if has_border(self.border_style) else 0
         viewport_height = self.height - (2 * border_offset)
         viewport_width = self.width - (2 * border_offset)
 
@@ -472,13 +472,13 @@ class BarChart(ScrollableElement):
         last_visible_bar = (scroll_offset + viewport_height) // self.bar_height + 1
 
         # Render border if enabled
-        if has_border(self.border):
+        if has_border(self.border_style):
             border_box_style = ctx.style_resolver.resolve_style(self, "barchart.border")
             try:
                 border_enum = (
-                    self.border
-                    if isinstance(self.border, BorderStyle)
-                    else BorderStyle(str(self.border).lower())
+                    self.border_style
+                    if isinstance(self.border_style, BorderStyle)
+                    else BorderStyle(str(self.border_style).lower())
                 )
             except ValueError:
                 border_enum = BorderStyle.SINGLE

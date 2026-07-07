@@ -118,11 +118,6 @@ class TestCheckbox:
         # The render_element() helper uses to_text() which extracts only characters.
         # Styling is verified through visual/integration tests.
 
-    def test_value_attribute(self):
-        """Test checkbox with value attribute."""
-        checkbox = Checkbox(label="Option", value="opt1", checked=True)
-        assert checkbox.value == "opt1"
-
 
 class TestCheckboxGroup:
     """Tests for CheckboxGroup element."""

@@ -17,6 +17,8 @@ import importlib
 import os
 from typing import Any
 
+from wijjit.exceptions import ConfigError
+
 
 def _import_string(import_name: str) -> Any:
     """Import an object or module from a dotted (or colon) path.
@@ -189,7 +191,7 @@ class Config(dict[str, Any]):
         if not rv:
             if silent:
                 return False
-            raise RuntimeError(
+            raise ConfigError(
                 f"The environment variable {variable_name!r} is not set. "
                 f"Set it to a config file path."
             )
@@ -372,9 +374,6 @@ class DefaultConfig:
     #: Auto-refresh interval in seconds (None = disabled, used for animations)
     REFRESH_INTERVAL = None
 
-    #: Default frames per second for animations (spinners, progress bars)
-    DEFAULT_ANIMATION_FPS = 5
-
     #: Maximum frames per second (None = unlimited, int = cap FPS)
     MAX_FPS = None
 
@@ -419,9 +418,6 @@ class DefaultConfig:
 
     #: Log file path (None = no file logging)
     LOG_FILE = os.environ.get("WIJJIT_LOG_FILE")
-
-    #: Log to console (stderr)
-    LOG_TO_CONSOLE = False
 
     #: Log format string (Python logging format)
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -468,15 +464,6 @@ class DefaultConfig:
     #: Automatically reload file templates when they change on disk (for
     #: development). Wired into the Jinja2 environment's ``auto_reload``.
     TEMPLATE_AUTO_RELOAD = False
-
-    # ============================================================
-    # HTML CONTENT
-    # ============================================================
-
-    #: Enable HTML content parsing globally
-    #: When True, elements that support HTML will parse HTML tags in their content
-    #: Elements can still override this with their own html=True/False parameter
-    HTML_CONTENT = False
 
     # ============================================================
     # PROCESS CONTROL

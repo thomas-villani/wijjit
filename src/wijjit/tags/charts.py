@@ -104,7 +104,7 @@ class SparklineExtension(Extension):
         vnode.set_prop("show_current", bool(show_current))
         if color:
             vnode.set_prop("color", color)
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -217,7 +217,7 @@ class BarChartExtension(Extension):
         vnode.set_prop("color_mode", color_mode)
         vnode.set_prop("color_scale", color_scale)
         vnode.set_prop("show_scrollbar", bool(show_scrollbar))
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -327,7 +327,7 @@ class ColumnChartExtension(Extension):
             color_mode = color
         vnode.set_prop("color_mode", color_mode)
         vnode.set_prop("color_scale", color_scale)
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -430,7 +430,7 @@ class LineChartExtension(Extension):
         vnode.set_prop("show_points", bool(show_points))
         vnode.set_prop("show_legend", bool(show_legend))
         vnode.set_prop("color", color)
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -550,7 +550,7 @@ class GaugeExtension(Extension):
             vnode.set_prop("label", label)
         if unit:
             vnode.set_prop("unit", unit)
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(
@@ -664,7 +664,7 @@ class HeatMapExtension(Extension):
             vnode.set_prop("min_value", float(min_value))
         if max_value is not None:
             vnode.set_prop("max_value", float(max_value))
-        vnode.set_prop("border", border_style)
+        vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props
         vnode.set_layout(

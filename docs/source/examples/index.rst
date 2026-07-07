@@ -1,11 +1,11 @@
 Examples
 ========
 
-Wijjit ships with 69 runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+Wijjit ships with 72 runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
 
 * ``examples/basic`` (15) – first steps, focus, events, async, alignment.
 * ``examples/widgets`` (30) – component spotlights (tables, trees, dialogs, etc.).
-* ``examples/advanced`` (21) – multi-view apps, complex layouts, and performance patterns.
+* ``examples/advanced`` (22) – multi-view apps, complex layouts, and performance patterns (includes the ``templates_dir_demo`` package).
 * ``examples/styling`` (2) – CSS theming and style-class demos.
 * ``examples/apps`` (3) – complete sample applications.
 
@@ -17,7 +17,7 @@ Running an example
     cd <repo-root>
     uv run python examples/basic/hello_world.py
 
-Any Python interpreter works; ``uv run`` keeps dependencies isolated. See :file:`examples/README.md` for a catalog with screenshots and controls.
+Any Python interpreter works; ``uv run`` keeps dependencies isolated. See :file:`examples/README.md` for a categorized catalog with controls.
 
 Basics & essentials
 -------------------

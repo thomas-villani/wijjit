@@ -355,19 +355,13 @@ class TestState:
 
     def test_reserved_name_in_init(self):
         """Test that using reserved dict method names in init raises error."""
-        with pytest.raises(
-            ValueError, match="State keys cannot use reserved dict method names"
-        ):
+        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
             State({"items": []})
 
-        with pytest.raises(
-            ValueError, match="State keys cannot use reserved dict method names"
-        ):
+        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
             State({"keys": {}})
 
-        with pytest.raises(
-            ValueError, match="State keys cannot use reserved dict method names"
-        ):
+        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
             State({"values": 123})
 
     def test_reserved_name_in_setitem(self):
@@ -408,19 +402,13 @@ class TestState:
         """Test that reset validates reserved dict method names."""
         state = State({"valid_key": "value"})
 
-        with pytest.raises(
-            ValueError, match="State keys cannot use reserved dict method names"
-        ):
+        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
             state.reset({"items": []})
 
-        with pytest.raises(
-            ValueError, match="State keys cannot use reserved dict method names"
-        ):
+        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
             state.reset({"keys": {}})
 
-        with pytest.raises(
-            ValueError, match="State keys cannot use reserved dict method names"
-        ):
+        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
             state.reset({"values": 123})
 
         # Original state should be unchanged after failed reset

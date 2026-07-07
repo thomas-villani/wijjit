@@ -85,6 +85,24 @@ def test_render_example(capsys):
     assert "Hello" in out
 
 
+def test_run_launches_app(monkeypatch):
+    # ``wijjit run app.py`` loads the app and calls app.run(); stub run() so the
+    # test doesn't block on the event loop / a TTY.
+    from wijjit.core.app import Wijjit
+
+    launched = []
+    monkeypatch.setattr(Wijjit, "run", lambda self: launched.append(self))
+    code = main(["run", "examples/basic/hello_world.py"])
+    assert code == 0
+    assert len(launched) == 1
+
+
+def test_run_missing_file_exits_nonzero(capsys):
+    code = main(["run", "does/not/exist.py"])
+    assert code == 1
+    assert "Failed to load" in capsys.readouterr().err
+
+
 def test_validate_with_context_file(tmp_path, capsys):
     f = tmp_path / "ctx.wij"
     f.write_text(

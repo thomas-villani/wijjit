@@ -7,11 +7,13 @@ Wijjit apps::
     wijjit validate examples/login.py        # lint a full example app
     wijjit tree app.wij --json               # dump the VNode "DOM" tree
     wijjit render examples/spinner.py --tick 5   # headless render
-    wijjit run -k login tests/               # pass through to pytest
+    wijjit run examples/login.py             # launch an app in this terminal
+    wijjit test -k login tests/              # pass through to pytest
 
 ``validate`` and ``tree`` auto-detect their input: a ``.py`` file is loaded as a
 full app, anything else is treated as a raw template. The ``render`` subcommand
-ports ``python -m wijjit.testing`` (which still works as before).
+ports ``python -m wijjit.testing`` (which still works as before). ``run``
+launches a ``.py`` app interactively; ``test`` forwards to pytest.
 """
 
 from __future__ import annotations
@@ -81,6 +83,19 @@ def _cmd_tree(args: argparse.Namespace) -> int:
 
 def _cmd_render(args: argparse.Namespace) -> int:
     return run_render(args.file, args.size, args.keys, args.tick, args.ansi)
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    """Load a ``.py`` app and launch it interactively in this terminal."""
+    from wijjit.testing.examples import ExampleLoadError, load_example_app
+
+    try:
+        app = load_example_app(args.file)
+    except ExampleLoadError as exc:
+        print(f"Failed to load {args.file}: {exc}", file=sys.stderr)
+        return 1
+    app.run()
+    return 0
 
 
 def _run_pytest(pytest_args: list[str]) -> int:
@@ -166,8 +181,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     pr.set_defaults(func=_cmd_render)
 
-    prun = sub.add_parser("run", help="Pass through to pytest (needs the dev extra).")
-    prun.add_argument(
+    prun = sub.add_parser(
+        "run", help="Launch a .py Wijjit app interactively in this terminal."
+    )
+    prun.add_argument("file", type=Path, help="Path to a Wijjit .py app.")
+    prun.set_defaults(func=_cmd_run)
+
+    # ``test`` forwards everything after it to pytest. The subparser exists so
+    # ``--help`` lists it, but the real interception happens in ``main`` before
+    # argparse sees the (pytest-owned) trailing arguments.
+    ptest = sub.add_parser("test", help="Pass through to pytest (needs the dev extra).")
+    ptest.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
         help="Arguments forwarded to pytest (e.g. -k login tests/).",
@@ -190,10 +214,10 @@ def main(argv: list[str] | None = None) -> int:
         Process exit code.
     """
     argv = list(sys.argv[1:] if argv is None else argv)
-    # ``run`` forwards everything after it to pytest. Intercept before argparse
+    # ``test`` forwards everything after it to pytest. Intercept before argparse
     # so leading options (e.g. ``-k``, ``--co``) aren't mis-parsed by argparse's
     # REMAINDER handling.
-    if argv and argv[0] == "run":
+    if argv and argv[0] == "test":
         return _run_pytest(argv[1:])
 
     parser = _build_parser()

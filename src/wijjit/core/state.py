@@ -10,6 +10,7 @@ from collections import UserDict
 from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
+from wijjit.exceptions import StateKeyError
 from wijjit.logging_config import get_logger
 
 # Get logger for this module
@@ -54,9 +55,15 @@ class State(UserDict[str, Any]):
     2
     """
 
-    # Reserved names that conflict with dict methods
-    # These cannot be used as state keys because they will cause issues in templates
+    # Reserved names that cannot be used as state keys because they collide with
+    # attribute access. Two groups:
+    #   1. dict/UserDict methods (accessing state.<name> returns the bound method),
+    #      plus "data" (UserDict's backing store).
+    #   2. State's own public methods (same shadowing problem).
+    # Using any of these as a key would make ``state.<name>`` / ``{{ state.<name> }}``
+    # resolve to the method or backing dict instead of the stored value.
     _RESERVED_NAMES = {
+        # dict / UserDict
         "items",
         "keys",
         "values",
@@ -68,6 +75,17 @@ class State(UserDict[str, Any]):
         "setdefault",
         "popitem",
         "fromkeys",
+        "data",
+        # State public API
+        "on_change",
+        "off_change",
+        "watch",
+        "unwatch",
+        "batch_update",
+        "async_batch_update",
+        "set_async",
+        "flush_pending_async",
+        "reset",
     }
 
     def __init__(self, data: dict[str, Any] | None = None) -> None:
@@ -97,9 +115,9 @@ class State(UserDict[str, Any]):
         if data:
             reserved_keys = set(data.keys()) & self._RESERVED_NAMES
             if reserved_keys:
-                raise ValueError(
-                    f"State keys cannot use reserved dict method names: {sorted(reserved_keys)}. "
-                    f"These names conflict with dict methods and will cause issues in Jinja2 templates. "
+                raise StateKeyError(
+                    f"State keys cannot use reserved names: {sorted(reserved_keys)}. "
+                    f"These names conflict with dict/State methods and will cause issues in Jinja2 templates. "
                     f"Please use different key names, such as: "
                     f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_keys))}"
                 )
@@ -153,8 +171,8 @@ class State(UserDict[str, Any]):
         """
         # Validate key doesn't conflict with dict methods
         if key in self._RESERVED_NAMES:
-            raise ValueError(
-                f"State key '{key}' is reserved (conflicts with dict method). "
+            raise StateKeyError(
+                f"State key '{key}' is reserved (conflicts with a dict/State method). "
                 f"Please use a different key name such as '{key}_list' or '{key}_data'. "
                 f"In templates, use state['{key}_list'] instead of state.{key}."
             )
@@ -204,9 +222,23 @@ class State(UserDict[str, Any]):
         value : Any
             The new value
         """
-        if name.startswith("_") or name == "data":
-            # Set private attributes and 'data' (UserDict attribute) normally
+        if name.startswith("_"):
+            # Private attributes are set normally.
             object.__setattr__(self, name, value)
+        elif name == "data":
+            # UserDict stores its backing dict in ``self.data``. Allow the
+            # internal assignment during construction (before ``data`` exists),
+            # but reject ``state.data = {...}`` afterwards: it would silently
+            # replace the whole store and fire no change callbacks. ``data`` is
+            # a reserved key (see _RESERVED_NAMES).
+            if "data" not in self.__dict__:
+                object.__setattr__(self, name, value)
+            else:
+                raise StateKeyError(
+                    "'data' is reserved (it is State's backing store). "
+                    "To replace all state use state.reset(new_dict); to set a "
+                    "value use a different key such as state['data_value']."
+                )
         else:
             # Set as state data
             self[name] = value
@@ -726,8 +758,8 @@ class State(UserDict[str, Any]):
         """
         # Validate key
         if key in self._RESERVED_NAMES:
-            raise ValueError(
-                f"State key '{key}' is reserved (conflicts with dict method). "
+            raise StateKeyError(
+                f"State key '{key}' is reserved (conflicts with a dict/State method). "
                 f"Please use a different key name such as '{key}_list' or '{key}_data'. "
                 f"In templates, use state['{key}_list'] instead of state.{key}."
             )
@@ -787,9 +819,9 @@ class State(UserDict[str, Any]):
         all_keys = set(other.keys()) | set(kwargs.keys())
         reserved_found = all_keys & self._RESERVED_NAMES
         if reserved_found:
-            raise ValueError(
-                f"State keys cannot use reserved dict method names: {sorted(reserved_found)}. "
-                f"These names conflict with dict methods and will cause issues in Jinja2 templates. "
+            raise StateKeyError(
+                f"State keys cannot use reserved names: {sorted(reserved_found)}. "
+                f"These names conflict with dict/State methods and will cause issues in Jinja2 templates. "
                 f"Please use different key names, such as: "
                 f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_found))}"
             )
@@ -817,9 +849,9 @@ class State(UserDict[str, Any]):
         if data:
             reserved_keys = set(data.keys()) & self._RESERVED_NAMES
             if reserved_keys:
-                raise ValueError(
-                    f"State keys cannot use reserved dict method names: {sorted(reserved_keys)}. "
-                    f"These names conflict with dict methods and will cause issues in Jinja2 templates. "
+                raise StateKeyError(
+                    f"State keys cannot use reserved names: {sorted(reserved_keys)}. "
+                    f"These names conflict with dict/State methods and will cause issues in Jinja2 templates. "
                     f"Please use different key names, such as: "
                     f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_keys))}"
                 )

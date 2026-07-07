@@ -12,13 +12,41 @@
 
 ---
 
-Wijjit is a Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns. 
+Wijjit is a Python framework for building Terminal User Interfaces (TUIs) using familiar web development patterns.
 If you know Flask and Jinja2, you can build rich, interactive console applications with Wijjit.
 
-Wijjit was obviously inspired by the wonderful Flask library, and makes heavy use of the patterns innate to Flask 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/charts.svg"
+       alt="Wijjit charts demo: sparklines, gauges, bar/column/line charts and a heatmap rendered in the terminal"
+       width="850">
+</p>
+
+Wijjit was obviously inspired by the wonderful Flask library, and makes heavy use of the patterns innate to Flask
 applications. We built this library to bring the syntactic elegance of Flask's decorator patterns to building TUIs.
 
+## Why Wijjit?
+
+The terminal-UI space in Python already has great tools, and Wijjit is deliberately a different point on the spectrum:
+
+- **[Rich](https://github.com/Textualize/rich)** is for *output* — beautiful styled text, tables, and progress bars printed to the terminal. Wijjit uses Rich internally for exactly that, then adds a full interactive application layer on top (focus, events, overlays, re-rendering).
+- **[Textual](https://github.com/Textualize/textual)** is a full app framework built around object-oriented widgets composed in Python and styled with a CSS-like language. It's powerful and deep.
+- **Wijjit** takes the *web* mental model instead of the widget-tree one: you write **Jinja2 templates** for layout and **Flask-style decorators** (`@app.view`, `@app.on_action`, `@app.on_key`) for behavior, backed by reactive `State`. If you've built a Flask app, the structure is immediately familiar — views return templates, state changes trigger re-renders, and a virtual-DOM reconciler makes those re-renders cheap.
+
+If you think in templates and request handlers rather than widget classes, Wijjit will feel like home.
+
 ## Features
+
+- **Declarative UI**: Define layouts using Jinja2 templates, not procedural positioning code
+- **Flask-like API**: View decorators, routing, and state management that feels like web development
+- **Rich Component Library**: 30+ elements — forms, tables, trees, charts, editors, dialogs, and more
+- **Reactive State Management**: State changes automatically trigger re-renders
+- **Automatic Focus Navigation**: Tab/Shift+Tab navigation between interactive elements
+- **Modal Dialogs**: Built-in confirm, alert, and input dialogs
+- **Layout System**: Flexible frames with stacks (vertical/horizontal), split panels, scrolling, and flexbox-style sizing
+- **Mouse Support**: Click buttons, scroll content, and interact with elements
+- **Inline Rendering**: Output styled UI to terminal scrollback without alternate screen
+- **Developer Tooling**: A `wijjit` CLI (`validate`/`tree`/`render`) and a pytest harness for driving apps headlessly — an LLM-friendly path to inspect and test TUIs
+- **ANSI-Aware**: Proper handling of colors and styling throughout
 
 - **Declarative UI**: Define layouts using Jinja2 templates, not procedural positioning code
 - **Flask-like API**: View decorators, routing, and state management that feels like web development
@@ -120,7 +148,7 @@ def login_view():
 
     {% vstack spacing=0 %}
       Password:
-      {% textinput id="password" placeholder="Enter password" width=30 action="login" %}{% endtextinput %}
+      {% textinput id="password" placeholder="Enter password" width=30 password=True action="login" %}{% endtextinput %}
     {% endvstack %}
 
     {% hstack spacing=2 %}
@@ -154,6 +182,34 @@ def handle_quit(event):
 if __name__ == '__main__':
     app.run()
 ```
+
+That login form renders like this (the password field masks input with `password=True`):
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/login.svg"
+       alt="Wijjit login form with a masked password field" width="480">
+</p>
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/todo.svg"
+           alt="Todo app: input, filter buttons, checkbox list, and status bar" width="100%"><br>
+      <sub><code>examples/apps/todo_app.py</code> — a complete app: add/toggle/filter with a status bar.</sub>
+    </td>
+    <td width="50%">
+      <img src="https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/code_editor.svg"
+           alt="Syntax-highlighted code editor with language and theme switchers" width="100%"><br>
+      <sub><code>examples/widgets/code_editor_demo.py</code> — syntax highlighting with language/theme switching.</sub>
+    </td>
+  </tr>
+</table>
+
+All screenshots are generated headlessly and reproducibly by
+[`scripts/make_screenshots.py`](scripts/make_screenshots.py). Run any of the
+72 bundled examples yourself with `python examples/<dir>/<name>.py`.
 
 ## Core Concepts
 
@@ -323,127 +379,43 @@ text_input.on_file_path_paste = lambda paths: handle_files(paths)
 
 ### Layout System
 
-Wijjit provides flexible layout containers:
+Wijjit composes UIs from a handful of layout containers. Sizes accept a fixed
+integer (`width=50`), `"fill"` (take remaining space), `"auto"` (size to
+content), or a percentage (`"50%"`).
 
-**Frames**: Boxes with borders, titles, and scrolling
 ```jinja2
+{# Frame: a bordered, optionally-scrollable box #}
 {% frame title="Settings" border="single" width=60 height=20 scrollable=True %}
-  Content
+  {% vstack spacing=1 align_h="center" %}   {# vertical stack #}
+    Top
+    Bottom
+  {% endvstack %}
 {% endframe %}
-```
 
-**VStack**: Vertical stack
-```jinja2
-{% vstack spacing=1 align_h="center" %}
-  {% button %}Top{% endbutton %}
-  {% button %}Bottom{% endbutton %}
-{% endvstack %}
-```
-
-**HStack**: Horizontal stack with flexbox-style features
-```jinja2
-{% hstack spacing=2 align_v="middle" %}
-  {% button %}Left{% endbutton %}
-  {% button %}Right{% endbutton %}
-{% endhstack %}
-
-{# Flexbox justify modes - use width="fill" so hstack expands to container #}
-{% hstack justify="space-between" width="fill" %}
-  {% button %}Start{% endbutton %}
-  {% button %}End{% endbutton %}
-{% endhstack %}
-
-{# Wrap items to multiple rows #}
-{% hstack wrap=True gap=1 justify="center" width="fill" %}
+{# HStack: horizontal stack with flexbox-style justify + wrap #}
+{% hstack justify="space-between" wrap=True gap=1 width="fill" %}
   {% for tag in tags %}
     {% button %}{{ tag }}{% endbutton %}
   {% endfor %}
 {% endhstack %}
-```
 
-HStack attributes:
-- `spacing`: Gap between children (alias for `column_gap`)
-- `justify`: Distribution mode: `"flex-start"`, `"flex-end"`, `"center"`, `"space-between"`, `"space-around"`, `"space-evenly"`
-- `wrap`: Allow children to wrap to next row when exceeding width (default: `false`)
-- `column_gap`: Space between columns
-- `row_gap`: Space between rows when wrapping
-- `gap`: Shorthand for both `row_gap` and `column_gap`
-- `align_v`: Vertical alignment within row: `"top"`, `"middle"`, `"bottom"`, `"stretch"`
-- `width`: Set to `"fill"` when using justify modes (required for justify to have space to distribute)
-
-**SplitPanel**: Resizable split panel with draggable divider
-```jinja2
-{# Horizontal split (side-by-side panels) #}
+{# SplitPanel: draggable, resizable, collapsible divider #}
 {% splitpanel orientation="horizontal" ratio="30:70" id="main_split" %}
-  {% frame title="Sidebar" %}
-    Navigation content
-  {% endframe %}
-  {% frame title="Main" %}
-    Main content
-  {% endframe %}
+  {% frame title="Sidebar" %}Navigation{% endframe %}
+  {% frame title="Main" %}Content{% endframe %}
 {% endsplitpanel %}
 
-{# Vertical split (stacked panels) #}
-{% splitpanel orientation="vertical" ratio="60:40" collapsible="first" %}
-  {% frame title="Editor" %}
-    Code here
-  {% endframe %}
-  {% frame title="Terminal" %}
-    Output here
-  {% endframe %}
-{% endsplitpanel %}
-```
-
-SplitPanel attributes:
-- `orientation`: `"horizontal"` (side-by-side) or `"vertical"` (stacked)
-- `ratio`: Initial size ratio like `"50:50"` or `"30:70"`
-- `resizable`: Allow drag-to-resize (default: `true`)
-- `collapsible`: Which panels can collapse: `"none"`, `"first"`, `"second"`, `"both"`
-- `divider_style`: Divider appearance: `"single"`, `"double"`, `"dashed"`, `"thick"`
-- `min_first`, `min_second`: Minimum sizes for each panel (default: 5)
-- `id`: Element ID for state persistence (ratio survives re-renders)
-
-**Pager**: Linear pagination for wizard-style interfaces
-```jinja2
-{% pager id="wizard" nav_position="bottom" show_indicator=True show_titles=True %}
-  {% page title="Welcome" %}
-    Welcome to the setup wizard!
-    Press Right arrow or click "Next >" to continue.
-  {% endpage %}
-
-  {% page title="Settings" %}
-    {% vstack spacing=1 %}
-      {% textinput id="name" placeholder="Enter your name" %}{% endtextinput %}
-      {% checkbox id="newsletter" %}Subscribe to newsletter{% endcheckbox %}
-    {% endvstack %}
-  {% endpage %}
-
-  {% page title="Complete" %}
-    Setup complete! Press 'q' to exit.
-  {% endpage %}
+{# Pager: wizard-style pagination #}
+{% pager id="wizard" nav_position="bottom" show_indicator=True %}
+  {% page title="Welcome" %}Step one{% endpage %}
+  {% page title="Done" %}All set!{% endpage %}
 {% endpager %}
 ```
 
-Pager attributes:
-- `nav_position`: Navigation bar position: `"top"`, `"bottom"`, or `"both"`
-- `show_indicator`: Show "Page X of Y" indicator (default: `true`)
-- `show_titles`: Show page title in indicator (default: `false`)
-- `loop`: Wrap from last to first page (default: `false`)
-- `border`: Border style: `"single"`, `"double"`, `"rounded"`, `"none"`
-- `width`, `height`: Pager dimensions
-- `current_page`: Initial page index (0-based)
-
-Pager navigation:
-- Left/PgUp: Previous page
-- Right/PgDown: Next page
-- Home/End: First/Last page
-- Mouse click on Prev/Next buttons
-
-**Sizing**: Flexible size specifications
-- Fixed: `width=50` or `width="50"`
-- Fill available space: `width="fill"`
-- Size to content: `width="auto"`
-- Percentage: `width="50%"`
+Each container has a fuller set of attributes (`justify`/`wrap`/`gap` on HStack,
+`collapsible`/`divider_style` on SplitPanel, `loop`/`nav_position` on Pager, …).
+See the [Layout guide](https://thomas-villani.github.io/wijjit/) for the complete
+reference.
 
 ### Modal Dialogs
 
@@ -465,7 +437,7 @@ app.show_modal(dialog)
 dialog = AlertDialog(
     title="Success",
     message="Operation completed!",
-    on_close=lambda: app.navigate("main")
+    on_ok=lambda: app.navigate("main")
 )
 app.show_modal(dialog)
 
@@ -537,146 +509,39 @@ print(f"You entered: {app.state.name}")
 
 ## Component Library
 
-### Input Components
+Wijjit ships 30+ elements. Each has a template tag and a Python class; see the
+[component reference](https://thomas-villani.github.io/wijjit/) for every
+attribute.
 
-- **TextInput**: Single-line text input with cursor editing
-- **TextArea**: Multi-line text input with scrolling
-- **CodeEditor**: Syntax-highlighted code editor (500+ languages, multiple themes)
-- **DataGrid**: Spreadsheet-like data entry with VisiCalc/Lotus 1-2-3 style entry line
-- **Button**: Clickable button (mouse or keyboard)
-- **Checkbox**: Single checkbox or checkbox groups
-- **Radio**: Radio button groups
-- **Select**: Dropdown select menu (supports multi-select with `multiple=True`)
-- **Slider**: Numeric input with draggable handle (supports int/float modes)
-- **Toggle**: Boolean switch with visual indicator (single/dual label modes)
-- **Link**: Clickable inline text element
-
-### Display Components
-
-- **ContentView**: Unified content viewer (plain, ANSI, HTML, Markdown, Rich markup, code with syntax highlighting)
-- **Table**: Sortable, scrollable tables (powered by Rich)
-- **Tree**: Hierarchical tree view with expand/collapse (supports multi-select with `multiple=True`)
-- **ListView**: Scrollable list with selection
-- **LogView**: Auto-scrolling log viewer
-- **ProgressBar**: Progress indicators (bar, dots, spinner styles)
-- **Spinner**: Animated loading indicators
-- **StatusIndicator**: Colored status indicator with extensible presets (error, warning, success, info, etc.)
-- **Notification**: Toast-style notifications with auto-dismiss
-
-### Data Visualization Components
-
-- **BarChart**: Horizontal bar charts with labels and gradient coloring
-- **ColumnChart**: Vertical column charts with Y-axis
-- **LineChart**: High-resolution line charts using braille characters
-- **Gauge**: Linear or arc-style value indicators
-- **HeatMap**: 2D grid visualization with color intensity
-- **Sparkline**: Compact inline trend visualization
-
-### Layout Components
-
-- **Frame**: Container with borders, titles, padding, and scrolling
-- **VStack**: Vertical stack layout
-- **HStack**: Horizontal stack layout
-- **SplitPanel**: Resizable split panel with draggable divider
-- **TabbedPanel**: Tabbed container with keyboard/mouse navigation
-- **Pager**: Linear pagination through multiple pages with prev/next navigation
+- **Input**: TextInput (with `password` masking), TextArea, CodeEditor
+  (syntax-highlighted, 500+ languages), DataGrid (spreadsheet-style), Button,
+  Checkbox, Radio, Select (single/multi), Slider, Toggle, Link.
+- **Display**: ContentView (plain/ANSI/HTML/Markdown/Rich/code), Table
+  (sortable, Rich-powered), Tree (single/multi-select), ListView, LogView,
+  ProgressBar, Spinner, StatusIndicator, Notification.
+- **Charts**: BarChart, ColumnChart, LineChart (braille), Gauge, HeatMap,
+  Sparkline — all support a `color` override.
+- **Layout**: Frame, VStack, HStack, SplitPanel, TabbedPanel, Pager.
+- **Dialogs & menus**: ConfirmDialog, AlertDialog, TextInputDialog, DropdownMenu,
+  ContextMenu.
 
 ## Examples
 
-The `examples/` directory contains **72 working examples** organized into five
-categories: `basic/` (15), `widgets/` (30), `advanced/` (22), `styling/` (2),
-and `apps/` (3). All examples use modern patterns with template-based UI and
-decorator event handlers.
+The `examples/` directory contains **72 working examples** in five categories —
+`basic/` (15), `widgets/` (30), `advanced/` (22), `styling/` (2), and `apps/`
+(3) — all using template-based UI and decorator event handlers.
 
-### Basic Examples (`examples/basic/`)
-
-Introductory examples demonstrating core concepts:
-- `hello_world.py` - Minimal "Hello World" app
-- `simple_input_test.py` - Basic text input with quit handler
-- `async_demo.py` - Async/await event handlers
-- `mouse_demo.py` - Mouse interaction (clicks, hovers, scrolling)
-- `debug_keys.py` - Key event debugging tool
-- `alignment_demo.py` - Content alignment in layouts
-- `suspend_demo.py` - Ctrl+Z suspend/background (Linux/macOS)
-- `inline_demo.py` - One-shot inline rendering to scrollback
-- `inline_progress_demo.py` - Interactive progress with `InlineApp`
-- `inline_input_demo.py` - Interactive forms with keyboard input
-
-### Widget Examples (`examples/widgets/`)
-
-Individual UI component demonstrations (20+ widgets):
-
-**Input Elements:**
-- `checkbox_demo.py` - Individual checkboxes and checkbox groups
-- `radio_demo.py` - Radio button groups with multiple examples
-- `select_demo.py`, `dropdown_demo.py` - Dropdown selection menus
-- `textarea_demo.py` - Multi-line text input with selection
-- `slider_demo.py` - Numeric sliders (integer and float modes)
-- `toggle_demo.py` - Toggle switches (single and dual label modes)
-- `status_indicator_demo.py` - Status indicators with color presets
-
-**Display Elements:**
-- `table_demo.py` - Sortable data tables with Rich integration
-- `tree_demo.py` - Hierarchical tree views
-- `listview_demo.py` - Scrollable lists with selection
-- `logview_demo.py` - Auto-scrolling log viewer
-- `progress_demo.py` - Progress bars and indicators
-- `spinner_demo.py` - Loading spinners with animations
-- `contentview_demo.py` - ContentView (plain/ANSI/HTML/Markdown/Rich/code)
-- `code_editor_demo.py` - Syntax-highlighted code editor
-- `statusbar_demo.py` - Status bar component
-- `notification_demo.py` - Toast notifications
-
-**Layout:**
-- `splitpanel_demo.py` - Resizable split panel with sidebar layout
-- `pager_demo.py` - Linear pagination with prev/next navigation
-
-**Dialogs:**
-- `dialog_showcase.py` - All dialog types (alert, confirm, input)
-- `alert_dialog_demo.py` - Alert messages
-- `confirm_dialog_demo.py` - Confirmation prompts
-- `input_dialog_demo.py` - Input dialogs with validation
-- `modal_with_button_demo.py` - Advanced modal with interactive elements
-- `centered_dialog.py` - Dialog positioning
-
-### Advanced Examples (`examples/advanced/`)
-
-Complete applications and advanced patterns:
-
-**Complete Applications:**
-- `../apps/todo_app.py` - Full-featured todo list with filtering
-- `form_demo.py` - Registration form with comprehensive validation
-- `data_entry_demo.py` - Business order entry form
-- `preferences_demo.py` - Settings/preferences editor
-- `dashboard_demo.py` - Multi-panel monitoring dashboard
-- `filesystem_browser.py` - File browser with tree view
-
-**Layout & Design:**
-- `complex_layout_demo.py` - Nested layouts and sizing
-- `splitpanel_nested_demo.py` - Nested split panels (IDE-like three-pane layout)
-- `scroll_demo.py`, `scrollable_minimal.py`, `scrollable_children_demo.py` - Scrolling patterns
-- `frame_overflow_demo.py` - Frame sizing modes and overflow
-- `login_form.py` - Login UI with validation
-
-**Advanced Patterns:**
-- `navigation_demo.py` - Multi-view navigation with lifecycle hooks
-- `state_management_demo.py` - State watchers, async callbacks, derived state
-- `event_patterns_demo.py` - Event scopes, priorities, and propagation
-- `error_handling_demo.py` - Error handling and graceful degradation
-- `executor_demo.py` - ThreadPoolExecutor configuration
-- `context_menu_demo.py` - Right-click context menus
-- `rich_content_demo.py` - Combined markdown and code display
-- `download_simulator.py` - Progress tracking
-- `template_demo.py`, `rich_content_template_demo.py` - Template features
-
-Run any example with:
 ```bash
-python examples/basic/hello_world.py
-python examples/widgets/table_demo.py
-python examples/apps/todo_app.py
+python examples/basic/hello_world.py     # smallest possible app
+python examples/widgets/table_demo.py    # a single widget in focus
+python examples/apps/todo_app.py         # a complete application
 ```
 
-See `examples/README.md` for a complete categorized list with descriptions.
+Highlights: `apps/todo_app.py` (full todo app), `apps/chatbot.py` (streaming
+chat), `apps/spreadsheet.py` (editable DataGrid + live chart), `widgets/charts_demo.py`
+(all six charts), `advanced/dashboard_demo.py` (monitoring dashboard), and
+`advanced/filesystem_browser.py` (tree-based file browser). See
+[`examples/README.md`](examples/README.md) for the full categorized catalog.
 
 ## Architecture
 
@@ -775,8 +640,11 @@ wijjit render examples/widgets/spinner_demo.py --tick 5
 wijjit render examples/advanced/login_form.py \
     --size 100x30 --keys "tab,type:admin,tab,type:secret,enter" --ansi
 
+# Launch a .py app interactively in this terminal
+wijjit run examples/advanced/login_form.py
+
 # Run your test suite (passthrough to pytest)
-wijjit run -k login tests/
+wijjit test -k login tests/
 ```
 
 `python -m wijjit <command>` works as well, and the older
@@ -784,10 +652,11 @@ wijjit run -k login tests/
 
 ### Testing your own apps
 
-Installing Wijjit registers a **pytest plugin** that provides `harness` and
-`make_app` fixtures (opt out with `-p no:wijjit`). The `harness` fixture builds
-and starts a `WijjitHarness` from a `Wijjit` app **or** a bare template string,
-and closes it automatically at teardown:
+Installing Wijjit registers a **pytest plugin** that provides `wijjit_harness`
+and `wijjit_make_app` fixtures (opt out with `-p no:wijjit`). The fixture names
+are `wijjit_`-prefixed so they never shadow your own fixtures. The
+`wijjit_harness` fixture builds and starts a `WijjitHarness` from a `Wijjit` app
+**or** a bare template string, and closes it automatically at teardown:
 
 ```python
 TEMPLATE = """
@@ -797,8 +666,8 @@ TEMPLATE = """
 {% endframe %}
 """
 
-def test_login_flow(harness):
-    h = harness(TEMPLATE, state={"user": ""})
+def test_login_flow(wijjit_harness):
+    h = wijjit_harness(TEMPLATE, state={"user": ""})
     h.press("tab"); h.type("admin"); h.press("tab"); h.press("enter")
     h.assert_text("admin")
     h.assert_tree_contains(type="Button", key="ok")
@@ -892,11 +761,12 @@ Not recommended for:
 
 **Core:**
 - `jinja2>=3.1.6` - Template engine
-- `prompt-toolkit>=3.0.52` - Terminal I/O
-- `rich>=14.2.0` - ANSI rendering and tables
-- `pyperclip>=1.11.0` - Clipboard access (copy/paste)
-- `tinycss2>=1.5.0` - CSS parsing for theming
-- `wcwidth>=0.2.14` - Wide/East-Asian character width
+- `prompt-toolkit>=3.0.36` - Terminal I/O
+- `rich>=13.7.1` - ANSI rendering and tables
+- `pygments>=2.15.0` - Syntax highlighting (CodeEditor)
+- `pyperclip>=1.8.2` - Clipboard access (copy/paste)
+- `tinycss2>=1.2.1` - CSS parsing for theming
+- `wcwidth>=0.2.5` - Wide/East-Asian character width
 
 **Optional:**
 - `pillow>=12.0.0` - `ImageView` / ASCII image rendering (the `images` extra)

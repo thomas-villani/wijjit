@@ -10,7 +10,10 @@ import shutil
 import sys
 from typing import TYPE_CHECKING, Any, TextIO
 
+import jinja2
+
 from wijjit.core.renderer import Renderer
+from wijjit.exceptions import TemplateError
 from wijjit.terminal.cell import Cell
 
 if TYPE_CHECKING:
@@ -25,7 +28,8 @@ def render_inline(
     print_output: bool = True,
     file: TextIO | None = None,
     template_dir: str | None = None,
-    **context: Any,
+    context: dict[str, Any] | None = None,
+    **context_kwargs: Any,
 ) -> str | None:
     """Render a Wijjit template inline to terminal scrollback.
 
@@ -49,8 +53,16 @@ def render_inline(
         Output destination. Defaults to sys.stdout.
     template_dir : str, optional
         Directory for template file loading (for {% include %} etc.)
-    **context
-        Variables passed to the template for rendering
+    context : dict, optional
+        Template variables as an explicit mapping. Use this to pass variables
+        whose names collide with the reserved keyword parameters above
+        (``width``, ``height``, ``print_output``, ``file``, ``template_dir``),
+        which ``**context_kwargs`` cannot express. Keys given as keyword
+        arguments take precedence over the same key in this dict.
+    **context_kwargs
+        Template variables passed as keyword arguments (the convenient path).
+        Names matching a reserved parameter above are consumed by that
+        parameter; pass such variables via ``context=`` instead.
 
     Returns
     -------
@@ -75,7 +87,15 @@ def render_inline(
     With fixed dimensions:
 
     >>> render_inline(template, width=60, height=10, **data)
+
+    Passing a template variable named like a reserved parameter:
+
+    >>> render_inline(template, context={"width": my_column_count})
     """
+    # Merge the explicit context mapping with keyword-supplied variables;
+    # keyword arguments win on overlap.
+    context = {**(context or {}), **context_kwargs}
+
     # Get terminal dimensions
     term_size = shutil.get_terminal_size()
     render_width = width if width is not None else term_size.columns
@@ -83,29 +103,34 @@ def render_inline(
     # Create renderer
     renderer = Renderer(template_dir=template_dir)
 
-    # Calculate height
-    if height == "auto":
-        # First pass: render with large height to determine content height
-        max_height = 1000  # Large enough for most content
+    # Render, converting Jinja2 template errors into wijjit's TemplateError so
+    # callers can catch template failures without importing jinja2.
+    try:
+        # Calculate height
+        if height == "auto":
+            # First pass: render with large height to determine content height
+            max_height = 1000  # Large enough for most content
+            _, elements, _ = renderer.render_with_layout(
+                template_string=template,
+                context=context,
+                width=render_width,
+                height=max_height,
+            )
+
+            # Calculate actual content height from element bounds
+            render_height = _calculate_content_height(elements)
+        else:
+            render_height = int(height)
+
+        # Final render with correct dimensions
         _, elements, _ = renderer.render_with_layout(
             template_string=template,
             context=context,
             width=render_width,
-            height=max_height,
+            height=render_height,
         )
-
-        # Calculate actual content height from element bounds
-        render_height = _calculate_content_height(elements)
-    else:
-        render_height = int(height)
-
-    # Final render with correct dimensions
-    _, elements, _ = renderer.render_with_layout(
-        template_string=template,
-        context=context,
-        width=render_width,
-        height=render_height,
-    )
+    except jinja2.TemplateError as exc:
+        raise TemplateError(str(exc)) from exc
 
     # Access the buffer from renderer
     buffer = renderer._last_base_buffer

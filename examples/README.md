@@ -16,6 +16,15 @@ Simple examples demonstrating fundamental concepts and patterns.
 - **debug_keys.py** - Key event debugging utility
 - **async_demo.py** - Async/await patterns (view functions, event handlers, state callbacks)
 - **alignment_demo.py** - Content alignment options
+- **autocomplete_demo.py** - Autocomplete suggestions for text inputs
+- **config_demo.py** - Configuring `app.config` options
+- **theme_config_demo.py** - Selecting and configuring themes
+- **grid_demo.py** - Grid layout basics
+- **hstack_flexbox_demo.py** - HStack flexbox justify/wrap features
+- **suspend_demo.py** - Ctrl+Z suspend/resume (Linux/macOS)
+- **inline_demo.py** - One-shot inline rendering to scrollback
+- **inline_progress_demo.py** - Interactive progress with `InlineApp`
+- **inline_input_demo.py** - Interactive inline forms with keyboard input
 
 **Start here if you're new to Wijjit!**
 
@@ -34,15 +43,20 @@ Individual examples showcasing specific UI elements and components.
 - **status_indicator_demo.py** - Status indicators with color presets and custom statuses
 - **datagrid_demo.py** - Spreadsheet-like data entry with VisiCalc/Lotus 1-2-3 style editing
 
+- **code_editor_demo.py** - Syntax-highlighted code editor (languages + themes)
+
 **Data Display:**
 - **table_demo.py** - Sortable tables with scrolling
 - **tree_demo.py** - Hierarchical tree view with expand/collapse
-- **tree_indicator_styles_demo.py** - Different tree indicator styles
 - **listview_demo.py** - Scrollable lists with multiple styles
 - **logview_demo.py** - Auto-scrolling log viewer with level detection
-- **markdown_demo.py** - Markdown rendering with syntax highlighting
-- **code_demo.py** - Syntax-highlighted code display
+- **contentview_demo.py** - Unified content viewer (plain/ANSI/HTML/Markdown/Rich/code)
+- **imageview_demo.py** - ASCII/ANSI image rendering (needs the `images` extra)
+- **tabbedpanel_demo.py** - Tabbed container with keyboard/mouse navigation
 - **statusbar_demo.py** - Status bar component with view-scoped content
+
+**Charts:**
+- **charts_demo.py** - Bar/column/line charts, gauges, heatmap, sparklines
 
 **Progress & Loading:**
 - **progress_demo.py** - Progress bars with multiple styles
@@ -60,9 +74,6 @@ Individual examples showcasing specific UI elements and components.
 **Layout:**
 - **splitpanel_demo.py** - Resizable split panel with sidebar and form
 - **pager_demo.py** - Linear pagination with prev/next navigation (wizard-style)
-
-**Other:**
-- **test_markdown_tag.py** - Markdown tag testing
 
 ### 🚀 [advanced/](advanced/) - Complex Applications & Patterns
 
@@ -86,12 +97,12 @@ Complete mini-applications and advanced usage patterns.
 - **error_handling_demo.py** - Error handling patterns and graceful degradation
 - **executor_demo.py** - ThreadPoolExecutor configuration for non-blocking I/O
 - **context_menu_demo.py** - Right-click context menus (experimental)
-- **rich_content_demo.py** - Combined markdown and code display with multiple pages
 
 **Layout & Scrolling:**
 - **scroll_demo.py** - Comprehensive scrolling features
 - **scrollable_children_demo.py** - Scrollable nested content
 - **scrollable_minimal.py** - Minimal scrolling example
+- **horizontal_scroll_demo.py** - Horizontal scrolling patterns
 - **frame_overflow_demo.py** - Frame sizing and overflow modes
 - **complex_layout_demo.py** - Complex nested layouts
 - **splitpanel_nested_demo.py** - Nested split panels (IDE-like three-pane layout)
@@ -100,7 +111,6 @@ Complete mini-applications and advanced usage patterns.
 - **templates_dir_demo/** - Flask-style file templates: views load `templates/*.tui`
   from an auto-discovered `templates/` directory and share a header via `{% include %}`
 - **template_demo.py** - Template features and patterns
-- **rich_content_template_demo.py** - Rich content in templates
 - **download_simulator.py** - Progress tracking simulation
 
 ### 🎨 [styling/](styling/) - Theming & CSS

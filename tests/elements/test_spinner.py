@@ -8,10 +8,18 @@ This module tests the Spinner element including:
 - Color support
 """
 
-from tests.helpers import render_element
+from tests.helpers import buffer_has_fg, render_element, render_element_buffer
 from wijjit.elements.display.spinner import SPINNER_FRAMES, Spinner
 from wijjit.layout.bounds import Bounds
+from wijjit.styling.style import parse_color
 from wijjit.terminal.ansi import strip_ansi
+
+
+def test_spinner_color_tints_the_glyph():
+    """An explicit color= tints the spinner glyph's foreground."""
+    spinner = Spinner(active=True, style="dots", color="cyan")
+    buffer = render_element_buffer(spinner, width=10, height=1)
+    assert buffer_has_fg(buffer, parse_color("cyan"))
 
 
 class TestSpinner:
