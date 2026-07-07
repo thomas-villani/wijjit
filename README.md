@@ -583,9 +583,9 @@ print(f"You entered: {app.state.name}")
 
 ## Examples
 
-The `examples/` directory contains **69 working examples** organized into five
-categories: `basic/` (15), `widgets/` (30), `advanced/` (21), `styling/` (2),
-and `apps/` (1). All examples use modern patterns with template-based UI and
+The `examples/` directory contains **72 working examples** organized into five
+categories: `basic/` (15), `widgets/` (30), `advanced/` (22), `styling/` (2),
+and `apps/` (3). All examples use modern patterns with template-based UI and
 decorator event handlers.
 
 ### Basic Examples (`examples/basic/`)
@@ -825,7 +825,7 @@ by the plugin.
 
 ## Project Status
 
-Wijjit is approaching its first public release (`0.1.0`). The core framework is
+Wijjit `0.1.0` is the first public release. The core framework is
 **stable and feature-complete for 0.1.0**, with the full element, layout, event,
 and rendering pipelines implemented and covered by a large test suite. A handful
 of known limitations remain (see below).
@@ -849,8 +849,8 @@ of known limitations remain (see below).
 - ✅ Event handling and dispatch
 - ✅ ThreadPoolExecutor for non-blocking I/O
 - ✅ ANSI-aware text rendering
-- ✅ 69 working examples
-- ✅ Comprehensive test suite (85%+ coverage)
+- ✅ 72 working examples
+- ✅ Comprehensive test suite (3,000+ tests)
 
 ### Known Limitations
 
@@ -913,7 +913,7 @@ Not recommended for:
 - **README.md** (this file) - Overview and quick start
 - **CLAUDE.md** - Development guide and architecture
 - **docs/** - Full Sphinx documentation (build with `cd docs && make html`)
-- **examples/** - 69 working examples
+- **examples/** - 72 working examples
 - **tests/** - Comprehensive test suite showing usage patterns
 
 Build the documentation locally:

@@ -182,8 +182,9 @@ Lower-severity items surfaced by the code review, not release-blocking:
   mentioning JSON.
 - **Config/API:** invalid `WIJJIT_LOG_LEVEL` silently -> INFO;
   `LOG_TO_CONSOLE`/`LOG_FORMAT` config keys not wired; CLI `--context`/`context=`
-  silently ignored in `.py` app mode for `validate`/`tree`; `run` subparser
-  defined but never dispatched.
+  silently ignored in `.py` app mode for `validate`/`tree`. (Note: `wijjit run`
+  itself works — it is intercepted before argparse and forwarded to pytest; the
+  `run` subparser exists only so `--help` lists it.)
 
 ### 2d - Demo-level polish (cosmetic / behavioral, 0.1.1)
 

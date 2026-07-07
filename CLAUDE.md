@@ -14,9 +14,9 @@ provides a Flask-like API with view decorators and reactive state management.
 **Target Use Case**: Build rich, interactive CLI tools using familiar web
 patterns instead of procedural positioning code.
 
-**Status**: Pre-release (current version `0.1.0a1`), working toward a `0.1.0`
-PyPI release. Core framework is complete and stable; ~2480 tests pass. See
-`RELEASE_PLAN.md` for the remaining path to release.
+**Status**: At the `0.1.0` release (version sourced from `wijjit.__version__`).
+Core framework is complete and stable; ~3000 tests pass. See `RELEASE_PLAN.md`
+for the remaining (publish-side) release steps.
 
 ## Environment & Tooling
 
@@ -334,8 +334,8 @@ defaults; `tests/core/test_config.py` covers it.
 
 ## Examples
 
-`examples/` has ~69 runnable demos, organized into `basic/` (15), `widgets/`
-(30), `advanced/` (21), `styling/` (2), `apps/` (1). Run with
+`examples/` has 72 runnable demos, organized into `basic/` (15), `widgets/`
+(30), `advanced/` (22), `styling/` (2), `apps/` (3). Run with
 `python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
 behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
 (Part 2).
@@ -346,16 +346,15 @@ behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
   of `RELEASE_PLAN.md`); a full strict pass on the overridden modules is future
   work.
 - A handful of demo bugs are deferred to 0.1.1 (horizontal child-frame scroll,
-  tree expand-all, autocomplete select, some layout/clip + Windows alt-keys);
-  tracked with root causes in `issues.md`.
-- Headless test harness exists (`wijjit.testing.WijjitHarness`); per-example
-  snapshot fixtures and a headless example CLI are still TODO.
-- Sphinx docs scaffold exists but the build emits many warnings.
+  tree expand-all, some layout/clip + Windows alt-keys); tracked with root
+  causes in `RELEASE_PLAN.md` (Part 2) and `roadmap.md`.
 - No virtual scrolling for very large datasets.
-- Some Unicode may render imperfectly on Windows.
+- Wide characters (CJK/emoji) are a known single-width limitation of the
+  screen buffer (see the `ScreenBuffer` docstring); some Unicode may render
+  imperfectly on Windows.
 
 ## Adding Things (quick references)
 
 - New element: `docs/NEW-ELEMENTS.md`.
 - Docs structure: `docs/DOCUMENTATION_PLAN.md`.
-- Outstanding bugs/backlog: `etc/issues.md`, `etc/issues-sorted.md`, `etc/todo.md`.
+- Outstanding bugs/backlog: `RELEASE_PLAN.md` (Part 2) and `roadmap.md`.

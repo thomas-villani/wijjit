@@ -4,7 +4,7 @@ This directory contains comprehensive examples demonstrating all aspects of the 
 
 ## Organization
 
-Examples are organized into three categories:
+Examples are organized into five categories:
 
 ### 📚 [basic/](basic/) - Introductory Examples
 
@@ -102,6 +102,13 @@ Complete mini-applications and advanced usage patterns.
 - **template_demo.py** - Template features and patterns
 - **rich_content_template_demo.py** - Rich content in templates
 - **download_simulator.py** - Progress tracking simulation
+
+### 🎨 [styling/](styling/) - Theming & CSS
+
+CSS-based styling and theming.
+
+- **css_classes_demo.py** - Styling elements with CSS classes
+- **css_theme_demo.py** - Loading a custom theme from a CSS file (`custom_theme.css`)
 
 ## Running Examples
 
