@@ -75,6 +75,13 @@ class TextInput(AutocompleteMixin, Element):
         Visual style for input rendering (default: BRACKETS)
     completer : Completer, optional
         Autocomplete completer for suggestions
+    password : bool, optional
+        If True, render each character as ``mask_char`` instead of the literal
+        text (default: False). The real text is still stored in ``value`` and
+        returned by state bindings and callbacks; only the display is masked.
+    mask_char : str, optional
+        Character used to mask each character when ``password`` is True
+        (default: ``"*"``).
 
     Attributes
     ----------
@@ -117,6 +124,8 @@ class TextInput(AutocompleteMixin, Element):
         autocomplete: list[str] | str | bool | Completer | None = None,
         action: str | None = None,
         bind: bool = True,
+        password: bool = False,
+        mask_char: str = "*",
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
@@ -127,6 +136,10 @@ class TextInput(AutocompleteMixin, Element):
         self.width = width
         self.max_length = max_length
         self.style = style
+        # Password masking: the real text is kept in ``value`` (and returned by
+        # bindings/callbacks); only the on-screen rendering is masked.
+        self.password = password
+        self.mask_char = mask_char
 
         # Action ID and bind settings
         self.action = action
@@ -439,9 +452,16 @@ class TextInput(AutocompleteMixin, Element):
         # Resolve placeholder style (used when showing placeholder text)
         placeholder_style = ctx.style_resolver.resolve_style(self, "input.placeholder")
 
-        # Determine display text (value or placeholder) and which style to use
+        # Determine display text (value or placeholder) and which style to use.
+        # When password masking is on, render a mask glyph per character; the
+        # mask is single-width so cursor/scroll math below is unaffected.
         use_placeholder = not self.value
-        display_text = self.value if self.value else self.placeholder
+        if use_placeholder:
+            display_text = self.placeholder
+        elif self.password:
+            display_text = (self.mask_char or "*")[0] * len(self.value)
+        else:
+            display_text = self.value
         # Use placeholder style for text when showing placeholder
         text_style = placeholder_style if use_placeholder else resolved_style
 

@@ -258,7 +258,7 @@ Table
        :caption: ``examples/widgets/table_demo.py`` – sorted table with action bar
 
 Tree
-    Hierarchical explorer for file systems, menus, or org charts. Nodes can be expanded/collapsed via keyboard or mouse. See ``examples/widgets/tree_demo.py`` and ``tree_indicator_styles_demo.py`` for layout variations.
+    Hierarchical explorer for file systems, menus, or org charts. Nodes can be expanded/collapsed via keyboard or mouse. See ``examples/widgets/tree_demo.py`` for layout variations.
 
 ListView
     Scrollable vertical list that highlights the selected row. Great for menus, chat transcripts, or search results. Works nicely with ``app.on_action`` handlers that parse the row id (``row_selected_<id>`` pattern).

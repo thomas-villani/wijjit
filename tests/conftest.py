@@ -35,6 +35,21 @@ def golden_update(pytestconfig: pytest.Config) -> bool:
     return bool(pytestconfig.getoption("--golden-update"))
 
 
+# The shipped pytest plugin exposes ``wijjit_``-prefixed fixtures so they never
+# shadow a host project's own fixtures. Inside wijjit's own (non-shipped) suite
+# the short aliases below keep existing tests terse.
+@pytest.fixture
+def make_app(wijjit_make_app):
+    """Short alias for the shipped ``wijjit_make_app`` fixture (in-repo only)."""
+    return wijjit_make_app
+
+
+@pytest.fixture
+def harness(wijjit_harness):
+    """Short alias for the shipped ``wijjit_harness`` fixture (in-repo only)."""
+    return wijjit_harness
+
+
 @pytest.fixture
 def wijjit_caplog(caplog: pytest.LogCaptureFixture) -> pytest.LogCaptureFixture:
     """Capture ``wijjit.*`` log records robustly.

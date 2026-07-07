@@ -16,6 +16,7 @@ from wijjit.elements.display.chart_utils import (
     get_block_char,
     normalize_data,
 )
+from wijjit.styling.style import Style, parse_color
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -46,7 +47,9 @@ class Sparkline(Element):
     show_current : bool, optional
         Show current (last) value text (default: False)
     color : str, optional
-        Color name for the sparkline (default: None)
+        Foreground color for the sparkline glyphs, on top of the theme style.
+        Accepts a named color, ``#RRGGBB`` hex, or ``rgb(r, g, b)`` (default:
+        None, use the theme color).
 
     Attributes
     ----------
@@ -93,7 +96,7 @@ class Sparkline(Element):
         show_minmax: bool = False,
         show_current: bool = False,
         color: str | None = None,
-        border: str = "none",
+        border_style: str = "none",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -110,7 +113,7 @@ class Sparkline(Element):
         self.show_minmax = show_minmax
         self.show_current = show_current
         self.color = color
-        self.border = border
+        self.border_style = border_style
 
         # Template metadata
         self.action: str | None = None
@@ -361,6 +364,13 @@ class Sparkline(Element):
 
         # Resolve styles
         base_style = ctx.style_resolver.resolve_style(self, "sparkline")
+
+        # Apply an explicit color override (the ``color`` prop) to the sparkline
+        # glyphs, on top of the theme style.
+        if self.color:
+            rgb = parse_color(self.color)
+            if rgb is not None:
+                base_style = base_style.merge(Style(fg_color=rgb))
 
         # Draw the border (if any) and inset content into the remaining region.
         ctx, avail_width, avail_height = begin_chart_border(

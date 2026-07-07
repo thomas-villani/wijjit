@@ -53,7 +53,7 @@ class HeatMap(Element):
         Minimum value for color scaling (default: auto)
     max_value : float, optional
         Maximum value for color scaling (default: auto)
-    border : str, optional
+    border_style : str, optional
         Border style drawn within the element bounds (e.g. ``"single"``,
         ``"double"``, ``"rounded"``, ``"none"``) (default: ``"single"``)
 
@@ -107,7 +107,7 @@ class HeatMap(Element):
         col_labels: list[str] | None = None,
         min_value: float | None = None,
         max_value: float | None = None,
-        border: str = "single",
+        border_style: str = "single",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -130,7 +130,7 @@ class HeatMap(Element):
         self.col_labels = col_labels or []
         self.min_value = min_value
         self.max_value = max_value
-        self.border = border
+        self.border_style = border_style
 
         # Template metadata
         self.action: str | None = None

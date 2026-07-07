@@ -62,7 +62,7 @@ class ColumnChart(Element):
         Color mode: "default", "gradient", "threshold" (default: "default")
     color_scale : str, optional
         Color scale for gradient mode (default: "green")
-    border : str, optional
+    border_style : str, optional
         Border style drawn around the chart (e.g. "single", "double",
         "rounded", "none"). The border is drawn within ``width``/``height``,
         insetting the content region (default: "single").
@@ -113,7 +113,7 @@ class ColumnChart(Element):
         color_mode: Literal["default", "gradient", "threshold"] = "default",
         color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
-        border: str = "single",
+        border_style: str = "single",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -135,7 +135,7 @@ class ColumnChart(Element):
         # ``color`` is a deprecated alias for the ``color_mode`` enum.
         self.color_mode = color if color is not None else color_mode
         self.color_scale = color_scale
-        self.border = border
+        self.border_style = border_style
 
         # Template metadata
         self.action: str | None = None

@@ -64,7 +64,7 @@ class Gauge(Element):
         Label text displayed above gauge (default: None)
     unit : str, optional
         Unit suffix for value display (default: "")
-    border : str, optional
+    border_style : str, optional
         Border style drawn around the gauge: "none", "single", "double",
         "rounded", "heavy", "ascii" (default: "none"). When a visible border is
         set, it is drawn within the element's ``width``/``height`` and content
@@ -121,7 +121,7 @@ class Gauge(Element):
         thresholds: list[tuple[float, tuple[int, int, int]]] | None = None,
         label: str | None = None,
         unit: str = "",
-        border: str = "none",
+        border_style: str = "none",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -144,7 +144,7 @@ class Gauge(Element):
         self.thresholds = thresholds
         self.label = label
         self.unit = unit
-        self.border = border
+        self.border_style = border_style
 
         # Auto-calculate height based on style unless an explicit integer is
         # given. The layout layer may pass a non-integer height spec such as

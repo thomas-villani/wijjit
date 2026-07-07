@@ -355,7 +355,7 @@ UNICODE_SUPPORT
    app.config['UNICODE_SUPPORT'] = 'disable'  # ASCII only
    app.config['UNICODE_SUPPORT'] = 'auto'     # Auto-detect (default)
 
-Performance & Threading (5 options)
+Performance & Threading (4 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 REFRESH_INTERVAL
@@ -368,17 +368,6 @@ REFRESH_INTERVAL
 .. code-block:: python
 
    app.config['REFRESH_INTERVAL'] = 0.1  # 100ms refresh for smooth animations
-
-DEFAULT_ANIMATION_FPS
-^^^^^^^^^^^^^^^^^^^^^
-
-:Type: ``int``
-:Default: ``5``
-:Description: Default frames per second for animations (spinners, progress bars)
-
-.. code-block:: python
-
-   app.config['DEFAULT_ANIMATION_FPS'] = 10  # Smoother animations
 
 MAX_FPS
 ^^^^^^^
@@ -497,7 +486,7 @@ NOTIFICATION_MAX_STACK
    app.config['NOTIFICATION_MAX_STACK'] = 10  # Allow 10 notifications
    app.config['NOTIFICATION_MAX_STACK'] = None  # Unlimited
 
-Logging (5 options)
+Logging (4 options)
 ~~~~~~~~~~~~~~~~~~~
 
 LOG_LEVEL
@@ -522,17 +511,6 @@ LOG_FILE
 .. code-block:: python
 
    app.config['LOG_FILE'] = 'app.log'  # Log to file
-
-LOG_TO_CONSOLE
-^^^^^^^^^^^^^^
-
-:Type: ``bool``
-:Default: ``False``
-:Description: Log to console (stderr)
-
-.. code-block:: python
-
-   app.config['LOG_TO_CONSOLE'] = True  # Enable console logging
 
 LOG_FORMAT
 ^^^^^^^^^^
@@ -658,20 +636,6 @@ TEMPLATE_AUTO_RELOAD
 .. code-block:: python
 
    app.config['TEMPLATE_AUTO_RELOAD'] = True  # Hot reload templates
-
-HTML Content (1 option)
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-HTML_CONTENT
-^^^^^^^^^^^^
-
-:Type: ``bool``
-:Default: ``False``
-:Description: Global toggle for HTML content parsing. When ``True``, elements that support HTML will parse HTML tags in their content. Individual elements can still override this with their own ``html=True``/``html=False`` parameter.
-
-.. code-block:: python
-
-   app.config['HTML_CONTENT'] = True  # Parse HTML in content-bearing elements
 
 Accessibility (2 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

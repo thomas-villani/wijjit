@@ -44,8 +44,6 @@ class Select(ScrollableElement):
         List of values that are disabled (cannot be selected)
     placeholder : str, optional
         Text to display when options list is empty (default: "No options")
-    item_renderer : callable, optional
-        Custom renderer function: (option, selected, highlighted, disabled) -> str
     border_style : BorderStyle or {"single", "double", "rounded"} or None, optional
         Border style for the select list (default: None).
         - "single": Single-line box-drawing characters
@@ -78,8 +76,6 @@ class Select(ScrollableElement):
         Set of disabled values
     placeholder : str
         Text to display when options list is empty
-    item_renderer : callable or None
-        Custom renderer function
     scroll_manager : ScrollManager
         Manages scrolling of options list
     border_style : BorderStyle or None
@@ -114,7 +110,6 @@ class Select(ScrollableElement):
         visible_rows: int = 5,
         disabled_values: list[Any] | None = None,
         placeholder: str = "No options",
-        item_renderer: Callable[..., Any] | None = None,
         on_change: Callable[[Any, Any], None] | None = None,
         border_style: (
             BorderStyle | Literal["single", "double", "rounded"] | None
@@ -163,7 +158,6 @@ class Select(ScrollableElement):
         self.placeholder = placeholder
 
         # Custom renderer
-        self.item_renderer = item_renderer
 
         # Border style (normalize string to enum)
         self.border_style = self._normalize_border_style(border_style)
@@ -821,29 +815,15 @@ class Select(ScrollableElement):
                 is_highlighted = option_index == self.highlighted_index
                 is_disabled = opt["value"] in self.disabled_values
 
-                # Use custom renderer if provided
-                if self.item_renderer:
-                    # Custom renderer returns ANSI string - we need to convert it
-                    # For now, use default rendering with theme styles
-                    self._render_option_to_ctx(
-                        ctx,
-                        opt,
-                        is_selected,
-                        is_highlighted,
-                        is_disabled,
-                        row,
-                        border_offset,
-                    )
-                else:
-                    self._render_option_to_ctx(
-                        ctx,
-                        opt,
-                        is_selected,
-                        is_highlighted,
-                        is_disabled,
-                        row,
-                        border_offset,
-                    )
+                self._render_option_to_ctx(
+                    ctx,
+                    opt,
+                    is_selected,
+                    is_highlighted,
+                    is_disabled,
+                    row,
+                    border_offset,
+                )
 
         # Fill remaining rows with empty space (padding to visible_rows)
         content_height = ctx.bounds.height - (2 * border_offset)

@@ -309,5 +309,5 @@ Where to Go From Here
 
 * **Tutorial**: :doc:`tutorial` - Build a complete todo list app
 * **User Guide**: :doc:`../user_guide/core_concepts` - Deep dive into Wijjit concepts
-* **Examples**: 69 runnable scripts under ``examples/basic``, ``examples/widgets``, and ``examples/advanced``
+* **Examples**: 72 runnable scripts across ``examples/basic``, ``examples/widgets``, ``examples/advanced``, ``examples/styling``, and ``examples/apps``
 * **API Reference**: :doc:`../api_reference/core` - Detailed API documentation

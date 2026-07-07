@@ -35,11 +35,12 @@ classifiers = [
 ]
 dependencies = [
     "jinja2>=3.1.6",
-    "prompt-toolkit>=3.0.52",
-    "pyperclip>=1.11.0",
-    "rich>=14.2.0",
-    "tinycss2>=1.5.0",
-    "wcwidth>=0.2.14",
+    "prompt-toolkit>=3.0.36",
+    "pygments>=2.15.0",
+    "pyperclip>=1.8.2",
+    "rich>=13.7.1",
+    "tinycss2>=1.2.1",
+    "wcwidth>=0.2.5",
 ]
 
 [project.urls]

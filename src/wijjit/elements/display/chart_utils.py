@@ -31,7 +31,7 @@ def begin_chart_border(
 ) -> tuple[PaintContext, int, int]:
     """Draw a chart's border (if any) and return the inner drawing context.
 
-    Charts share a uniform border convention: when ``element.border`` denotes a
+    Charts share a uniform border convention: when ``element.border_style`` denotes a
     visible border (see :func:`wijjit.layout.frames.has_border`), a box is drawn
     at the element's outer edge and content is rendered into an inset
     sub-context one cell in on every side. This keeps each chart's render code
@@ -43,7 +43,7 @@ def begin_chart_border(
     ctx : PaintContext
         The element's paint context.
     element : Any
-        The chart element; its ``border`` attribute is consulted.
+        The chart element; its ``border_style`` attribute is consulted.
     width : int
         The element's full width (including any border).
     height : int
@@ -57,7 +57,7 @@ def begin_chart_border(
         ``(inner_ctx, inner_width, inner_height)``. With no border this is the
         original context and the full dimensions.
     """
-    border_value = getattr(element, "border", None)
+    border_value = getattr(element, "border_style", None)
     if not has_border(border_value):
         return ctx, width, height
     style = ctx.style_resolver.resolve_style(element, style_class)

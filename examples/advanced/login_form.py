@@ -30,7 +30,7 @@ def login_view():
   {% vstack spacing=1 padding=1 %}
     {{ state.status }}
     Username: {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
-    Password: {% textinput id="password" placeholder="Enter password" width=30 action="login" %}{% endtextinput %}
+    Password: {% textinput id="password" placeholder="Enter password" width=30 password=True action="login" %}{% endtextinput %}
 
     {% hstack spacing=2 %}
       {% button id="login_btn" action="login" %}Login{% endbutton %}

@@ -49,6 +49,7 @@ from wijjit.core.wiring import ElementWiringManager
 from wijjit.elements.base import Element
 from wijjit.elements.display.notification import NotificationElement
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
+from wijjit.exceptions import KeyBindingError
 from wijjit.layout.bounds import Bounds
 from wijjit.logging_config import configure_logging, get_logger
 from wijjit.terminal.ansi import ANSIColor, ANSICursor, ANSIStyle, colorize
@@ -62,6 +63,11 @@ logger = get_logger(__name__)
 # Default refresh interval when auto-refresh is enabled for notifications
 # This is used to check notification expiry without user input
 NOTIFICATION_REFRESH_INTERVAL: float = 0.1
+
+# Sentinel for ``notify(duration=...)`` left unspecified. Distinct from an
+# explicit ``duration=None`` (which means "never auto-dismiss"), so an unset
+# duration can fall back to the ``NOTIFICATION_DURATION`` config value.
+_DURATION_UNSET: Any = object()
 
 # Root directory of the installed ``wijjit`` package, used to skip the
 # framework's own stack frames when discovering the caller's module (see
@@ -409,8 +415,7 @@ class Wijjit:
     def _configure_logging(self) -> None:
         """Configure logging based on config settings.
 
-        Applies LOG_LEVEL, LOG_FILE, LOG_TO_CONSOLE, and LOG_FORMAT
-        configuration options.
+        Applies LOG_LEVEL, LOG_FILE, and LOG_FORMAT configuration options.
 
         Logging Behavior
         ----------------
@@ -864,7 +869,7 @@ class Wijjit:
         # Validate that Ctrl+Q is not being bound (reserved for app exit)
         key_lower = key.lower()
         if not allow_ctrl_q and key_lower in ("ctrl+q", "c-q"):
-            raise ValueError(
+            raise KeyBindingError(
                 "Cannot bind Ctrl+Q: it is reserved for exiting the application. "
                 "Use allow_ctrl_q=True to override this restriction."
             )
@@ -1877,7 +1882,7 @@ class Wijjit:
         self,
         message: str,
         severity: str = "info",
-        duration: float | None = 3.0,
+        duration: float | None = _DURATION_UNSET,
         action: tuple[str, Callable] | None = None,
         dismiss_on_action: bool = True,
         bell: bool = False,
@@ -1894,8 +1899,9 @@ class Wijjit:
         severity : str, optional
             Severity level: "success", "error", "warning", or "info" (default: "info")
         duration : float or None, optional
-            Duration in seconds before auto-dismiss (default: 3.0)
-            Set to None for no auto-dismiss
+            Duration in seconds before auto-dismiss. If left unspecified, falls
+            back to the ``NOTIFICATION_DURATION`` config value (default 3.0).
+            Set to None explicitly for no auto-dismiss.
         action : tuple of (str, callable), optional
             Optional action button as (label, callback) tuple
         dismiss_on_action : bool, optional
@@ -1937,6 +1943,11 @@ class Wijjit:
                 bell=True
             )
         """
+
+        # Resolve an unspecified duration from config (an explicit None means
+        # "never auto-dismiss" and is preserved).
+        if duration is _DURATION_UNSET:
+            duration = self.config.get("NOTIFICATION_DURATION", 3.0)
 
         # Play bell if requested
         if bell:

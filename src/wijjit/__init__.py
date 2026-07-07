@@ -15,8 +15,6 @@ from wijjit.core.events import (
     Event,
     EventType,
     FocusEvent,
-    Handler,
-    HandlerRegistry,
     HandlerScope,
     KeyEvent,
 )
@@ -34,7 +32,6 @@ from wijjit.core.view_router import ViewConfig
 from wijjit.elements.base import (
     Container,
     Element,
-    ElementType,
     OverlayElement,
     ScrollableElement,
     TextElement,
@@ -90,6 +87,13 @@ from wijjit.elements.input import (
 
 # Elements - dialogs (ModalElement subclasses)
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
+from wijjit.exceptions import (
+    ConfigError,
+    KeyBindingError,
+    StateKeyError,
+    TemplateError,
+    WijjitError,
+)
 
 # Autocomplete (headline feature - re-exported for `from wijjit import ...`).
 # Imported after the element packages: the autocomplete popup depends on the
@@ -126,8 +130,8 @@ from wijjit.terminal.ansi import (
     strip_ansi,
     visible_length,
 )
-from wijjit.terminal.input import InputHandler, Key, Keys, KeyType
-from wijjit.terminal.screen import ScreenManager, alternate_screen
+from wijjit.terminal.input import Key, Keys, KeyType
+from wijjit.terminal.screen import alternate_screen
 
 # Testing utilities (build an app from a bare template for tests/devtools)
 from wijjit.testing.app_builder import app_from_template
@@ -174,13 +178,10 @@ __all__ = [
     "ActionEvent",
     "ChangeEvent",
     "FocusEvent",
-    "Handler",
-    "HandlerRegistry",
     "HandlerScope",
     # Elements - base
     "Element",
     "Container",
-    "ElementType",
     "OverlayElement",
     "ScrollableElement",
     "TextElement",
@@ -248,13 +249,17 @@ __all__ = [
     "clip_to_width",
     "colorize",
     # Terminal - Screen
-    "ScreenManager",
     "alternate_screen",
     # Terminal - Input
-    "InputHandler",
     "Key",
     "Keys",
     "KeyType",
+    # Exceptions
+    "WijjitError",
+    "StateKeyError",
+    "ConfigError",
+    "KeyBindingError",
+    "TemplateError",
     # Helpers
     "load_filesystem_tree",
 ]

@@ -16,6 +16,7 @@ from wijjit.elements.display.chart_utils import (
     extract_values,
     format_axis_value,
 )
+from wijjit.styling.style import Style, parse_color
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -53,10 +54,12 @@ class LineChart(Element):
     show_legend : bool, optional
         Show legend for multi-series (default: True)
     color : str, optional
-        Color for single series (default: None)
+        Foreground color for the plotted line, on top of the theme style.
+        Accepts a named color, ``#RRGGBB`` hex, or ``rgb(r, g, b)`` (default:
+        None, use the theme color).
     series_colors : dict, optional
         Colors per series for multi-series (default: None)
-    border : str, optional
+    border_style : str, optional
         Border style drawn within the chart's dimensions: "single",
         "double", "rounded", "heavy", "ascii", or "none" (default: "single").
         When a visible border is present, all content is inset one cell.
@@ -105,7 +108,7 @@ class LineChart(Element):
         show_legend: bool = True,
         color: str | None = None,
         series_colors: dict[str, str] | None = None,
-        border: str = "single",
+        border_style: str = "single",
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -122,7 +125,7 @@ class LineChart(Element):
         self.show_legend = show_legend
         self.color = color
         self.series_colors = series_colors or {}
-        self.border = border
+        self.border_style = border_style
 
         # Parse data into series format
         self._raw_data = data
@@ -332,6 +335,13 @@ class LineChart(Element):
         axis_style = ctx.style_resolver.resolve_style(self, "linechart.axis")
         label_style = ctx.style_resolver.resolve_style(self, "linechart.label")
         legend_style = ctx.style_resolver.resolve_style(self, "linechart.legend")
+
+        # Apply an explicit color override (the ``color`` prop) to the plotted
+        # line, on top of the theme style.
+        if self.color:
+            rgb = parse_color(self.color)
+            if rgb is not None:
+                line_style = line_style.merge(Style(fg_color=rgb))
 
         # Draw the border (if any) and inset content into the remaining region.
         ctx, avail_width, avail_height = begin_chart_border(

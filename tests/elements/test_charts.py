@@ -28,11 +28,35 @@ from wijjit.elements.display.gauge import Gauge
 from wijjit.elements.display.heatmap import HeatMap
 from wijjit.elements.display.linechart import LineChart
 from wijjit.elements.display.sparkline import Sparkline
+from tests.helpers import buffer_has_fg, render_element_buffer
 from wijjit.layout.bounds import Bounds
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
+from wijjit.styling.style import parse_color
 from wijjit.styling.theme import DefaultTheme
 from wijjit.terminal.screen_buffer import ScreenBuffer
+
+
+def test_linechart_color_tints_the_line():
+    """An explicit color= tints the plotted line's foreground."""
+    chart = LineChart(
+        data=[1, 2, 3, 4, 5, 4, 3, 2],
+        width=30,
+        height=7,
+        color="magenta",
+        show_axis=False,
+        show_labels=False,
+        show_legend=False,
+    )
+    buffer = render_element_buffer(chart, width=30, height=7)
+    assert buffer_has_fg(buffer, parse_color("magenta"))
+
+
+def test_sparkline_color_tints_the_glyphs():
+    """An explicit color= tints the sparkline glyphs' foreground."""
+    spark = Sparkline(data=[1, 3, 2, 5, 4, 6], width=14, height=1, color="green")
+    buffer = render_element_buffer(spark, width=14, height=1)
+    assert buffer_has_fg(buffer, parse_color("green"))
 
 
 class TestChartUtils:

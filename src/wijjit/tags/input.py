@@ -680,7 +680,6 @@ class CheckboxExtension(Extension):
         id: str | None = None,
         label: str = "",
         checked: bool = False,
-        value: str = "",
         action: str | None = None,
         bind: bool = True,
         **kwargs: Any,
@@ -725,7 +724,6 @@ class CheckboxExtension(Extension):
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("checked", checked)
-        vnode.set_prop("value", value)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)

@@ -1153,8 +1153,8 @@ class TextElement(Element):
     wrap : bool, optional
         Whether to wrap text to fit bounds width (default: True)
     html : bool or None, optional
-        Whether to parse HTML tags in text content. If None, uses
-        app.config['HTML_CONTENT'] setting. Default: None
+        Whether to parse HTML tags in text content (default: None, treated as
+        disabled). Set per element with ``html=True``/``html=False``.
     align : str, optional
         Horizontal alignment of each line within the element's width:
         ``"left"`` (default), ``"center"``, or ``"right"``.
@@ -1304,8 +1304,7 @@ class TextElement(Element):
         """
         if self.html is not None:
             return self.html
-        # Check global config (will need app reference)
-        # For now, return False if not explicitly set
+        # No per-element setting: HTML parsing is off by default.
         return False
 
     def render_to(self, ctx: PaintContext) -> None:
