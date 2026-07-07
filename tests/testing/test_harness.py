@@ -77,6 +77,73 @@ def test_screen_ansi_includes_styling_codes():
         assert "Harness" in h.screen()  # plain-text view still has no codes
 
 
+def test_wait_for_resolves_when_background_task_updates_state():
+    """wait_for pumps frames until an async background task settles state."""
+    import asyncio
+
+    app = Wijjit(initial_state={"status": "idle"})
+
+    @app.view("main", default=True)
+    def main_view():
+        return {"template": '{% frame title="W" %}{{ state.status }}{% endframe %}'}
+
+    @app.on_key("g")
+    def go(event=None):
+        async def work():
+            for _ in range(3):
+                await asyncio.sleep(0)
+            app.state["status"] = "done"
+
+        asyncio.get_running_loop().create_task(work())
+
+    with WijjitHarness(app, size=(40, 6)) as h:
+        h.assert_text("idle")
+        h.press("g")  # schedules the background task on the harness loop
+        h.wait_for(lambda: h.state["status"] == "done", frames=20)
+        h.assert_text("done")
+
+
+def test_wait_for_text_waits_for_rendered_output():
+    import asyncio
+
+    app = Wijjit(initial_state={"status": "idle"})
+
+    @app.view("main", default=True)
+    def main_view():
+        return {"template": '{% frame title="W" %}{{ state.status }}{% endframe %}'}
+
+    @app.on_key("g")
+    def go(event=None):
+        async def work():
+            await asyncio.sleep(0)
+            app.state["status"] = "Loaded!"
+
+        asyncio.get_running_loop().create_task(work())
+
+    with WijjitHarness(app, size=(40, 6)) as h:
+        h.press("g")
+        h.wait_for_text("Loaded!", frames=20)
+
+
+def test_wait_for_returns_self_for_chaining():
+    with WijjitHarness(make_app(), size=(50, 16)) as h:
+        assert h.wait_for(lambda: True) is h
+
+
+def test_wait_for_times_out_with_screen_context():
+    with WijjitHarness(make_app(), size=(50, 16)) as h:
+        with pytest.raises(TimeoutError) as excinfo:
+            h.wait_for(lambda: False, frames=3)
+        assert "Harness" in str(excinfo.value)  # screen included for context
+
+
+def test_wait_for_text_timeout_includes_missing_text():
+    with WijjitHarness(make_app(), size=(50, 16)) as h:
+        with pytest.raises(TimeoutError) as excinfo:
+            h.wait_for_text("nonexistent", frames=3)
+        assert "nonexistent" in str(excinfo.value)
+
+
 def test_scripted_input_handler_queue():
     handler = ScriptedInputHandler()
     assert handler.empty() is True

@@ -29,6 +29,7 @@ import io
 import os
 import shutil
 from collections import deque
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from wijjit.inline.render import _buffer_to_inline_ansi
@@ -396,6 +397,115 @@ class WijjitHarness:
         self.app.needs_render = True
         self._pump()
         return self
+
+    # -- waiting -----------------------------------------------------------
+
+    def wait_for(
+        self,
+        predicate: Callable[[], bool],
+        *,
+        frames: int = 100,
+        tick: bool = False,
+    ) -> WijjitHarness:
+        """Pump frames until ``predicate()`` is true, or raise on timeout.
+
+        Use this to drive an app whose UI settles asynchronously -- an async
+        view resolving, a background task updating ``state``, a notification
+        expiring, or a spinner-driven animation reaching a target frame. Each
+        iteration processes one event-loop frame (rendering and yielding to any
+        pending asyncio tasks), then re-checks ``predicate``.
+
+        The harness has no wall clock (rendering is deterministic and
+        frame-driven), so the timeout is expressed as a *frame budget* rather
+        than seconds. This keeps waits reproducible across machines and CI.
+
+        Parameters
+        ----------
+        predicate : callable
+            A zero-argument callable returning ``True`` once the awaited
+            condition holds. Evaluated once before pumping and again after each
+            frame.
+        frames : int, optional
+            Maximum number of frames to pump before giving up (default: 100).
+        tick : bool, optional
+            Advance one animation frame per iteration as well, so conditions
+            that depend on spinner/animation progress can be awaited (default:
+            False).
+
+        Returns
+        -------
+        WijjitHarness
+            ``self``, for chaining.
+
+        Raises
+        ------
+        TimeoutError
+            If ``predicate`` is still false after ``frames`` frames. The final
+            screen is included for context.
+
+        Examples
+        --------
+        >>> h.press("enter")
+        >>> h.wait_for(lambda: h.state["status"] == "done")
+        >>> h.wait_for(lambda: h.find_text("Loaded"), frames=50)
+        """
+        self._run(self._wait_for_async(predicate, frames, tick))
+        return self
+
+    def wait_for_text(self, text: str, *, frames: int = 100) -> WijjitHarness:
+        """Pump frames until ``text`` appears on screen, or raise on timeout.
+
+        Convenience wrapper over :meth:`wait_for` for the common case of
+        waiting for rendered output. See :meth:`wait_for` for the frame-budget
+        rationale.
+
+        Parameters
+        ----------
+        text : str
+            Substring to wait for anywhere on the rendered screen.
+        frames : int, optional
+            Maximum number of frames to pump before giving up (default: 100).
+
+        Returns
+        -------
+        WijjitHarness
+            ``self``, for chaining.
+
+        Raises
+        ------
+        TimeoutError
+            If ``text`` never appears within ``frames`` frames. The final
+            screen is included for context.
+        """
+        try:
+            return self.wait_for(lambda: text in self.screen(), frames=frames)
+        except TimeoutError:
+            raise TimeoutError(
+                f"Timed out after {frames} frames waiting for {text!r} on screen. "
+                f"Last screen:\n{self.screen()}"
+            ) from None
+
+    async def _wait_for_async(
+        self, predicate: Callable[[], bool], frames: int, tick: bool
+    ) -> None:
+        event_loop = self.app.event_loop
+        if predicate():
+            return
+        for _ in range(max(1, frames)):
+            if tick:
+                event_loop._advance_spinner_frames()
+            self.app.needs_render = True
+            await event_loop._process_frame_async()
+            # Let callback-scheduled tasks (async views, background work) run.
+            await asyncio.sleep(0)
+            if predicate():
+                return
+            if not event_loop.running:
+                break
+        raise TimeoutError(
+            f"Timed out after {frames} frames waiting for condition. "
+            f"Last screen:\n{self.screen()}"
+        )
 
     # -- inspection --------------------------------------------------------
 

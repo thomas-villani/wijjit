@@ -6,12 +6,13 @@ template plus a few action/key handlers - not a full example ``.py`` module.
 handed straight to :class:`~wijjit.testing.harness.WijjitHarness`::
 
     app = app_from_template(
-        "{% frame %}{% button id='go' label='Go' action='go' %}{% endframe %}",
+        "{% frame %}{% button id='go' action='go' %}Go{% endbutton %}{% endframe %}",
         state={"clicked": False},
-        actions={"go": lambda **_: app.state.update(clicked=True)},
+        actions={"go": lambda event=None: app.state.__setitem__("clicked", True)},
     )
     with WijjitHarness(app) as h:
-        h.press("enter")
+        h.press("tab")      # focus the button
+        h.press("enter")    # activate its "go" action
         assert h.state["clicked"]
 """
 

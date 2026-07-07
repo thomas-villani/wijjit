@@ -96,6 +96,7 @@ Documentation Contents
    user_guide/mouse_support
    user_guide/styling
    user_guide/configuration
+   user_guide/testing_apps
 
 .. toctree::
    :maxdepth: 2
