@@ -82,8 +82,8 @@ diagnose template issues. `validate` and `tree` auto-detect raw template files
 vs `.py` apps by the `.py` suffix:
 
 ```bash
-wijjit validate myform.wij --render     # syntax/unknown-tag/undefined-var/attr findings
-wijjit tree myform.wij --json           # dump the VNode "DOM" tree
+wijjit validate myform.wij.j2 --render     # syntax/unknown-tag/undefined-var/attr findings
+wijjit tree myform.wij.j2 --json           # dump the VNode "DOM" tree
 wijjit render examples/.../demo.py --keys "tab,enter"   # ports python -m wijjit.testing
 wijjit run examples/.../demo.py         # launch a .py app in this terminal
 wijjit test -k login tests/             # pytest passthrough

@@ -12,12 +12,21 @@ requires-python = ">=3.11"
 keywords = [
     "tui",
     "terminal",
+    "terminal-ui",
     "cli",
     "console",
+    "curses",
+    "ncurses",
     "ui",
     "framework",
+    "jinja",
     "jinja2",
+    "flask",
     "declarative",
+    "dashboard",
+    "widgets",
+    "textual",
+    "rich",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -52,8 +61,8 @@ Issues = "https://github.com/thomas-villani/wijjit/issues"
 [project.scripts]
 wijjit = "wijjit.cli:main"
 
-# Pytest plugin: once wijjit is installed, the `harness` / `make_app` fixtures
-# and `wijjit_app` / `wijjit_snapshot` markers auto-load. Opt out with
+# Pytest plugin: once wijjit is installed, the `wijjit_harness` / `wijjit_make_app`
+# fixtures and `wijjit_app` / `wijjit_snapshot` markers auto-load. Opt out with
 # `-p no:wijjit`.
 [project.entry-points.pytest11]
 wijjit = "wijjit.testing.pytest_plugin"

@@ -1,0 +1,4 @@
+{# Shared header partial, included by home.wij.j2 and dashboard.wij.j2 via
+   {% include "_header.wij.j2" %}. It sees the including view's context, so
+   title / state / clicks are all available here. #}
+[ {{ title }} ]  signed in as {{ state.user }}  -  clicks: {{ clicks }}

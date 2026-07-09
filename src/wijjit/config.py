@@ -300,6 +300,34 @@ class Config(dict[str, Any]):
         return rv
 
 
+def no_color_from_env() -> bool:
+    """Return whether the ``NO_COLOR`` environment variable disables color.
+
+    Implements the https://no-color.org/ standard: color is disabled when
+    ``NO_COLOR`` is present *and* set to a non-empty value. An empty
+    ``NO_COLOR=""`` leaves color enabled.
+
+    Returns
+    -------
+    bool
+        True when ANSI color output should be suppressed.
+
+    Examples
+    --------
+    >>> import os
+    >>> os.environ["NO_COLOR"] = "1"
+    >>> no_color_from_env()
+    True
+    >>> os.environ["NO_COLOR"] = ""
+    >>> no_color_from_env()
+    False
+    >>> del os.environ["NO_COLOR"]
+    >>> no_color_from_env()
+    False
+    """
+    return bool(os.environ.get("NO_COLOR"))
+
+
 class DefaultConfig:
     """Default configuration values for Wijjit.
 
@@ -348,7 +376,11 @@ class DefaultConfig:
 
     #: Disable all ANSI colors (respects NO_COLOR env var standard)
     #: https://no-color.org/
-    NO_COLOR = os.environ.get("NO_COLOR") is not None
+    #:
+    #: Read at import time. :class:`~wijjit.core.app.Wijjit` re-reads the
+    #: environment during construction via :func:`no_color_from_env`, so setting
+    #: ``NO_COLOR`` after importing wijjit still takes effect.
+    NO_COLOR = no_color_from_env()
 
     #: Global focus color override - applies to all focused elements
     #: Format: RGB tuple like (0, 255, 255) for cyan, or None to use theme defaults

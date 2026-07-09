@@ -178,7 +178,7 @@ class ViewRouter:
 
         >>> @app.view("dashboard")
         ... def dashboard_view():
-        ...     return render_template("dashboard.tui", stats=get_stats())
+        ...     return render_template("dashboard.wij.j2", stats=get_stats())
         """
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:

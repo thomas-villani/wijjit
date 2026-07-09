@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from wijjit.autocomplete.completer import Completer
-from wijjit.config import Config, DefaultConfig
+from wijjit.config import Config, DefaultConfig, no_color_from_env
 from wijjit.core.event_loop import EventLoop
 from wijjit.core.events import (
     ActionEvent,
@@ -244,6 +244,11 @@ class Wijjit:
         # Initialize configuration
         self.config = Config()
         self.config.from_object(DefaultConfig)
+
+        # DefaultConfig snapshots NO_COLOR when config.py is imported; re-read it
+        # so a value set after `import wijjit` is honored. Runs before the
+        # WIJJIT_* and kwarg overrides below so those still win.
+        self.config["NO_COLOR"] = no_color_from_env()
 
         # Auto-load from WIJJIT_* environment variables
         self.config.from_prefixed_env("WIJJIT_")
@@ -478,6 +483,10 @@ class Wijjit:
         """
         from wijjit.terminal import ansi
 
+        # Keep the module's env snapshot in step with this process's environment
+        # for any code that renders cells outside an app (e.g. a bare Renderer).
+        ansi.refresh_no_color_from_env()
+
         no_color = self.config["NO_COLOR"]
         ansi.set_no_color(no_color)
         if no_color:
@@ -707,7 +716,7 @@ class Wijjit:
 
         >>> @app.view("dashboard")
         ... def dashboard_view():
-        ...     return render_template("dashboard.tui", stats=get_stats())
+        ...     return render_template("dashboard.wij.j2", stats=get_stats())
         """
         return self.view_router.view_decorator(
             name, default, on_enter=on_enter, on_exit=on_exit
