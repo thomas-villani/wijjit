@@ -624,6 +624,11 @@ class Select(ScrollableElement):
         bool
             True if event was handled
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         # Scroll wheel - scroll options list
         if event.button == MouseButton.SCROLL_UP:
             old_pos = self.scroll_manager.state.scroll_position

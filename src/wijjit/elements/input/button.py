@@ -134,6 +134,11 @@ class Button(Element):
         -----
         This async handler supports async on_click and on_activate callbacks.
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         # Activate on click or double-click
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             await self.activate_async()

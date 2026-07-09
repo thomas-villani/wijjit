@@ -754,8 +754,16 @@ class DataGrid(ScrollableElement):
         else:
             keys = self._column_keys
 
+        # Normalize each row to the column count so ragged data does not raise
+        # (pandas requires every row to have exactly len(columns) values). Short
+        # rows are padded with empty strings; overlong rows are truncated.
+        num_cols = len(keys)
+        normalized_rows = [
+            list(row)[:num_cols] + [""] * (num_cols - len(row)) for row in self.data
+        ]
+
         # Create DataFrame
-        return pd.DataFrame(self.data, columns=keys)
+        return pd.DataFrame(normalized_rows, columns=keys)
 
     def set_data(self, data: DataInput, update_columns: bool = False) -> None:
         """Replace all data.
@@ -1242,6 +1250,11 @@ class DataGrid(ScrollableElement):
         bool
             True if event was handled
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         # Scroll wheel
         if event.button == MouseButton.SCROLL_UP:
             old_pos = self.scroll_manager.state.scroll_position

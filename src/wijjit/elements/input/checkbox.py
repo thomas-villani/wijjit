@@ -165,6 +165,11 @@ class Checkbox(Element):
         bool
             True if event was handled
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         # Toggle on left click or double-click
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             if event.button == MouseButton.LEFT:
@@ -474,6 +479,11 @@ class CheckboxGroup(Element):
 
     async def handle_mouse(self, event: MouseEvent) -> bool:
         """Handle mouse input."""
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             if not self.bounds:
                 return False
