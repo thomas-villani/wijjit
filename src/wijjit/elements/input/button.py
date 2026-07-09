@@ -12,7 +12,7 @@ from wijjit.core.events import ActionEvent
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.rendering import PaintContext
 from wijjit.terminal.input import Key, Keys
-from wijjit.terminal.mouse import MouseEvent, MouseEventType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 
 class ButtonStyle(Enum):
@@ -133,14 +133,22 @@ class Button(Element):
         Notes
         -----
         This async handler supports async on_click and on_activate callbacks.
+
+        Setting ``on_double_click`` takes precedence over activation: a
+        double-click invokes that callback instead of activating the button.
         """
         # Delegate to the base handler first so double-click / context-menu
         # callbacks fire even though this element consumes click events.
         if await super().handle_mouse(event):
             return True
 
-        # Activate on click or double-click
-        if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+        # Activate on left click or left double-click. Other buttons (notably
+        # right-click) must not activate; they fall through so the mouse router
+        # can open a context menu.
+        if (
+            event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK)
+            and event.button == MouseButton.LEFT
+        ):
             await self.activate_async()
             return True
 

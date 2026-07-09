@@ -162,6 +162,11 @@ class Link(Element):
         -----
         Link is activated by left click.
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if event.type == MouseEventType.CLICK:
             if event.button == MouseButton.LEFT:
                 self._activate()

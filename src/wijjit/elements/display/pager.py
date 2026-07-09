@@ -488,6 +488,11 @@ class Pager(Container):
         - Left clicks on Prev/Next buttons
         - Scroll wheel events delegated to active frame
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if not self.bounds or not self.pages:
             return False
 

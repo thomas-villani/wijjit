@@ -536,8 +536,13 @@ class Table(ScrollableElement):
         # Last row: bottom border
         header_offset = 3 if self.show_header else 1  # After top border
 
-        # Handle clicks and double-clicks
-        if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
+        # Handle clicks and double-clicks. Only the left button drives row,
+        # cell, and header interactions; a right-click must fall through to the
+        # base handler so on_context_menu can fire.
+        if (
+            event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK)
+            and event.button == MouseButton.LEFT
+        ):
             is_double = event.type == MouseEventType.DOUBLE_CLICK
 
             # Check if click is on header (row 1 with header shown)
@@ -565,13 +570,16 @@ class Table(ScrollableElement):
                 if 0 <= actual_row_index < len(self.data):
                     row_data = self.data[actual_row_index]
 
-                    # Handle double-click
+                    # Handle double-click. Without a row handler, fall through to
+                    # the base class so the element-level on_double_click fires
+                    # instead of the event being swallowed here.
                     if is_double:
                         if self.on_row_double_click:
                             invoke_callback(
                                 self.on_row_double_click, actual_row_index, row_data
                             )
-                        return True
+                            return True
+                        return await super().handle_mouse(event)
 
                     # Handle single click
                     if self.on_row_click:

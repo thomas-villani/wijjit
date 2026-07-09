@@ -608,6 +608,11 @@ class ContentView(ScrollableElement):
             True if event was handled
         """
         # Handle scroll wheel
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if event.button == MouseButton.SCROLL_UP:
             old_pos = self.scroll_manager.state.scroll_position
             self.scroll_manager.scroll_by(-1)

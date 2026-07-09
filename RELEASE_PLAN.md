@@ -163,10 +163,10 @@ Lower-severity items surfaced by the code review, not release-blocking:
   split-panel `_clamp_ratio` vs `_calculate_sizes` disagreement (resize jitter)
   and unvalidated persisted state; `Size` fill/percentage classification
   ambiguous for `"100%"`.
-- **Input:** `Select.item_renderer` stored but never invoked (dead documented
-  feature); `DataGrid` ragged rows can crash `get_data_as_dataframe`; overridden
-  `handle_mouse` never chains to `super()`, so `on_double_click`/`on_context_menu`
-  never fire for inputs.
+- ~~**Input:** `Select.item_renderer`; `DataGrid` ragged rows; `handle_mouse`
+  not chaining to `super()`.~~ **All done** - see Completed ("Mouse-callback
+  chaining"). `item_renderer` was already removed in the pre-release audit
+  polish; this bullet was simply never struck.
 - **Display:** Table sort not stable + string-coerces mixed types; LogView
   `set_lines` only auto-scrolls when content *grew*, so a direct-set replacement
   of equal/shorter length doesn't re-tail (the reconcile/prop-sync path used by
@@ -225,6 +225,22 @@ through the real event loop; text/ANSI screen capture), `load_example_app`,
 `app_from_template`, the `wijjit` devtools CLI (`validate`/`tree`/`render`/`run`),
 the `pytest11` plugin (`harness`/`make_app` fixtures + markers), and
 `tests/examples/` coverage of every driveable demo.
+
+**Mouse-callback chaining + left-button discipline** - every element that
+overrode `handle_mouse` consumed clicks without delegating to
+`Element.handle_mouse`, so `on_double_click` / `on_context_menu` were silently
+dead. Fixed across all inputs (Button, Checkbox/Group, Radio/Group, Select,
+Slider, Toggle, TextInput/TextArea, DataGrid) and all display elements (Tree,
+ListView, LogView, ContentView, BarChart, Link, Pager, TabbedPanel). `Table`
+already delegated, but only on a fallback path its row-hit branch made
+unreachable. Related left-button fixes: a right-click used to activate a
+`Button`, and a right-click on a `Table` header fired `on_header_click` **and
+sorted the column**; row-hit handling also swallowed right-clicks so context
+menus never opened on a table row. `DataGrid.get_data_as_dataframe()` no longer
+raises on ragged rows (short rows pad, overlong rows truncate **and log a
+warning** rather than silently dropping cells). Note: the template-declared
+`{% contextmenu %}` path is routed by `mouse_router` before element dispatch and
+was never affected. Regression-tested in `tests/elements/test_mouse_callbacks.py`.
 
 **Demo bug sweep (0.1.0)** - fixed crashes/hangs (executor_demo constructor args,
 state_management_demo re-entrant `on_change`, form/error_handling reconciler key
