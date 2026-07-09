@@ -354,6 +354,11 @@ class Slider(Element):
         bool
             True if event was handled
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if not self.bounds:
             return False
 

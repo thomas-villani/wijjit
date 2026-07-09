@@ -371,6 +371,11 @@ class TextInput(AutocompleteMixin, Element):
         Returning True indicates the event was consumed, preventing propagation
         to parent containers.
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if event.type in (MouseEventType.CLICK, MouseEventType.DOUBLE_CLICK):
             # Position cursor at click location if bounds are available
             if self.bounds is not None:
@@ -2765,6 +2770,11 @@ class TextArea(Element):
         - Shift+scroll wheel: horizontal scrolling
         - Scroll over horizontal scrollbar area: horizontal scrolling
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         # Handle mouse wheel scrolling
         scroll_horizontal = False
 

@@ -86,6 +86,7 @@ from wijjit.elements.input import (
 )
 
 # Elements - dialogs (ModalElement subclasses)
+from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 from wijjit.exceptions import (
     ConfigError,
@@ -220,6 +221,9 @@ __all__ = [
     "ConfirmDialog",
     "AlertDialog",
     "TextInputDialog",
+    "MenuElement",
+    "DropdownMenu",
+    "ContextMenu",
     "Page",
     "Pager",
     "ProgressBar",

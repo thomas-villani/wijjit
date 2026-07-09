@@ -884,6 +884,39 @@ class TestDataGridPandasIntegration:
         assert result.iloc[0]["name"] == "Alice"
         assert result.iloc[1]["age"] == "25"
 
+    def test_get_data_as_dataframe_ragged_rows(self, pandas_available):
+        """Ragged rows must not crash get_data_as_dataframe.
+
+        A row shorter than the column count is padded with empty strings and a
+        row longer than the column count is truncated, so pandas (which requires
+        every row to match len(columns)) never raises.
+        """
+        if not pandas_available:
+            pytest.skip("pandas not installed")
+
+        import pandas as pd
+
+        columns = [
+            {"key": "name", "label": "Name"},
+            {"key": "age", "label": "Age"},
+        ]
+        grid = DataGrid(data=[["Alice", "30"]], columns=columns)
+        # add_row appends values verbatim, so these produce ragged data.
+        grid.add_row(["Bob"])  # short row (missing age)
+        grid.add_row(["Carol", "40", "extra"])  # overlong row
+
+        result = grid.get_data_as_dataframe()
+
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["name", "age"]
+        assert result.shape == (3, 2)
+        # Short row padded with an empty string
+        assert result.iloc[1]["name"] == "Bob"
+        assert result.iloc[1]["age"] == ""
+        # Overlong row truncated to the column count
+        assert result.iloc[2]["name"] == "Carol"
+        assert result.iloc[2]["age"] == "40"
+
     def test_roundtrip_dataframe(self, pandas_available):
         """Test data can roundtrip through DataFrame format."""
         if not pandas_available:
