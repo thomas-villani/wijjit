@@ -21,16 +21,13 @@ If you know Flask and Jinja2, you can build rich, interactive console applicatio
        width="850">
 </p>
 
-Wijjit was obviously inspired by the wonderful Flask library, and makes heavy use of the patterns innate to Flask
-applications. We built this library to bring the syntactic elegance of Flask's decorator patterns to building TUIs.
-
 ## Why Wijjit?
 
 The terminal-UI space in Python already has great tools, and Wijjit is deliberately a different point on the spectrum:
 
 - **[Rich](https://github.com/Textualize/rich)** is for *output* — beautiful styled text, tables, and progress bars printed to the terminal. Wijjit uses Rich internally for exactly that, then adds a full interactive application layer on top (focus, events, overlays, re-rendering).
 - **[Textual](https://github.com/Textualize/textual)** is a full app framework built around object-oriented widgets composed in Python and styled with a CSS-like language. It's powerful and deep.
-- **Wijjit** takes the *web* mental model instead of the widget-tree one: you write **Jinja2 templates** for layout and **Flask-style decorators** (`@app.view`, `@app.on_action`, `@app.on_key`) for behavior, backed by reactive `State`. If you've built a Flask app, the structure is immediately familiar — views return templates, state changes trigger re-renders, and a virtual-DOM reconciler makes those re-renders cheap.
+- **Wijjit** takes the *web* mental model instead of the widget-tree one: you write **Jinja2 templates** for layout and **Flask-style decorators** (`@app.view`, `@app.on_action`, `@app.on_key`) for behavior, backed by reactive `State`. A virtual-DOM reconciler diffs re-renders so cursor, scroll, and selection state survive them.
 
 If you think in templates and request handlers rather than widget classes, Wijjit will feel like home.
 
@@ -46,17 +43,6 @@ If you think in templates and request handlers rather than widget classes, Wijji
 - **Mouse Support**: Click buttons, scroll content, and interact with elements
 - **Inline Rendering**: Output styled UI to terminal scrollback without alternate screen
 - **Developer Tooling**: A `wijjit` CLI (`validate`/`tree`/`render`) and a pytest harness for driving apps headlessly — an LLM-friendly path to inspect and test TUIs
-- **ANSI-Aware**: Proper handling of colors and styling throughout
-
-- **Declarative UI**: Define layouts using Jinja2 templates, not procedural positioning code
-- **Flask-like API**: View decorators, routing, and state management that feels like web development
-- **Rich Component Library**: Pre-built elements for forms, tables, trees, progress indicators, and more
-- **Reactive State Management**: State changes automatically trigger re-renders
-- **Automatic Focus Navigation**: Tab/Shift+Tab navigation between interactive elements
-- **Modal Dialogs**: Built-in confirm, alert, and input dialogs
-- **Layout System**: Flexible frames with stacks (vertical/horizontal), scrolling, and sizing options
-- **Mouse Support**: Click buttons, scroll content, and interact with elements
-- **Inline Rendering**: Output styled UI to terminal scrollback without alternate screen
 - **Job Control**: Ctrl+Z suspend/resume support on Unix systems (Linux, macOS)
 - **ANSI-Aware**: Proper handling of colors and styling throughout
 
@@ -66,33 +52,20 @@ If you think in templates and request handlers rather than widget classes, Wijji
 # Add to your project using uv (recommended)
 uv add wijjit
 
-# Optional extra for ImageView / ASCII image rendering (Pillow)
-uv add "wijjit[images]"
-
 # Or with pip from PyPI
 pip install wijjit
 
-# Optional extras
-pip install "wijjit[images]"   # ImageView / ASCII image rendering (Pillow)
+# Optional extra for ImageView / ASCII image rendering (Pillow)
+uv add "wijjit[images]"
+pip install "wijjit[images]"
 ```
+
+Wijjit requires Python 3.11+ and is tested on Linux, macOS, and Windows.
 
 > **Clipboard note (Linux):** copy/paste uses the system clipboard via
 > `pyperclip`, which needs `xclip` or `xsel` installed. Without them, Wijjit
 > falls back to an internal in-process clipboard (copy/paste still works inside
 > the app, just not across other programs).
-
-### From source (development)
-
-```bash
-git clone https://github.com/thomas-villani/wijjit.git
-cd wijjit
-
-# Install in development mode with uv (recommended)
-uv sync --all-extras
-
-# Or with pip
-pip install -e ".[dev]"
-```
 
 ## Quick Start
 
@@ -153,7 +126,6 @@ def login_view():
 
     {% hstack spacing=2 %}
       {% button action="login" %}Login{% endbutton %}
-      {% button action="clear" %}Clear{% endbutton %}
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
   {% endvstack %}
@@ -162,18 +134,10 @@ def login_view():
 
 @app.on_action("login")
 def handle_login(event):
-    username = app.state.get('username', '')
-    password = app.state.get('password', '')
-
-    if username == 'admin' and password == 'password':
-        app.state['status'] = f'Success! Welcome, {username}!'
+    if app.state['username'] == 'admin' and app.state['password'] == 'password':
+        app.state['status'] = 'Success! Welcome, admin!'
     else:
         app.state['status'] = 'Error: Invalid credentials'
-
-@app.on_action("clear")
-def handle_clear(event):
-    app.state['username'] = ''
-    app.state['password'] = ''
 
 @app.on_action("quit")
 def handle_quit(event):
@@ -229,8 +193,8 @@ def main_view():
 
 @app.view("dashboard")
 def dashboard_view():
-    # Or load templates/dashboard.tui:
-    return render_template("dashboard.tui", stats=get_stats())
+    # Or load templates/dashboard.wij.j2:
+    return render_template("dashboard.wij.j2", stats=get_stats())
 
 # Navigate to a different view
 app.navigate("other_view", param=value)
@@ -238,6 +202,11 @@ app.navigate("other_view", param=value)
 
 File templates live in a `templates/` directory next to your app module
 (auto-discovered, Flask-style) or wherever `Wijjit(template_dir=...)` points.
+They are conventionally named `*.wij.j2` so editors syntax-highlight them as
+Jinja, but the extension is not enforced.
+
+Pass changing values as **context kwargs** rather than interpolating them into
+the template *source* string — the source is compiled once and cached.
 
 ### State Management
 
@@ -251,8 +220,8 @@ app = Wijjit(initial_state={'count': 0})
 app.state['count'] = 1
 app.state.count = 2
 
-# State changes automatically re-render the UI
-# Elements with matching IDs automatically bind to state
+# State changes automatically re-render the UI.
+# Elements with matching IDs automatically bind to state.
 ```
 
 ### Templates
@@ -275,19 +244,17 @@ Use Jinja2 templates with custom tags for UI elements:
 {% select id="theme" options=["dark", "light"] %}{% endselect %}
 {% slider id="volume" min=0 max=100 value=50 %}{% endslider %}
 {% toggle id="dark_mode" label="Dark Mode" %}{% endtoggle %}
-{% status status="success" label="Connected" %}{% endstatus %}
 
 {# Multi-select elements - state holds lists #}
 {% select id="toppings" multiple=True %}
   {"value": "cheese", "label": "Cheese"}
   {"value": "pepperoni", "label": "Pepperoni"}
 {% endselect %}
-{% tree id="files" data=state.file_tree multiple=True %}{% endtree %}
 
 {# Display elements #}
 {% table data=state.users columns=["name", "email"] %}{% endtable %}
 {% tree data=state.files %}{% endtree %}
-{% progressbar value=state.progress max=100 %}{% endprogressbar %}
+{% progressbar value=state.progress max_value=100 %}{% endprogressbar %}
 {% contentview content_type="markdown" content=state.readme %}{% endcontentview %}
 ```
 
@@ -296,86 +263,22 @@ Use Jinja2 templates with custom tags for UI elements:
 Handle user interactions with decorators:
 
 ```python
-# Action handlers (from buttons, inputs with action attribute)
+# Action handlers (from buttons, inputs with an `action` attribute)
 @app.on_action("submit")
 def handle_submit(event):
-    # Process form submission
-    pass
+    ...
 
 # Key handlers
 @app.on_key("ctrl+s")
 def save(event):
-    # Save on Ctrl+S
-    pass
-
-# Generic event handlers
-from wijjit.core.events import EventType, HandlerScope
-
-def setup_handlers():
-    def on_key(event):
-        if event.key == "q":
-            app.quit()
-
-    app.on(EventType.KEY, on_key, scope=HandlerScope.VIEW, view_name="main")
-
-@app.view("main", default=True, on_enter=setup_handlers)
-def main_view():
-    return render_template_string("...")
+    ...
 ```
 
-### Element Event Callbacks
-
-In addition to app-level handlers, elements expose callback attributes for direct event handling:
-
-**Mouse Callbacks** (all elements):
-```python
-from wijjit.elements.display.table import Table
-
-# Double-click handling
-element.on_double_click = lambda event: print("Double-clicked!")
-
-# Context menu (right-click) - return menu items or None
-element.on_context_menu = lambda event: [{"label": "Copy"}, {"label": "Paste"}]
-```
-
-**Drag-and-Drop** (set `draggable=True` or `drop_target=True`):
-
-> The low-level drag/drop callbacks below are available on elements today. A
-> higher-level drag-and-drop manager is planned but not yet implemented.
-
-```python
-element.draggable = True
-element.on_drag_start = lambda event: {"item": "data"}  # Return drag data
-element.on_drag = lambda event, data: None  # Called during drag
-element.on_drag_end = lambda event, data, dropped: None  # Drag finished
-
-element.drop_target = True
-element.on_drag_over = lambda event, data: True  # Return True to allow drop
-element.on_drop = lambda event, data, source: handle_drop(data)  # Handle drop
-```
-
-**Table Callbacks**:
-```python
-table = Table(data=users, columns=["name", "email"])
-table.on_row_click = lambda row_idx, row_data: select_user(row_data)
-table.on_row_double_click = lambda row_idx, row_data: edit_user(row_data)
-table.on_cell_click = lambda row_idx, col_key, value: print(f"Clicked {col_key}")
-table.on_header_click = lambda col_key: sort_by(col_key)
-```
-
-**TextInput/TextArea Callbacks**:
-```python
-from wijjit.elements.input.text import TextInput, TextArea
-
-# Submit on Enter (TextInput) or Ctrl+Enter (TextArea)
-text_input.on_submit = lambda value: search(value)
-
-# Intercept paste - return modified text or None
-text_input.on_paste = lambda text: text.strip()
-
-# Detect file paths in paste (e.g., drag files to terminal)
-text_input.on_file_path_paste = lambda paths: handle_files(paths)
-```
+Elements also expose callback attributes for direct event handling —
+`on_double_click`, `on_context_menu`, `Table.on_row_click`,
+`TextInput.on_submit`, and low-level drag-and-drop hooks. See the
+[event handling guide](https://thomas-villani.github.io/wijjit/user_guide/event_handling.html)
+for the complete reference.
 
 ### Layout System
 
@@ -412,53 +315,33 @@ content), or a percentage (`"50%"`).
 {% endpager %}
 ```
 
-Each container has a fuller set of attributes (`justify`/`wrap`/`gap` on HStack,
-`collapsible`/`divider_style` on SplitPanel, `loop`/`nav_position` on Pager, …).
-See the [Layout guide](https://thomas-villani.github.io/wijjit/) for the complete
-reference.
+See the [Layout guide](https://thomas-villani.github.io/wijjit/user_guide/layout_system.html)
+for the complete reference.
 
 ### Modal Dialogs
 
-Built-in dialog components:
-
 ```python
-from wijjit.tags.dialogs import ConfirmDialog, AlertDialog, TextInputDialog
+from wijjit import ConfirmDialog, AlertDialog, TextInputDialog
 
-# Confirmation dialog
 dialog = ConfirmDialog(
     title="Confirm",
     message="Are you sure?",
     on_confirm=lambda: print("Confirmed!"),
-    on_cancel=lambda: print("Cancelled")
-)
-app.show_modal(dialog)
-
-# Alert dialog
-dialog = AlertDialog(
-    title="Success",
-    message="Operation completed!",
-    on_ok=lambda: app.navigate("main")
-)
-app.show_modal(dialog)
-
-# Input dialog
-dialog = TextInputDialog(
-    title="Enter Name",
-    prompt="What's your name?",
-    on_submit=lambda value: handle_input(value)
+    on_cancel=lambda: print("Cancelled"),
 )
 app.show_modal(dialog)
 ```
 
+`AlertDialog` and `TextInputDialog` follow the same shape.
+
 ### Inline Rendering
 
-For CLI tools that don't need full-screen mode, Wijjit provides inline rendering that outputs styled content directly to terminal scrollback:
+For CLI tools that don't need full-screen mode, Wijjit renders styled content
+directly to terminal scrollback:
 
-**One-shot rendering with `render_inline()`:**
 ```python
 from wijjit import render_inline
 
-# Render styled output directly to terminal
 render_inline('''
 {% frame title="Results" border="rounded" %}
   {% vstack %}
@@ -469,49 +352,28 @@ render_inline('''
 ''', status="Complete", count=42)
 ```
 
-**Interactive inline apps with `InlineApp`:**
+`InlineApp` extends this to interactive, in-place-updating output (progress
+bars, live status, even keyboard input) without taking over the screen:
+
 ```python
 import asyncio
 from wijjit import InlineApp
 
-template = '''
-{% frame title="Progress" %}
-  {% progressbar value=state.progress max=100 %}{% endprogressbar %}
-  {{ state.status }}
-{% endframe %}
-'''
-
 async def main():
-    async with InlineApp(template, initial_state={"progress": 0, "status": "Starting"}) as app:
+    template = '{% progressbar value=state.progress max_value=100 %}{% endprogressbar %}'
+    async with InlineApp(template, initial_state={"progress": 0}) as app:
         for i in range(101):
             app.state.progress = i
-            app.state.status = f"Processing... {i}%"
             await asyncio.sleep(0.05)
-        app.state.status = "Complete!"
 
 asyncio.run(main())
-```
-
-**Interactive forms with keyboard input:**
-```python
-template = '''
-{% frame title="Quick Input" %}
-  Name: {% textinput id="name" %}{% endtextinput %}
-  Press Ctrl+Q when done
-{% endframe %}
-'''
-
-async with InlineApp(template, enable_input=True, quit_key="ctrl+q") as app:
-    await app.wait()  # Wait for quit key
-
-print(f"You entered: {app.state.name}")
 ```
 
 ## Component Library
 
 Wijjit ships 30+ elements. Each has a template tag and a Python class; see the
-[component reference](https://thomas-villani.github.io/wijjit/) for every
-attribute.
+[component reference](https://thomas-villani.github.io/wijjit/user_guide/components.html)
+for every attribute.
 
 - **Input**: TextInput (with `password` masking), TextArea, CodeEditor
   (syntax-highlighted, 500+ languages), DataGrid (spreadsheet-style), Button,
@@ -524,6 +386,46 @@ attribute.
 - **Layout**: Frame, VStack, HStack, SplitPanel, TabbedPanel, Pager.
 - **Dialogs & menus**: ConfirmDialog, AlertDialog, TextInputDialog, DropdownMenu,
   ContextMenu.
+
+## Performance
+
+Wijjit renders through a virtual DOM into a cell-based screen buffer, then
+writes only the cells that actually changed.
+
+On a 200x60 terminal, a full repaint of a dashboard (a table, two charts, and a
+button row) writes **15,949 bytes**. Advancing the sparkline by one tick writes
+**39 bytes**. A frame in which nothing changed writes **nothing at all**. That
+is what keeps a Wijjit app flicker-free and responsive over SSH.
+
+| Dashboard frame | 80x24 | 200x60 |
+| --- | --- | --- |
+| Bytes written, full repaint | 3,696 B | 15,949 B |
+| Bytes written, one change | 39 B | 39 B |
+| Bytes written, idle frame | 0 B | 0 B |
+| Render time, full repaint | ~7 ms | ~20 ms |
+| Render time, one change | ~8 ms | ~25 ms |
+
+Reproduce with `uv run python scripts/bench_perf.py`. The byte counts are
+deterministic and regression-tested; the timings come from one Windows machine,
+vary by tens of percent with system load, and are rounded accordingly.
+
+Note that the diff renderer costs slightly *more* CPU than a blind repaint — it
+compares every cell — and buys a large reduction in terminal I/O in exchange.
+The [performance guide](https://thomas-villani.github.io/wijjit/user_guide/performance.html)
+has the full picture, including how to profile your own app.
+
+## Accessibility
+
+Wijjit honors the [`NO_COLOR`](https://no-color.org/) environment variable and
+can fall back to ASCII box-drawing, so apps stay usable on limited terminals:
+
+```bash
+NO_COLOR=1 python myapp.py                       # no ANSI color
+WIJJIT_UNICODE_SUPPORT=disable python myapp.py   # ASCII borders, not box-drawing
+```
+
+Under `NO_COLOR`, text attributes such as bold and reverse video are preserved,
+so focus and selection remain visible without relying on color.
 
 ## Examples
 
@@ -543,120 +445,43 @@ chat), `apps/spreadsheet.py` (editable DataGrid + live chart), `widgets/charts_d
 `advanced/filesystem_browser.py` (tree-based file browser). See
 [`examples/README.md`](examples/README.md) for the full categorized catalog.
 
-## Architecture
-
-Wijjit follows a layered architecture:
-
-```
-┌─────────────────────────────────────────────────┐
-│              User Application                    │
-│  (View functions, state management, handlers)   │
-└────────────────┬────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────┐
-│            Wijjit Core API                      │
-│  - App class & view decorator                   │
-│  - Navigation system                            │
-│  - Global state management                      │
-└──────────────┬──────────────────────────────────┘
-               │
-    ┌──────────┼────────┐
-    │          │        │
-┌───▼───┐   ┌──▼───┐ ┌──▼────────┐
-│Template│  │Layout│ │ Terminal  │
-│ Engine │  │Engine│ │  I/O      │
-└───┬───┘   └──┬───┘ └──┬────────┘
-    │          │        │
-┌───▼──────────▼────────▼─────────────────────────┐
-│         Rendering Pipeline                      │
-│  1. Parse template → Element tree               │
-│  2. Calculate layout → Coordinates              │
-│  3. Render elements → ANSI strings              │
-│  4. Composite → Terminal output                 │
-└─────────────────────────────────────────────────┘
-```
-
-### Module Structure
-
-- **`wijjit/core/`**: App, state, renderer, events, focus, hover, overlay
-- **`wijjit/terminal/`**: ANSI utilities, screen management, input handling, mouse support
-- **`wijjit/layout/`**: Layout engine, frames, bounds calculation, scrolling
-- **`wijjit/elements/`**: Base classes and all interactive/display elements
-- **`wijjit/tags/`**: Jinja2 template tags for UI elements
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-python -m pytest
-
-# Run with verbose output
-python -m pytest -v
-
-# Run specific test file
-python -m pytest tests/terminal/test_ansi.py -v
-
-# Run with coverage
-python -m pytest --cov=src/wijjit --cov-report=html
-```
-
-### Code Quality
-
-```bash
-# Format code
-black src/ tests/
-
-# Type checking
-mypy src/
-
-# Linting
-ruff check src/ tests/
-```
-
 ## Developer Tooling & Testing
 
 Wijjit ships a `wijjit` command-line tool for inspecting, validating, and
-driving apps - useful both for humans and for LLM agents diagnosing layout or
+driving apps — useful both for humans and for LLM agents diagnosing layout or
 template issues. `validate` and `tree` accept **either** a raw template file
-(`.wij` / `.html` / `.txt`) **or** a full example `.py` app (auto-detected by
-the `.py` suffix).
+**or** a full `.py` app (auto-detected by the `.py` suffix).
 
 ```bash
 # Lint a template (or app): reports syntax errors, unknown tags, undefined
 # variables, unknown element types/attributes. Add --render for a snapshot.
-wijjit validate myform.wij --render
+wijjit validate myform.wij.j2 --render
 wijjit validate examples/advanced/login_form.py
-wijjit validate myform.wij --json          # machine-readable findings
+wijjit validate myform.wij.j2 --json       # machine-readable findings
 
 # Dump the VNode "DOM" tree a template produces (text or JSON)
-wijjit tree myform.wij
-wijjit tree myform.wij --json
-wijjit tree myform.wij --context ctx.json --size 100x30
+wijjit tree myform.wij.j2 --json
+wijjit tree myform.wij.j2 --context ctx.json --size 100x30
 
-# Render an app headlessly with scripted input (ports python -m wijjit.testing)
+# Render an app headlessly with scripted input
 wijjit render examples/widgets/spinner_demo.py --tick 5
 wijjit render examples/advanced/login_form.py \
     --size 100x30 --keys "tab,type:admin,tab,type:secret,enter" --ansi
 
-# Launch a .py app interactively in this terminal
+# Launch a .py app interactively, or run your tests
 wijjit run examples/advanced/login_form.py
-
-# Run your test suite (passthrough to pytest)
 wijjit test -k login tests/
+wijjit --version
 ```
 
-`python -m wijjit <command>` works as well, and the older
-`python -m wijjit.testing <example>` still drives the headless renderer.
+`python -m wijjit <command>` works as well.
 
 ### Testing your own apps
 
-Installing Wijjit registers a **pytest plugin** that provides `wijjit_harness`
-and `wijjit_make_app` fixtures (opt out with `-p no:wijjit`). The fixture names
-are `wijjit_`-prefixed so they never shadow your own fixtures. The
-`wijjit_harness` fixture builds and starts a `WijjitHarness` from a `Wijjit` app
-**or** a bare template string, and closes it automatically at teardown:
+Installing Wijjit registers a **pytest plugin** providing `wijjit_harness` and
+`wijjit_make_app` fixtures (opt out with `-p no:wijjit`). The harness drives a
+real app without a TTY, feeding scripted keys and mouse events through the
+actual event-loop dispatch:
 
 ```python
 TEMPLATE = """
@@ -674,145 +499,62 @@ def test_login_flow(wijjit_harness):
     h.assert_no_errors()
 ```
 
-Build an app from a template without a fixture (e.g. for non-pytest scripts)
-with `app_from_template`:
-
-```python
-from wijjit import app_from_template
-from wijjit.testing import WijjitHarness
-
-app = app_from_template(TEMPLATE, state={"user": ""},
-                        actions={"login": my_login_handler})
-with WijjitHarness(app) as h:
-    ...
-```
-
-New `WijjitHarness` assertions: `assert_no_errors()` (no render/handler errors),
-`assert_tree_contains(type=, key=, props=)`, and `assert_screen(snapshot)` (for
-a syrupy snapshot). The `wijjit_app` / `wijjit_snapshot` markers are registered
-by the plugin.
+Outside pytest, `app_from_template(...)` builds a drivable app from a bare
+template. See the
+[testing guide](https://thomas-villani.github.io/wijjit/user_guide/testing_apps.html).
 
 ## Project Status
 
-Wijjit `0.1.0` is the first public release. The core framework is
-**stable and feature-complete for 0.1.0**, with the full element, layout, event,
-and rendering pipelines implemented and covered by a large test suite. A handful
-of known limitations remain (see below).
+Wijjit `0.1.0` is the first public release. The core framework is stable and
+feature-complete for this milestone: the element, layout, event, and rendering
+pipelines are all implemented and covered by roughly 3,000 tests running on
+Linux, macOS, and Windows across Python 3.11–3.13.
 
-### Working Features ✓
+See the [CHANGELOG](CHANGELOG.md) for what shipped and
+[`roadmap.md`](roadmap.md) for what's next.
 
-- ✅ Core App API with view decorator
-- ✅ State management with change detection and watchers
-- ✅ Async/await support for event handlers and callbacks
-- ✅ Template rendering with Jinja2
-- ✅ Layout engine (VStack, HStack, Frame, SplitPanel)
-- ✅ All input elements (TextInput, TextArea, CodeEditor, Button, Checkbox, Radio, Select)
-- ✅ All display elements (ContentView, Table, Tree, ListView, LogView, Progress, Spinner, Notification)
-- ✅ Data visualization (BarChart, LineChart, ColumnChart, Gauge, HeatMap, Sparkline)
-- ✅ Focus management with Tab navigation
-- ✅ Mouse support (click, scroll, hover)
-- ✅ Scrolling system with scrollbars (vertical and horizontal)
-- ✅ Modal/overlay system with dialogs
-- ✅ Inline rendering (render_inline, InlineApp with keyboard input)
-- ✅ Job control with Ctrl+Z suspend/resume (Unix)
-- ✅ Event handling and dispatch
-- ✅ ThreadPoolExecutor for non-blocking I/O
-- ✅ ANSI-aware text rendering
-- ✅ 72 working examples
-- ✅ Comprehensive test suite (3,000+ tests)
+### Known limitations
 
-### Known Limitations
-
-- **Performance**: Not optimized for large datasets (no virtual scrolling)
-- **Windows**: Some Unicode characters may not display correctly
-- **Plugin System**: Framework is monolithic (no plugin architecture)
-
-### Planned Features (Future)
-
-- Hot reload for templates
-- Visual debugger/inspector
-- Animation/transition support
-- Drag-and-drop manager (callbacks defined, manager not yet implemented)
-- Virtual scrolling for large datasets
-- Plugin system
-
-## Use Cases
-
-Wijjit is ideal for:
-
-- ✅ CLI tools with styled output (using inline rendering)
-- ✅ CLI tools with forms (login, data entry, configuration)
-- ✅ System monitoring dashboards
-- ✅ File browsers and managers
-- ✅ Log viewers and analyzers
-- ✅ Data tables with sorting/filtering
-- ✅ Interactive configuration editors
-- ✅ Terminal-based admin interfaces
-- ✅ Progress indicators and status displays
-
-Not recommended for:
-
-- ❌ High-performance real-time applications
-- ❌ Applications requiring complex animations
-- ❌ Large-scale applications needing code splitting
-- ❌ Applications requiring extensive plugin systems
-
-## Dependencies
-
-**Core:**
-- `jinja2>=3.1.6` - Template engine
-- `prompt-toolkit>=3.0.36` - Terminal I/O
-- `rich>=13.7.1` - ANSI rendering and tables
-- `pygments>=2.15.0` - Syntax highlighting (CodeEditor)
-- `pyperclip>=1.8.2` - Clipboard access (copy/paste)
-- `tinycss2>=1.2.1` - CSS parsing for theming
-- `wcwidth>=0.2.5` - Wide/East-Asian character width
-
-**Optional:**
-- `pillow>=12.0.0` - `ImageView` / ASCII image rendering (the `images` extra)
-
-**Development:**
-- `pytest>=8.4.2` - Testing
-- `pytest-cov>=6.0.0` - Coverage
-- `black>=25.9.0` - Code formatting
-- `mypy>=1.18.2` - Type checking
-- `ruff>=0.14.2` - Linting
+- **No virtual scrolling.** Every row of a `Table`, `ListView`, or `Tree` is
+  laid out on each render. A few thousand rows is comfortable; a hundred
+  thousand is not — page or filter large datasets before rendering them.
+- **Wide characters render at single width.** The screen buffer models one cell
+  per column, so CJK text and emoji can misalign. Tracked for 0.1.1.
+- **No plugin system and no hot template reload.** Both are on the roadmap.
+- **Some Windows alt-key combinations** are not delivered by the underlying
+  terminal input layer.
 
 ## Documentation
 
-- **README.md** (this file) - Overview and quick start
-- **CLAUDE.md** - Development guide and architecture
-- **docs/** - Full Sphinx documentation (build with `cd docs && make html`)
-- **examples/** - 72 working examples
-- **tests/** - Comprehensive test suite showing usage patterns
+- **[Full documentation](https://thomas-villani.github.io/wijjit/)** — guides and API reference
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — development setup, tests, and the CI gates
+- **[CLAUDE.md](CLAUDE.md)** — architecture guide for AI agents working in this repo
+- **`examples/`** — 72 working examples
+- **`tests/`** — a large test suite that doubles as usage documentation
 
-Build the documentation locally:
-```bash
-cd docs
-make html
-# Open docs/build/html/index.html in your browser
-```
+Build the docs locally with `cd docs && make html`.
 
 ## Contributing
 
-Wijjit is currently in active development. Contributions are welcome!
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup and
+the CI gates (`black`, `ruff`, `mypy --strict`, `pytest`).
 
-Areas where contributions would be particularly helpful:
+Areas where help would be particularly valuable:
+
 - Performance optimization (virtual scrolling, render caching)
-- Windows terminal compatibility improvements
+- Wide-character / East-Asian text support in the screen buffer
+- Windows terminal compatibility
 - Additional examples and tutorials
-- Bug fixes and edge case handling
 
 ## License
 
-MIT License
+MIT License. See [LICENSE](LICENSE).
 
 ## Credits
 
-Wijjit is built on the shoulders of giants:
-- **Jinja2** for templating
-- **prompt-toolkit** for cross-platform terminal I/O
-- **Rich** for ANSI rendering and tables
+Wijjit is built on the shoulders of giants: **Jinja2** for templating,
+**prompt-toolkit** for cross-platform terminal I/O, and **Rich** for ANSI
+rendering and tables.
 
 ---
 

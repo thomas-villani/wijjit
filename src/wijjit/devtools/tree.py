@@ -118,7 +118,7 @@ def build_vnode_tree(
     Parameters
     ----------
     file : str or Path
-        A template file (``.wij`` / ``.html`` / ``.txt`` ...) or an example
+        A template file (``.wij.j2`` / ``.html`` / ``.txt`` ...) or an example
         ``.py`` app (auto-detected by the ``.py`` suffix).
     context : dict, optional
         Template variables (template files only).

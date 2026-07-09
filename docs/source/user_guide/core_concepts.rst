@@ -22,7 +22,7 @@ Views and routing
 Views describe what should be rendered for a given route. ``@app.view("name", default=True)`` registers the function with :class:`wijjit.core.view_router.ViewRouter`. A view returns what to render via the Flask-style helpers:
 
 * :func:`wijjit.render_template_string` – an inline Jinja template plus its context (``return render_template_string(SOURCE, title="Home")``).
-* :func:`wijjit.render_template` – a template *file* from the template directory plus its context (``return render_template("dashboard.tui", stats=stats)``).
+* :func:`wijjit.render_template` – a template *file* from the template directory plus its context (``return render_template("dashboard.wij.j2", stats=stats)``).
 
 Lifecycle hooks go on the decorator – ``@app.view("name", default=True, on_enter=setup, on_exit=teardown)`` – not in the return value. Context is passed as keyword arguments and flattened into top-level template variables; ``state`` is auto-injected. (The legacy ``{"template"/"template_file"/"data"/"on_enter"/"on_exit": ...}`` dict return is still accepted for backward compatibility.)
 

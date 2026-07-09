@@ -1,7 +1,7 @@
 """Templates-directory demo: file-based templates with auto-discovery.
 
 Most Wijjit examples keep their UI in inline ``render_template_string`` strings.
-This one shows the Flask-style alternative: the UI lives in ``templates/*.tui``
+This one shows the Flask-style alternative: the UI lives in ``templates/*.wij.j2``
 files that sit next to this module, and views load them with
 :func:`wijjit.render_template`.
 
@@ -19,9 +19,9 @@ Layout::
     templates_dir_demo/
         app.py
         templates/
-            _header.tui      # shared partial, {% include %}-ed by both views
-            home.tui         # the default "home" view
-            dashboard.tui    # the "dashboard" view
+            _header.wij.j2      # shared partial, {% include %}-ed by both views
+            home.wij.j2         # the default "home" view
+            dashboard.wij.j2    # the "dashboard" view
 """
 
 from wijjit import Wijjit, render_template
@@ -37,11 +37,11 @@ app = Wijjit(
 
 @app.view("home", default=True)
 def home_view():
-    # render_template loads templates/home.tui from the discovered directory.
+    # render_template loads templates/home.wij.j2 from the discovered directory.
     # Context is passed as keyword arguments, just like render_template_string;
     # because the view re-runs every render, "clicks" stays live.
     return render_template(
-        "home.tui",
+        "home.wij.j2",
         title="Home",
         clicks=app.state.clicks,
     )
@@ -55,7 +55,7 @@ def dashboard_view():
         {"label": "Uptime", "value": "17h 42m"},
     ]
     return render_template(
-        "dashboard.tui",
+        "dashboard.wij.j2",
         title="Dashboard",
         rows=rows,
         clicks=app.state.clicks,

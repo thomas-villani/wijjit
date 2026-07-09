@@ -135,8 +135,8 @@ your app and adopts it automatically:
     myapp/
         app.py            # builds  app = Wijjit()
         templates/
-            home.tui
-            dashboard.tui
+            home.wij.j2
+            dashboard.wij.j2
 
 Load a file with :func:`wijjit.render_template`, passing context as keyword
 arguments exactly like the inline form:
@@ -149,9 +149,9 @@ arguments exactly like the inline form:
 
     @app.view("dashboard", default=True)
     def dashboard_view():
-        return render_template("dashboard.tui", stats=get_stats())
+        return render_template("dashboard.wij.j2", stats=get_stats())
 
-``dashboard.tui`` is an ordinary Wijjit/Jinja template using the same tags and
+``dashboard.wij.j2`` is an ordinary Wijjit/Jinja template using the same tags and
 ``{{ state.x }}`` injection as inline templates:
 
 .. code-block:: jinja
@@ -163,7 +163,7 @@ arguments exactly like the inline form:
       {% endvstack %}
     {% endframe %}
 
-The ``.tui`` extension is only a convention; the loader accepts any filename.
+The ``.wij.j2`` extension is only a convention; the loader accepts any filename.
 File templates can ``{% include %}`` / ``{% import %}`` / ``{% extends %}`` other
 files in the directory, so shared headers, footers, and macro libraries work just
 as they do on the web.
@@ -184,7 +184,7 @@ none is discovered, the app renders inline templates only, and calling
 disk on the next render – handy while iterating on layout.
 
 A complete runnable example lives in ``examples/advanced/templates_dir_demo/`` –
-two views backed by ``*.tui`` files in an auto-discovered ``templates/``
+two views backed by ``*.wij.j2`` files in an auto-discovered ``templates/``
 directory, sharing a header via ``{% include %}``.
 
 Binding data into templates
@@ -209,6 +209,6 @@ Best practices
 * **Name every interactive element** – predictable ``id`` values make debugging focus/state wiring easier.
 * **Prefer stacks over manual padding** – ``{% vstack padding=1 spacing=1 %}`` usually beats sprinkling blank lines.
 * **Extract macros** – Jinja macros (``{% macro toolbar(title) %}…{% endmacro %}``) help reuse repeated component combinations.
-* **Co-locate with views** – for larger apps, store templates under ``templates/<view>.tui`` and load them with ``render_template("dashboard.tui", ...)``.
+* **Co-locate with views** – for larger apps, store templates under ``templates/<view>.wij.j2`` and load them with ``render_template("dashboard.wij.j2", ...)``.
 
 With these building blocks you can mix-and-match UI primitives without writing a single cursor-math statement. Continue with :doc:`event_handling` to make those templates interactive.

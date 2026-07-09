@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 First public release.
 
 ### Added
+- **`wijjit --version`**: the CLI now reports the installed version.
+- **Performance benchmarks**: `scripts/bench_perf.py` measures render latency,
+  terminal I/O per frame, and import cost, emitting a text, Markdown, or JSON
+  report. The byte counts are regression-tested in
+  `tests/core/test_diff_render_bytes.py`, and a new `user_guide/performance`
+  documentation page covers the results and how to profile your own app.
+- `wijjit.config.no_color_from_env()` and
+  `wijjit.terminal.ansi.refresh_no_color_from_env()` for resolving `NO_COLOR`
+  from the environment.
 - **Flask-style view rendering**: `render_template_string(src, **context)` and
   `render_template(name, **context)` return a `RenderedView`, replacing the
   `{"template": ..., "data": {...}}` dict as the idiomatic view return. Lifecycle
@@ -21,7 +30,7 @@ First public release.
   render). The legacy dict return still works and is also live now.
 - **Flask-style template directory**: when `template_dir` is not set, Wijjit
   auto-discovers a `templates/` directory next to the module that constructs the
-  app, so `render_template("home.tui", ...)` works zero-config. `render_template`
+  app, so `render_template("home.wij.j2", ...)` works zero-config. `render_template`
   against a missing directory/file now raises an actionable error, and
   `TEMPLATE_AUTO_RELOAD` is wired into Jinja2 for hot-reloading file templates
   during development.
@@ -54,6 +63,24 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **`NO_COLOR` had no effect on rendered output.** The setting was only honored
+  by the legacy `colorize()` string helper; the cell-based renderer that draws
+  every real app emitted color regardless. `Cell.to_ansi()` and
+  `Cell.get_style_codes()` now suppress foreground/background colors when
+  `NO_COLOR` is in effect, while preserving text attributes (bold, reverse) so
+  focus and selection stay visible without color.
+- **`NO_COLOR=""` incorrectly disabled color.** Both `DefaultConfig.NO_COLOR`
+  and `ansi.is_no_color()` treated mere *presence* of the variable as enabling
+  it. Per [no-color.org](https://no-color.org/) it must be present *and
+  non-empty*.
+- **`NO_COLOR` was snapshotted at import time.** `DefaultConfig.NO_COLOR` is a
+  class attribute evaluated when `wijjit.config` is first imported, so setting
+  the variable after `import wijjit` had no effect. `Wijjit.__init__` now
+  re-reads the environment, before the `WIJJIT_*` and keyword overrides that
+  still take precedence over it.
+- `ansi.is_no_color()` took a lock and re-read `os.environ` on every call. It
+  runs once per rendered cell, where that cost more than the rest of the cell's
+  ANSI generation combined; it is now a cached, lock-free read.
 - **Autocomplete mouse selection**: clicking a suggestion in the popup now
   commits it to the input (previously only the keyboard Enter/Tab path applied
   the selection; a click just moved the highlight).
@@ -72,6 +99,15 @@ First public release.
   `uv build` / packaging.
 
 ### Changed
+- **Template files are conventionally named `*.wij.j2`** (was `*.tui`), so
+  editors syntax-highlight them as Jinja. The extension is not enforced:
+  `validate` and `tree` detect apps by the `.py` suffix and treat anything else
+  as a template.
+- Expanded the PyPI `keywords` list for discoverability.
+- README trimmed and corrected: dropped a duplicated feature list, the inline
+  dependency version pins, and the self-contradictory "not optimized / not
+  recommended for high-performance applications" language that the measured
+  benchmarks contradict. Added performance and accessibility sections.
 - **Inner-text discipline**: `{% textinput %}` now uses its tag body as the
   initial value when no `value=` is given, and `{% button %}` / `{% menuitem %}`
   accept a `label=` attribute as an alternative to the body (the attribute wins

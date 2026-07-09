@@ -695,8 +695,13 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
     return output
 
 
-# Module-level color mode setting (None = check env var, True = no color, False = use color)
+# Module-level color mode setting (None = fall back to the env snapshot below,
+# True = no color, False = use color)
 _no_color: bool | None = None
+# Snapshot of the NO_COLOR environment variable, refreshed via
+# refresh_no_color_from_env(). Cached because is_no_color() runs once per
+# rendered cell and os.environ lookups are comparatively expensive.
+_no_color_env: bool = bool(os.environ.get("NO_COLOR"))
 # Lock for thread-safe access to global color/unicode settings
 # InputHandler runs in a separate thread, so these settings need protection
 _settings_lock = threading.Lock()
@@ -723,6 +728,24 @@ def set_no_color(enabled: bool) -> None:
         _no_color = enabled
 
 
+def refresh_no_color_from_env() -> None:
+    """Re-read the ``NO_COLOR`` environment variable into the cached snapshot.
+
+    Call this after mutating ``os.environ["NO_COLOR"]`` at runtime. Applications
+    do not normally need it: :class:`~wijjit.core.app.Wijjit` reads the
+    environment during construction and calls :func:`set_no_color`, which takes
+    precedence over the snapshot.
+
+    Notes
+    -----
+    Follows https://no-color.org/: color is disabled when ``NO_COLOR`` is
+    present *and* non-empty.
+    """
+    global _no_color_env
+    with _settings_lock:
+        _no_color_env = bool(os.environ.get("NO_COLOR"))
+
+
 def is_no_color() -> bool:
     """Check if colors are disabled.
 
@@ -735,14 +758,18 @@ def is_no_color() -> bool:
     -----
     Checks in order:
     1. Module-level setting (set via set_no_color())
-    2. NO_COLOR environment variable
+    2. Cached NO_COLOR environment snapshot (see refresh_no_color_from_env),
+       per https://no-color.org/: the variable disables color when present
+       *and* non-empty.
 
-    Thread-safe: Uses a lock to protect global state.
+    Thread-safe without taking ``_settings_lock``: reading a single module
+    global is atomic under the GIL, and writers publish a fully-formed value.
+    Both matter because :meth:`wijjit.terminal.cell.Cell.to_ansi` calls this
+    once per rendered cell -- taking a lock and re-reading ``os.environ`` there
+    cost more than the rest of the cell's ANSI generation combined.
     """
-    with _settings_lock:
-        if _no_color is not None:
-            return _no_color
-    return os.environ.get("NO_COLOR") is not None
+    override = _no_color
+    return _no_color_env if override is None else override
 
 
 def colorize(

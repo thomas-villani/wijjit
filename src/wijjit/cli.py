@@ -3,17 +3,19 @@
 Developer- and LLM-friendly tooling for inspecting, validating, and driving
 Wijjit apps::
 
-    wijjit validate app.wij --render        # lint a template, show a snapshot
-    wijjit validate examples/login.py        # lint a full example app
-    wijjit tree app.wij --json               # dump the VNode "DOM" tree
+    wijjit validate app.wij.j2 --render          # lint a template, show a snapshot
+    wijjit validate examples/login.py            # lint a full example app
+    wijjit tree app.wij.j2 --json                # dump the VNode "DOM" tree
     wijjit render examples/spinner.py --tick 5   # headless render
-    wijjit run examples/login.py             # launch an app in this terminal
-    wijjit test -k login tests/              # pass through to pytest
+    wijjit run examples/login.py                 # launch an app in this terminal
+    wijjit test -k login tests/                  # pass through to pytest
 
 ``validate`` and ``tree`` auto-detect their input: a ``.py`` file is loaded as a
-full app, anything else is treated as a raw template. The ``render`` subcommand
-ports ``python -m wijjit.testing`` (which still works as before). ``run``
-launches a ``.py`` app interactively; ``test`` forwards to pytest.
+full app, anything else is treated as a raw template. Template files are
+conventionally named ``*.wij.j2`` so editors highlight them as Jinja, but the
+extension is not enforced. The ``render`` subcommand ports ``python -m
+wijjit.testing`` (which still works as before). ``run`` launches a ``.py`` app
+interactively; ``test`` forwards to pytest.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from wijjit import __version__
 from wijjit.testing.cli import _parse_size, run_render
 
 
@@ -116,6 +119,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wijjit",
         description="Wijjit developer tooling: validate, inspect, and drive apps.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"wijjit {__version__}",
+        help="Show the installed Wijjit version and exit.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

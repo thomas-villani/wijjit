@@ -1,5 +1,8 @@
 """Tests for Cell class."""
 
+import pytest
+
+from wijjit.terminal import ansi
 from wijjit.terminal.cell import Cell
 
 
@@ -315,3 +318,88 @@ class TestCell:
         cell = Cell("D", dim=True)
         ansi = cell.to_ansi()
         assert "2" in ansi  # Dim code
+
+
+class TestCellNoColor:
+    """Cells must honor the NO_COLOR standard (https://no-color.org/).
+
+    The cell renderer is the only place the production pipeline emits SGR color
+    parameters, so suppressing them here suppresses them everywhere. Text
+    attributes are deliberately preserved: NO_COLOR suppresses color, not
+    styling, and bold/reverse are how focus stays visible without color.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _restore_no_color(self):
+        """Reset the module-level no-color override and env snapshot."""
+        yield
+        ansi._no_color = None
+        ansi.refresh_no_color_from_env()
+
+    def test_colors_suppressed_when_no_color_enabled(self):
+        ansi.set_no_color(True)
+        cell = Cell("A", fg_color=(255, 0, 0), bg_color=(0, 0, 255))
+
+        assert "38;2" not in cell.to_ansi()
+        assert "48;2" not in cell.to_ansi()
+        assert "38;2" not in cell.get_style_codes()
+        assert "48;2" not in cell.get_style_codes()
+
+    def test_character_still_rendered_when_no_color_enabled(self):
+        ansi.set_no_color(True)
+        cell = Cell("A", fg_color=(255, 0, 0))
+
+        assert cell.to_ansi().endswith("A") or "A" in cell.to_ansi()
+
+    def test_text_attributes_survive_no_color(self):
+        """Bold and reverse are the color-free focus cues; they must remain."""
+        ansi.set_no_color(True)
+        cell = Cell("A", fg_color=(255, 0, 0), bold=True, reverse=True)
+
+        codes = cell.get_style_codes()
+        assert "1" in codes  # bold
+        assert "7" in codes  # reverse
+
+    def test_unstyled_cell_emits_bare_char_under_no_color(self):
+        ansi.set_no_color(True)
+        assert Cell("A", fg_color=(255, 0, 0)).to_ansi() == "A"
+
+    def test_colors_present_when_no_color_disabled(self):
+        ansi.set_no_color(False)
+        cell = Cell("A", fg_color=(255, 0, 0))
+
+        assert "38;2;255;0;0" in cell.to_ansi()
+
+    @pytest.mark.parametrize(
+        ("env_value", "expect_disabled"),
+        [
+            (None, False),  # unset
+            ("", False),  # present but empty: the standard says color stays ON
+            ("1", True),
+            ("0", True),  # any non-empty value disables color
+            ("false", True),
+        ],
+    )
+    def test_env_var_follows_no_color_standard(
+        self, monkeypatch, env_value, expect_disabled
+    ):
+        """https://no-color.org/ - set *and non-empty* disables color."""
+        if env_value is None:
+            monkeypatch.delenv("NO_COLOR", raising=False)
+        else:
+            monkeypatch.setenv("NO_COLOR", env_value)
+        ansi._no_color = None  # no explicit override; fall back to the env
+        ansi.refresh_no_color_from_env()
+
+        assert ansi.is_no_color() is expect_disabled
+
+        has_color = "38;2;255;0;0" in Cell("A", fg_color=(255, 0, 0)).to_ansi()
+        assert has_color is not expect_disabled
+
+    def test_explicit_override_beats_env_var(self, monkeypatch):
+        monkeypatch.setenv("NO_COLOR", "1")
+        ansi.refresh_no_color_from_env()
+        ansi.set_no_color(False)
+
+        assert ansi.is_no_color() is False
+        assert "38;2;255;0;0" in Cell("A", fg_color=(255, 0, 0)).to_ansi()

@@ -108,7 +108,7 @@ Complete mini-applications and advanced usage patterns.
 - **splitpanel_nested_demo.py** - Nested split panels (IDE-like three-pane layout)
 
 **Template Patterns:**
-- **templates_dir_demo/** - Flask-style file templates: views load `templates/*.tui`
+- **templates_dir_demo/** - Flask-style file templates: views load `templates/*.wij.j2`
   from an auto-discovered `templates/` directory and share a header via `{% include %}`
 - **template_demo.py** - Template features and patterns
 - **download_simulator.py** - Progress tracking simulation

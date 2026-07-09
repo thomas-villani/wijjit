@@ -1,8 +1,8 @@
 {% frame title=title border="rounded" width=70 height=18 %}
   {% vstack spacing=1 padding=1 %}
-    {% include "_header.tui" %}
+    {% include "_header.wij.j2" %}
 
-    Live metrics (rendered from templates/dashboard.tui):
+    Live metrics (rendered from templates/dashboard.wij.j2):
 
     {% for row in rows %}
     - {{ row.label }}: {{ row.value }}

@@ -10,6 +10,7 @@ This module tests all chart visualization elements including:
 - HeatMap
 """
 
+from tests.helpers import buffer_has_fg, render_element_buffer
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.barchart import BarChart
 from wijjit.elements.display.chart_utils import (
@@ -28,7 +29,6 @@ from wijjit.elements.display.gauge import Gauge
 from wijjit.elements.display.heatmap import HeatMap
 from wijjit.elements.display.linechart import LineChart
 from wijjit.elements.display.sparkline import Sparkline
-from tests.helpers import buffer_has_fg, render_element_buffer
 from wijjit.layout.bounds import Bounds
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver

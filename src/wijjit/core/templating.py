@@ -120,6 +120,6 @@ def render_template(name: str, /, **context: Any) -> RenderedView:
     --------
     >>> @app.view("dashboard")
     ... def dashboard_view():
-    ...     return render_template("dashboard.tui", stats=get_stats())
+    ...     return render_template("dashboard.wij.j2", stats=get_stats())
     """
     return RenderedView(template_file=name, context=dict(context))

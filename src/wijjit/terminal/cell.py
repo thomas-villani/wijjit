@@ -7,6 +7,8 @@ which enables efficient diff rendering, styling, and dirty region tracking.
 from dataclasses import dataclass
 from typing import Any
 
+from wijjit.terminal.ansi import is_no_color
+
 
 @dataclass(slots=True)
 class Cell:
@@ -159,6 +161,10 @@ class Cell:
         This generates the ANSI sequence needed to render this cell in a
         terminal. Used by the diff renderer to output styled text.
 
+        When ``NO_COLOR`` is in effect, foreground and background colors are
+        omitted while text attributes (bold, underline, reverse, ...) are kept.
+        Reverse video in particular is how focus stays visible without color.
+
         Examples
         --------
         >>> cell = Cell('A', fg_color=(255, 0, 0), bold=True)
@@ -166,9 +172,29 @@ class Cell:
         >>> '\\x1b[' in ansi  # Contains ANSI codes
         True
         """
+        codes = self._style_codes()
+
+        # Build ANSI sequence
+        if codes:
+            ansi_codes = ";".join(codes)
+            return f"\x1b[{ansi_codes}m{self.char}\x1b[0m"
+
+        return self.char
+
+    def _style_codes(self) -> list[str]:
+        """Build the SGR parameter list for this cell, honoring ``NO_COLOR``.
+
+        Returns
+        -------
+        list of str
+            SGR parameters, e.g. ``["1", "38;2;255;0;0"]``. Color parameters are
+            omitted entirely when :func:`~wijjit.terminal.ansi.is_no_color` is
+            true.
+        """
         codes = []
 
-        # Text attributes
+        # Text attributes are kept even under NO_COLOR: the standard suppresses
+        # color, not styling, and reverse video is the color-free focus cue.
         if self.bold:
             codes.append("1")
         if self.dim:
@@ -180,6 +206,9 @@ class Cell:
         if self.reverse:
             codes.append("7")
 
+        if is_no_color():
+            return codes
+
         # Foreground color (true color RGB)
         if self.fg_color is not None:
             r, g, b = self.fg_color
@@ -190,12 +219,7 @@ class Cell:
             r, g, b = self.bg_color
             codes.append(f"48;2;{r};{g};{b}")
 
-        # Build ANSI sequence
-        if codes:
-            ansi_codes = ";".join(codes)
-            return f"\x1b[{ansi_codes}m{self.char}\x1b[0m"
-
-        return self.char
+        return codes
 
     def get_style_codes(self) -> str:
         """Get ANSI style codes for this cell without character or reset.
@@ -211,6 +235,9 @@ class Cell:
         resetting after each cell. The reset is handled at end of styled
         regions or end of lines.
 
+        Colors are omitted when ``NO_COLOR`` is in effect; see
+        :meth:`to_ansi`.
+
         Examples
         --------
         >>> cell = Cell('A', fg_color=(255, 0, 0), bold=True)
@@ -218,29 +245,7 @@ class Cell:
         >>> codes
         '\\x1b[1;38;2;255;0;0m'
         """
-        codes = []
-
-        # Text attributes
-        if self.bold:
-            codes.append("1")
-        if self.dim:
-            codes.append("2")
-        if self.italic:
-            codes.append("3")
-        if self.underline:
-            codes.append("4")
-        if self.reverse:
-            codes.append("7")
-
-        # Foreground color (true color RGB)
-        if self.fg_color is not None:
-            r, g, b = self.fg_color
-            codes.append(f"38;2;{r};{g};{b}")
-
-        # Background color (true color RGB)
-        if self.bg_color is not None:
-            r, g, b = self.bg_color
-            codes.append(f"48;2;{r};{g};{b}")
+        codes = self._style_codes()
 
         # Build ANSI sequence (no char, no reset)
         if codes:
