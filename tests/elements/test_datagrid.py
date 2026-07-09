@@ -1,5 +1,7 @@
 """Tests for DataGrid input element."""
 
+import logging
+
 import pytest
 
 from tests.helpers import render_element
@@ -916,6 +918,36 @@ class TestDataGridPandasIntegration:
         # Overlong row truncated to the column count
         assert result.iloc[2]["name"] == "Carol"
         assert result.iloc[2]["age"] == "40"
+
+    def test_get_data_as_dataframe_warns_when_truncating(
+        self, pandas_available, caplog
+    ):
+        """Truncating an overlong row discards data, so it must not be silent."""
+        if not pandas_available:
+            pytest.skip("pandas not installed")
+
+        columns = [{"key": "name", "label": "Name"}]
+        grid = DataGrid(data=[["Alice", "discarded"]], columns=columns)
+
+        with caplog.at_level(logging.WARNING, logger="wijjit.elements.input.datagrid"):
+            grid.get_data_as_dataframe()
+
+        assert "truncated 1 row" in caplog.text
+
+    def test_get_data_as_dataframe_does_not_warn_when_padding(
+        self, pandas_available, caplog
+    ):
+        """Padding a short row loses nothing, so it should stay quiet."""
+        if not pandas_available:
+            pytest.skip("pandas not installed")
+
+        columns = [{"key": "name", "label": "Name"}, {"key": "age", "label": "Age"}]
+        grid = DataGrid(data=[["Alice"]], columns=columns)
+
+        with caplog.at_level(logging.WARNING, logger="wijjit.elements.input.datagrid"):
+            grid.get_data_as_dataframe()
+
+        assert "truncated" not in caplog.text
 
     def test_roundtrip_dataframe(self, pandas_available):
         """Test data can roundtrip through DataFrame format."""

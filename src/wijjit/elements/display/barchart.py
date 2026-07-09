@@ -343,6 +343,11 @@ class BarChart(ScrollableElement):
         bool
             True if event was handled
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         from wijjit.terminal.mouse import MouseButton
 
         if event.button == MouseButton.SCROLL_UP:

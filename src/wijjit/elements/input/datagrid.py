@@ -22,9 +22,12 @@ from wijjit.layout.scroll import (
     render_horizontal_scrollbar,
     render_vertical_scrollbar,
 )
+from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from wijjit.rendering.paint_context import PaintContext
@@ -756,11 +759,23 @@ class DataGrid(ScrollableElement):
 
         # Normalize each row to the column count so ragged data does not raise
         # (pandas requires every row to have exactly len(columns) values). Short
-        # rows are padded with empty strings; overlong rows are truncated.
+        # rows are padded with empty strings; overlong rows are truncated, which
+        # discards data, so say so rather than dropping cells silently.
         num_cols = len(keys)
-        normalized_rows = [
-            list(row)[:num_cols] + [""] * (num_cols - len(row)) for row in self.data
-        ]
+        normalized_rows = []
+        overlong = 0
+        for row in self.data:
+            values = list(row)
+            if len(values) > num_cols:
+                overlong += 1
+            normalized_rows.append(values[:num_cols] + [""] * (num_cols - len(values)))
+
+        if overlong:
+            logger.warning(
+                f"DataFrame conversion truncated {overlong} row(s) with more than "
+                f"{num_cols} value(s) to match the {num_cols} declared column(s); "
+                f"the extra values were discarded."
+            )
 
         # Create DataFrame
         return pd.DataFrame(normalized_rows, columns=keys)

@@ -63,6 +63,26 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **`on_double_click` and `on_context_menu` never fired.** Every element that
+  overrode `handle_mouse` consumed click events without delegating to
+  `Element.handle_mouse`, so both callbacks were silently dead. Fixed across all
+  inputs (Button, Checkbox, CheckboxGroup, Radio, RadioGroup, Select, Slider,
+  Toggle, TextInput, TextArea, DataGrid) and all display elements (Tree,
+  ListView, LogView, ContentView, BarChart, Link, Pager, TabbedPanel). `Table`
+  delegated only on a fallback path that its row-hit branch made unreachable.
+- **A right-click activated a `Button`.** `Button.handle_mouse` acted on any
+  mouse button. It now requires `MouseButton.LEFT`, so a right-click falls
+  through and the mouse router can open a context menu.
+- **A right-click on a `Table` header fired `on_header_click` and sorted the
+  column**, and a right-click on a data row was swallowed by the row-click
+  handler, so `on_context_menu` never fired on a table row. Row, cell, and
+  header interactions now require the left button. A double-click on a row with
+  no `on_row_double_click` set falls back to the element-level
+  `on_double_click` instead of being discarded.
+- **`DataGrid.get_data_as_dataframe()` raised on ragged rows.** Short rows are
+  padded and overlong rows truncated so pandas never sees a length mismatch.
+  Truncation discards data, so it now logs a warning instead of dropping cells
+  silently.
 - **`NO_COLOR` had no effect on rendered output.** The setting was only honored
   by the legacy `colorize()` string helper; the cell-based renderer that draws
   every real app emitted color regardless. `Cell.to_ansi()` and
@@ -99,6 +119,10 @@ First public release.
   `uv build` / packaging.
 
 ### Changed
+- **Setting `on_double_click` on a `Button` now suppresses activation on
+  double-click.** The base handler runs first and claims the event, so the
+  callback fires instead of the button activating. Without the callback, a
+  double-click still activates as before.
 - **Template files are conventionally named `*.wij.j2`** (was `*.tui`), so
   editors syntax-highlight them as Jinja. The extension is not enforced:
   `validate` and `tree` detect apps by the `.py` suffix and treat anything else

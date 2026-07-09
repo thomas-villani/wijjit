@@ -769,6 +769,11 @@ class TabbedPanel(Container):
         - Left clicks on tab labels to switch tabs
         - Scroll wheel events delegated to active frame for scrolling
         """
+        # Delegate to the base handler first so double-click / context-menu
+        # callbacks fire even though this element consumes click events.
+        if await super().handle_mouse(event):
+            return True
+
         if not self.bounds or not self.tabs:
             return False
 
