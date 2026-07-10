@@ -9,6 +9,7 @@ import asyncio
 import queue
 import sys
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Union
@@ -24,6 +25,16 @@ logger = get_logger(__name__)
 
 # Maximum paste size to prevent infinite loop from malicious/stuck input
 MAX_PASTE_SIZE = 1_000_000
+
+# How long the reader thread waits before re-polling prompt_toolkit when no
+# input is pending. prompt_toolkit's read_keys() never blocks, so this is the
+# only thing keeping the reader thread off a busy-spin.
+#
+# This is a floor, not a guarantee: Event.wait() rounds up to the OS timer
+# granularity, which on Windows is ~15ms. Worst-case added latency for the first
+# keystroke after an idle period is therefore about one 60Hz frame, which is not
+# perceptible. Lowering this value below the granularity buys nothing.
+IDLE_POLL_INTERVAL = 0.005
 
 
 class _ReaderError:
@@ -354,6 +365,13 @@ class InputHandler:
                             keys = self._input.read_keys()
                             if keys:
                                 self._input_queue.put(keys)
+                            else:
+                                # read_keys() is non-blocking and returns [] when
+                                # no input is pending, so an unthrottled loop here
+                                # burns a full CPU core while the app sits idle.
+                                # Waiting on the shutdown event instead of
+                                # sleeping keeps close() immediately responsive.
+                                self._shutdown.wait(IDLE_POLL_INTERVAL)
                         except KeyboardInterrupt as e:
                             # KeyboardInterrupt is expected/normal termination
                             logger.debug(
@@ -434,6 +452,29 @@ class InputHandler:
         except (TimeoutError, queue.Empty):
             return None
 
+    def _requeue(self, key_presses: Sequence[Any]) -> None:
+        """Push unconsumed key presses back for the next read.
+
+        A single ``read_keys()`` call can return several key presses at once
+        (a burst of typing, an escape sequence split across presses, or a key
+        arriving on the heels of a mouse event). Only one input event is
+        returned per ``read_input`` call, so anything left over must be held
+        rather than discarded.
+
+        Parameters
+        ----------
+        key_presses : Sequence[Any]
+            Unconsumed prompt_toolkit ``KeyPress`` objects, in arrival order.
+
+        Notes
+        -----
+        Presses are appended, not prepended. ``_key_queue`` is drained before a
+        new batch is read, so it is empty whenever a batch is being processed,
+        and appending therefore preserves chronological order.
+        """
+        if key_presses:
+            self._key_queue.extend(key_presses)
+
     def read_input(
         self, timeout: float | None = None
     ) -> Union[Key, "MouseEvent", None]:
@@ -463,6 +504,20 @@ class InputHandler:
         avoid spawning new threads for every timeout-based read, preventing
         thread leaks.
         """
+        # Unconsumed presses from the batch currently being processed. Anything
+        # still here when we return is pushed back for the next read.
+        pending: list[Any] = []
+
+        def take_next(wait: float) -> list[Any] | None:
+            """Get the next presses: leftovers, then queued, then a fresh read."""
+            nonlocal pending
+            if pending:
+                batch, pending = pending, []
+                return batch
+            if self._key_queue:
+                return [self._key_queue.pop(0)]
+            return self._get_keys_from_queue(timeout=wait)
+
         try:
             # Enter raw mode if not already in it
             if self._raw_mode is None:
@@ -523,8 +578,7 @@ class InputHandler:
                                 )
                             else:
                                 # Non-printable arrived, queue for later and stop
-                                for k in more_keys:
-                                    self._key_queue.append(k)
+                                pending = list(more_keys)
                                 break
 
                         if len(paste_chars) >= MAX_PASTE_SIZE:
@@ -535,42 +589,31 @@ class InputHandler:
                         # Return a synthetic paste key that includes all the text
                         return Key(pasted_text, KeyType.CHARACTER, pasted_text)
 
-                # Check for Alt+key (escape followed immediately by a character in same read)
-                if (
-                    len(keys) >= 2
-                    and keys[0].key == "escape"
-                    and len(keys[1].key) == 1
-                    and keys[1].key.isalpha()
-                ):
-                    alt_char = keys[1].key.lower()
-                    logger.debug(f"Detected Alt+{alt_char} from multi-key sequence")
-                    return Key(f"alt+{alt_char}", KeyType.CONTROL)
-
                 key_press = keys[0]
+                pending = list(keys[1:])
 
-                # If this is Escape, use timeout to check for Alt+key sequence
+                # If this is Escape, look ahead for an Alt+key sequence. The
+                # rest of this batch counts as lookahead: Alt+X is delivered as
+                # ESC then X, which may arrive in one read or two.
                 if key_press.key == "escape":
-                    logger.debug("Saw Escape, checking for Alt+key with timeout...")
-                    # Use small timeout (50ms) to distinguish Escape from Alt+key
-                    # Alt+key typically arrives within a few milliseconds
-                    # Use queue-based read for thread safety
-                    next_keys = self._get_keys_from_queue(timeout=0.05)
+                    logger.debug("Saw Escape, checking for Alt+key...")
+                    # 50ms is enough for Alt+key, which follows within a few ms.
+                    next_keys = take_next(0.05)
                     if next_keys:
                         next_key = next_keys[0]
                         logger.debug(f"Next key after Escape: {next_key.key!r}")
                         # If next key is a letter, return Alt+letter
                         if len(next_key.key) == 1 and next_key.key.isalpha():
                             alt_char = next_key.key.lower()
-                            logger.debug(
-                                f"Detected Alt+{alt_char} via timeout lookahead"
-                            )
+                            logger.debug(f"Detected Alt+{alt_char}")
+                            pending = list(next_keys[1:])
                             return Key(f"alt+{alt_char}", KeyType.CONTROL)
                         else:
-                            # Not Alt+key, queue the next key for later and return Escape
+                            # Not Alt+key, hold the lookahead and return Escape
                             logger.debug(
                                 f"Not Alt+key, queueing {next_key.key!r} for next read"
                             )
-                            self._key_queue.append(next_key)
+                            pending = list(next_keys)
                             # Fall through to return Escape normally
                     else:
                         # Timeout expired - it's a standalone Escape key
@@ -605,16 +648,19 @@ class InputHandler:
                     # Read until we get M or m (press or release)
                     buffer = bytearray(data_bytes)
                     while buffer and buffer[-1] not in (ord("M"), ord("m")):
-                        # Use queue-based read for thread safety (100ms timeout)
-                        more_keys = self._get_keys_from_queue(timeout=0.1)
-                        if more_keys and more_keys[0].data:
-                            more_data = more_keys[0].data
-                            if isinstance(more_data, str):
-                                buffer.extend(more_data.encode("utf-8"))
-                            else:
-                                buffer.extend(more_data)
-                        else:
+                        more_keys = take_next(0.1)
+                        if not more_keys:
                             break
+                        if not more_keys[0].data:
+                            # Not sequence data; hold it for the next read
+                            pending = list(more_keys)
+                            break
+                        more_data = more_keys[0].data
+                        pending = list(more_keys[1:])
+                        if isinstance(more_data, str):
+                            buffer.extend(more_data.encode("utf-8"))
+                        else:
+                            buffer.extend(more_data)
 
                     mouse_event = self.mouse_parser.parse_sgr(bytes(buffer))
                     if mouse_event:
@@ -625,16 +671,19 @@ class InputHandler:
                     # Need 6 bytes total for normal format
                     buffer = bytearray(data_bytes)
                     while len(buffer) < 6:
-                        # Use queue-based read for thread safety (100ms timeout)
-                        more_keys = self._get_keys_from_queue(timeout=0.1)
-                        if more_keys and more_keys[0].data:
-                            more_data = more_keys[0].data
-                            if isinstance(more_data, str):
-                                buffer.extend(more_data.encode("utf-8"))
-                            else:
-                                buffer.extend(more_data)
-                        else:
+                        more_keys = take_next(0.1)
+                        if not more_keys:
                             break
+                        if not more_keys[0].data:
+                            # Not sequence data; hold it for the next read
+                            pending = list(more_keys)
+                            break
+                        more_data = more_keys[0].data
+                        pending = list(more_keys[1:])
+                        if isinstance(more_data, str):
+                            buffer.extend(more_data.encode("utf-8"))
+                        else:
+                            buffer.extend(more_data)
 
                     if len(buffer) >= 6:
                         mouse_event = self.mouse_parser.parse_normal(bytes(buffer))
@@ -689,6 +738,8 @@ class InputHandler:
         except (EOFError, KeyboardInterrupt, IndexError) as e:
             logger.debug(f"Input read terminated: {type(e).__name__}")
             return None
+        finally:
+            self._requeue(pending)
 
     async def read_input_async(
         self, timeout: float | None = None
@@ -719,6 +770,20 @@ class InputHandler:
         preventing task leaks.
         """
         loop = asyncio.get_running_loop()
+
+        # Unconsumed presses from the batch currently being processed. Anything
+        # still here when we return is pushed back for the next read.
+        pending: list[Any] = []
+
+        async def take_next(wait: float) -> list[Any] | None:
+            """Get the next presses: leftovers, then queued, then a fresh read."""
+            nonlocal pending
+            if pending:
+                batch, pending = pending, []
+                return batch
+            if self._key_queue:
+                return [self._key_queue.pop(0)]
+            return await self._get_keys_from_queue_async(timeout=wait)
 
         try:
             # Enter raw mode if not already in it
@@ -786,8 +851,7 @@ class InputHandler:
                                 )
                             else:
                                 # Non-printable arrived, queue for later and stop
-                                for k in more_keys:
-                                    self._key_queue.append(k)
+                                pending = list(more_keys)
                                 break
 
                         if len(paste_chars) >= MAX_PASTE_SIZE:
@@ -798,42 +862,31 @@ class InputHandler:
                         # Return a synthetic paste key that includes all the text
                         return Key(pasted_text, KeyType.CHARACTER, pasted_text)
 
-                # Check for Alt+key (escape followed immediately by a character in same read)
-                if (
-                    len(keys) >= 2
-                    and keys[0].key == "escape"
-                    and len(keys[1].key) == 1
-                    and keys[1].key.isalpha()
-                ):
-                    alt_char = keys[1].key.lower()
-                    logger.debug(f"Detected Alt+{alt_char} from multi-key sequence")
-                    return Key(f"alt+{alt_char}", KeyType.CONTROL)
-
                 key_press = keys[0]
+                pending = list(keys[1:])
 
-                # If this is Escape, use timeout to check for Alt+key sequence
+                # If this is Escape, look ahead for an Alt+key sequence. The
+                # rest of this batch counts as lookahead: Alt+X is delivered as
+                # ESC then X, which may arrive in one read or two.
                 if key_press.key == "escape":
-                    logger.debug("Saw Escape, checking for Alt+key with timeout...")
-                    # Use small timeout (50ms) to distinguish Escape from Alt+key
-                    # Alt+key typically arrives within a few milliseconds
-                    # Use queue-based read for thread safety
-                    next_keys = await self._get_keys_from_queue_async(timeout=0.05)
+                    logger.debug("Saw Escape, checking for Alt+key...")
+                    # 50ms is enough for Alt+key, which follows within a few ms.
+                    next_keys = await take_next(0.05)
                     if next_keys:
                         next_key = next_keys[0]
                         logger.debug(f"Next key after Escape: {next_key.key!r}")
                         # If next key is a letter, return Alt+letter
                         if len(next_key.key) == 1 and next_key.key.isalpha():
                             alt_char = next_key.key.lower()
-                            logger.debug(
-                                f"Detected Alt+{alt_char} via timeout lookahead"
-                            )
+                            logger.debug(f"Detected Alt+{alt_char}")
+                            pending = list(next_keys[1:])
                             return Key(f"alt+{alt_char}", KeyType.CONTROL)
                         else:
-                            # Not Alt+key, queue the next key for later and return Escape
+                            # Not Alt+key, hold the lookahead and return Escape
                             logger.debug(
                                 f"Not Alt+key, queueing {next_key.key!r} for next read"
                             )
-                            self._key_queue.append(next_key)
+                            pending = list(next_keys)
                             # Fall through to return Escape normally
                     else:
                         # Timeout expired - it's a standalone Escape key
@@ -868,16 +921,19 @@ class InputHandler:
                     # Read until we get M or m (press or release)
                     buffer = bytearray(data_bytes)
                     while buffer and buffer[-1] not in (ord("M"), ord("m")):
-                        # Use queue-based read for thread safety (100ms timeout)
-                        more_keys = await self._get_keys_from_queue_async(timeout=0.1)
-                        if more_keys and more_keys[0].data:
-                            more_data = more_keys[0].data
-                            if isinstance(more_data, str):
-                                buffer.extend(more_data.encode("utf-8"))
-                            else:
-                                buffer.extend(more_data)
-                        else:
+                        more_keys = await take_next(0.1)
+                        if not more_keys:
                             break
+                        if not more_keys[0].data:
+                            # Not sequence data; hold it for the next read
+                            pending = list(more_keys)
+                            break
+                        more_data = more_keys[0].data
+                        pending = list(more_keys[1:])
+                        if isinstance(more_data, str):
+                            buffer.extend(more_data.encode("utf-8"))
+                        else:
+                            buffer.extend(more_data)
 
                     mouse_event = self.mouse_parser.parse_sgr(bytes(buffer))
                     if mouse_event:
@@ -888,16 +944,19 @@ class InputHandler:
                     # Need 6 bytes total for normal format
                     buffer = bytearray(data_bytes)
                     while len(buffer) < 6:
-                        # Use queue-based read for thread safety (100ms timeout)
-                        more_keys = await self._get_keys_from_queue_async(timeout=0.1)
-                        if more_keys and more_keys[0].data:
-                            more_data = more_keys[0].data
-                            if isinstance(more_data, str):
-                                buffer.extend(more_data.encode("utf-8"))
-                            else:
-                                buffer.extend(more_data)
-                        else:
+                        more_keys = await take_next(0.1)
+                        if not more_keys:
                             break
+                        if not more_keys[0].data:
+                            # Not sequence data; hold it for the next read
+                            pending = list(more_keys)
+                            break
+                        more_data = more_keys[0].data
+                        pending = list(more_keys[1:])
+                        if isinstance(more_data, str):
+                            buffer.extend(more_data.encode("utf-8"))
+                        else:
+                            buffer.extend(more_data)
 
                     if len(buffer) >= 6:
                         mouse_event = self.mouse_parser.parse_normal(bytes(buffer))
@@ -952,6 +1011,8 @@ class InputHandler:
         except (EOFError, KeyboardInterrupt, IndexError) as e:
             logger.debug(f"Input read terminated: {type(e).__name__}")
             return None
+        finally:
+            self._requeue(pending)
 
     def close(self) -> None:
         """Close the input handler and clean up all resources.

@@ -116,9 +116,6 @@ class TestMenuStateIntegration:
         output, elements = render_template(app, template)
         assert len(app.overlay_manager.overlays) == 1
 
-    @pytest.mark.skip(
-        reason="Dynamic menu items from for loops not yet fully supported"
-    )
     def test_menu_items_from_state_data(self):
         """Test menu items can be dynamically generated from state.
 
@@ -135,7 +132,7 @@ class TestMenuStateIntegration:
         template = """
         {% frame width="80" height="24" %}
             {% dropdown trigger="File" visible="show_menu" %}
-                {% for item in actions %}
+                {% for item in state.actions %}
                     {% menuitem action=item.action %}{{ item.label }}{% endmenuitem %}
                 {% endfor %}
             {% enddropdown %}
@@ -566,9 +563,6 @@ class TestMenuComplexScenarios:
         assert len(app.state.recent_files) == 1
         assert app.state.recent_files[0] == "Untitled.txt"
 
-    @pytest.mark.skip(
-        reason="Conditional menu items from if statements not yet fully supported"
-    )
     def test_menu_with_conditional_items_from_state(self):
         """Test menu with items conditionally rendered based on state.
 
@@ -582,7 +576,7 @@ class TestMenuComplexScenarios:
         {% frame width="80" height="24" %}
             {% dropdown trigger="Actions" visible="show_menu" %}
                 {% menuitem action="view" %}View{% endmenuitem %}
-                {% if is_admin %}
+                {% if state.is_admin %}
                     {% menuitem action="edit" %}Edit{% endmenuitem %}
                     {% menuitem action="delete" %}Delete{% endmenuitem %}
                 {% endif %}
