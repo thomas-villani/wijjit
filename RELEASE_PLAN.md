@@ -46,20 +46,20 @@ final CHANGELOG date. See Part 1.
       otherwise falls back to an internal clipboard) in README/docs.
 
 ### 1e - Trusted Publishing external setup (one-time) **[user actions]**
-- [ ] PyPI: register a pending Trusted Publisher - repo `thomas-villani/wijjit`,
+- [x] PyPI: register a pending Trusted Publisher - repo `thomas-villani/wijjit`,
       workflow `release.yml`, environment `pypi`.
 - [ ] TestPyPI: same, environment `testpypi`.
-- [ ] Create GitHub Actions environments named `pypi` and `testpypi`.
+- [x] Create GitHub Actions environments named `pypi` and `testpypi`.
 
 ### 1f - Build & TestPyPI dry-run
-- [ ] Local: `uv build` + `uvx twine check dist/*`.
+- [x] Local: `uv build` + `uvx twine check dist/*`.
 - [ ] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`); then in a
       clean venv install from TestPyPI and smoke-test (import + a headless
       example). Note: a TestPyPI version cannot be re-uploaded - bump a local
       `.devN` if a retry is needed.
 
 ### 1g - Repo hygiene (before tagging)
-- [ ] Delete the scratch file `todo-release.md` (0.1.1 example ideas) before
+- [x] Delete the scratch file `todo-release.md` (0.1.1 example ideas) before
       tagging.
 
 ### 1h - Cut the release
@@ -107,6 +107,18 @@ can start from the analysis, not a fresh repro. Cross-referenced in `roadmap.md`
   (`render_context.py`). This is also the true root of tree "expand all" not
   taking effect on live updates (external state writes don't repaint the tree
   deterministically; wiring runs after paint).
+  **(3) ESCALATED - this is silent data loss, not just ephemeral-state loss.**
+  Auto-generated ids are per-render positional counters
+  (`tags/layout.py:324-342`; `LayoutContext` is rebuilt each render,
+  `renderer.py:480`), and `wiring.py:206-219` uses that same positional id as the
+  **state key**. So an unkeyed `{% for %}` that inserts at the head does not only
+  misattach the cursor - it moves the user's *typed value* to the wrong logical
+  row. Reproduced end-to-end via `WijjitHarness`; see
+  `etc/issues-opus4.8-260709.md` section 1.1 for the repro. An explicit stable
+  `id="row_" ~ item.id` fixes it, so the near-term fix is a **lint + runtime
+  warning** for unkeyed list-like siblings (`devtools/validate.py` has no such
+  check today, and no test exercises a reorder), with a real `key=` attribute
+  distinct from `id=` as the proper fix.
 - **CodeEditor soft-wrap scroll desync** - renders actual lines while scroll
   content size counts wrapped lines; long lines clip (`code_editor.py:478,839`).
 - **Unknown-attribute forwarding on tags** - deliberately not done: forwarding
@@ -129,6 +141,20 @@ can start from the analysis, not a fresh repro. Cross-referenced in `roadmap.md`
   frame top on scroll" (clip region not clamping to frame borders) and
   frame_overflow's HStack width distribution for `3x50%` in one row. Needs a
   focused layout-engine repro.
+- **Undefined template variables render as empty string.** The Jinja environment
+  uses the default `Undefined`, not `StrictUndefined` (no `undefined=` kwarg in
+  `Environment(...)`, `renderer.py:168-171`). `{{ mispeled }}` renders as `""` and
+  `{% for x in mispeled %}` iterates zero times, both silently. `wijjit validate`
+  catches this statically, but nothing does at runtime. Adopt `StrictUndefined`
+  under a dev/debug config flag (defaulting on in `validate`), keeping lenient
+  behavior in production so a single bad key can't crash a running TUI.
+  **What this already cost:** the two `test_menu_integration.py` skips (now
+  fixed - see Completed) claimed dynamic and conditional menu items were
+  "not yet fully supported". They were supported all along; the tests referenced
+  bare `actions` / `is_admin` instead of `state.actions` / `state.is_admin`, and
+  default `Undefined` iterates as empty. A working feature was believed broken
+  for eight months because a typo failed silently. A hard error would have caught
+  it the day it was written.
 
 ### 2b - Framework: internal dedup / cleanup (no API-shape risk)
 
@@ -225,6 +251,33 @@ through the real event loop; text/ANSI screen capture), `load_example_app`,
 `app_from_template`, the `wijjit` devtools CLI (`validate`/`tree`/`render`/`run`),
 the `pytest11` plugin (`harness`/`make_app` fixtures + markers), and
 `tests/examples/` coverage of every driveable demo.
+
+**Input: idle CPU burn + silent key drops** (`terminal/input.py`) - two coupled
+bugs the test suite could not see, because both need a *timing* observation
+rather than a return-value assertion. (1) `prompt_toolkit`'s `read_keys()` never
+blocks, so the reader thread polled it flat out: measured **98.6% of one core and
+~61k calls/second on a completely idle app**. It now waits on the shutdown event
+between empty polls (`IDLE_POLL_INTERVAL`), which also keeps `close()` instant.
+(2) A `read_keys()` batch can carry several presses, and only `keys[0]` was ever
+used - the rest were dropped in four separate places (the main take, the Alt+key
+branch, the Escape lookahead, and both mouse-continuation loops). Leftovers are
+now held in a `pending` buffer and replayed, in both `read_input` and
+`read_input_async`; the old special-cased "Alt+key in the same read" branch is
+gone, subsumed by the lookahead. **The two bugs masked each other:** polling that
+fast made multi-key batches rare, so throttling the poll *without* the requeue
+would have converted a CPU problem into visible input loss. Regression-tested in
+`tests/terminal/test_input.py` (`TestInputBatchRequeue`, `TestInputIdlePolling`);
+6 of the 8 new tests fail against the pre-fix code, and the suite for that file
+went from 73s to 2.3s once the spin stopped starving the GIL.
+
+**Menu template skips un-skipped** - the two `pytest.mark.skip`s in
+`tests/integration/test_menu_integration.py` claimed dynamic (`{% for %}`) and
+conditional (`{% if %}`) menu items were unsupported. They were supported; the
+tests referenced bare `actions` / `is_admin` while the helper passes context as
+`{"state": app.state}`, so both were Jinja `Undefined` - which iterates as empty
+and tests as falsey, silently. Templates corrected to `state.actions` /
+`state.is_admin` and both tests re-enabled. Motivates the `StrictUndefined` item
+in Part 2a.
 
 **Mouse-callback chaining + left-button discipline** - every element that
 overrode `handle_mouse` consumed clicks without delegating to

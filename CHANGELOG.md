@@ -63,6 +63,22 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **An idle app burned a full CPU core.** `prompt_toolkit`'s `read_keys()` is
+  non-blocking and returns immediately when no input is pending, so the reader
+  thread polled it in an unthrottled loop (~60k calls/second, 98% of one core
+  with no user input at all). It now waits on the shutdown event between empty
+  polls, which keeps `close()` immediately responsive.
+- **Keys were silently dropped when several arrived in one read.** A single
+  `read_keys()` call can return several key presses - a fast typist, an escape
+  sequence split across presses, or a keystroke landing right behind a mouse
+  event. Only the first was used and the rest were discarded, in four places:
+  the main `keys[0]` take, the Alt+key branch, the Escape lookahead (which
+  requeued exactly one press and dropped any others), and both mouse-sequence
+  continuation loops. Unconsumed presses are now held and replayed on the next
+  read, in both `read_input` and `read_input_async`. These two bugs masked each
+  other: the busy-spin polled fast enough that batches of more than one key were
+  rare, so throttling the poll without fixing the requeue would have turned a
+  CPU problem into visible input loss.
 - **`on_double_click` and `on_context_menu` never fired.** Every element that
   overrode `handle_mouse` consumed click events without delegating to
   `Element.handle_mouse`, so both callbacks were silently dead. Fixed across all

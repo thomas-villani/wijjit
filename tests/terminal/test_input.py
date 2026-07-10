@@ -1,9 +1,11 @@
 """Tests for keyboard input handling."""
 
 import asyncio
+import time
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.key_binding.key_processor import KeyPress
 from prompt_toolkit.keys import Keys as PTKeys
 
@@ -667,3 +669,209 @@ class TestInputThreadSafety:
 
         # Verify close was called (possibly multiple times)
         assert mock_input.close.called
+
+
+def _batched_input(batches):
+    """Build a mock input whose read_keys yields each batch once, then nothing.
+
+    Parameters
+    ----------
+    batches : list of list of KeyPress
+        Successive return values for ``read_keys()``. Once exhausted, further
+        calls return ``[]``, as prompt_toolkit does when no input is pending.
+
+    Returns
+    -------
+    Mock
+        Mock input object suitable for patching ``create_input``.
+    """
+    mock_input = create_mock_input()
+    remaining = list(batches)
+
+    def read_keys():
+        return remaining.pop(0) if remaining else []
+
+    mock_input.read_keys.side_effect = read_keys
+    return mock_input
+
+
+def _drain(handler, count, timeout=0.2):
+    """Read ``count`` events, returning each event's name (or None)."""
+    names = []
+    for _ in range(count):
+        event = handler.read_input(timeout=timeout)
+        names.append(None if event is None else getattr(event, "name", event))
+    return names
+
+
+async def _drain_async(handler, count, timeout=0.2):
+    """Async twin of :func:`_drain`."""
+    names = []
+    for _ in range(count):
+        event = await handler.read_input_async(timeout=timeout)
+        names.append(None if event is None else getattr(event, "name", event))
+    return names
+
+
+class TestInputBatchRequeue:
+    """A single read_keys() batch can hold several presses; none may be lost.
+
+    Only one input event is returned per read_input call, so the remainder of
+    the batch has to be held for the next call rather than discarded. These are
+    regression tests: every case below previously dropped its trailing key(s).
+    """
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_special_key_followed_by_char(self, mock_create_input):
+        """A char batched behind a special key survives to the next read."""
+        mock_create_input.return_value = _batched_input(
+            [[KeyPress(PTKeys.Up, ""), KeyPress("a", "a")]]
+        )
+        handler = InputHandler()
+
+        assert _drain(handler, 2) == ["up", "a"]
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_alt_key_followed_by_char(self, mock_create_input):
+        """Alt+X is detected, and a char batched behind it is not dropped."""
+        mock_create_input.return_value = _batched_input(
+            [[KeyPress(PTKeys.Escape, "\x1b"), KeyPress("x", "x"), KeyPress("z", "z")]]
+        )
+        handler = InputHandler()
+
+        assert _drain(handler, 2) == ["alt+x", "z"]
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_escape_lookahead_requeues_whole_batch(self, mock_create_input):
+        """Escape's lookahead holds every key it read, not just the first.
+
+        The lookahead reads a batch to decide whether Escape is really Alt+key.
+        When it is not, the entire lookahead batch must be replayed.
+        """
+        mock_create_input.return_value = _batched_input(
+            [
+                [KeyPress(PTKeys.Escape, "\x1b")],
+                [KeyPress(PTKeys.Up, ""), KeyPress("q", "q")],
+            ]
+        )
+        handler = InputHandler()
+
+        assert _drain(handler, 3) == ["escape", "up", "q"]
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_paste_preserves_trailing_special_key(self, mock_create_input):
+        """Printable runs coalesce into one paste; the next key still arrives."""
+        mock_create_input.return_value = _batched_input(
+            [
+                [KeyPress(c, c) for c in "abc"],
+                [KeyPress(PTKeys.Up, "")],
+            ]
+        )
+        handler = InputHandler()
+
+        assert _drain(handler, 2) == ["abc", "up"]
+
+    @pytest.mark.asyncio
+    @patch("wijjit.terminal.input.create_input")
+    async def test_async_special_key_followed_by_char(self, mock_create_input):
+        """read_input_async must requeue exactly as read_input does."""
+        mock_create_input.return_value = _batched_input(
+            [[KeyPress(PTKeys.Up, ""), KeyPress("a", "a")]]
+        )
+        handler = InputHandler()
+
+        assert await _drain_async(handler, 2) == ["up", "a"]
+
+    @pytest.mark.asyncio
+    @patch("wijjit.terminal.input.create_input")
+    async def test_async_escape_lookahead_requeues_whole_batch(self, mock_create_input):
+        """Async escape lookahead replays the full batch it consumed."""
+        mock_create_input.return_value = _batched_input(
+            [
+                [KeyPress(PTKeys.Escape, "\x1b")],
+                [KeyPress(PTKeys.Up, ""), KeyPress("q", "q")],
+            ]
+        )
+        handler = InputHandler()
+
+        assert await _drain_async(handler, 3) == ["escape", "up", "q"]
+
+
+class TestInputPipeEndToEnd:
+    """Drive InputHandler with a real prompt_toolkit vt100 parser, no mocks.
+
+    ``create_pipe_input`` feeds raw bytes through the same parser a terminal
+    would, so an entire escape sequence plus whatever followed it lands in one
+    ``read_keys()`` batch. That is precisely the case the requeue logic exists
+    to handle, and mocking ``read_keys`` cannot exercise the parser itself.
+    """
+
+    def _drive(self, raw, count, timeout=0.3):
+        """Send ``raw`` bytes through a real pipe input and read ``count`` events."""
+        with create_pipe_input() as pipe:
+            with patch("wijjit.terminal.input.create_input", return_value=pipe):
+                handler = InputHandler()
+                pipe.send_text(raw)
+                try:
+                    return _drain(handler, count, timeout=timeout)
+                finally:
+                    handler.close()
+
+    def test_escape_sequence_followed_by_char(self):
+        """A real Up-arrow sequence with a char behind it yields both events."""
+        assert self._drive("\x1b[Aa", 2) == ["up", "a"]
+
+    def test_real_alt_key_followed_by_char(self):
+        """ESC x z parses as Alt+x, and z is not swallowed."""
+        assert self._drive("\x1bxz", 2) == ["alt+x", "z"]
+
+    def test_burst_of_sequences_is_fully_delivered(self):
+        """Several escape sequences written at once all survive.
+
+        This is the sharpest case: the pre-fix reader returned only the first
+        event of the batch and discarded the other three.
+        """
+        assert self._drive("\x1b[A\x1b[A\x1b[Bq", 4) == ["up", "up", "down", "q"]
+
+
+class TestInputIdlePolling:
+    """The reader thread must not busy-spin when no input is pending."""
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_idle_reader_thread_throttles_polling(self, mock_create_input):
+        """An idle reader thread polls on an interval, not as fast as it can.
+
+        prompt_toolkit's read_keys() never blocks, so without a wait the reader
+        thread consumes a full CPU core while the app sits idle.
+        """
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = []  # perpetually idle
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        handler._ensure_reader_thread()
+        try:
+            time.sleep(0.25)
+        finally:
+            handler.close()
+
+        # An unthrottled loop reached tens of thousands of calls here. Allow
+        # generous headroom for coarse timer granularity on Windows.
+        assert mock_input.read_keys.call_count < 200
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_close_is_not_delayed_by_idle_wait(self, mock_create_input):
+        """close() interrupts the idle wait instead of waiting it out."""
+        mock_input = create_mock_input()
+        mock_input.read_keys.return_value = []
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        handler._ensure_reader_thread()
+
+        start = time.perf_counter()
+        handler.close()
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 1.0
+        assert not handler._reader_thread.is_alive()
