@@ -25,7 +25,7 @@ High-level flow:
 2. **View registration** – ``@app.view`` stores lazy :class:`wijjit.core.view_router.ViewConfig` objects inside :class:`wijjit.core.view_router.ViewRouter`. A view returns a :class:`wijjit.core.templating.RenderedView` (via :func:`wijjit.render_template_string` / :func:`wijjit.render_template`) carrying an inline template or a ``template_file`` plus its context; lifecycle hooks are declared on the decorator. Synchronous views are re-invoked every render so derived context stays live.
 3. **Event loop** – ``app.run()`` delegates to :class:`wijjit.core.event_loop.EventLoop` which switches to the alternate screen, hides the cursor, enables mouse mode, renders the default view, and enters the main async loop.
 4. **Frame processing** – every iteration reads input (keyboard/mouse), dispatches events via :class:`wijjit.core.events.HandlerRegistry`, updates notifications/overlays, and triggers a render if ``app.needs_render`` or the dirty region manager requests it.
-5. **Shutdown** – when ``app.quit()`` or ``Ctrl+C`` fires, the loop unwinds: overlays close, handlers are cleared, the cursor is restored, and the screen buffer exits alternate mode.
+5. **Shutdown** – when ``app.quit()`` or ``Ctrl+C`` fires, the loop unwinds: overlays close, handlers are cleared, the cursor is restored, mouse tracking and raw mode are disabled, and the screen buffer exits alternate mode. Kill paths that bypass this unwind (``SIGTERM``/``SIGHUP``, or an abnormal ``atexit``) are covered by :class:`wijjit.terminal.cleanup.TerminalCleanup`, a last-resort net that runs the same terminal restore and then chains to the previous signal disposition so the process still exits normally.
 
 Module map
 ----------
@@ -229,6 +229,7 @@ Terminal adapters
 * **ANSI utilities** – ``wijjit.terminal.ansi`` provides color helpers, cursor movement, and width-aware string functions (``visible_length``, ``wrap_text``).
 * **Screen management** – ``wijjit.terminal.screen.ScreenManager`` toggles alternate-screen mode, hides/shows the cursor, and flushes buffers.
 * **Cells & buffers** – ``wijjit.terminal.cell.Cell`` and ``wijjit.terminal.screen_buffer.ScreenBuffer`` represent styled characters; the paint context writes to these objects instead of printing directly.
+* **Exit-time restore** – ``wijjit.terminal.cleanup.TerminalCleanup`` is a process-wide coordinator of idempotent, signal-safe terminal-restore callbacks, invoked from a single ``atexit`` handler and from ``SIGTERM``/``SIGHUP`` handlers. The event loop registers a restore callback for its lifetime; ``InputHandler.restore_terminal`` provides the mouse/raw-mode half without joining the reader thread.
 
 Extending Wijjit
 ----------------

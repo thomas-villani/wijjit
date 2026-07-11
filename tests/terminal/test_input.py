@@ -344,6 +344,64 @@ class TestInputHandler:
 
         mock_input.close.assert_called_once()
 
+    @patch("wijjit.terminal.input.create_input")
+    def test_restore_terminal_disables_mouse_and_exits_raw_mode(
+        self, mock_create_input
+    ):
+        """restore_terminal() undoes mouse tracking and raw mode without
+        touching the reader thread or closing the input."""
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        raw_mode = handler._raw_mode = mock_input.raw_mode.return_value
+        handler.mouse_enabled = True
+        handler._mouse_tracking_mode = 1002
+
+        handler.restore_terminal()
+
+        assert handler.mouse_enabled is False
+        raw_mode.__exit__.assert_called_once_with(None, None, None)
+        assert handler._raw_mode is None
+        # Terminal-only restore: it must not close the underlying input.
+        mock_input.close.assert_not_called()
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_restore_terminal_is_idempotent(self, mock_create_input):
+        """A second restore_terminal() is a harmless no-op (safe from a signal
+        handler that may fire after a normal teardown already ran)."""
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        handler._raw_mode = mock_input.raw_mode.return_value
+        handler.mouse_enabled = True
+        handler._mouse_tracking_mode = 1002
+
+        handler.restore_terminal()
+        handler.restore_terminal()  # must not raise
+
+        assert handler._raw_mode is None
+        assert handler.mouse_enabled is False
+
+    @patch("wijjit.terminal.input.create_input")
+    def test_close_delegates_terminal_restore(self, mock_create_input):
+        """close() still restores the terminal (via restore_terminal) in
+        addition to stopping the reader thread and closing the input."""
+        mock_input = create_mock_input()
+        mock_create_input.return_value = mock_input
+
+        handler = InputHandler()
+        raw_mode = handler._raw_mode = mock_input.raw_mode.return_value
+        handler.mouse_enabled = True
+        handler._mouse_tracking_mode = 1002
+
+        handler.close()
+
+        assert handler.mouse_enabled is False
+        raw_mode.__exit__.assert_called_once_with(None, None, None)
+        mock_input.close.assert_called_once()
+
 
 class TestInputTimeoutBehavior:
     """Test timeout behavior for read_input and read_input_async (Issue 17)."""
