@@ -78,6 +78,20 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **Any `print()` or traceback during a run corrupted the alternate screen
+  until a full redraw - including the framework's own error path.** Output is a
+  diff model: the renderer keeps the last displayed buffer and repaints only the
+  cells that changed, so a byte written to the terminal out-of-band is invisible
+  to the differ and persists. `_handle_error` printed the **full traceback to
+  stderr** on every non-fatal error, dumping a multi-line trace *into* the TUI
+  where it stayed. Non-fatal error tracebacks are now buffered while the
+  alternate screen is active and flushed to stderr only after the terminal is
+  restored on exit; fatal errors propagate and print once on the normal screen.
+  A new `app.request_full_repaint()` forces the next frame to repaint the whole
+  screen (a screen clear plus every cell), and an opt-in `FULL_REPAINT_INTERVAL`
+  config drives that on a heartbeat so foreign `stdout` self-heals. The
+  heartbeat is disabled by default so the diff renderer's bytes-saved behavior
+  is unchanged unless you ask for it.
 - **A killed app left the terminal wedged.** Terminal teardown lived only in the
   event loop's `finally` (thorough, but bypassed by `SIGTERM`/`SIGHUP`, which
   Python terminates on without unwinding the stack or running `atexit`) and a

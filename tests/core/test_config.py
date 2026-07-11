@@ -418,6 +418,7 @@ class TestDefaultConfig:
             "RUN_SYNC_IN_EXECUTOR",
             "EXECUTOR_MAX_WORKERS",
             "RENDER_THROTTLE_MS",
+            "FULL_REPAINT_INTERVAL",
             # Notifications
             "NOTIFICATION_DURATION",
             "NOTIFICATION_POSITION",
@@ -723,6 +724,28 @@ class TestPhase3Features:
         config = Config()
         config["RENDER_THROTTLE_MS"] = 16
         assert config["RENDER_THROTTLE_MS"] == 16
+
+    def test_full_repaint_interval_defaults_to_zero(self):
+        """FULL_REPAINT_INTERVAL should default to 0.0 (heartbeat disabled).
+
+        Returns
+        -------
+        None
+        """
+        config = Config()
+        config.from_object(DefaultConfig)
+        assert config["FULL_REPAINT_INTERVAL"] == 0.0
+
+    def test_full_repaint_interval_accepts_float(self):
+        """FULL_REPAINT_INTERVAL should accept a positive interval in seconds.
+
+        Returns
+        -------
+        None
+        """
+        config = Config()
+        config["FULL_REPAINT_INTERVAL"] = 5.0
+        assert config["FULL_REPAINT_INTERVAL"] == 5.0
 
     def test_high_contrast_config_defaults_to_false(self):
         """HIGH_CONTRAST should default to False.

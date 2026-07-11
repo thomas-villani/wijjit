@@ -422,6 +422,16 @@ class DefaultConfig:
     #: Minimum time between renders in milliseconds (throttling)
     RENDER_THROTTLE_MS = 0
 
+    #: Force a full-screen repaint every N seconds to evict foreign bytes
+    #: (0 = disabled). Diff rendering only emits changed cells, so anything a
+    #: third-party library or subprocess writes to the terminal out-of-band
+    #: lingers until a full redraw. When set, the event loop repaints the whole
+    #: screen on this cadence so such corruption self-heals. Left disabled by
+    #: default because a periodic full repaint negates the diff renderer's
+    #: bytes-saved advantage; apps that knowingly write to the terminal can
+    #: instead call ``app.request_full_repaint()`` for a one-shot heal.
+    FULL_REPAINT_INTERVAL = 0.0
+
     # ============================================================
     # NOTIFICATIONS
     # ============================================================
