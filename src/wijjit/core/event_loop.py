@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from wijjit.core.events import HandlerScope, KeyEvent
 from wijjit.logging_config import get_logger
+from wijjit.terminal.cleanup import get_terminal_cleanup
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
 
@@ -85,6 +86,10 @@ class EventLoop:
         # Error recovery
         self._consecutive_errors = 0
         self._max_consecutive_errors = 3  # Terminate after 3 consecutive errors
+
+        # Token for the emergency terminal-restore callback registered with the
+        # process-wide TerminalCleanup net while the loop is running.
+        self._cleanup_token: int | None = None
 
     def run(self) -> None:
         """Run the main event loop.
@@ -163,6 +168,14 @@ class EventLoop:
         self.running = True
 
         try:
+            # Arm the last-resort terminal-restore net before touching the
+            # terminal, so SIGTERM/SIGHUP (which bypass the finally below) and
+            # an abnormal atexit still restore the cursor, alt buffer, raw mode,
+            # and mouse tracking. Unregistered in the finally on a clean exit.
+            self._cleanup_token = get_terminal_cleanup().register(
+                self._emergency_terminal_restore
+            )
+
             # Enter alternate screen (if configured)
             if self.app.config["USE_ALTERNATE_SCREEN"]:
                 self.app.screen_manager.enter_alternate_buffer()
@@ -280,7 +293,52 @@ class EventLoop:
                 logger.debug("Shutting down executor")
                 self.executor.shutdown(wait=True)
                 logger.debug("Executor shutdown complete")
+
+            # The terminal is now restored the normal way, so drop the
+            # last-resort net (also releases the SIGTERM/SIGHUP handlers once no
+            # other app is running).
+            if self._cleanup_token is not None:
+                get_terminal_cleanup().unregister(self._cleanup_token)
+                self._cleanup_token = None
+                logger.debug("Unregistered emergency terminal-restore handler")
+
             logger.info("Application shutdown complete")
+
+    def _emergency_terminal_restore(self) -> None:
+        """Restore the terminal from a signal handler or ``atexit``.
+
+        This is the signal-safe subset of the normal ``finally`` teardown:
+        output-only writes plus ``termios`` restoration, in the same order used
+        for suspend (suspend handlers off, then mouse tracking and raw mode off,
+        then cursor shown, then the alternate buffer exited last). It
+        deliberately does **not** cancel tasks, join the reader
+        thread, or shut down the executor - any of which could block or deadlock
+        when invoked from a signal - since the process is terminating anyway.
+
+        Registered with :func:`wijjit.terminal.cleanup.get_terminal_cleanup`
+        while the loop runs; each step is guarded so one failure cannot leave
+        the rest of the terminal wedged.
+        """
+        app = self.app
+        # Release SIGTSTP/SIGCONT so the suspend handlers do not linger.
+        try:
+            app.suspend_manager.unregister()
+        except Exception:
+            pass
+        # Order mirrors suspend/teardown: mouse and raw mode off, then cursor,
+        # then leave the alternate buffer last.
+        try:
+            app.input_handler.restore_terminal()
+        except Exception:
+            pass
+        try:
+            app.screen_manager.show_cursor()
+        except Exception:
+            pass
+        try:
+            app.screen_manager.exit_alternate_buffer()
+        except Exception:
+            pass
 
     def stop(self) -> None:
         """Stop the event loop.

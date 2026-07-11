@@ -78,6 +78,20 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **A killed app left the terminal wedged.** Terminal teardown lived only in the
+  event loop's `finally` (thorough, but bypassed by `SIGTERM`/`SIGHUP`, which
+  Python terminates on without unwinding the stack or running `atexit`) and a
+  `ScreenManager` `atexit` backstop that restored the cursor and alt buffer but
+  **never disabled mouse tracking**. So `kill <pid>`, a `timeout`, a process
+  manager, or CI teardown left the user in the alternate buffer, cursor hidden,
+  raw mode on, and `\x1b[?1002h`/`\x1b[?1006h` mouse tracking still active - the
+  terminal then spewed escape codes on every mouse move and needed `reset`. A
+  new `TerminalCleanup` coordinator (`wijjit.terminal.cleanup`) wires the full
+  restore - cursor, alt buffer, raw mode, **and** mouse tracking - into both a
+  single `atexit` handler and `SIGTERM`/`SIGHUP` handlers that run it and then
+  chain to the previous disposition so the process still exits with the
+  conventional status. Signals are installed only from the main thread (skipped
+  silently when embedded off-thread); `SIGHUP` is Unix-only.
 - **An idle app burned a full CPU core.** `prompt_toolkit`'s `read_keys()` is
   non-blocking and returns immediately when no input is pending, so the reader
   thread polled it in an unthrottled loop (~60k calls/second, 98% of one core

@@ -1030,6 +1030,30 @@ class InputHandler:
             if self._reader_thread.is_alive():
                 logger.warning("Reader thread did not terminate within timeout")
 
+        # Restore terminal output/mode state (mouse tracking, raw mode).
+        self.restore_terminal()
+
+        # Close the input
+        if self._input:
+            try:
+                self._input.close()
+            except Exception as e:
+                logger.debug(f"Error closing input: {e}")
+
+    def restore_terminal(self) -> None:
+        """Restore terminal output/mode state without stopping the reader thread.
+
+        Disables mouse tracking and exits raw mode - the two terminal-affecting
+        pieces of :meth:`close` - but does not join the reader thread or close
+        the underlying input. That makes it safe to call from a signal handler
+        or ``atexit`` net, where joining a thread (or otherwise blocking) could
+        deadlock. Idempotent: mouse tracking and raw mode are each only touched
+        when currently active.
+
+        Order matches suspend/teardown elsewhere: disable mouse *before* exiting
+        raw mode, so the terminal is not briefly left in raw mode with mouse
+        reporting still on.
+        """
         # Disable mouse tracking if enabled
         if self.mouse_enabled:
             try:
@@ -1044,13 +1068,6 @@ class InputHandler:
             except Exception as e:
                 logger.debug(f"Error exiting raw mode during cleanup: {e}")
             self._raw_mode = None
-
-        # Close the input
-        if self._input:
-            try:
-                self._input.close()
-            except Exception as e:
-                logger.debug(f"Error closing input: {e}")
 
     def __del__(self) -> None:
         """Cleanup when InputHandler is garbage collected."""
