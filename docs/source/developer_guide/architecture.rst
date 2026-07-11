@@ -90,6 +90,23 @@ Diff types (:class:`wijjit.core.reconciler.DiffType`):
 
 Key-based reconciliation matches elements by ``key`` prop for stable identity in lists. Elements with matching keys are considered the "same" and will be updated rather than replaced.
 
+.. _keying-loops:
+
+Keying elements inside ``{% for %}`` loops
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default an element's reconciliation key is its ``id``, and an element with no explicit ``id`` gets an auto-generated **positional** one (``textinput_0``, ``textinput_1``, ...). Inside a ``{% for %}`` loop that means each row's identity is *its position*, not the data it represents. Insert a row at the head of the list and every element shifts down one slot, so the reconciler reuses the element that used to sit there — silently migrating that element's state (a text input's typed value and cursor, a tree's scroll and selection) to the wrong logical row. Because the positional id is also the state-binding key, a bound input's value migrates too.
+
+Give looped elements a stable ``key`` to fix this::
+
+    {% for row in rows %}
+        {% textinput key=row.id placeholder=row.label %}{% endtextinput %}
+    {% endfor %}
+
+``key`` is a first-class attribute, separate from ``id``: it sets reconciliation identity so each row keeps its state across inserts and reorders. For an input, when no explicit ``id`` is given, the ``key`` also derives a stable per-row state id (``textinput_<key>``) so the bound value stays with the row as well — you do not have to hand-manage an ``id``. Passing an explicit stable ``id`` (e.g. ``id="row_" ~ row.id``) works too and is equivalent for keying purposes.
+
+``wijjit validate`` flags a stateful element inside a loop that has neither ``key`` nor ``id`` with an ``unkeyed-loop-element`` warning. Stateless elements (charts, ``{% text %}``, spinners, progress bars) are repainted from props each render, so positional reuse is invisible and no key is needed.
+
 Thread-safe RenderContext
 -------------------------
 

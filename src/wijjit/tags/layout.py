@@ -143,6 +143,75 @@ def normalize_element_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def auto_element_id(
+    layout_context: Any, element_type: str, kwargs: dict[str, Any]
+) -> str:
+    """Generate an element id, derived from an explicit ``key`` when present.
+
+    Input elements bind their value to ``state[id]``, so a stable reconciliation
+    key alone is not enough to keep typed data with the right row: the *state
+    key* must also be stable per row. When a ``key`` attribute is present this
+    returns ``f"{element_type}_{key}"`` - a stable, per-row id in the same shape
+    as the positional fallback (``textinput_0``) but keyed by the row's identity
+    instead of its position. Without a ``key`` it falls back to the positional
+    :meth:`LayoutContext.generate_id`, preserving the original behavior.
+
+    The ``key`` attribute is only peeked here, not consumed;
+    :func:`apply_reconciliation_key` removes it from ``kwargs`` before props are
+    forwarded.
+
+    Parameters
+    ----------
+    layout_context : LayoutContext
+        The active layout context (source of the positional counter).
+    element_type : str
+        The element type prefix (e.g. ``"textinput"``).
+    kwargs : dict
+        Raw template kwargs; read (not popped) for a ``key`` entry.
+
+    Returns
+    -------
+    str
+        The resolved element id.
+    """
+    key = kwargs.get("key")
+    if key is not None:
+        return f"{element_type}_{key}"
+    return cast(str, layout_context.generate_id(element_type))
+
+
+def apply_reconciliation_key(vnode: Any, kwargs: dict[str, Any]) -> None:
+    """Override a VNode's reconciliation key from an explicit ``key`` attribute.
+
+    An element's reconciliation key is its identity across renders: two VNodes
+    with the same key are treated as the *same* element and updated in place
+    rather than replaced, so the element instance - and the transient state it
+    carries (a text input's value and cursor, a tree's scroll and selection) -
+    is reused. By default the key is the element ``id``, which for an element in
+    a ``{% for %}`` is an auto-generated *positional* id (``textinput_0``,
+    ``textinput_1``, ...). That makes a row's identity purely its position:
+    inserting or reordering rows silently migrates typed input to whatever row
+    now sits at the old slot.
+
+    An explicit ``key`` attribute breaks the coupling. It sets the
+    reconciliation identity independently of ``id``, so a loop can key rows by a
+    stable value (``{% textinput key=row.id %}``) and keep each row's state with
+    the right logical row across inserts and reorders, without ``id`` having to
+    double as - and collide in - the state namespace. The attribute is consumed
+    from ``kwargs`` so it is not also forwarded as an element prop.
+
+    Parameters
+    ----------
+    vnode : VNodeBuilder
+        The VNode builder whose ``key`` is overridden when ``key`` is present.
+    kwargs : dict
+        Raw template kwargs; a ``key`` entry, if present, is popped and applied.
+    """
+    key = kwargs.pop("key", None)
+    if key is not None:
+        vnode.key = str(key)
+
+
 def apply_common_attributes(vnode: Any, kwargs: dict[str, Any]) -> None:
     """Forward the common normalized template attributes onto a VNode.
 
@@ -151,7 +220,8 @@ def apply_common_attributes(vnode: Any, kwargs: dict[str, Any]) -> None:
     keyword) and ``tabindex`` (-> ``tab_index``). This helper applies the single
     normalization rule from :func:`normalize_element_kwargs` and sets the
     resulting props, so every tag - including the layout containers that
-    historically dropped ``class`` - handles them identically.
+    historically dropped ``class`` - handles them identically. It also honors an
+    explicit ``key`` attribute via :func:`apply_reconciliation_key`.
 
     Tags that forward arbitrary leftover kwargs (the input tags) instead call
     :func:`normalize_element_kwargs` directly so they can pop these keys before
@@ -174,6 +244,7 @@ def apply_common_attributes(vnode: Any, kwargs: dict[str, Any]) -> None:
     tab_index = normalized.get("tab_index")
     if tab_index is not None:
         vnode.set_prop("tab_index", tab_index)
+    apply_reconciliation_key(vnode, kwargs)
 
 
 def process_body_content(body_output: str, raw: bool = False) -> str:

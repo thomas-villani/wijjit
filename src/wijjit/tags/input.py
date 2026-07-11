@@ -19,6 +19,8 @@ from wijjit.core.vdom import VNodeBuilder
 from wijjit.layout.frames import BorderStyle, has_border
 from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
+    apply_reconciliation_key,
+    auto_element_id,
     get_element_marker,
     normalize_element_kwargs,
     parse_tag_attributes,
@@ -131,7 +133,7 @@ class TextInputExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = layout_context.generate_id("textinput")
+            id = auto_element_id(layout_context, "textinput", kwargs)
 
         # Use the tag body as the initial value when no value attribute is given
         # (consistent with textarea). State binding below still takes precedence.
@@ -149,6 +151,7 @@ class TextInputExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextInput", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("placeholder", placeholder)
@@ -280,7 +283,7 @@ class ButtonExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = layout_context.generate_id("button")
+            id = auto_element_id(layout_context, "button", kwargs)
 
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
@@ -289,6 +292,7 @@ class ButtonExtension(Extension):
         # Button width is based on label length + brackets
         button_width = len(label) + 4  # "< label >"
         vnode = VNodeBuilder("Button", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("action", action)
@@ -475,7 +479,7 @@ class SelectExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("select")
+            id = auto_element_id(context, "select", kwargs)
 
         # If binding is enabled and id is provided, try to get initial value from state
         if bind and id:
@@ -507,6 +511,7 @@ class SelectExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Select", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("multiple", multiple)
         if multiple:
@@ -698,7 +703,7 @@ class CheckboxExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("checkbox")
+            id = auto_element_id(context, "checkbox", kwargs)
 
         # If binding is enabled, try to get initial checked state from state
         if bind and id:
@@ -721,6 +726,7 @@ class CheckboxExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Checkbox", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("checked", checked)
@@ -789,7 +795,7 @@ class RadioExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("radio")
+            id = auto_element_id(context, "radio", kwargs)
 
         # Get label from body content if not provided as parameter
         if not label:
@@ -819,6 +825,7 @@ class RadioExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Radio", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("name", name or "")
         vnode.set_prop("label", label)
@@ -901,7 +908,7 @@ class CheckboxGroupExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("checkboxgroup")
+            id = auto_element_id(context, "checkboxgroup", kwargs)
 
         # If binding is enabled, try to get selected values from state
         if bind and id:
@@ -934,6 +941,7 @@ class CheckboxGroupExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CheckboxGroup", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("options", options)
         vnode.set_prop("selected_values", selected)
@@ -1025,7 +1033,7 @@ class RadioGroupExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("radiogroup")
+            id = auto_element_id(context, "radiogroup", kwargs)
 
         # If name not provided, use id as the state binding key
         if name is None:
@@ -1061,6 +1069,7 @@ class RadioGroupExtension(Extension):
 
             # Create VNode for reconciliation
             vnode = VNodeBuilder("RadioGroup", key=id)
+            apply_reconciliation_key(vnode, kwargs)
             vnode.set_prop("id", id)  # Set id as prop so Element gets it
             vnode.set_prop("name", name)
             vnode.set_prop("options", options)
@@ -1086,6 +1095,7 @@ class RadioGroupExtension(Extension):
         if using_nested_radios and not using_frame:
             # For nested radios without a frame, create a VStack VNode
             vstack_vnode = VNodeBuilder("VStack", key=id)
+            apply_reconciliation_key(vstack_vnode, kwargs)
             vstack_vnode.set_layout(width="auto", height="auto")
             context.push_vnode(vstack_vnode)
 
@@ -1108,6 +1118,7 @@ class RadioGroupExtension(Extension):
 
             # Create VNode builder for reconciliation
             frame_vnode = VNodeBuilder("Frame", key=id)
+            apply_reconciliation_key(frame_vnode, kwargs)
             frame_vnode.set_prop("border_style", border_enum)
             frame_vnode.set_prop("title", title)
             frame_vnode.set_prop("scrollable", False)
@@ -1292,7 +1303,7 @@ class TextAreaExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("textarea")
+            id = auto_element_id(context, "textarea", kwargs)
 
         # Get initial value from body if not provided as attribute
         if not value:
@@ -1316,6 +1327,7 @@ class TextAreaExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextArea", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("width", element_width)
@@ -1485,7 +1497,7 @@ class CodeEditorExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("codeeditor")
+            id = auto_element_id(context, "codeeditor", kwargs)
 
         # Get initial value from body if not provided
         if not value:
@@ -1507,6 +1519,7 @@ class CodeEditorExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CodeEditor", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("language", language)
@@ -1606,7 +1619,7 @@ class SliderExtension(Extension):
             value = float(value)
 
         if id is None:
-            id = context.generate_id("slider")
+            id = auto_element_id(context, "slider", kwargs)
 
         if bind and id:
             try:
@@ -1629,6 +1642,7 @@ class SliderExtension(Extension):
                 layout_width += 1 + len(str(int(max_val)))
 
         vnode = VNodeBuilder("Slider", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("min_val", min_val)
         vnode.set_prop("max_val", max_val)
@@ -1701,7 +1715,7 @@ class ToggleExtension(Extension):
         focused_id = render_ctx.focused_id
 
         if id is None:
-            id = context.generate_id("toggle")
+            id = auto_element_id(context, "toggle", kwargs)
 
         if bind and id:
             try:
@@ -1722,6 +1736,7 @@ class ToggleExtension(Extension):
                 layout_width += 1 + len(label)
 
         vnode = VNodeBuilder("Toggle", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("checked", bool(checked))
         vnode.set_prop("label", label)
@@ -1862,7 +1877,7 @@ class DataGridExtension(Extension):
 
         # Auto-generate ID if not provided
         if id is None:
-            id = context.generate_id("datagrid")
+            id = auto_element_id(context, "datagrid", kwargs)
 
         # Consume body (typically empty for datagrid)
         caller()
@@ -1890,6 +1905,7 @@ class DataGridExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("DataGrid", key=id)
+        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data)
         vnode.set_prop("columns", columns)
