@@ -98,3 +98,54 @@ def test_validate_file_template(tmp_path: Path):
 def test_validate_file_app_loads_cleanly():
     report = validate_file("examples/basic/hello_world.py")
     assert report.ok
+
+
+def _loop(inner: str) -> str:
+    return "{% vstack %}{% for it in rows %}" + inner + "{% endfor %}{% endvstack %}"
+
+
+def test_unkeyed_stateful_element_in_loop_is_warning():
+    src = _loop("{% textinput placeholder=it %}{% endtextinput %}")
+    report = validate_template(src, context={"rows": []})
+    assert report.ok  # warning only, not an error
+    unkeyed = [f for f in report.findings if f.code == "unkeyed-loop-element"]
+    assert len(unkeyed) == 1
+    assert unkeyed[0].line == 1
+    assert "textinput" in unkeyed[0].message
+
+
+def test_keyed_element_in_loop_is_clean():
+    src = _loop("{% textinput key=it placeholder=it %}{% endtextinput %}")
+    report = validate_template(src, context={"rows": []})
+    assert "unkeyed-loop-element" not in _codes(report)
+
+
+def test_id_element_in_loop_is_clean():
+    # An explicit id is also a stable identity, so it should not be flagged.
+    src = _loop('{% textinput id="r_" ~ it %}{% endtextinput %}')
+    report = validate_template(src, context={"rows": []})
+    assert "unkeyed-loop-element" not in _codes(report)
+
+
+def test_stateless_element_in_loop_is_not_flagged():
+    # Text is repainted from props each render; positional reuse is invisible.
+    src = _loop("{% text %}{{ it }}{% endtext %}")
+    report = validate_template(src, context={"rows": []})
+    assert "unkeyed-loop-element" not in _codes(report)
+
+
+def test_unkeyed_element_outside_loop_is_not_flagged():
+    src = "{% vstack %}{% textinput placeholder='x' %}{% endtextinput %}{% endvstack %}"
+    report = validate_template(src)
+    assert "unkeyed-loop-element" not in _codes(report)
+
+
+def test_nested_loop_unkeyed_element_flagged_once():
+    src = (
+        "{% for g in groups %}{% for it in g %}"
+        "{% select %}{% endselect %}"
+        "{% endfor %}{% endfor %}"
+    )
+    report = validate_template(src, context={"groups": []})
+    unkeyed = [f for f in report.findings if f.code == "unkeyed-loop-element"]
+    assert len(unkeyed) == 1

@@ -38,6 +38,7 @@ from typing import Any
 
 import jinja2
 from jinja2 import meta as jinja_meta
+from jinja2 import nodes
 
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import KNOWN_CONTAINER_TYPES
@@ -74,6 +75,88 @@ FRAMEWORK_PROPS = EPHEMERAL_PROPS | {"tab_index"}
 
 # Props never flagged as unknown attributes.
 _IGNORED_PROPS = LAYOUT_META | FRAMEWORK_PROPS
+
+# Element tag render-methods whose instances carry state that survives
+# reconciliation - a bound value, a cursor/selection, a scroll offset, an
+# expanded/active subset. When one of these appears inside a ``{% for %}`` with
+# neither ``key`` nor ``id``, its reconciliation identity is purely positional,
+# so inserting or reordering rows silently migrates that state to the wrong row
+# (see the ``key=`` attribute and :func:`wijjit.tags.layout.auto_element_id`).
+# Stateless elements (charts, text, spinner, progressbar, status) are omitted:
+# they are fully repainted from props each render, so positional reuse is
+# invisible and needs no key.
+_STATEFUL_LOOP_METHODS = frozenset(
+    {
+        "_render_textinput",
+        "_render_textarea",
+        "_render_codeeditor",
+        "_render_select",
+        "_render_checkbox",
+        "_render_checkboxgroup",
+        "_render_radio",
+        "_render_radiogroup",
+        "_render_slider",
+        "_render_toggle",
+        "_render_datagrid",
+        "_render_table",
+        "_render_tree",
+        "_render_listview",
+        "_render_logview",
+        "_render_tabbedpanel",
+        "_render_contentview",
+        "_render_pager",
+    }
+)
+
+
+def _check_unkeyed_loop_elements(ast: nodes.Template) -> list[Finding]:
+    """Flag stateful element tags inside a ``{% for %}`` that lack ``key``/``id``.
+
+    This is a *static* check: by render time the loop has been unrolled and the
+    VNode tree carries auto-generated positional keys, so the "was this in a
+    loop and unkeyed?" signal only exists in the template AST. Each element tag
+    compiles to a :class:`jinja2.nodes.CallBlock` whose call targets a
+    ``_render_<tag>`` extension method with the tag's attributes as keyword
+    arguments; walking the AST lets us see the loop nesting and the literal
+    ``key``/``id`` attributes before either is lost.
+
+    Parameters
+    ----------
+    ast : jinja2.nodes.Template
+        Parsed template AST.
+
+    Returns
+    -------
+    list of Finding
+        One ``unkeyed-loop-element`` warning per offending tag.
+    """
+    findings: list[Finding] = []
+
+    def visit(node: nodes.Node, in_loop: bool) -> None:
+        if in_loop and isinstance(node, nodes.CallBlock):
+            method = getattr(getattr(node.call, "node", None), "name", None)
+            if method in _STATEFUL_LOOP_METHODS:
+                attrs = {kw.key for kw in node.call.kwargs}
+                if "key" not in attrs and "id" not in attrs:
+                    tag = method[len("_render_") :]
+                    findings.append(
+                        Finding(
+                            "warning",
+                            "unkeyed-loop-element",
+                            f"<{tag}> inside a loop has no 'key' or 'id'. Its "
+                            f"identity is positional, so inserting or reordering "
+                            f"rows silently migrates its state (typed value, "
+                            f"selection, scroll) to the wrong row. Add "
+                            f"key=<stable-id> (e.g. key=item.id).",
+                            node.lineno,
+                        )
+                    )
+        child_in_loop = in_loop or isinstance(node, nodes.For)
+        for child in node.iter_child_nodes():
+            visit(child, child_in_loop)
+
+    visit(ast, False)
+    return findings
 
 
 @dataclass(frozen=True)
@@ -279,6 +362,10 @@ def validate_template(
                 f"Variable {name!r} is used but not provided in context.",
             )
         )
+
+    # 2b. Unkeyed stateful elements inside loops (static AST check - the loop
+    # structure is gone by render time).
+    report.findings.extend(_check_unkeyed_loop_elements(ast))
 
     # 3. Render pass (reuse the same renderer; parse() did not touch its state).
     outcome = render_with(renderer, source, context=context, width=width, height=height)

@@ -12,6 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 First public release.
 
 ### Added
+- **`key=` reconciliation attribute** for element tags, separate from `id=`.
+  Elements inside a `{% for %}` loop are keyed by position by default, so
+  inserting or reordering rows silently migrates a row's state - a text input's
+  typed value and cursor, a tree's scroll and selection - to whatever row now
+  sits at the old slot (a bound input's value migrates too, since the positional
+  id is also its state key). An explicit `key` gives a row a stable identity:
+  `{% textinput key=row.id %}` keeps each row's state with its logical row across
+  inserts and reorders. For an input with no explicit `id`, the `key` also
+  derives a stable per-row state id (`textinput_<key>`), so the author does not
+  have to hand-manage an id to keep the bound value. See the "Keying elements
+  inside `{% for %}` loops" section of the architecture guide.
+- **`wijjit validate` unkeyed-loop-element check**: a stateful element inside a
+  loop with neither `key` nor `id` is now flagged as a warning, catching the
+  data-loss footgun above at author time. Stateless elements (charts, text,
+  spinners, progress bars) are not flagged.
 - **`wijjit --version`**: the CLI now reports the installed version.
 - **Performance benchmarks**: `scripts/bench_perf.py` measures render latency,
   terminal I/O per frame, and import cost, emitting a text, Markdown, or JSON
