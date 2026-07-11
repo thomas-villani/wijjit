@@ -365,6 +365,17 @@ class Wijjit:
         self.running = False
         self.needs_render = True
 
+        # When True, the next render discards the cached on-screen buffer and
+        # repaints the whole screen (see request_full_repaint). Used to evict
+        # foreign bytes written out-of-band to the terminal.
+        self._force_full_repaint = False
+
+        # Non-fatal error tracebacks captured while the alternate screen is
+        # active. Writing them to the shared TTY mid-frame would corrupt the
+        # rendered UI (and persist in the diff model), so they are buffered
+        # here and flushed to stderr after the terminal is restored on exit.
+        self._deferred_error_output: list[str] = []
+
         # Strong references to in-flight background tasks (async action
         # handlers, etc.). asyncio.create_task only weakly references its task,
         # so retaining it here prevents premature garbage collection; tasks
@@ -1111,6 +1122,14 @@ class Wijjit:
         logger.debug(f"Rendering view: '{self.current_view}'")
         view = self.views[self.current_view]
         self._initialize_view(view)
+
+        # A requested full repaint discards the renderer's cached on-screen
+        # buffer so this render goes out as a complete redraw (screen clear +
+        # every cell), overwriting any bytes written to the terminal out of
+        # band. Cleared here so a single frame satisfies the request.
+        if self._force_full_repaint:
+            self.renderer.invalidate_display()
+            self._force_full_repaint = False
 
         try:
             # Evaluate the view to get the template + context for THIS render.
@@ -2206,26 +2225,67 @@ class Wijjit:
             to False — non-fatal errors are logged and printed but the
             app continues.
         """
-        # Log the error with full traceback
+        # Log the error with full traceback. The log goes to a file/handler,
+        # never the shared TTY, so it is always safe.
         try:
             logger.error(
                 f"{message}: {str(exception)}\n{traceback.format_exc()}",
                 exc_info=True,
             )
-            # Also print to stderr for immediate visibility (can be disabled by user)
-            error_text = f"\n{message}: {str(exception)}\n"
-            error_text += traceback.format_exc()
-            print(colorize(error_text, color=ANSIColor.RED), file=sys.stderr)
+            error_text = colorize(
+                f"\n{message}: {str(exception)}\n{traceback.format_exc()}",
+                color=ANSIColor.RED,
+            )
         except Exception as e:
-            # If error handling itself fails, log basic error
+            # If formatting the traceback itself fails, fall back to a minimal
+            # message so the error is never lost entirely.
             logger.error(
                 f"Error handling failed: {message}: {str(exception)}: {e}",
                 exc_info=True,
             )
-            print(f"\nError: {message}: {str(exception)}\n", file=sys.stderr)
+            error_text = f"\nError: {message}: {str(exception)}\n"
 
         if fatal:
+            # The exception propagates out; the event loop's cleanup finally
+            # restores the terminal first, then Python prints the traceback
+            # once on the normal screen. Do not also write it here.
             raise exception
 
-        # Keep running unless it's a critical error
+        # Non-fatal: keep running. Never write to the shared TTY while the
+        # alternate screen is active - a traceback dumped mid-frame corrupts
+        # the rendered UI and lingers in the diff model until a full repaint.
+        # Buffer it and flush after teardown; otherwise print immediately.
+        if self.screen_manager.in_alternate_buffer:
+            self._deferred_error_output.append(error_text)
+        else:
+            print(error_text, file=sys.stderr)
+
+        self.needs_render = True
+
+    def _flush_deferred_errors(self) -> None:
+        """Write any buffered error tracebacks to stderr.
+
+        Called by the event loop after the terminal has been restored (the
+        alternate screen exited, raw mode off), so tracebacks captured during
+        the run surface on the normal screen instead of corrupting the TUI.
+        Safe to call when nothing was deferred.
+        """
+        if not self._deferred_error_output:
+            return
+        for error_text in self._deferred_error_output:
+            print(error_text, file=sys.stderr)
+        self._deferred_error_output.clear()
+
+    def request_full_repaint(self) -> None:
+        """Force the next render to repaint the entire screen.
+
+        Diff rendering emits only the cells that changed since the last frame,
+        so anything written to the terminal out-of-band - a foreign library's
+        ``stdout``, a subprocess, a stray ``print`` - is invisible to the
+        differ and persists until something forces a full redraw. Call this
+        after knowingly writing to the terminal to overwrite those bytes on the
+        next frame. Also drives the optional ``FULL_REPAINT_INTERVAL``
+        heartbeat.
+        """
+        self._force_full_repaint = True
         self.needs_render = True

@@ -1772,6 +1772,21 @@ class Renderer:
         """
         return self._last_displayed_buffer
 
+    def invalidate_display(self) -> None:
+        """Discard the cached on-screen buffers so the next render is full.
+
+        Diff rendering compares the new frame against ``_last_displayed_buffer``
+        and emits only the cells that changed, so bytes written to the terminal
+        out-of-band (foreign ``stdout``, a stray traceback, a subprocess) are
+        invisible to the differ and persist on screen. Clearing the cached
+        buffers forces the next ``render_diff`` down the ``_full_render`` path -
+        a screen clear plus a complete repaint - which overwrites any such
+        bytes. Both the base and displayed buffers are cleared so overlay
+        compositing also starts from a clean slate.
+        """
+        self._last_base_buffer = None
+        self._last_displayed_buffer = None
+
     def get_buffer_as_text(self) -> str:
         """Get the last rendered buffer as plain text (for testing).
 

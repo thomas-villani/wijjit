@@ -52,6 +52,8 @@ Renderer & layout pipeline
 6. **Painting** – each element’s ``render_to`` writes to :class:`wijjit.rendering.paint_context.PaintContext`, which wraps a :class:`wijjit.terminal.screen_buffer.ScreenBuffer`. Styles are resolved via :class:`wijjit.styling.resolver.StyleResolver`.
 7. **Terminal flush** – :class:`wijjit.terminal.screen.ScreenManager` diffs the buffer against the previous frame and writes ANSI commands to the alternate screen for flicker-free updates.
 
+Because the flush is a diff against the last displayed buffer, anything written to the terminal *out-of-band* – a foreign library's ``stdout``, a subprocess, a stray traceback – is invisible to the differ and lingers on screen until a full redraw. For that reason Wijjit never prints to the shared TTY mid-frame: :meth:`wijjit.core.app.Wijjit._handle_error` buffers non-fatal error tracebacks while the alternate screen is active and flushes them to stderr only after the terminal is restored on exit (fatal errors propagate and print once on the normal screen). To evict foreign bytes, :meth:`wijjit.core.app.Wijjit.request_full_repaint` discards the cached buffer so the next frame is a complete repaint, and the opt-in ``FULL_REPAINT_INTERVAL`` config drives that on a heartbeat. The heartbeat is disabled by default so the diff renderer's byte savings are preserved unless requested.
+
 Virtual DOM & Reconciliation
 ----------------------------
 

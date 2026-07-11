@@ -78,6 +78,11 @@ class EventLoop:
         # Render throttling
         self._last_render_time: float = 0.0
 
+        # Full-repaint heartbeat: when FULL_REPAINT_INTERVAL > 0, force a full
+        # screen redraw on this cadence so bytes written to the terminal
+        # out-of-band (foreign stdout) self-heal. Set at loop start.
+        self._last_full_repaint_time: float = 0.0
+
         # Spinner animation timing (separate from refresh_interval)
         # Spinners advance their frames at this interval regardless of refresh_interval
         self._last_spinner_advance_time: float = 0.0
@@ -215,6 +220,7 @@ class EventLoop:
             logger.info(f"Rendering initial view: '{self.app.current_view}'")
             self.app._render(fatal=True)
             self.app._last_refresh_time = time.time()
+            self._last_full_repaint_time = time.time()
 
             logger.info("Entering main async event loop")
             # Main event loop
@@ -288,6 +294,10 @@ class EventLoop:
             # Close input handler to exit raw mode
             self.app.input_handler.close()
             logger.debug("Closed input handler")
+            # Terminal is back on the normal screen: flush any error tracebacks
+            # captured during the run so they surface cleanly instead of having
+            # corrupted the TUI mid-frame.
+            self.app._flush_deferred_errors()
             # Shutdown executor if configured
             if self.executor:
                 logger.debug("Shutting down executor")
@@ -389,6 +399,16 @@ class EventLoop:
         """
         # Track frame start time for FPS calculation
         frame_start = time.time()
+
+        # Full-repaint heartbeat: on the configured cadence, force a complete
+        # redraw so any bytes written to the terminal out-of-band (foreign
+        # stdout, a subprocess) are overwritten. Disabled when the interval is
+        # 0 to preserve the diff renderer's bytes-saved behavior.
+        repaint_interval = self.app.config.get("FULL_REPAINT_INTERVAL", 0.0) or 0.0
+        if repaint_interval > 0:
+            if frame_start - self._last_full_repaint_time >= repaint_interval:
+                self.app.request_full_repaint()
+                self._last_full_repaint_time = frame_start
 
         # Check if auto-refresh is needed (for animations like spinners or notification expiry)
         if self.app.refresh_interval is not None:

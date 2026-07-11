@@ -407,8 +407,8 @@ EXECUTOR_MAX_WORKERS
 
    app.config['EXECUTOR_MAX_WORKERS'] = 4  # 4 worker threads
 
-Rendering (1 option)
-~~~~~~~~~~~~~~~~~~~~~
+Rendering (2 options)
+~~~~~~~~~~~~~~~~~~~~~~
 
 RENDER_THROTTLE_MS
 ^^^^^^^^^^^^^^^^^^
@@ -425,6 +425,21 @@ RENDER_THROTTLE_MS
 
 .. tip::
    Use ``RENDER_THROTTLE_MS`` to limit render frequency and reduce CPU usage from rapid state changes.
+
+FULL_REPAINT_INTERVAL
+^^^^^^^^^^^^^^^^^^^^^^
+
+:Type: ``float``
+:Default: ``0.0``
+:Description: Force a full-screen repaint every N seconds to evict foreign bytes (``0`` disables). Diff rendering only emits the cells that changed, so anything a third-party library or subprocess writes to the terminal out-of-band lingers until a full redraw. When set, the event loop repaints the whole screen on this cadence so such corruption self-heals.
+
+.. code-block:: python
+
+   app.config['FULL_REPAINT_INTERVAL'] = 5.0  # heal every 5 seconds
+   app.config['FULL_REPAINT_INTERVAL'] = 0.0  # disabled (default)
+
+.. tip::
+   Left disabled by default because a periodic full repaint negates the diff renderer's bytes-saved advantage. If your app knowingly writes to the terminal (spawns a subprocess, prints), prefer a one-shot :meth:`app.request_full_repaint() <wijjit.core.app.Wijjit.request_full_repaint>` right after instead of a standing heartbeat.
 
 Notifications (5 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
