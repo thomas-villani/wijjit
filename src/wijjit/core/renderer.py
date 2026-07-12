@@ -5,7 +5,6 @@ custom extensions and filters for terminal UI rendering.
 """
 
 import os
-import shutil
 from collections.abc import Callable
 from copy import copy
 from typing import TYPE_CHECKING, Any
@@ -21,6 +20,7 @@ from jinja2 import (
 
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.dirty import DirtyRegionManager
+from wijjit.terminal.size import get_terminal_size
 
 if TYPE_CHECKING:
     from wijjit.core.overlay import OverlayManager
@@ -470,7 +470,7 @@ class Renderer:
 
         # Get terminal size if not provided
         if width is None or height is None:
-            term_size = shutil.get_terminal_size()
+            term_size = get_terminal_size()
             width = width or term_size.columns
             height = height or term_size.lines
 

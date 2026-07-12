@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wijjit-ssh"
+version = "0.0.1"
+description = "Serve Wijjit TUI apps over SSH - Flask for SSH apps."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Tom Villani", email = "thomas.villani@gmail.com" }]
+keywords = ["ssh", "tui", "terminal", "wijjit", "asyncssh"]
+dependencies = [
+    "wijjit>=0.1.0",
+    "asyncssh>=2.14",
+    "prompt-toolkit>=3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/tomvillani/wijjit"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wijjit_ssh"]

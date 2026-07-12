@@ -16,7 +16,6 @@ declarative UI patterns.
 import asyncio
 import inspect
 import os
-import shutil
 import sys
 import time
 import traceback
@@ -53,9 +52,10 @@ from wijjit.exceptions import KeyBindingError
 from wijjit.layout.bounds import Bounds
 from wijjit.logging_config import configure_logging, get_logger
 from wijjit.terminal.ansi import ANSIColor, ANSICursor, ANSIStyle, colorize
-from wijjit.terminal.input import InputHandler
+from wijjit.terminal.backend import LocalTerminalBackend, TerminalBackend
 from wijjit.terminal.mouse import MouseTrackingMode
 from wijjit.terminal.screen import ScreenManager
+from wijjit.terminal.size import get_terminal_size
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -208,6 +208,7 @@ class Wijjit:
         template_dir: str | None = None,
         enable_mouse: bool | None = None,
         debug: bool | None = None,
+        backend: "TerminalBackend | None" = None,
         **config_overrides,
     ) -> None:
         """Initialize Wijjit application.
@@ -227,6 +228,13 @@ class Wijjit:
             Enable mouse support (convenience parameter for ENABLE_MOUSE config)
         debug : bool or None
             Enable debug mode (convenience parameter for DEBUG config)
+        backend : TerminalBackend or None
+            Terminal transport for the app. When ``None`` (default) a
+            :class:`~wijjit.terminal.backend.LocalTerminalBackend` is used,
+            running against the local console exactly as before. Supply a
+            custom backend to drive the app over a different transport (for
+            example an SSH channel). See
+            :class:`~wijjit.terminal.backend.TerminalBackend`.
         **config_overrides
             Additional config overrides (e.g., quit_key='q', log_level='DEBUG')
 
@@ -326,7 +334,7 @@ class Wijjit:
         self.overlay_manager = OverlayManager(self)
 
         # Initialize notification manager
-        term_size = shutil.get_terminal_size()
+        term_size = get_terminal_size()
         self.notification_manager = NotificationManager(
             overlay_manager=self.overlay_manager,
             terminal_width=term_size.columns,
@@ -340,9 +348,17 @@ class Wijjit:
         # Initialize event system
         self.handler_registry = HandlerRegistry()
 
-        # Initialize terminal components
-        self.screen_manager = ScreenManager()
-        self.input_handler = InputHandler(
+        # Initialize terminal components. All terminal I/O (frame output, screen
+        # control, keyboard/mouse input, size) is funneled through a
+        # TerminalBackend so the app can run somewhere other than the local
+        # console. The default LocalTerminalBackend reproduces the historical
+        # stdout/stdin behavior; REMOTE=True keeps stdout but drops the
+        # process-global signal/atexit/suspend machinery.
+        self._backend: TerminalBackend = backend or LocalTerminalBackend(
+            owns_terminal=not self.config.get("REMOTE", False)
+        )
+        self.screen_manager = ScreenManager(self._backend.screen_output)
+        self.input_handler = self._backend.create_input_handler(
             enable_mouse=self.config["ENABLE_MOUSE"],
             mouse_tracking_mode=self._get_mouse_tracking_mode(),
         )
@@ -403,7 +419,7 @@ class Wijjit:
         self._notification_auto_refresh: bool = False
 
         # Terminal size tracking for resize detection
-        term_size = shutil.get_terminal_size()
+        term_size = get_terminal_size()
         self._last_terminal_size = (term_size.columns, term_size.lines)
 
         # Hook state changes to trigger re-render
@@ -1163,7 +1179,7 @@ class Wijjit:
                 self.renderer.add_global("_wijjit_focused_id", focused_id)
 
                 # Render with layout (elements will be created with correct focus state)
-                term_size = shutil.get_terminal_size()
+                term_size = get_terminal_size()
                 if template_file:
                     # Load from file
                     output, elements, layout_ctx = self.renderer.render_with_layout(
@@ -1238,7 +1254,7 @@ class Wijjit:
 
             # Composite overlays if any are active
             if self.overlay_manager.overlays:
-                term_size = shutil.get_terminal_size()
+                term_size = get_terminal_size()
                 overlay_elements = self.overlay_manager.get_overlay_elements()
                 apply_dimming = self.overlay_manager.has_dimmed_overlay()
 
@@ -1275,13 +1291,11 @@ class Wijjit:
             # - When use_diff_rendering=True: Clears on first render, then only outputs diffs
             # - When use_diff_rendering=False: Clears on every render (via DiffRenderer)
 
-            # Handle encoding for Windows console
-            try:
-                print(output, end="", flush=True)
-            except UnicodeEncodeError:
-                # Fall back to encoding with error handling
-                sys.stdout.buffer.write(output.encode("utf-8", errors="replace"))
-                sys.stdout.flush()
+            # Emit the frame through the terminal backend. The local backend
+            # writes to sys.stdout (with a Windows-console encoding fallback); a
+            # remote backend routes the frame to its transport (e.g. an SSH
+            # channel).
+            self._backend.write_frame(output)
 
             # Check render performance if configured
             if self.config["WARN_SLOW_RENDER_MS"]:
@@ -1318,7 +1332,7 @@ class Wijjit:
 
         # Mark full screen dirty for state changes
         # TODO: Optimize by tracking which elements depend on which state keys
-        term_size = shutil.get_terminal_size()
+        term_size = get_terminal_size()
         self.renderer.dirty_manager.mark_full_screen(term_size.columns, term_size.lines)
 
     def _has_layout_tags(self, template: str) -> bool:
@@ -2102,7 +2116,7 @@ class Wijjit:
 
         # Position in top-right corner
         # Use ANSI cursor positioning to overlay FPS counter
-        term_size = shutil.get_terminal_size()
+        term_size = get_terminal_size()
         column = term_size.columns - len(fps_text)
 
         # Create FPS overlay using ANSI positioning
