@@ -516,6 +516,15 @@ class DefaultConfig:
     #: and 'fg' command will resume it. On Windows, this option is ignored.
     ENABLE_SUSPEND = True
 
+    #: Run without claiming ownership of the process terminal.
+    #: When True, the default terminal backend still writes to stdout but does
+    #: NOT install the process-global SIGTERM/SIGHUP/atexit terminal-restore
+    #: net or the SIGTSTP suspend handler. Set this when embedding a Wijjit app
+    #: in a host process that manages the terminal itself. Custom transports
+    #: (e.g. an SSH backend) express the same intent via
+    #: ``TerminalBackend.owns_terminal`` and do not need this flag.
+    REMOTE = False
+
     # ============================================================
     # ACCESSIBILITY
     # ============================================================

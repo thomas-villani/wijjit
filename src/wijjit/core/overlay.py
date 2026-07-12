@@ -12,13 +12,13 @@ Design Philosophy
 - Clean separation from base layout system
 """
 
-import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.menu import ContextMenu, DropdownMenu
+from wijjit.terminal.size import get_terminal_size
 
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
@@ -215,7 +215,7 @@ class OverlayManager:
         # Auto-calculate bounds for centered overlays that don't have bounds
         if element.bounds is None and hasattr(element, "centered") and element.centered:
 
-            term_size = shutil.get_terminal_size()
+            term_size = get_terminal_size()
 
             # Get element dimensions (width/height attributes)
             elem_width = getattr(element, "width", 50)
@@ -603,12 +603,10 @@ class OverlayManager:
         - Default: At mouse cursor
         - Adjust to stay fully on-screen
         """
-        import shutil
-
         from wijjit.elements.menu import ContextMenu, DropdownMenu
         from wijjit.layout.bounds import Bounds
 
-        term_size = shutil.get_terminal_size()
+        term_size = get_terminal_size()
         term_width = term_size.columns
         term_height = term_size.lines
 

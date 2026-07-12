@@ -131,8 +131,14 @@ from wijjit.terminal.ansi import (
     strip_ansi,
     visible_length,
 )
+from wijjit.terminal.backend import LocalTerminalBackend, TerminalBackend
 from wijjit.terminal.input import Key, Keys, KeyType
 from wijjit.terminal.screen import alternate_screen
+from wijjit.terminal.size import (
+    get_terminal_size,
+    set_terminal_size,
+    terminal_size_scope,
+)
 
 # Testing utilities (build an app from a bare template for tests/devtools)
 from wijjit.testing.app_builder import app_from_template
@@ -258,6 +264,12 @@ __all__ = [
     "Key",
     "Keys",
     "KeyType",
+    # Terminal - Backend / size (transport seam for custom frontends)
+    "TerminalBackend",
+    "LocalTerminalBackend",
+    "get_terminal_size",
+    "set_terminal_size",
+    "terminal_size_scope",
     # Exceptions
     "WijjitError",
     "StateKeyError",

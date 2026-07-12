@@ -8,7 +8,6 @@ Supports both synchronous and asynchronous operation with backward compatibility
 from __future__ import annotations
 
 import asyncio
-import shutil
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -19,6 +18,7 @@ from wijjit.logging_config import get_logger
 from wijjit.terminal.cleanup import get_terminal_cleanup
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent as TerminalMouseEvent
+from wijjit.terminal.size import set_terminal_size
 
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
@@ -172,14 +172,30 @@ class EventLoop:
 
         self.running = True
 
+        # When the backend supplies its own size (e.g. an SSH session's
+        # negotiated PTY), publish it to this task's size override before the
+        # first render so all render/layout code sees the session's dimensions
+        # rather than the server process's terminal. The frame loop keeps this
+        # in sync on resize. Local apps leave the override unset and read the
+        # real terminal directly.
+        backend = self.app._backend
+        if backend.provides_size:
+            cols, rows = backend.get_size()
+            set_terminal_size(cols, rows)
+
         try:
             # Arm the last-resort terminal-restore net before touching the
             # terminal, so SIGTERM/SIGHUP (which bypass the finally below) and
             # an abnormal atexit still restore the cursor, alt buffer, raw mode,
             # and mouse tracking. Unregistered in the finally on a clean exit.
-            self._cleanup_token = get_terminal_cleanup().register(
-                self._emergency_terminal_restore
-            )
+            #
+            # Only when this app owns the process terminal: a non-local backend
+            # (remote/multiplexed) must not install process-global handlers that
+            # would fire across unrelated sessions sharing the process.
+            if backend.owns_terminal:
+                self._cleanup_token = get_terminal_cleanup().register(
+                    self._emergency_terminal_restore
+                )
 
             # Enter alternate screen (if configured)
             if self.app.config["USE_ALTERNATE_SCREEN"]:
@@ -207,8 +223,10 @@ class EventLoop:
                 self.app.input_handler.enable_mouse_tracking()
                 logger.debug("Enabled mouse tracking")
 
-            # Register suspend handlers for Ctrl+Z support (Unix only)
-            if self.app.config.get("ENABLE_SUSPEND", True):
+            # Register suspend handlers for Ctrl+Z support (Unix only). Skipped
+            # unless this app owns the process terminal - SIGTSTP is
+            # process-global and meaningless for a remote/multiplexed session.
+            if backend.owns_terminal and self.app.config.get("ENABLE_SUSPEND", True):
                 if self.app.suspend_manager.register():
                     logger.debug("Registered suspend handlers")
 
@@ -427,21 +445,25 @@ class EventLoop:
 
                 self.app._last_refresh_time = current_time
 
-        # Check for terminal resize
-        term_size = shutil.get_terminal_size()
-        current_size = (term_size.columns, term_size.lines)
+        # Check for terminal resize. The backend is the authoritative size
+        # source (local: the real terminal; remote: the session's negotiated
+        # PTY, updated out-of-band by the transport). When the backend provides
+        # its own size, republish it to this task's size override so render and
+        # layout - which read via wijjit.terminal.size.get_terminal_size - track
+        # the resize.
+        backend = self.app._backend
+        cols, rows = backend.get_size()
+        current_size = (cols, rows)
+        if backend.provides_size:
+            set_terminal_size(cols, rows)
         if current_size != self.app._last_terminal_size:
             logger.debug(
                 f"Terminal resized from {self.app._last_terminal_size} to {current_size}"
             )
             # Recalculate overlay positions
-            self.app.overlay_manager.recalculate_centered_overlays(
-                term_size.columns, term_size.lines
-            )
+            self.app.overlay_manager.recalculate_centered_overlays(cols, rows)
             # Update notification positions
-            self.app.notification_manager.update_terminal_size(
-                term_size.columns, term_size.lines
-            )
+            self.app.notification_manager.update_terminal_size(cols, rows)
             self.app._last_terminal_size = current_size
             self.app.needs_render = True
 

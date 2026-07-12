@@ -12,7 +12,7 @@ import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Union
+from typing import Any, TextIO, Union
 
 from prompt_toolkit.input import create_input
 from prompt_toolkit.keys import Keys as PTKeys
@@ -321,8 +321,17 @@ class InputHandler:
         self,
         enable_mouse: bool = False,
         mouse_tracking_mode: "MouseTrackingMode | None" = None,
+        input: Any | None = None,
+        output: "TextIO | None" = None,
     ) -> None:
-        self._input = create_input()
+        # ``input`` lets a non-local backend feed a prompt_toolkit pipe input
+        # (e.g. bytes arriving on an SSH channel) through the exact same key/
+        # mouse parsing used for real stdin. ``output`` is where mouse-tracking
+        # enable/disable escape sequences are written; a remote backend points
+        # it at the channel so the sequences reach the client, not the server's
+        # own stdout. Both default to the local console.
+        self._input = input if input is not None else create_input()
+        self._output: TextIO = output if output is not None else sys.stdout
         self._raw_mode: Any | None = None
 
         # Mouse support
@@ -1114,10 +1123,10 @@ class InputHandler:
             return
 
         # Enable mouse tracking mode
-        sys.stdout.write(f"\033[?{self._mouse_tracking_mode}h")
+        self._output.write(f"\033[?{self._mouse_tracking_mode}h")
         # Enable SGR extended mouse mode (better coordinate handling)
-        sys.stdout.write("\033[?1006h")
-        sys.stdout.flush()
+        self._output.write("\033[?1006h")
+        self._output.flush()
 
         self.mouse_enabled = True
 
@@ -1130,10 +1139,10 @@ class InputHandler:
             return
 
         # Disable mouse tracking mode
-        sys.stdout.write(f"\033[?{self._mouse_tracking_mode}l")
+        self._output.write(f"\033[?{self._mouse_tracking_mode}l")
         # Disable SGR extended mouse mode
-        sys.stdout.write("\033[?1006l")
-        sys.stdout.flush()
+        self._output.write("\033[?1006l")
+        self._output.flush()
 
         self.mouse_enabled = False
 
