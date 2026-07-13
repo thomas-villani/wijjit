@@ -1,6 +1,7 @@
 """Tests for ScreenBuffer and DiffRenderer classes."""
 
-from wijjit.terminal.cell import Cell
+from wijjit.terminal.ansi import strip_ansi
+from wijjit.terminal.cell import CONTINUATION_CHAR, Cell
 from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 
@@ -555,3 +556,64 @@ class TestDiffRenderer:
         # Should produce output (dirty regions should be scanned)
         # This is a basic test - real optimization would be measured by performance
         assert isinstance(output, str)
+
+
+class TestDiffRendererWideChars:
+    """Column-correct diff / full-render emission for wide (2-column) glyphs."""
+
+    def test_diff_wide_glyph_advances_cursor_by_two(self):
+        """The cell after a wide glyph needs no extra cursor move.
+
+        A CJK head glyph advances the terminal two columns, so ``current_pos``
+        must land on the column after the continuation. The changed cell that
+        follows is then emitted with no intervening cursor positioning.
+        """
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        new.set_cell(5, 0, Cell("日"))
+        new.set_cell(6, 0, Cell(CONTINUATION_CHAR))
+        new.set_cell(7, 0, Cell("X"))
+
+        out = renderer.render_diff(old, new)
+
+        # One cursor move to column 6 (1-indexed), the glyph, then X directly.
+        assert out == "\x1b[1;6H日X"
+
+    def test_diff_continuation_change_reemits_head(self):
+        """A dirty continuation column re-emits the whole head glyph.
+
+        When only the continuation cell differs (its head is unchanged and was
+        therefore not emitted in this pass), the head must be re-emitted so the
+        glyph is never left half-drawn.
+        """
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        for buf in (old, new):
+            buf.set_cell(5, 0, Cell("日"))
+            buf.set_cell(6, 0, Cell(CONTINUATION_CHAR))
+        old.clear_dirty()
+        new.clear_dirty()
+        # Only the continuation column changes -> its head is untouched.
+        new.set_cell(6, 0, Cell(CONTINUATION_CHAR, fg_color=(200, 100, 50)))
+
+        out = renderer.render_diff(old, new)
+
+        # The head glyph is re-emitted whole at its own column.
+        assert out == "\x1b[1;6H日"
+
+    def test_full_render_row_skips_continuation(self):
+        """Full-render of a row with a wide glyph emits it once, no extra char."""
+        renderer = DiffRenderer()
+        buffer = ScreenBuffer(6, 1)
+        buffer.set_cell(0, 0, Cell("日"))
+        buffer.set_cell(1, 0, Cell(CONTINUATION_CHAR))
+        buffer.set_cell(2, 0, Cell("X"))
+
+        row_out = renderer._render_row_optimized(buffer.cells[0])
+        printable = strip_ansi(row_out)
+
+        # Glyph emitted exactly once; the continuation adds no character.
+        assert printable.count("日") == 1
+        assert printable == "日X   "

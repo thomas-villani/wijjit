@@ -19,12 +19,13 @@ from wijjit.layout.scroll import (
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import (
     clip_to_width,
+    iter_text_clusters,
     strip_ansi,
     supports_unicode,
     visible_length,
     wrap_text,
 )
-from wijjit.terminal.cell import Cell, get_pooled_cell
+from wijjit.terminal.cell import CONTINUATION_CHAR, Cell, get_pooled_cell
 from wijjit.terminal.input import Key
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -941,7 +942,7 @@ class Frame(ScrollableElement):
         if self.style.title:
             # Title in border
             title_text = f" {self.style.title} "
-            title_len = len(title_text)
+            title_len = visible_length(title_text)
             remaining = self.width - 2 - title_len
 
             if remaining >= 0:
@@ -1753,9 +1754,10 @@ class Frame(ScrollableElement):
             Border cell attributes
         """
         if self.style.title:
-            # Border with title
+            # Border with title. Width is measured in terminal columns so a
+            # wide (CJK/emoji) title keeps the border aligned.
             title_text = f" {self.style.title} "
-            title_len = len(title_text)
+            title_len = visible_length(title_text)
             remaining = self.width - 2 - title_len
 
             if remaining >= 0:
@@ -1765,9 +1767,16 @@ class Frame(ScrollableElement):
                 # Write left horizontal line (1 char)
                 ctx.write_cell(1, 0, Cell(char=chars["h"], **border_attrs))
 
-                # Write title
-                for i, char in enumerate(title_text):
-                    ctx.write_cell(2 + i, 0, Cell(char=char, **border_attrs))
+                # Write title, one cluster at a time. A width-2 glyph gets a
+                # head cell plus a continuation cell carrying the same attrs.
+                col = 2
+                for cluster, cwidth in iter_text_clusters(title_text):
+                    ctx.write_cell(col, 0, Cell(char=cluster, **border_attrs))
+                    if cwidth == 2:
+                        ctx.write_cell(
+                            col + 1, 0, Cell(char=CONTINUATION_CHAR, **border_attrs)
+                        )
+                    col += cwidth
 
                 # Write right horizontal line
                 right_len = remaining - 1
@@ -1781,11 +1790,17 @@ class Frame(ScrollableElement):
                     self.width - 1, 0, Cell(char=chars["tr"], **border_attrs)
                 )
             else:
-                # Title too long, truncate and show without extra lines
-                title_text = title_text[: self.width - 2]
+                # Title too long, truncate (in columns) and show without lines
+                title_text = clip_to_width(title_text, self.width - 2)
                 ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
-                for i, char in enumerate(title_text):
-                    ctx.write_cell(1 + i, 0, Cell(char=char, **border_attrs))
+                col = 1
+                for cluster, cwidth in iter_text_clusters(title_text):
+                    ctx.write_cell(col, 0, Cell(char=cluster, **border_attrs))
+                    if cwidth == 2:
+                        ctx.write_cell(
+                            col + 1, 0, Cell(char=CONTINUATION_CHAR, **border_attrs)
+                        )
+                    col += cwidth
                 ctx.write_cell(
                     self.width - 1, 0, Cell(char=chars["tr"], **border_attrs)
                 )

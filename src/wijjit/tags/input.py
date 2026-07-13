@@ -26,6 +26,7 @@ from wijjit.tags.layout import (
     parse_tag_attributes,
     safe_int,
 )
+from wijjit.terminal.ansi import visible_length
 
 if TYPE_CHECKING:
     from wijjit.autocomplete.completer import Completer
@@ -276,7 +277,7 @@ class ButtonExtension(Extension):
 
         # Create VNode for reconciliation
         # Button width is based on label length + brackets
-        button_width = len(label) + 4  # "< label >"
+        button_width = visible_length(label) + 4  # "< label >"
         vnode = VNodeBuilder("Button", key=id)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)

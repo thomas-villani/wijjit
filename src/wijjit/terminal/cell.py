@@ -9,6 +9,30 @@ from typing import Any
 
 from wijjit.terminal.ansi import is_no_color
 
+# Sentinel character marking a "continuation cell": the trailing column of a
+# width-2 (wide) glyph. The head cell holds the full glyph and the following
+# cell is a continuation carrying the head's style attributes with this empty
+# char. Emitters skip continuation cells because the terminal advances two
+# columns when the head glyph is printed. See ``is_continuation``.
+CONTINUATION_CHAR = ""
+
+
+def is_continuation(cell: "Cell") -> bool:
+    """Return whether ``cell`` is the trailing column of a wide glyph.
+
+    Parameters
+    ----------
+    cell : Cell
+        Cell to test.
+
+    Returns
+    -------
+    bool
+        True if ``cell`` is a continuation cell (``char == CONTINUATION_CHAR``),
+        i.e. the second column occupied by a preceding width-2 glyph.
+    """
+    return cell.char == CONTINUATION_CHAR
+
 
 @dataclass(slots=True)
 class Cell:
@@ -17,6 +41,17 @@ class Cell:
     This represents one character position in the terminal with associated
     colors and text attributes. Forms the foundation of the cell-based
     rendering system.
+
+    Wide characters
+    ---------------
+    A width-2 glyph (most CJK, many emoji) is stored as two cells: a *head*
+    cell holding the full glyph and a following *continuation* cell whose
+    ``char`` is :data:`CONTINUATION_CHAR` (the empty string) carrying the same
+    style attributes as the head. Use :func:`is_continuation` to detect the
+    trailing cell. Emitters skip continuation cells because printing the head
+    glyph already advances the terminal by two columns. Zero-width combining
+    marks (e.g. an NFD-decomposed accent) are folded onto the base glyph as a
+    single multi-code-point ``char`` on one cell.
 
     Parameters
     ----------

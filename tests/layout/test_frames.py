@@ -1286,6 +1286,40 @@ class TestFrameBorderAlignment:
             ), f"missing/misplaced right border: {row!r}"
 
 
+class TestFrameWideCharTitle:
+    """A wide (CJK) title keeps the top border column-correct in both paths."""
+
+    def test_cjk_title_top_border_width_string_path(self):
+        """The string `render` top border is width columns and ends in a corner."""
+        from wijjit.terminal.ansi import visible_length
+
+        style = FrameStyle(border_style=BorderStyle.SINGLE, title="日本")
+        frame = Frame(width=20, height=4, style=style)
+        frame.set_content("body")
+
+        top = frame.render().split("\n")[0]
+
+        assert visible_length(top) == 20
+        assert top.endswith("┐")
+
+    def test_cjk_title_top_border_width_cell_path(self):
+        """The cell `render_to` top border is width columns and ends in a corner."""
+        from tests.helpers import render_element
+        from wijjit.terminal.ansi import visible_length
+
+        style = FrameStyle(
+            border_style=BorderStyle.SINGLE, title="日本", scrollable=False
+        )
+        frame = Frame(width=20, height=5, style=style)
+        frame.set_content("body")
+
+        # Render into a wider buffer, then trim the trailing fill columns.
+        top = render_element(frame, width=25, height=5).split("\n")[0].rstrip()
+
+        assert visible_length(top) == 20
+        assert top.endswith("┐")
+
+
 class TestFrameBodyTextOverflow:
     """Regression tests for body text honoring a frame's overflow_x.
 
