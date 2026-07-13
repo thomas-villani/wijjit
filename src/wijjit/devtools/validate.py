@@ -32,6 +32,7 @@ reported error captured as ``render-error`` / ``app-load``.
 from __future__ import annotations
 
 import inspect
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -43,7 +44,7 @@ from jinja2 import nodes
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import KNOWN_CONTAINER_TYPES
 from wijjit.core.renderer import Renderer
-from wijjit.core.vdom import EPHEMERAL_PROPS
+from wijjit.core.vdom import EPHEMERAL_PROPS, LAYOUT_META
 from wijjit.devtools._render import render_with
 from wijjit.devtools.tree import walk_vnodes
 
@@ -52,22 +53,11 @@ from wijjit.devtools.tree import walk_vnodes
 # set so the two never drift.
 CONTAINER_TYPES = KNOWN_CONTAINER_TYPES
 
-# Layout/meta props that VNodeBuilder.set_layout copies onto props but element
-# constructors generally don't accept - excluded from the unknown-attribute
-# check so they don't read as typos.
-LAYOUT_META = frozenset(
-    {
-        "width",
-        "height",
-        "margin",
-        "padding",
-        "spacing",
-        "align_h",
-        "align_v",
-        "content_align_h",
-        "content_align_v",
-    }
-)
+# ``LAYOUT_META`` (layout/meta props that VNodeBuilder.set_layout copies onto
+# props but element constructors generally don't accept) lives in
+# :mod:`wijjit.core.vdom` so the tag layer and this validator share one
+# definition. It is excluded from the unknown-attribute check so it doesn't
+# read as typos.
 
 # Framework props that tags set on many elements but constructors don't take as
 # parameters (handled by focus/reconciliation machinery, not __init__).
@@ -75,6 +65,14 @@ FRAMEWORK_PROPS = EPHEMERAL_PROPS | {"tab_index"}
 
 # Props never flagged as unknown attributes.
 _IGNORED_PROPS = LAYOUT_META | FRAMEWORK_PROPS
+
+# A ``jinja2.UndefinedError`` for a bare undefined *name* (as opposed to
+# attribute/item access on an undefined value) has a message of the form
+# ``'foo' is undefined``. Matching it lets the render-time classifier report an
+# ``undefined-variable`` (mirroring the static check) rather than an
+# ``undefined-attribute``, and lets ``validate_template`` dedupe against the
+# names the static check already reported.
+_UNDEFINED_VAR_RE = re.compile(r"'(\w+)' is undefined")
 
 # Element tag render-methods whose instances carry state that survives
 # reconciliation - a bound value, a cursor/selection, a scroll offset, an
@@ -338,7 +336,9 @@ def validate_template(
         The findings.
     """
     report = ValidationReport(path=path)
-    renderer = Renderer()
+    # Strict undefined so a typo'd template name (``{{ nope }}``) is surfaced
+    # rather than silently rendered as an empty string.
+    renderer = Renderer(strict_undefined=True)
 
     # 1. Syntax / unknown tags (also yields the AST for undefined analysis).
     try:
@@ -354,7 +354,9 @@ def validate_template(
     provided = (
         set((context or {}).keys()) | set(renderer.env.globals.keys()) | {"state"}
     )
+    static_undefined_names: set[str] = set()
     for name in sorted(declared - provided):
+        static_undefined_names.add(name)
         report.findings.append(
             Finding(
                 "warning",
@@ -369,12 +371,42 @@ def validate_template(
 
     # 3. Render pass (reuse the same renderer; parse() did not touch its state).
     outcome = render_with(renderer, source, context=context, width=width, height=height)
-    if render:
-        report.rendered = outcome.rendered
 
     if outcome.render_error is not None:
-        report.findings.append(_classify_render_error(outcome.render_error))
-        return report
+        finding = _classify_render_error(outcome.render_error)
+        # Dedupe: the static find_undeclared_variables check above already
+        # reported bare undefined names as warnings. When the strict render fails
+        # on the same name, don't add a duplicate render-time finding.
+        already_reported = False
+        if finding.code == "undefined-variable":
+            match = _UNDEFINED_VAR_RE.search(finding.message)
+            already_reported = (
+                match is not None and match.group(1) in static_undefined_names
+            )
+        if not already_reported:
+            report.findings.append(finding)
+
+        # Preserve tree checks. The strict renderer raises on the first undefined
+        # name, which would otherwise strand the unknown-attribute / element-type
+        # findings for the rest of the template. Re-render once leniently (fresh
+        # Renderer, same source/context) and, if that succeeds, continue with the
+        # tree checks on the lenient outcome. If the lenient render also fails,
+        # stop here (as before).
+        if isinstance(outcome.render_error, jinja2.UndefinedError):
+            outcome = render_with(
+                Renderer(), source, context=context, width=width, height=height
+            )
+            if outcome.render_error is not None:
+                if render:
+                    report.rendered = outcome.rendered
+                return report
+        else:
+            if render:
+                report.rendered = outcome.rendered
+            return report
+
+    if render:
+        report.rendered = outcome.rendered
 
     # 4. Tree checks (element types + attributes).
     if outcome.root is None:
@@ -392,9 +424,19 @@ def validate_template(
 
 
 def _classify_render_error(exc: BaseException) -> Finding:
-    """Map a render-time exception to a Finding."""
+    """Map a render-time exception to a Finding.
+
+    A :class:`jinja2.UndefinedError` is split into two codes: a bare undefined
+    *name* (message ``'foo' is undefined``, i.e. a likely typo of a context
+    variable) is reported as ``undefined-variable``, mirroring the static check;
+    anything else (attribute/item access on an undefined value) keeps the
+    ``undefined-attribute`` classification.
+    """
     if isinstance(exc, jinja2.UndefinedError):
-        return Finding("error", "undefined-attribute", str(exc))
+        message = str(exc)
+        if _UNDEFINED_VAR_RE.search(message):
+            return Finding("error", "undefined-variable", message)
+        return Finding("error", "undefined-attribute", message)
     if isinstance(exc, jinja2.TemplateSyntaxError):
         return Finding("error", "jinja-syntax", exc.message or str(exc), exc.lineno)
     if isinstance(exc, ImportError):

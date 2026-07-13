@@ -308,6 +308,7 @@ class Wijjit:
         self.renderer = Renderer(
             template_dir=self.config["TEMPLATE_DIR"],
             auto_reload=bool(self.config.get("TEMPLATE_AUTO_RELOAD", False)),
+            strict_undefined=bool(self.config.get("DEBUG", False)),
         )
 
         # Set global focus color override from config

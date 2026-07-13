@@ -475,7 +475,16 @@ class DefaultConfig:
     # DEVELOPMENT & DEBUGGING
     # ============================================================
 
-    #: Master debug flag (enables various debug features)
+    #: Master debug flag (enables various debug features).
+    #:
+    #: Enabling DEBUG also turns on strict template undefined checking: the
+    #: renderer uses ``jinja2.StrictUndefined``, so referencing an undefined
+    #: template name (e.g. a typo like ``{{ usename }}``) raises
+    #: ``jinja2.UndefinedError`` instead of silently rendering an empty string.
+    #: When debugging, guard optional keys with ``state.get('k')`` or the
+    #: ``|default`` filter (e.g. ``{{ maybe|default('') }}``). The production
+    #: default (DEBUG=False) stays lenient so one missing key cannot crash a
+    #: running TUI.
     DEBUG = False
 
     #: Display FPS counter on screen

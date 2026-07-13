@@ -21,8 +21,8 @@ from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
     apply_reconciliation_key,
     auto_element_id,
+    forward_extra_props,
     get_element_marker,
-    normalize_element_kwargs,
     parse_tag_attributes,
     safe_int,
 )
@@ -117,11 +117,6 @@ class TextInputExtension(Extension):
         str
             Rendered output
         """
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         layout_context = render_ctx.layout_context
@@ -151,17 +146,12 @@ class TextInputExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextInput", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("placeholder", placeholder)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("width", width)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
 
         # Pass autocomplete spec for resolution in wiring phase
         if autocomplete is not None:
@@ -171,9 +161,10 @@ class TextInputExtension(Extension):
         if focused_id and id and focused_id == id:
             vnode.set_prop("focused", True)
 
-        # Add any additional properties from kwargs (e.g., max_length, style, password)
-        for key, val in kwargs.items():
-            vnode.set_prop(key, val)
+        # Normalize class/tabindex/key and forward any extra attributes
+        # (e.g. max_length, style, password) onto the VNode as props so typos
+        # are visible to the reconciler and validator.
+        forward_extra_props(vnode, kwargs)
 
         # Calculate layout width including border characters based on style
         # Default style is BRACKETS which has left and right borders
@@ -266,11 +257,6 @@ class ButtonExtension(Extension):
         str
             Rendered output
         """
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         layout_context = render_ctx.layout_context
@@ -292,14 +278,13 @@ class ButtonExtension(Extension):
         # Button width is based on label length + brackets
         button_width = len(label) + 4  # "< label >"
         vnode = VNodeBuilder("Button", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("action", action)
-        vnode.set_prop("classes", classes)
         vnode.set_prop("focused", is_focused)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward any extra attributes (e.g.
+        # style) onto the VNode as props so typos surface to the validator.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=button_width, height=1)
         layout_context.add_vnode(vnode)
 
@@ -421,11 +406,8 @@ class SelectExtension(Extension):
             Rendered output
         """
         # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        # Popped here (consumed by the tag) before extras are forwarded.
         border_style = kwargs.pop("border", border_style)
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -511,7 +493,6 @@ class SelectExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Select", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("multiple", multiple)
         if multiple:
@@ -527,10 +508,8 @@ class SelectExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=total_width, height=total_height)
         context.add_vnode(vnode)
 
@@ -690,11 +669,6 @@ class CheckboxExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the checkbox tag."""
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -726,17 +700,14 @@ class CheckboxExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Checkbox", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("label", label)
         vnode.set_prop("checked", checked)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=checkbox_width, height=1)
         context.add_vnode(vnode)
 
@@ -782,11 +753,6 @@ class RadioExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the radio tag."""
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
-
         # Get layout context from RenderContext
         render_ctx = get_render_context()
         context = render_ctx.layout_context
@@ -825,7 +791,6 @@ class RadioExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Radio", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("name", name or "")
         vnode.set_prop("label", label)
@@ -834,10 +799,8 @@ class RadioExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=radio_width, height=1)
         context.add_vnode(vnode)
 
@@ -891,11 +854,8 @@ class CheckboxGroupExtension(Extension):
     ) -> str:
         """Render the checkboxgroup tag."""
         # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        # Popped here (consumed by the tag) before extras are forwarded.
         border_style = kwargs.pop("border", border_style)
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -941,7 +901,6 @@ class CheckboxGroupExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CheckboxGroup", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("options", options)
         vnode.set_prop("selected_values", selected)
@@ -952,10 +911,8 @@ class CheckboxGroupExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=total_width, height=total_height)
         context.add_vnode(vnode)
 
@@ -1016,11 +973,8 @@ class RadioGroupExtension(Extension):
     ) -> str:
         """Render the radiogroup tag."""
         # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        # Popped here (consumed by the tag) before extras are forwarded.
         border_style = kwargs.pop("border", border_style)
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1069,7 +1023,6 @@ class RadioGroupExtension(Extension):
 
             # Create VNode for reconciliation
             vnode = VNodeBuilder("RadioGroup", key=id)
-            apply_reconciliation_key(vnode, kwargs)
             vnode.set_prop("id", id)  # Set id as prop so Element gets it
             vnode.set_prop("name", name)
             vnode.set_prop("options", options)
@@ -1081,10 +1034,8 @@ class RadioGroupExtension(Extension):
             vnode.set_prop("action", action)
             vnode.set_prop("bind", bind)
             vnode.set_prop("focused", is_focused)
-            if classes is not None:
-                vnode.set_prop("classes", classes)
-            if tab_index is not None:
-                vnode.set_prop("tab_index", tab_index)
+            # Normalize class/tabindex/key and forward extra attributes as props.
+            forward_extra_props(vnode, kwargs)
             vnode.set_layout(width=total_width, height=total_height)
             context.add_vnode(vnode)
 
@@ -1251,11 +1202,8 @@ class TextAreaExtension(Extension):
             Rendered output
         """
         # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        # Popped here (consumed by the tag) before extras are forwarded.
         border_style = kwargs.pop("border", border_style)
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1327,7 +1275,6 @@ class TextAreaExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextArea", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("width", element_width)
@@ -1343,10 +1290,8 @@ class TextAreaExtension(Extension):
         vnode.set_prop("dynamic_sizing", dynamic_sizing)
         vnode.set_prop("autosize", autosize)
         vnode.set_prop("max_height", max_height)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
 
         # Account for borders in layout size if present
         layout_width = width_spec
@@ -1465,11 +1410,8 @@ class CodeEditorExtension(Extension):
             Rendered output
         """
         # "border" is the canonical alias for "border_style" (see frame/dialog tags).
+        # Popped here (consumed by the tag) before extras are forwarded.
         border_style = kwargs.pop("border", border_style)
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1519,7 +1461,6 @@ class CodeEditorExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("CodeEditor", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("value", value)
         vnode.set_prop("language", language)
@@ -1534,10 +1475,8 @@ class CodeEditorExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
 
         # Account for borders in layout size if present
         layout_width = width_spec
@@ -1599,10 +1538,6 @@ class SliderExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the slider tag."""
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
-
         render_ctx = get_render_context()
         context = render_ctx.layout_context
         state = render_ctx.state
@@ -1642,7 +1577,6 @@ class SliderExtension(Extension):
                 layout_width += 1 + len(str(int(max_val)))
 
         vnode = VNodeBuilder("Slider", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("min_val", min_val)
         vnode.set_prop("max_val", max_val)
@@ -1655,10 +1589,8 @@ class SliderExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=layout_width, height=1)
         context.add_vnode(vnode)
 
@@ -1705,10 +1637,6 @@ class ToggleExtension(Extension):
         **kwargs: Any,
     ) -> str:
         """Render the toggle tag."""
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
-
         render_ctx = get_render_context()
         context = render_ctx.layout_context
         state = render_ctx.state
@@ -1736,7 +1664,6 @@ class ToggleExtension(Extension):
                 layout_width += 1 + len(label)
 
         vnode = VNodeBuilder("Toggle", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("checked", bool(checked))
         vnode.set_prop("label", label)
@@ -1746,10 +1673,8 @@ class ToggleExtension(Extension):
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
         vnode.set_layout(width=layout_width, height=1)
         context.add_vnode(vnode)
 
@@ -1860,10 +1785,6 @@ class DataGridExtension(Extension):
         """
         if border is not None:
             border_style = border
-        # Normalize kwargs (handles class->classes, tabindex->tab_index)
-        kwargs = normalize_element_kwargs(kwargs)
-        classes = kwargs.pop("classes", None)
-        tab_index = kwargs.pop("tab_index", None)
 
         # Get layout context from RenderContext
         render_ctx = get_render_context()
@@ -1905,7 +1826,6 @@ class DataGridExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("DataGrid", key=id)
-        apply_reconciliation_key(vnode, kwargs)
         vnode.set_prop("id", id)
         vnode.set_prop("data", data)
         vnode.set_prop("columns", columns)
@@ -1917,11 +1837,8 @@ class DataGridExtension(Extension):
         vnode.set_prop("show_scrollbar", bool(show_scrollbar))
         vnode.set_prop("bind", bind)
         vnode.set_prop("focused", is_focused)
-
-        if classes is not None:
-            vnode.set_prop("classes", classes)
-        if tab_index is not None:
-            vnode.set_prop("tab_index", tab_index)
+        # Normalize class/tabindex/key and forward extra attributes as props.
+        forward_extra_props(vnode, kwargs)
 
         # Set layout dimensions
         vnode.set_layout(width=width, height=height)

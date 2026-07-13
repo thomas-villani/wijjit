@@ -18,7 +18,7 @@ from jinja2.ext import Extension
 from jinja2.parser import Parser
 
 from wijjit.core.render_context import get_render_context
-from wijjit.core.vdom import VNodeBuilder
+from wijjit.core.vdom import LAYOUT_META, VNodeBuilder
 from wijjit.layout.frames import BorderStyle
 from wijjit.logging_config import get_logger
 
@@ -212,21 +212,69 @@ def apply_reconciliation_key(vnode: Any, kwargs: dict[str, Any]) -> None:
         vnode.key = str(key)
 
 
+def forward_extra_props(vnode: Any, kwargs: dict[str, Any]) -> None:
+    """Normalize kwargs, apply common attributes, and forward extras as props.
+
+    This is the single choke point every VNode-building tag uses for the
+    leftover keyword arguments the template supplied but the tag did not bind to
+    a named parameter. It normalizes the HTML-style spellings via
+    :func:`normalize_element_kwargs` (``class`` -> ``classes``, ``tabindex`` ->
+    ``tab_index``). Consumes ``class``/``classes``, ``tabindex``/``tab_index``,
+    and ``key``, and forwards every other non-layout attribute onto the VNode so
+    the reconciler and the devtools validator can see it (unknown names surface
+    as ``unknown-attribute`` findings instead of vanishing silently).
+
+    Attributes named in :data:`wijjit.core.vdom.LAYOUT_META` are excluded: layout
+    attrs flow through :meth:`VNodeBuilder.set_layout`, whose ``width``/``height``
+    "only if not already set" sync must win, so they must not be pre-seeded here.
+
+    Not used by the dialog/menu tags, which build ``overlay_info`` dicts rather
+    than VNodes (there is no VNode consumer for the forwarded props).
+
+    Parameters
+    ----------
+    vnode : VNodeBuilder
+        The VNode builder being populated for the element.
+    kwargs : dict
+        Raw keyword arguments captured from the template tag. Both the
+        HTML-style (``class``/``tabindex``) and Python-style
+        (``classes``/``tab_index``) spellings are accepted. This mapping is not
+        mutated - :func:`normalize_element_kwargs` returns a copy - so callers
+        may still read from ``kwargs`` afterwards.
+    """
+    normalized = normalize_element_kwargs(kwargs)
+
+    # An explicit ``key`` overrides the reconciliation identity (see
+    # :func:`apply_reconciliation_key`); consume it so it is not forwarded.
+    key = normalized.pop("key", None)
+    if key is not None:
+        vnode.key = str(key)
+
+    classes = normalized.pop("classes", None)
+    if classes is not None:
+        vnode.set_prop("classes", classes)
+
+    tab_index = normalized.pop("tab_index", None)
+    if tab_index is not None:
+        vnode.set_prop("tab_index", tab_index)
+
+    for name, value in normalized.items():
+        if name in LAYOUT_META:
+            continue
+        vnode.set_prop(name, value)
+
+
 def apply_common_attributes(vnode: Any, kwargs: dict[str, Any]) -> None:
     """Forward the common normalized template attributes onto a VNode.
 
-    Every element shares two HTML-style attributes whose spelling differs from
-    the Python prop name: ``class`` (-> ``classes``, since ``class`` is a Python
-    keyword) and ``tabindex`` (-> ``tab_index``). This helper applies the single
-    normalization rule from :func:`normalize_element_kwargs` and sets the
-    resulting props, so every tag - including the layout containers that
-    historically dropped ``class`` - handles them identically. It also honors an
-    explicit ``key`` attribute via :func:`apply_reconciliation_key`.
-
-    Tags that forward arbitrary leftover kwargs (the input tags) instead call
-    :func:`normalize_element_kwargs` directly so they can pop these keys before
-    the forward loop; this helper is for tags that read named parameters and do
-    not forward extras (layout containers, charts, display, dialogs, menus).
+    Thin wrapper over :func:`forward_extra_props`, kept as the entry point for
+    tags that read their attributes as named parameters (layout containers,
+    charts, most display tags). Every element shares two HTML-style attributes
+    whose spelling differs from the Python prop name: ``class`` (-> ``classes``,
+    since ``class`` is a Python keyword) and ``tabindex`` (-> ``tab_index``);
+    those are normalized and set here, an explicit ``key`` is honored, and any
+    remaining non-layout attribute is forwarded as a prop so template typos
+    surface as ``unknown-attribute`` validator findings instead of vanishing.
 
     Parameters
     ----------
@@ -237,14 +285,7 @@ def apply_common_attributes(vnode: Any, kwargs: dict[str, Any]) -> None:
         HTML-style (``class``/``tabindex``) and Python-style
         (``classes``/``tab_index``) spellings are accepted.
     """
-    normalized = normalize_element_kwargs(kwargs)
-    classes = normalized.get("classes")
-    if classes is not None:
-        vnode.set_prop("classes", classes)
-    tab_index = normalized.get("tab_index")
-    if tab_index is not None:
-        vnode.set_prop("tab_index", tab_index)
-    apply_reconciliation_key(vnode, kwargs)
+    forward_extra_props(vnode, kwargs)
 
 
 def process_body_content(body_output: str, raw: bool = False) -> str:

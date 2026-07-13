@@ -9,6 +9,30 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+# Layout/meta attributes that flow onto a VNode through ``set_layout`` rather
+# than as element constructor props. Kept here as the single source of truth so
+# both the tag layer (which excludes them when forwarding arbitrary extra kwargs
+# onto a VNode) and the devtools validator (which excludes them from the
+# unknown-attribute check, since element constructors generally do not accept
+# them) stay in sync. ``VNodeBuilder.set_layout`` copies ``width``/``height``
+# onto props only if not already set; forwarding them as ordinary props would
+# defeat that "only if not already set" logic, so they are excluded from
+# arbitrary forwarding.
+LAYOUT_META = frozenset(
+    {
+        "width",
+        "height",
+        "margin",
+        "padding",
+        "spacing",
+        "align_h",
+        "align_v",
+        "content_align_h",
+        "content_align_v",
+    }
+)
+
+
 # Ephemeral props that should NOT be synced from template during reconciliation.
 # These represent transient UI state that should persist across re-renders.
 EPHEMERAL_PROPS = frozenset(
