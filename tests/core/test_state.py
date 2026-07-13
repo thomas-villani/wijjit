@@ -1,5 +1,8 @@
 """Tests for state management."""
 
+import asyncio
+import logging
+import threading
 from unittest.mock import Mock
 
 import pytest
@@ -462,3 +465,156 @@ class TestReentrancyGuard:
         state.on_change(lambda k, o, n: None)
         state["a"] = 1
         assert state._notify_depth == 0
+
+
+class TestAsyncCallbackTracking:
+    """Tests for tracking/error-surfacing of async on_change/watch callbacks
+    (review item 2.7): exceptions must always be retrieved (no "Task exception
+    was never retrieved" warnings) and worker-thread-scheduled tasks must be
+    visible to flush_pending_async / the event loop's shutdown sweep.
+    """
+
+    @pytest.mark.asyncio
+    async def test_async_on_change_exception_calls_error_hook(self):
+        """An exception raised by an async on_change callback reaches the hook."""
+        state = State({"k": 0})
+        calls = []
+        state._error_hook = lambda msg, exc: calls.append((msg, exc))
+
+        async def bad_callback(key, old, new):
+            raise ValueError("boom")
+
+        state.on_change(bad_callback)
+        state["k"] = 1
+        await state.flush_pending_async()
+
+        assert len(calls) == 1
+        message, exc = calls[0]
+        assert "bad_callback" in message
+        assert "callback" in message
+        assert isinstance(exc, ValueError)
+        assert state._pending_tasks == set()
+
+    @pytest.mark.asyncio
+    async def test_async_watch_exception_calls_error_hook(self):
+        """An exception raised by an async watch callback reaches the hook."""
+        state = State({"k": 0})
+        calls = []
+        state._error_hook = lambda msg, exc: calls.append((msg, exc))
+
+        async def bad_watcher(key, old, new):
+            raise ValueError("boom")
+
+        state.watch("k", bad_watcher)
+        state["k"] = 1
+        await state.flush_pending_async()
+
+        assert len(calls) == 1
+        message, exc = calls[0]
+        assert "bad_watcher" in message
+        assert "watcher" in message
+        assert isinstance(exc, ValueError)
+        assert state._pending_tasks == set()
+
+    @pytest.mark.asyncio
+    async def test_async_callback_exception_logged_without_hook(self, wijjit_caplog):
+        """With no error hook set, the exception is still retrieved and logged
+        (proving it isn't silently dropped / left for asyncio to warn about)."""
+        state = State({"k": 0})
+        assert state._error_hook is None
+
+        async def bad_callback(key, old, new):
+            raise ValueError("boom")
+
+        state.on_change(bad_callback)
+        state["k"] = 1
+        await state.flush_pending_async()
+
+        error_records = [r for r in wijjit_caplog.records if r.levelno >= logging.ERROR]
+        assert any("bad_callback" in r.getMessage() for r in error_records)
+
+    @pytest.mark.asyncio
+    async def test_worker_thread_set_schedules_and_completes(self):
+        """A state mutation from a worker thread still gets its async
+        callback tracked in _pending_tasks and completed by flush."""
+        state = State({"a": 0})
+        invocations = []
+
+        async def record(key, old, new):
+            invocations.append((key, old, new))
+
+        state.on_change(record)
+
+        # First set on the loop thread, to capture state._loop.
+        state["a"] = 1
+        await state.flush_pending_async()
+        assert len(invocations) == 1
+
+        # Now set from a worker thread.
+        t = threading.Thread(target=lambda: state.__setitem__("a", 2))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive()
+
+        await state.flush_pending_async()
+
+        assert len(invocations) == 2
+        assert invocations[1] == ("a", 1, 2)
+        assert state._pending_tasks == set()
+
+    @pytest.mark.asyncio
+    async def test_worker_thread_callback_exception_reported(self):
+        """An async callback raised from a worker-thread-scheduled task still
+        reaches the error hook."""
+        state = State({"a": 0})
+        calls = []
+        state._error_hook = lambda msg, exc: calls.append((msg, exc))
+
+        async def bad_callback(key, old, new):
+            raise ValueError("boom")
+
+        state.on_change(bad_callback)
+
+        # Capture state._loop via a loop-thread set first.
+        state["a"] = 1
+        await state.flush_pending_async()
+        calls.clear()
+
+        t = threading.Thread(target=lambda: state.__setitem__("a", 2))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive()
+
+        await state.flush_pending_async()
+
+        assert len(calls) == 1
+        message, exc = calls[0]
+        assert "bad_callback" in message
+        assert isinstance(exc, ValueError)
+
+    @pytest.mark.asyncio
+    async def test_flush_pending_async_waits_for_thread_scheduled_work(self):
+        """flush_pending_async waits even for worker-thread-scheduled async
+        callbacks that don't complete on the first event-loop tick."""
+        state = State({"a": 0})
+        completed = []
+
+        async def slow_callback(key, old, new):
+            await asyncio.sleep(0.05)
+            completed.append(new)
+
+        state.on_change(slow_callback)
+
+        # Capture state._loop via a loop-thread set first.
+        state["a"] = 1
+        await state.flush_pending_async()
+        completed.clear()
+
+        t = threading.Thread(target=lambda: state.__setitem__("a", 2))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive()
+
+        await state.flush_pending_async()
+
+        assert completed == [2]

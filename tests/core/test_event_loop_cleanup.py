@@ -8,12 +8,15 @@ removed on a clean exit, and restores the right terminal state when invoked.
 
 from __future__ import annotations
 
+import asyncio
+import threading
 from unittest.mock import Mock, patch
 
 import pytest
 
 from wijjit.core.app import Wijjit
 from wijjit.core.event_loop import EventLoop
+from wijjit.core.state import State
 from wijjit.terminal.cleanup import get_terminal_cleanup
 from wijjit.terminal.input import Key, KeyType
 
@@ -87,6 +90,78 @@ class TestEmergencyRestoreBehavior:
         loop._emergency_terminal_restore()
 
         app.input_handler.close.assert_not_called()
+
+
+class TestWorkerScheduledStateTasksVisibleToShutdown:
+    """Review item 2.7: a state callback task created on the loop thread on
+    behalf of a *worker-thread* state mutation must be visible to the event
+    loop's shutdown cancel sweep (owned |= state._pending_tasks), not
+    orphaned. This replicates the relevant slice of the ``finally`` block in
+    ``EventLoop.run_async`` (event_loop.py ~277-301), including the
+    ``await asyncio.sleep(0)`` added so a just-scheduled
+    ``call_soon_threadsafe`` task-creator gets to run before the sweep
+    samples ``_pending_tasks``.
+    """
+
+    @pytest.mark.asyncio
+    async def test_worker_scheduled_task_is_cancelled_by_shutdown_sweep(self):
+        state = State({"a": 0, "b": 0})
+
+        # Capture state._loop via a loop-thread async callback first (mirrors
+        # real app startup, where the first state change always happens on
+        # the loop thread). Uses a different key than the long watcher below
+        # so this quick round-trip doesn't itself have to wait on the
+        # 10-second sleep.
+        async def quick(key, old, new):
+            return
+
+        state.on_change(quick)
+        state["b"] = 1
+        await state.flush_pending_async()
+        state.off_change(quick)
+
+        async def long_watcher(key, old, new):
+            await asyncio.sleep(10)
+
+        state.watch("a", long_watcher)
+
+        # Mutate from a worker thread: this hops task *creation* onto the
+        # loop thread via call_soon_threadsafe (see
+        # State._schedule_state_coroutine).
+        t = threading.Thread(target=lambda: state.__setitem__("a", 2))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive()
+
+        # Give the loop a tick to let the call_soon_threadsafe task-creator
+        # run, exactly as event_loop.py's shutdown sweep now does (a single
+        # ``await asyncio.sleep(0)``). Poll a bounded number of ticks here
+        # rather than hard-coding "exactly one" so the test isn't sensitive
+        # to exactly how many ready-queue passes the scheduler needs to
+        # drain the threadsafe-posted callback on a given platform/Python
+        # version.
+        for _ in range(50):
+            if state._pending_tasks:
+                break
+            await asyncio.sleep(0)
+
+        assert len(state._pending_tasks) == 1
+
+        # Replicate the shutdown cancel sweep.
+        owned: set[asyncio.Task] = set()
+        owned |= state._pending_tasks
+        pending_tasks = [
+            task
+            for task in owned
+            if task is not asyncio.current_task() and not task.done()
+        ]
+        assert len(pending_tasks) == 1
+        for task in pending_tasks:
+            task.cancel()
+        await asyncio.gather(*pending_tasks, return_exceptions=True)
+
+        assert all(task.cancelled() for task in pending_tasks)
+        assert state._pending_tasks == set()
 
 
 @pytest.fixture(autouse=True)
