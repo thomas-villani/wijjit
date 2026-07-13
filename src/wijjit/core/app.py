@@ -424,6 +424,9 @@ class Wijjit:
 
         # Hook state changes to trigger re-render
         self.state.on_change(self._on_state_change)
+        # Route failures from async on_change/watch callbacks (which State
+        # cannot itself surface to the app) into the app's error handling.
+        self.state._error_hook = self._on_state_callback_error
 
         # Register built-in Tab navigation handlers
         self.on(
@@ -1690,6 +1693,24 @@ class Wijjit:
         exc = task.exception()
         if exc is not None:
             self._handle_error("Error in background task", exc)
+
+    def _on_state_callback_error(self, message: str, exc: BaseException) -> None:
+        """Route async state-callback failures into the app error path.
+
+        Registered as ``state._error_hook`` so :class:`~wijjit.core.state.State`
+        can surface exceptions raised by async ``on_change``/``watch``
+        callbacks - which it cannot itself route to app-level error handling
+        - through the same :meth:`_handle_error` path used for other
+        background task failures.
+
+        Parameters
+        ----------
+        message : str
+            Description of which callback failed (from State).
+        exc : BaseException
+            The exception raised by the async state callback.
+        """
+        self._handle_error(message, exc)
 
     async def _run_async_action_handler(
         self, action_id: str, coro: Coroutine[Any, Any, Any]

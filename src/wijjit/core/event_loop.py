@@ -284,6 +284,13 @@ class EventLoop:
             # when Wijjit is embedded in an existing event loop.
             from wijjit.elements.base import _background_tasks as _element_tasks
 
+            # Let any task-creator scheduled via call_soon_threadsafe (a
+            # state callback triggered by a worker-thread mutation just
+            # before shutdown; see State._schedule_state_coroutine) run so
+            # its task lands in state._pending_tasks and is visible to the
+            # cancel sweep below, instead of being silently orphaned.
+            await asyncio.sleep(0)
+
             owned: set[asyncio.Task[Any]] = set()
             owned |= getattr(self.app, "_background_tasks", set())
             state = getattr(self.app, "state", None)

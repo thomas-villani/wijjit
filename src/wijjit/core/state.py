@@ -8,6 +8,7 @@ Supports both synchronous and asynchronous callbacks.
 import asyncio
 from collections import UserDict
 from collections.abc import Awaitable, Callable
+from functools import partial
 from typing import Any, Literal
 
 from wijjit.exceptions import StateKeyError
@@ -110,6 +111,11 @@ class State(UserDict[str, Any]):
         object.__setattr__(
             self, "_notify_depth", 0
         )  # Re-entrant notification depth guard (see _MAX_NOTIFY_DEPTH)
+        object.__setattr__(
+            self, "_error_hook", None
+        )  # Optional Callable[[str, BaseException], None] the host app can
+        # set (``state._error_hook = fn``) to receive failures from async
+        # on_change/watch callbacks that would otherwise only be logged.
 
         # Validate keys don't conflict with dict methods
         if data:
@@ -564,6 +570,44 @@ class State(UserDict[str, Any]):
         finally:
             self._notify_depth -= 1
 
+    def _on_state_task_done(
+        self, task: "asyncio.Task[Any]", *, name: str, kind: str
+    ) -> None:
+        """Retire a completed async state-callback task and surface errors.
+
+        Registered as the ``add_done_callback`` for every task created by
+        :meth:`_schedule_state_coroutine`, whether scheduled directly on the
+        loop thread or created on the loop thread on behalf of a worker
+        thread. Ensures ``task.exception()`` is always retrieved (so asyncio
+        never logs "Task exception was never retrieved") and routes any
+        exception to the optional ``_error_hook`` set by the host app, falling
+        back to logging when no hook is set.
+
+        Parameters
+        ----------
+        task : asyncio.Task
+            The completed task.
+        name : str
+            Name of the callback that raised (for diagnostics).
+        kind : str
+            Either ``"callback"`` or ``"watcher"`` (for diagnostics).
+        """
+        self._pending_tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is None:
+            return
+        message = f"Error in async state {kind} '{name}'"
+        hook = self._error_hook
+        if hook is not None:
+            try:
+                hook(message, exc)
+                return
+            except Exception:
+                logger.exception("State error hook failed")
+        logger.error(f"{message}: {exc}", exc_info=exc)
+
     def _schedule_state_coroutine(
         self, coro: Any, callback_name: str, kind: str
     ) -> None:
@@ -583,11 +627,26 @@ class State(UserDict[str, Any]):
         -----
         When invoked on the event-loop thread, the coroutine is scheduled with
         ``create_task`` (thread-safe in that context) and the loop is captured
-        for later cross-thread use. When invoked from a worker thread, it is
-        scheduled onto the captured loop with ``run_coroutine_threadsafe``.
+        for later cross-thread use. When invoked from a worker thread, task
+        *creation* itself is hopped onto the loop thread via
+        ``call_soon_threadsafe`` rather than using
+        ``run_coroutine_threadsafe`` directly: this way the resulting task is
+        added to ``_pending_tasks`` (and all mutation of that set happens on
+        the loop thread), so it is visible to both
+        :meth:`flush_pending_async` and the event loop's shutdown cancel
+        sweep. In both cases the task's completion is tracked via
+        :meth:`_on_state_task_done`, which retrieves ``task.exception()`` so
+        failures are never silently dropped.
+
         If no loop is available the coroutine cannot run and a warning is
         logged. Uses ``get_running_loop`` (not the deprecated
         ``get_event_loop``).
+
+        The one residual race: a callback scheduled (via
+        ``call_soon_threadsafe``) after the event loop's shutdown sweep has
+        already taken its snapshot of ``_pending_tasks`` can still be
+        orphaned - there is no way to make an after-the-fact scheduling
+        visible to a sweep that already ran.
         """
         try:
             loop = asyncio.get_running_loop()
@@ -600,13 +659,32 @@ class State(UserDict[str, Any]):
             object.__setattr__(self, "_loop", loop)
             task = loop.create_task(coro)
             self._pending_tasks.add(task)
-            task.add_done_callback(self._pending_tasks.discard)
+            task.add_done_callback(
+                partial(self._on_state_task_done, name=callback_name, kind=kind)
+            )
             return
 
         captured = self._loop
         if captured is not None and captured.is_running():
-            # Called from a worker thread: hop to the loop thread safely.
-            asyncio.run_coroutine_threadsafe(coro, captured)
+            # Called from a worker thread: hop *task creation* to the loop
+            # thread so the task lands in _pending_tasks uniformly and all
+            # set mutation stays on the loop thread.
+            def _create_tracked(coro: Any = coro) -> None:
+                task = captured.create_task(coro)
+                self._pending_tasks.add(task)
+                task.add_done_callback(
+                    partial(self._on_state_task_done, name=callback_name, kind=kind)
+                )
+
+            try:
+                captured.call_soon_threadsafe(_create_tracked)
+            except RuntimeError:
+                # Loop closed between the is_running() check and scheduling.
+                coro.close()
+                logger.warning(
+                    f"Cannot invoke async state {kind} '{callback_name}': "
+                    f"event loop closed"
+                )
             return
 
         # No event loop available - cannot run the coroutine.
@@ -776,24 +854,36 @@ class State(UserDict[str, Any]):
         """Wait for all pending async callback tasks to complete.
 
         This method waits for any background tasks created by state changes
-        (via __setitem__) to finish executing.
+        (via __setitem__) to finish executing, including tasks created on the
+        loop thread on behalf of a worker-thread state mutation (see
+        :meth:`_schedule_state_coroutine`) and tasks spawned *by* those
+        callbacks while they run.
 
         Notes
         -----
         Useful for testing or ensuring cleanup before shutdown. In normal
         operation, you usually want fire-and-forget behavior for callbacks.
 
+        An initial ``await asyncio.sleep(0)`` gives a just-scheduled
+        ``call_soon_threadsafe`` task-creator (worker-thread path) a chance to
+        run before the set is even sampled, so its task is visible here. The
+        loop then keeps gathering until the set is empty, since a callback
+        can itself trigger further state changes whose tasks are added to
+        ``_pending_tasks`` while this method is awaiting the current batch.
+
         Examples
         --------
         >>> state['count'] = 1  # Triggers async callback as background task
         >>> await state.flush_pending_async()  # Wait for callback to finish
         """
-        if self._pending_tasks:
+        await asyncio.sleep(0)
+        while self._pending_tasks:
             logger.debug(
                 f"Flushing {len(self._pending_tasks)} pending state callback tasks"
             )
-            await asyncio.gather(*self._pending_tasks, return_exceptions=True)
-            logger.debug("All pending state callback tasks completed")
+            await asyncio.gather(*list(self._pending_tasks), return_exceptions=True)
+            await asyncio.sleep(0)
+        logger.debug("All pending state callback tasks completed")
 
     def update(self, other: dict[str, Any], /, **kwargs: Any) -> None:  # type: ignore[override]
         """Update multiple state values at once.
