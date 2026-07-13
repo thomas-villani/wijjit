@@ -901,13 +901,14 @@ class CodeEditor(TextArea):
             fg_color=(128, 128, 128),  # Gray
             bg_color=content_style.bg_color,
         )
-        line_num_attrs = line_num_style.to_cell_attrs()
 
-        # Render each visible line
+        # Render each visible line. Coordinates here are RELATIVE to
+        # ctx.bounds; the PaintContext helpers translate to absolute screen
+        # coordinates and enforce the clip region.
         for display_idx in range(height):
             line_idx = visible_start + display_idx
-            y = ctx.bounds.y + start_y + display_idx
-            x_offset = ctx.bounds.x + start_x
+            rel_y = start_y + display_idx
+            rel_x_offset = start_x
 
             # Render line number if enabled
             if self.show_line_numbers:
@@ -916,11 +917,8 @@ class CodeEditor(TextArea):
                 else:
                     line_num_str = " " * line_num_width
 
-                for i, char in enumerate(line_num_str):
-                    ctx.buffer.set_cell(
-                        x_offset + i, y, Cell(char=char, **line_num_attrs)
-                    )
-                x_offset += line_num_width
+                ctx.write_text(rel_x_offset, rel_y, line_num_str, line_num_style)
+                rel_x_offset += line_num_width
 
             # Render code content
             if line_idx < len(self.lines):
@@ -952,8 +950,8 @@ class CodeEditor(TextArea):
                 if tokens_valid and self.highlighter.is_highlighting_enabled():
                     self._render_highlighted_line(
                         ctx,
-                        x_offset,
-                        y,
+                        rel_x_offset,
+                        rel_y,
                         line,
                         line_idx,
                         tokens,
@@ -967,8 +965,8 @@ class CodeEditor(TextArea):
                     # No highlighting - render plain
                     self._render_plain_line(
                         ctx,
-                        x_offset,
-                        y,
+                        rel_x_offset,
+                        rel_y,
                         line,
                         line_idx,
                         code_width,
@@ -979,10 +977,7 @@ class CodeEditor(TextArea):
                     )
             else:
                 # Empty line (beyond content)
-                for i in range(code_width):
-                    ctx.buffer.set_cell(
-                        x_offset + i, y, Cell(char=" ", **content_attrs)
-                    )
+                ctx.fill_rect(rel_x_offset, rel_y, code_width, 1, " ", content_style)
 
         # Render scrollbar if needed
         if needs_scrollbar:
@@ -991,15 +986,16 @@ class CodeEditor(TextArea):
             scrollbar_chars = render_vertical_scrollbar(
                 self.scroll_manager.state, height
             )
-            scrollbar_x = ctx.bounds.x + start_x + width - 1
+            rel_scrollbar_x = start_x + width - 1
 
-            for i in range(height):
-                scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
-                ctx.buffer.set_cell(
-                    scrollbar_x,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=scrollbar_char, **content_attrs),
+            scrollbar_cells = [
+                Cell(
+                    char=scrollbar_chars[i] if i < len(scrollbar_chars) else " ",
+                    **content_attrs,
                 )
+                for i in range(height)
+            ]
+            ctx.write_cells_vertical(rel_scrollbar_x, start_y, scrollbar_cells)
 
     def _render_highlighted_line(
         self,
@@ -1022,9 +1018,9 @@ class CodeEditor(TextArea):
         ctx : PaintContext
             Paint context
         x_start : int
-            Starting X position
+            Starting X position, relative to ``ctx.bounds``
         y : int
-            Y position
+            Y position, relative to ``ctx.bounds``
         line : str
             Line content
         line_idx : int
@@ -1032,7 +1028,7 @@ class CodeEditor(TextArea):
         tokens : list of tuple
             Token list for this line
         width : int
-            Available width
+            Available width, in terminal columns
         show_cursor : bool
             Whether to show cursor on this line
         cursor_attrs : dict
@@ -1041,47 +1037,57 @@ class CodeEditor(TextArea):
             Cell attributes for selection
         content_attrs : dict
             Default cell attributes
+
+        Notes
+        -----
+        Two counters advance independently: ``char_col`` indexes logical
+        characters (used for cursor and selection tests, which are expressed
+        in character positions) and ``disp`` is the display-column budget
+        spent by :meth:`PaintContext.write_cell`, which returns the columns
+        consumed (2 for wide CJK/emoji clusters) and emits the continuation
+        cell.
         """
+        from wijjit.terminal.ansi import iter_text_clusters
         from wijjit.terminal.cell import Cell
 
-        x = x_start
-        col = 0  # Column position in line
+        disp = 0  # Display column offset from x_start
+        char_col = 0  # Logical character position in line
 
         # Process each token
         for token_type, token_text in tokens:
-            if x >= x_start + width:
+            if disp >= width:
                 break
 
             # Get style for this token type
             token_style = get_style_for_token(token_type, self.highlighter.theme)
             token_attrs = self._token_style_to_attrs(token_style, content_attrs)
 
-            # Render each character in the token
-            for char in token_text:
-                if x >= x_start + width:
+            # Render each grapheme cluster in the token
+            for cluster, _cwidth in iter_text_clusters(token_text):
+                if disp >= width:
                     break
 
                 # Check for cursor
-                if show_cursor and col == self.cursor_col:
-                    ctx.buffer.set_cell(x, y, Cell(char=char, **cursor_attrs))
+                if show_cursor and char_col == self.cursor_col:
+                    attrs = cursor_attrs
                 # Check for selection
-                elif self._is_position_selected(line_idx, col):
-                    ctx.buffer.set_cell(x, y, Cell(char=char, **selection_attrs))
+                elif self._is_position_selected(line_idx, char_col):
+                    attrs = selection_attrs
                 else:
-                    ctx.buffer.set_cell(x, y, Cell(char=char, **token_attrs))
+                    attrs = token_attrs
 
-                x += 1
-                col += 1
+                disp += ctx.write_cell(x_start + disp, y, Cell(char=cluster, **attrs))
+                char_col += len(cluster)
 
         # Pad remaining width
-        while x < x_start + width:
+        while disp < width:
             # Check for cursor at end of line
-            if show_cursor and col == self.cursor_col:
-                ctx.buffer.set_cell(x, y, Cell(char=" ", **cursor_attrs))
+            if show_cursor and char_col == self.cursor_col:
+                ctx.write_cell(x_start + disp, y, Cell(char=" ", **cursor_attrs))
             else:
-                ctx.buffer.set_cell(x, y, Cell(char=" ", **content_attrs))
-            x += 1
-            col += 1
+                ctx.write_cell(x_start + disp, y, Cell(char=" ", **content_attrs))
+            disp += 1
+            char_col += 1
 
     def _render_plain_line(
         self,
@@ -1103,15 +1109,15 @@ class CodeEditor(TextArea):
         ctx : PaintContext
             Paint context
         x_start : int
-            Starting X position
+            Starting X position, relative to ``ctx.bounds``
         y : int
-            Y position
+            Y position, relative to ``ctx.bounds``
         line : str
             Line content
         line_idx : int
             Line index in document
         width : int
-            Available width
+            Available width, in terminal columns
         show_cursor : bool
             Whether to show cursor on this line
         cursor_attrs : dict
@@ -1120,27 +1126,48 @@ class CodeEditor(TextArea):
             Cell attributes for selection
         content_attrs : dict
             Default cell attributes
+
+        Notes
+        -----
+        ``char_col`` indexes logical characters (for cursor and selection
+        tests) while ``disp`` is the display-column budget spent by
+        :meth:`PaintContext.write_cell` (2 columns for wide clusters).
         """
+        from wijjit.terminal.ansi import iter_text_clusters
         from wijjit.terminal.cell import Cell
 
-        # Clip or pad line to width
-        if len(line) > width:
-            display_line = line[:width]
-        else:
-            display_line = line.ljust(width)
+        disp = 0  # Display column offset from x_start
+        char_col = 0  # Logical character position in line
 
-        # Render each character
-        for col, char in enumerate(display_line):
-            x = x_start + col
+        # Render the line content, cluster by cluster
+        for cluster, _cwidth in iter_text_clusters(line):
+            if disp >= width:
+                break
 
             # Check for cursor
-            if show_cursor and col == self.cursor_col:
-                ctx.buffer.set_cell(x, y, Cell(char=char, **cursor_attrs))
+            if show_cursor and char_col == self.cursor_col:
+                attrs = cursor_attrs
             # Check for selection
-            elif self._is_position_selected(line_idx, col):
-                ctx.buffer.set_cell(x, y, Cell(char=char, **selection_attrs))
+            elif self._is_position_selected(line_idx, char_col):
+                attrs = selection_attrs
             else:
-                ctx.buffer.set_cell(x, y, Cell(char=char, **content_attrs))
+                attrs = content_attrs
+
+            disp += ctx.write_cell(x_start + disp, y, Cell(char=cluster, **attrs))
+            char_col += len(cluster)
+
+        # Pad remaining width with spaces (still honoring cursor/selection)
+        while disp < width:
+            if show_cursor and char_col == self.cursor_col:
+                attrs = cursor_attrs
+            elif self._is_position_selected(line_idx, char_col):
+                attrs = selection_attrs
+            else:
+                attrs = content_attrs
+
+            ctx.write_cell(x_start + disp, y, Cell(char=" ", **attrs))
+            disp += 1
+            char_col += 1
 
     def _token_style_to_attrs(self, token_style: dict, default_attrs: dict) -> dict:
         """Convert token style to cell attributes.

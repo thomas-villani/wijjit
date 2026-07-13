@@ -2,10 +2,11 @@
 
 import pytest
 
-from tests.helpers import render_element
+from tests.helpers import render_element, render_element_buffer
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.tree import Tree
 from wijjit.layout.bounds import Bounds
+from wijjit.terminal.cell import is_continuation
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -1222,3 +1223,35 @@ class TestTreeBorderedViewport:
         assert tree.highlighted_index == 8
         start, end = tree.scroll_manager.get_visible_range()
         assert start <= tree.highlighted_index < end
+
+
+class TestTreeWideChars:
+    """Wide-character (CJK) rendering regression tests (review 2.1/2.11).
+
+    A full-width glyph must render as a head cell plus an empty continuation
+    cell so it occupies two terminal columns, and the tree's own border must
+    stay intact instead of being pushed out or overwritten.
+    """
+
+    def test_cjk_label_renders_continuation_cells_and_keeps_border(self):
+        """A CJK node label paints head + continuation cells; border intact."""
+        tree = Tree(
+            data={"label": "日本語"},  # root node, no children
+            width=20,
+            height=3,
+            border_style="single",
+            show_scrollbar=False,
+        )
+        buf = render_element_buffer(tree, width=20, height=3)
+
+        # Row 0 is the top border; row 1 is the single content row.
+        content = buf.cells[1]
+        idx = next(i for i, cell in enumerate(content) if cell.char == "日")
+        assert is_continuation(content[idx + 1])
+        assert content[idx + 2].char == "本"
+        assert is_continuation(content[idx + 3])
+        assert content[idx + 4].char == "語"
+        assert is_continuation(content[idx + 5])
+
+        # The right border is not overwritten by the wide content.
+        assert content[19].char == "│"  # "│"

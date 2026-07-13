@@ -764,84 +764,31 @@ class ListView(ScrollableElement):
         scrollbar_width = 1 if needs_scrollbar else 0
         total_width = content_width + scrollbar_width + 2  # +2 for borders
 
-        # Render top border with optional title
+        # Top border with optional centered title. Every character on this
+        # row shares border_style, so the whole row is composed as one string
+        # and written with a single clipped write_text call.
+        border_width = total_width - 2  # Width without corners
         if self.title:
             title_text = f" {self.title} "
             title_len = visible_length(title_text)
-            border_width = total_width - 2  # Width without corners
-
             if title_len < border_width:
                 remaining = border_width - title_len
                 left_len = remaining // 2
                 right_len = remaining - left_len
-
-                # Top-left corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-
-                # Left line
-                for i in range(left_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Title
-                for i, char in enumerate(title_text):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + i,
-                        ctx.bounds.y,
-                        Cell(char=char, **border_attrs),
-                    )
-
-                # Right line
-                for i in range(right_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + title_len + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Top-right corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
+                top_line = (
+                    chars["tl"]
+                    + chars["h"] * left_len
+                    + title_text
+                    + chars["h"] * right_len
+                    + chars["tr"]
                 )
             else:
                 # Title too long
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-                for i in range(border_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
-                )
+                top_line = chars["tl"] + chars["h"] * border_width + chars["tr"]
         else:
             # No title
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-            )
-            for i in range(1, total_width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + i,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y,
-                Cell(char=chars["tr"], **border_attrs),
-            )
+            top_line = chars["tl"] + chars["h"] * border_width + chars["tr"]
+        ctx.write_text(0, 0, top_line, border_style)
 
         # Render content area (starting at y=1, inside border)
         label_style = ctx.style_resolver.resolve_style(self, "listview.label")
@@ -863,38 +810,15 @@ class ListView(ScrollableElement):
         )
 
         # Render side borders for content area
-        for y in range(content_height):
-            # Left border
-            ctx.buffer.set_cell(
-                ctx.bounds.x,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
-            # Right border
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        side_cells = [
+            Cell(char=chars["v"], **border_attrs) for _ in range(content_height)
+        ]
+        ctx.write_cells_vertical(0, 1, side_cells)
+        ctx.write_cells_vertical(total_width - 1, 1, side_cells)
 
         # Render bottom border
-        bottom_y = content_height + 1
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["bl"], **border_attrs),
-        )
-        for i in range(1, total_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + i,
-                ctx.bounds.y + bottom_y,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + total_width - 1,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["br"], **border_attrs),
-        )
+        bottom_line = chars["bl"] + chars["h"] * border_width + chars["br"]
+        ctx.write_text(0, content_height + 1, bottom_line, border_style)
 
     def _render_to_content(
         self,
@@ -942,6 +866,20 @@ class ListView(ScrollableElement):
                 self.scroll_manager.state, content_height
             )
 
+        def _write_scrollbar(row_y: int) -> None:
+            """Write the scrollbar glyph for one content row (label style)."""
+            scrollbar_idx = row_y - start_y
+            scrollbar_char = (
+                scrollbar_chars[scrollbar_idx]
+                if scrollbar_idx < len(scrollbar_chars)
+                else " "
+            )
+            ctx.write_cell(
+                content_width,
+                row_y,
+                Cell(char=scrollbar_char, **label_style.to_cell_attrs()),
+            )
+
         # Render visible content lines
         current_y = start_y
         for line_idx in range(
@@ -968,62 +906,34 @@ class ListView(ScrollableElement):
             if is_divider:
                 line_style = divider_style
 
-            # Write line content
-            line_attrs = line_style.to_cell_attrs()
-            for x, char in enumerate(clean_line[:content_width]):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=char, **line_attrs),
-                )
+            # Write line content (uniform style for the whole row)
+            written = clean_line[:content_width]
+            ctx.write_text(0, current_y, written, line_style)
+            rendered_width = visible_length(written)
 
             # Pad remaining width
-            for x in range(len(clean_line[:content_width]), content_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=" ", **line_attrs),
+            if rendered_width < content_width:
+                ctx.fill_rect(
+                    rendered_width,
+                    current_y,
+                    content_width - rendered_width,
+                    1,
+                    " ",
+                    line_style,
                 )
 
             # Add scrollbar character if needed
             if needs_scrollbar:
-                scrollbar_idx = current_y - start_y
-                scrollbar_char = (
-                    scrollbar_chars[scrollbar_idx]
-                    if scrollbar_idx < len(scrollbar_chars)
-                    else " "
-                )
-                # Use label style for scrollbar
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + content_width,
-                    ctx.bounds.y + current_y,
-                    Cell(char=scrollbar_char, **label_style.to_cell_attrs()),
-                )
+                _write_scrollbar(current_y)
 
             current_y += 1
 
         # Fill remaining lines with empty space
         while current_y < start_y + content_height:
-            # Empty line
-            for x in range(content_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=" ", **label_style.to_cell_attrs()),
-                )
+            ctx.fill_rect(0, current_y, content_width, 1, " ", label_style)
 
             # Add scrollbar character if needed
             if needs_scrollbar:
-                scrollbar_idx = current_y - start_y
-                scrollbar_char = (
-                    scrollbar_chars[scrollbar_idx]
-                    if scrollbar_idx < len(scrollbar_chars)
-                    else " "
-                )
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + content_width,
-                    ctx.bounds.y + current_y,
-                    Cell(char=scrollbar_char, **label_style.to_cell_attrs()),
-                )
+                _write_scrollbar(current_y)
 
             current_y += 1

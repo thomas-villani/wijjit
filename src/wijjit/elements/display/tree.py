@@ -1278,9 +1278,6 @@ class Tree(ScrollableElement):
         # Ensure borders don't inherit background from content cells
         # If border style doesn't have explicit bg, use None to clear
         border_attrs = border_style.to_cell_attrs()
-        # Explicitly set bg_color to None if not defined to ensure transparency
-        if "bg_color" not in border_attrs or border_attrs["bg_color"] is None:
-            border_attrs = {**border_attrs, "bg_color": None}
 
         # Calculate dimensions
         content_width = self.width - 2  # Subtract borders
@@ -1290,84 +1287,31 @@ class Tree(ScrollableElement):
         # Render borders FIRST to establish baseline, then content on top
         # This prevents content backgrounds from bleeding into border area
 
-        # Render top border with optional title
+        # Top border with optional centered title. Every character on this
+        # row shares border_style, so the whole row is composed as one string
+        # and written with a single clipped write_text call.
+        border_width = total_width - 2  # Width without corners
         if self.title:
             title_text = f" {self.title} "
             title_len = visible_length(title_text)
-            border_width = total_width - 2  # Width without corners
-
             if title_len < border_width:
                 remaining = border_width - title_len
                 left_len = remaining // 2
                 right_len = remaining - left_len
-
-                # Top-left corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-
-                # Left line
-                for i in range(left_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Title
-                for i, char in enumerate(title_text):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + i,
-                        ctx.bounds.y,
-                        Cell(char=char, **border_attrs),
-                    )
-
-                # Right line
-                for i in range(right_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + title_len + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Top-right corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
+                top_line = (
+                    chars["tl"]
+                    + chars["h"] * left_len
+                    + title_text
+                    + chars["h"] * right_len
+                    + chars["tr"]
                 )
             else:
                 # Title too long
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-                for i in range(border_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
-                )
+                top_line = chars["tl"] + chars["h"] * border_width + chars["tr"]
         else:
             # No title
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-            )
-            for i in range(1, total_width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + i,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y,
-                Cell(char=chars["tr"], **border_attrs),
-            )
+            top_line = chars["tl"] + chars["h"] * border_width + chars["tr"]
+        ctx.write_text(0, 0, top_line, border_style)
 
         # Render content area (inside borders)
         content_ctx = ctx.sub_context(1, 1, content_width, content_height)
@@ -1376,38 +1320,15 @@ class Tree(ScrollableElement):
         )
 
         # Render side borders
-        for y in range(content_height):
-            # Left border
-            ctx.buffer.set_cell(
-                ctx.bounds.x,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
-            # Right border
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        side_cells = [
+            Cell(char=chars["v"], **border_attrs) for _ in range(content_height)
+        ]
+        ctx.write_cells_vertical(0, 1, side_cells)
+        ctx.write_cells_vertical(total_width - 1, 1, side_cells)
 
         # Render bottom border
-        bottom_y = content_height + 1
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["bl"], **border_attrs),
-        )
-        for i in range(1, total_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + i,
-                ctx.bounds.y + bottom_y,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + total_width - 1,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["br"], **border_attrs),
-        )
+        bottom_line = chars["bl"] + chars["h"] * border_width + chars["br"]
+        ctx.write_text(0, content_height + 1, bottom_line, border_style)
 
     def _render_to_content(
         self,
@@ -1536,107 +1457,75 @@ class Tree(ScrollableElement):
             if visible_length(label) > label_width:
                 label = clip_to_width(label, label_width, ellipsis="...")
 
-            # Write line parts with appropriate styles
-            x_offset = 0
-
-            # Get node attributes
-            node_attrs = node_style.to_cell_attrs()
-            selection_marker_attrs = selection_marker_style.to_cell_attrs()
-
-            # For highlighted nodes, indicator should inherit the node's background
-            # for visual consistency across the entire line
+            # For highlighted nodes, the indicator inherits the node's
+            # background for visual consistency across the entire line.
             if is_highlighted and self.focused:
                 # Use node style but keep indicator foreground color if it exists
-                indicator_attrs_for_line = Style(
+                indicator_style_for_line = Style(
                     fg_color=indicator_style.fg_color or node_style.fg_color,
                     bg_color=node_style.bg_color,
                     bold=node_style.bold,
                     reverse=False,  # Explicitly disable reverse
-                ).to_cell_attrs()
+                )
             else:
-                indicator_attrs_for_line = indicator_style.to_cell_attrs()
+                indicator_style_for_line = indicator_style
 
-            # Selection marker (use selection marker style to show selected state)
-            for char in selection_marker:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x_offset,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=char, **selection_marker_attrs),
-                )
-                x_offset += 1
+            row_y = start_y + i
 
-            # Tree prefix (use node style)
-            for char in tree_prefix:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x_offset,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=char, **node_attrs),
-                )
-                x_offset += 1
+            # Selection marker, tree prefix, and expand indicator each carry
+            # their own style, so each is written as its own styled run; the
+            # space-after-indicator and label share node_style and are
+            # combined into a single trailing run.
+            x_offset = 0
+            ctx.write_text(x_offset, row_y, selection_marker, selection_marker_style)
+            x_offset += visible_length(selection_marker)
 
-            # Expand indicator (use indicator style with node background if highlighted)
-            for char in expand_indicator:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x_offset,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=char, **indicator_attrs_for_line),
-                )
-                x_offset += 1
+            ctx.write_text(x_offset, row_y, tree_prefix, node_style)
+            x_offset += visible_length(tree_prefix)
 
-            # Space after indicator (use node style)
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x_offset,
-                ctx.bounds.y + start_y + i,
-                Cell(char=" ", **node_attrs),
-            )
-            x_offset += 1
+            ctx.write_text(x_offset, row_y, expand_indicator, indicator_style_for_line)
+            x_offset += visible_length(expand_indicator)
 
-            # Label (use node style)
-            for char in label:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x_offset,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=char, **node_attrs),
-                )
-                x_offset += 1
+            space_and_label = " " + label
+            ctx.write_text(x_offset, row_y, space_and_label, node_style)
+            x_offset += visible_length(space_and_label)
 
             # Pad remaining width with spaces (use node style)
             # Leave space for scrollbar if present
             # Only fill if node has a background color (otherwise inherit from parent)
-            if node_style.bg_color or is_highlighted:
-                while x_offset < tree_width:
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x_offset,
-                        ctx.bounds.y + start_y + i,
-                        Cell(char=" ", **node_attrs),
-                    )
-                    x_offset += 1
+            if (node_style.bg_color or is_highlighted) and x_offset < tree_width:
+                ctx.fill_rect(
+                    x_offset, row_y, tree_width - x_offset, 1, " ", node_style
+                )
 
         # Pad remaining lines to height
         rendered_lines = len(visible_nodes)
         if base_style.bg_color:
             # Only fill empty lines if tree has explicit background color
-            for i in range(rendered_lines, content_height):
-                # Fill with spaces using base style
-                for x in range(tree_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + start_y + i,
-                        Cell(char=" ", **base_style.to_cell_attrs()),
-                    )
+            remaining_rows = content_height - rendered_lines
+            if remaining_rows > 0:
+                ctx.fill_rect(
+                    0,
+                    start_y + rendered_lines,
+                    tree_width,
+                    remaining_rows,
+                    " ",
+                    base_style,
+                )
 
         # Add scrollbar if needed
         if needs_scrollbar:
             scrollbar_chars = render_vertical_scrollbar(
                 self.scroll_manager.state, content_height
             )
+            scrollbar_attrs = base_style.to_cell_attrs()
 
             for i in range(content_height):
                 scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + tree_width,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=scrollbar_char, **base_style.to_cell_attrs()),
+                ctx.write_cell(
+                    tree_width,
+                    start_y + i,
+                    Cell(char=scrollbar_char, **scrollbar_attrs),
                 )
 
     def _render_node_line(

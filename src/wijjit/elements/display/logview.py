@@ -927,84 +927,31 @@ class LogView(ScrollableElement):
         scrollbar_width = 1 if needs_scrollbar else 0
         total_width = content_width + scrollbar_width + 2  # +2 for borders
 
-        # Render top border with optional title
+        # Top border with optional centered title. Every character on this
+        # row shares border_style, so the whole row is composed as one string
+        # and written with a single clipped write_text call.
+        border_width = total_width - 2  # Width without corners
         if self.title:
             title_text = f" {self.title} "
             title_len = visible_length(title_text)
-            border_width = total_width - 2  # Width without corners
-
             if title_len < border_width:
                 remaining = border_width - title_len
                 left_len = remaining // 2
                 right_len = remaining - left_len
-
-                # Top-left corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-
-                # Left line
-                for i in range(left_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Title
-                for i, char in enumerate(title_text):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + i,
-                        ctx.bounds.y,
-                        Cell(char=char, **border_attrs),
-                    )
-
-                # Right line
-                for i in range(right_len):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + left_len + title_len + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-
-                # Top-right corner
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
+                top_line = (
+                    chars["tl"]
+                    + chars["h"] * left_len
+                    + title_text
+                    + chars["h"] * right_len
+                    + chars["tr"]
                 )
             else:
-                # Title too long
-                ctx.buffer.set_cell(
-                    ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-                )
-                for i in range(border_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + 1 + i,
-                        ctx.bounds.y,
-                        Cell(char=chars["h"], **border_attrs),
-                    )
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + total_width - 1,
-                    ctx.bounds.y,
-                    Cell(char=chars["tr"], **border_attrs),
-                )
+                # Title too long, just show border
+                top_line = chars["tl"] + chars["h"] * border_width + chars["tr"]
         else:
             # No title
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-            )
-            for i in range(1, total_width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + i,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y,
-                Cell(char=chars["tr"], **border_attrs),
-            )
+            top_line = chars["tl"] + chars["h"] * border_width + chars["tr"]
+        ctx.write_text(0, 0, top_line, border_style)
 
         # Render content area (starting at y=1, inside border)
         # Create sub-context for content (inside borders)
@@ -1019,38 +966,15 @@ class LogView(ScrollableElement):
         )
 
         # Render side borders for content area
-        for y in range(content_height):
-            # Left border
-            ctx.buffer.set_cell(
-                ctx.bounds.x,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
-            # Right border
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        side_cells = [
+            Cell(char=chars["v"], **border_attrs) for _ in range(content_height)
+        ]
+        ctx.write_cells_vertical(0, 1, side_cells)
+        ctx.write_cells_vertical(total_width - 1, 1, side_cells)
 
         # Render bottom border
-        bottom_y = content_height + 1
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["bl"], **border_attrs),
-        )
-        for i in range(1, total_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + i,
-                ctx.bounds.y + bottom_y,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + total_width - 1,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["br"], **border_attrs),
-        )
+        bottom_line = chars["bl"] + chars["h"] * border_width + chars["br"]
+        ctx.write_text(0, content_height + 1, bottom_line, border_style)
 
     def _render_to_content(
         self,
@@ -1076,11 +1000,9 @@ class LogView(ScrollableElement):
 
         # Get base style for padding (to properly reset dim/other attributes)
         base_style = ctx.style_resolver.resolve_style(self, "logview")
-        base_attrs = base_style.to_cell_attrs()
 
         # Get line number style
         line_num_style = ctx.style_resolver.resolve_style(self, "logview.line_number")
-        line_num_attrs = line_num_style.to_cell_attrs()
 
         # Get visible range from scroll manager
         visible_start, visible_end = self.scroll_manager.get_visible_range()
@@ -1104,6 +1026,28 @@ class LogView(ScrollableElement):
             max_line_num = self.line_number_start + len(self.lines) - 1
             line_num_width = len(str(max_line_num)) + 1  # +1 for trailing space
 
+        def _write_scrollbar(row_y: int) -> None:
+            """Write the scrollbar glyph for one content row, if any."""
+            scrollbar_idx = row_y - start_y
+            if scrollbar_idx >= len(scrollbar_chars):
+                return
+            if self.focused:
+                scrollbar_style = ctx.style_resolver.resolve_style(
+                    self, "logview.border:focus"
+                )
+            else:
+                scrollbar_style = ctx.style_resolver.resolve_style(
+                    self, "logview.border"
+                )
+            ctx.write_cell(
+                content_width,
+                row_y,
+                Cell(
+                    char=scrollbar_chars[scrollbar_idx],
+                    **scrollbar_style.to_cell_attrs(),
+                ),
+            )
+
         # Render visible log lines
         current_y = start_y
         rendered_line_idx = visible_start
@@ -1111,12 +1055,7 @@ class LogView(ScrollableElement):
         while current_y < start_y + content_height and rendered_line_idx < visible_end:
             if rendered_line_idx >= len(self.rendered_lines):
                 # Pad with empty lines
-                for x in range(content_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + current_y,
-                        Cell(char=" "),
-                    )
+                ctx.fill_rect(0, current_y, content_width, 1, " ", Style())
                 current_y += 1
                 rendered_line_idx += 1
                 continue
@@ -1151,9 +1090,8 @@ class LogView(ScrollableElement):
             if not has_ansi:
                 style_class = self._get_log_level_style_class(original_line)
                 line_style = ctx.style_resolver.resolve_style(self, style_class)
-                line_attrs = line_style.to_cell_attrs()
             else:
-                line_attrs = base_attrs  # Fallback for padding
+                line_style = base_style  # Fallback (unused: has_ansi writes via cells)
 
             # Render the line content
             x_offset = 0
@@ -1167,124 +1105,76 @@ class LogView(ScrollableElement):
                     else clean_line.ljust(line_num_width)
                 )
 
-                # Write line number (always uses line number style)
-                for i, char in enumerate(line_num_part[:line_num_width]):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + i,
-                        ctx.bounds.y + current_y,
-                        Cell(char=char, **line_num_attrs),
-                    )
+                # Write line number (always uses line number style, uniform)
+                ctx.write_text(
+                    0, current_y, line_num_part[:line_num_width], line_num_style
+                )
                 x_offset = line_num_width
 
                 # Write content with ANSI passthrough if available
                 content_width_remaining = content_width - line_num_width
                 if has_ansi and parsed_chars:
-                    # Skip line number chars in parsed list
+                    # Skip line number chars in parsed list. Each entry keeps
+                    # its own per-character ANSI style, so it is written as a
+                    # pre-built cell run rather than a single styled string.
                     content_chars = parsed_chars[line_num_width:]
-                    for i, (char, attrs) in enumerate(
-                        content_chars[:content_width_remaining]
-                    ):
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x_offset + i,
-                            ctx.bounds.y + current_y,
-                            Cell(char=char, **attrs),
-                        )
-                    rendered_count = len(content_chars[:content_width_remaining])
+                    visible_chars = content_chars[:content_width_remaining]
+                    cells = [Cell(char=char, **attrs) for char, attrs in visible_chars]
+                    ctx.write_cells(x_offset, current_y, cells)
+                    rendered_count = len(visible_chars)
                 else:
                     content_part = clean_line[line_num_width:]
-                    for i, char in enumerate(content_part[:content_width_remaining]):
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x_offset + i,
-                            ctx.bounds.y + current_y,
-                            Cell(char=char, **line_attrs),
-                        )
-                    rendered_count = len(content_part[:content_width_remaining])
+                    written = content_part[:content_width_remaining]
+                    ctx.write_text(x_offset, current_y, written, line_style)
+                    rendered_count = visible_length(written)
 
                 # Pad remaining
-                for x in range(x_offset + rendered_count, content_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + current_y,
-                        Cell(char=" ", **base_attrs),
+                pad_start = x_offset + rendered_count
+                if pad_start < content_width:
+                    ctx.fill_rect(
+                        pad_start,
+                        current_y,
+                        content_width - pad_start,
+                        1,
+                        " ",
+                        base_style,
                     )
             else:
                 # No line numbers - render full line
                 if has_ansi and parsed_chars:
-                    # ANSI passthrough
-                    for i, (char, attrs) in enumerate(parsed_chars[:content_width]):
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + i,
-                            ctx.bounds.y + current_y,
-                            Cell(char=char, **attrs),
-                        )
-                    rendered_count = len(parsed_chars[:content_width])
+                    # ANSI passthrough - per-character styled cell run
+                    visible_chars = parsed_chars[:content_width]
+                    cells = [Cell(char=char, **attrs) for char, attrs in visible_chars]
+                    ctx.write_cells(0, current_y, cells)
+                    rendered_count = len(visible_chars)
                 else:
-                    for i, char in enumerate(clean_line[:content_width]):
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + i,
-                            ctx.bounds.y + current_y,
-                            Cell(char=char, **line_attrs),
-                        )
-                    rendered_count = len(clean_line[:content_width])
+                    written = clean_line[:content_width]
+                    ctx.write_text(0, current_y, written, line_style)
+                    rendered_count = visible_length(written)
 
                 # Pad remaining width
-                for x in range(rendered_count, content_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + current_y,
-                        Cell(char=" ", **base_attrs),
+                if rendered_count < content_width:
+                    ctx.fill_rect(
+                        rendered_count,
+                        current_y,
+                        content_width - rendered_count,
+                        1,
+                        " ",
+                        base_style,
                     )
 
             # Add scrollbar character if needed
             if needs_scrollbar:
-                scrollbar_idx = current_y - start_y
-                if scrollbar_idx < len(scrollbar_chars):
-                    # Resolve scrollbar style (use border style)
-                    if self.focused:
-                        scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "logview.border:focus"
-                        )
-                    else:
-                        scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "logview.border"
-                        )
-                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
-
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + content_width,
-                        ctx.bounds.y + current_y,
-                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
-                    )
+                _write_scrollbar(current_y)
 
             current_y += 1
             rendered_line_idx += 1
 
         # Fill remaining rows if any
         while current_y < start_y + content_height:
-            for x in range(content_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=" "),
-                )
+            ctx.fill_rect(0, current_y, content_width, 1, " ", Style())
 
             if needs_scrollbar:
-                scrollbar_idx = current_y - start_y
-                if scrollbar_idx < len(scrollbar_chars):
-                    if self.focused:
-                        scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "logview.border:focus"
-                        )
-                    else:
-                        scrollbar_style = ctx.style_resolver.resolve_style(
-                            self, "logview.border"
-                        )
-                    scrollbar_attrs = scrollbar_style.to_cell_attrs()
-
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + content_width,
-                        ctx.bounds.y + current_y,
-                        Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
-                    )
+                _write_scrollbar(current_y)
 
             current_y += 1

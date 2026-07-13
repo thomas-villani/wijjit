@@ -393,19 +393,11 @@ class Sparkline(Element):
         else:  # dot
             lines = self._render_dot_style(chart_width, chart_height)
 
-        # Get cell attributes
-        cell_attrs = base_style.to_cell_attrs()
-
         # Write rendered lines to buffer
         for y, line in enumerate(lines):
             if y >= ctx.bounds.height:
                 break
-            for x, char in enumerate(line):
-                if x >= ctx.bounds.width:
-                    break
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x, ctx.bounds.y + y, Cell(char=char, **cell_attrs)
-                )
+            ctx.write_text(0, y, line, base_style)
 
         # Render current value if enabled
         if self.show_current and self.values:
@@ -431,14 +423,8 @@ class Sparkline(Element):
             # Mark min with underscore at bottom
             if chart_height > 0:
                 min_attrs = min_style.to_cell_attrs()
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + min_x,
-                    ctx.bounds.y + chart_height - 1,
-                    Cell(char="_", **min_attrs),
-                )
+                ctx.write_cell(min_x, chart_height - 1, Cell(char="_", **min_attrs))
 
             # Mark max with caret at top
             max_attrs = max_style.to_cell_attrs()
-            ctx.buffer.set_cell(
-                ctx.bounds.x + max_x, ctx.bounds.y, Cell(char="^", **max_attrs)
-            )
+            ctx.write_cell(max_x, 0, Cell(char="^", **max_attrs))

@@ -117,7 +117,7 @@ class TestSignalHandling:
         cleanup._terminate = terminated.append  # type: ignore[method-assign]
         tok = cleanup.register(lambda: ran.append("cleaned"))
         try:
-            sig = getattr(signal, "SIGTERM")
+            sig = signal.SIGTERM
             cleanup._prev_handlers[sig] = signal.SIG_DFL
             cleanup._handle_signal(sig, None)
             assert ran == ["cleaned"]  # cleanup ran first
@@ -131,7 +131,7 @@ class TestSignalHandling:
         cleanup._terminate = terminated.append  # type: ignore[method-assign]
         tok = cleanup.register(lambda: None)
         try:
-            sig = getattr(signal, "SIGTERM")
+            sig = signal.SIGTERM
             cleanup._prev_handlers[sig] = signal.SIG_IGN
             cleanup._handle_signal(sig, None)
             assert terminated == []  # honored the ignore; process keeps running
@@ -145,7 +145,7 @@ class TestSignalHandling:
         cleanup._terminate = terminated.append  # type: ignore[method-assign]
         tok = cleanup.register(lambda: None)
         try:
-            sig = getattr(signal, "SIGTERM")
+            sig = signal.SIGTERM
             cleanup._prev_handlers[sig] = lambda s, f: chained.append(s)
             cleanup._handle_signal(sig, None)
             assert chained == [sig]  # host handler invoked

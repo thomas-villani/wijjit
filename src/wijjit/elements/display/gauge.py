@@ -287,19 +287,11 @@ class Gauge(Element):
         fill_char = "\u2588" if use_unicode else "#"
         empty_char = "\u2591" if use_unicode else "-"
 
-        for x in range(fill_width):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + current_y,
-                Cell(char=fill_char, **fill_attrs),
-            )
+        fill_cells = [Cell(char=fill_char, **fill_attrs)] * fill_width
+        ctx.write_cells(0, current_y, fill_cells)
 
-        for x in range(fill_width, bar_width):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + current_y,
-                Cell(char=empty_char, **empty_attrs),
-            )
+        empty_cells = [Cell(char=empty_char, **empty_attrs)] * (bar_width - fill_width)
+        ctx.write_cells(fill_width, current_y, empty_cells)
 
         # Render value
         if self.show_value:
@@ -313,11 +305,7 @@ class Gauge(Element):
             tick_attrs = base_style.to_cell_attrs()
             for x in range(0, bar_width + 1, bar_width // 4 if bar_width >= 4 else 1):
                 if x < bar_width:
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + current_y,
-                        Cell(char="|", **tick_attrs),
-                    )
+                    ctx.write_cell(x, current_y, Cell(char="|", **tick_attrs))
             current_y += 1
 
         # Render min/max labels
@@ -413,16 +401,12 @@ class Gauge(Element):
             is_filled = progress <= normalized
 
             if is_filled:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y + y,
-                    Cell(char=arc_chars["full"], **fill_attrs),
+                ctx.write_cell(
+                    x, current_y + y, Cell(char=arc_chars["full"], **fill_attrs)
                 )
             else:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + current_y + y,
-                    Cell(char=arc_chars["empty"], **empty_attrs),
+                ctx.write_cell(
+                    x, current_y + y, Cell(char=arc_chars["empty"], **empty_attrs)
                 )
 
         # Render value at center bottom

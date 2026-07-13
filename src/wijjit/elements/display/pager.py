@@ -719,17 +719,8 @@ class Pager(Container):
         content_start = 1 if has_border else 0
         content_width = self.width - (2 if has_border else 0)
 
-        # Import Cell here to avoid repeated __import__
-        from wijjit.terminal.cell import Cell
-
         # Fill nav bar background
-        nav_attrs = nav_style.to_cell_attrs()
-        for x in range(content_width):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + content_start + x,
-                ctx.bounds.y + nav_y,
-                Cell(char=" ", **nav_attrs),
-            )
+        ctx.fill_rect(content_start, nav_y, content_width, 1, " ", nav_style)
 
         # Determine button states
         can_prev = self.loop or self.current_page > 0
@@ -738,15 +729,9 @@ class Pager(Container):
         # Prev button - use bracket style like regular buttons
         prev_text = "< Prev >" if can_prev else "  Prev  "
         prev_style = button_style if can_prev else button_disabled_style
-        prev_attrs = prev_style.to_cell_attrs()
 
         prev_x = content_start + 1
-        for i, char in enumerate(prev_text):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + prev_x + i,
-                ctx.bounds.y + nav_y,
-                Cell(char=char, **prev_attrs),
-            )
+        ctx.write_text(prev_x, nav_y, prev_text, prev_style)
 
         # Store button bounds for mouse handling
         self._prev_button_bounds = (
@@ -759,15 +744,9 @@ class Pager(Container):
         # Next button - use bracket style like regular buttons
         next_text = "< Next >" if can_next else "  Next  "
         next_style = button_style if can_next else button_disabled_style
-        next_attrs = next_style.to_cell_attrs()
 
         next_x = content_start + content_width - len(next_text) - 1
-        for i, char in enumerate(next_text):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + next_x + i,
-                ctx.bounds.y + nav_y,
-                Cell(char=char, **next_attrs),
-            )
+        ctx.write_text(next_x, nav_y, next_text, next_style)
 
         # Store button bounds
         self._next_button_bounds = (
@@ -789,15 +768,20 @@ class Pager(Container):
 
             # Calculate centered position
             indicator_x = content_start + (content_width - len(indicator_text)) // 2
-            indicator_attrs = indicator_style.to_cell_attrs()
 
-            for i, char in enumerate(indicator_text):
-                if content_start + len(prev_text) + 2 <= indicator_x + i < next_x - 1:
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + indicator_x + i,
-                        ctx.bounds.y + nav_y,
-                        Cell(char=char, **indicator_attrs),
-                    )
+            # Clip the indicator text to the gap between the buttons so it
+            # never overlaps Prev/Next, matching the original per-char guard.
+            visible_lo = content_start + len(prev_text) + 2
+            visible_hi = next_x - 1
+            start = max(0, visible_lo - indicator_x)
+            end = min(len(indicator_text), visible_hi - indicator_x)
+            if start < end:
+                ctx.write_text(
+                    indicator_x + start,
+                    nav_y,
+                    indicator_text[start:end],
+                    indicator_style,
+                )
 
     def collect_focusable_children(self) -> list:
         """Collect focusable elements from the active page's content.
