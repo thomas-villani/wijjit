@@ -774,3 +774,43 @@ class TestOverlays:
         """close_overlay with nothing open returns None."""
         app = Wijjit()
         assert app.close_overlay() is None
+
+
+class TestDebugStrictUndefined:
+    """DEBUG enables strict template undefined checking (review 3.2)."""
+
+    TEMPLATE = "{% frame width=30 height=4 %}{{ nope }}{% endframe %}"
+
+    def _make_app(self, debug):
+        from wijjit import render_template_string
+
+        app = Wijjit(debug=debug)
+
+        @app.view("main", default=True)
+        def main_view():
+            return render_template_string(self.TEMPLATE)
+
+        return app
+
+    def test_debug_true_surfaces_undefined_error(self):
+        """With DEBUG=True an undefined template name raises UndefinedError."""
+        from jinja2 import UndefinedError
+
+        from wijjit.testing import WijjitHarness
+
+        app = self._make_app(debug=True)
+        assert app.renderer.strict_undefined is True
+        with WijjitHarness(app, size=(40, 10)) as h:
+            errors = h.errors
+        assert errors, "expected the undefined name to surface as an error"
+        assert any(isinstance(exc, UndefinedError) for _msg, exc in errors)
+
+    def test_debug_false_renders_leniently(self):
+        """With DEBUG=False the same template renders without error."""
+        from wijjit.testing import WijjitHarness
+
+        app = self._make_app(debug=False)
+        assert app.renderer.strict_undefined is False
+        with WijjitHarness(app, size=(40, 10)) as h:
+            h.assert_no_errors()
+            assert h.screen().strip()

@@ -54,6 +54,22 @@ class TestRenderer:
         result2 = renderer.render_string(template, {"show": False})
         assert result2 == "Hidden"
 
+    def test_default_undefined_is_lenient(self):
+        """A missing template name renders as an empty string by default."""
+        renderer = Renderer()
+        assert renderer.strict_undefined is False
+        result = renderer.render_string("[{{ nope }}]")
+        assert result == "[]"
+
+    def test_strict_undefined_raises_on_missing_name(self):
+        """strict_undefined=True raises UndefinedError for a missing name."""
+        from jinja2 import UndefinedError
+
+        renderer = Renderer(strict_undefined=True)
+        assert renderer.strict_undefined is True
+        with pytest.raises(UndefinedError):
+            renderer.render_string("[{{ nope }}]")
+
     def test_render_string_caching(self):
         """Test that templates are cached."""
         renderer = Renderer()

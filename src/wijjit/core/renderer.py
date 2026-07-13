@@ -14,8 +14,10 @@ from jinja2 import (
     DictLoader,
     Environment,
     FileSystemLoader,
+    StrictUndefined,
     Template,
     TemplateNotFound,
+    Undefined,
 )
 
 from wijjit.layout.bounds import Bounds
@@ -127,11 +129,21 @@ class Renderer:
         Whether Jinja2 reloads file templates when they change on disk
         (default: False). Useful during development; maps to the
         ``TEMPLATE_AUTO_RELOAD`` config key.
+    strict_undefined : bool, optional keyword-only
+        Whether the Jinja2 environment uses :class:`jinja2.StrictUndefined`
+        (default: False). In strict mode, referencing an undefined template
+        name (e.g. ``{{ typo_var }}``) raises :class:`jinja2.UndefinedError`
+        at render time, surfacing typos instead of silently rendering an empty
+        string. The production default is lenient (:class:`jinja2.Undefined`)
+        so that one bad key cannot crash a running TUI; strict mode is enabled
+        for development (``DEBUG``) and by the devtools validator.
 
     Attributes
     ----------
     env : jinja2.Environment
         The Jinja2 environment
+    strict_undefined : bool
+        Whether undefined template names raise at render time.
     _string_templates : dict
         Cache of string templates
     """
@@ -141,9 +153,12 @@ class Renderer:
         template_dir: str | None = None,
         autoescape: bool = False,
         auto_reload: bool = False,
+        *,
+        strict_undefined: bool = False,
     ) -> None:
         # Store template_dir for introspection
         self.template_dir = template_dir
+        self.strict_undefined = strict_undefined
 
         # Create loader based on template_dir
         loader: BaseLoader
@@ -169,6 +184,7 @@ class Renderer:
             loader=loader,
             autoescape=autoescape,
             auto_reload=auto_reload,
+            undefined=StrictUndefined if strict_undefined else Undefined,
             trim_blocks=True,
             lstrip_blocks=True,
             extensions=[

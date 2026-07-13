@@ -10,9 +10,12 @@ from enum import Enum, auto
 
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import Element, ElementType, invoke_callback
+from wijjit.logging_config import get_logger
 from wijjit.rendering import PaintContext
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
+
+logger = get_logger(__name__)
 
 
 class ButtonStyle(Enum):
@@ -81,13 +84,27 @@ class Button(Element):
         classes: str | list[str] | set[str] | None = None,
         tab_index: int | None = None,
         on_click: Callable[[ActionEvent], None] | None = None,
-        style: ButtonStyle = ButtonStyle.BRACKETS,
+        style: ButtonStyle | str = ButtonStyle.BRACKETS,
         action: str | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.BUTTON
         self.focusable = True
         self.label = label
+        # ``style`` may arrive as a string from a template attribute
+        # (``{% button style="box" %}``). Normalize it to the enum, mirroring how
+        # TextInput accepts a style; an unknown name falls back to BRACKETS.
+        if isinstance(style, str):
+            try:
+                style = ButtonStyle[style.upper()]
+            except KeyError:
+                logger.warning(
+                    "Unknown button style %r; falling back to BRACKETS. "
+                    "Valid styles: %s.",
+                    style,
+                    ", ".join(s.name.lower() for s in ButtonStyle),
+                )
+                style = ButtonStyle.BRACKETS
         self.style = style
         self.on_click = on_click
 
