@@ -9,7 +9,7 @@ from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.style import Style
 from wijjit.styling.theme import DefaultTheme
-from wijjit.terminal.cell import is_continuation
+from wijjit.terminal.cell import Cell, is_continuation
 from wijjit.terminal.screen_buffer import ScreenBuffer
 
 
@@ -460,3 +460,175 @@ class TestWriteTextWideChars:
         assert is_continuation(cont)
         assert cont.fg_color == (5, 5, 5)
         assert buffer.get_cell(3, 0).char == "B"
+
+
+class TestWriteCell:
+    """Clipped, wide-char-aware single-cell writes via write_cell."""
+
+    def _ctx(self, width=20, height=5, x=0, y=0, clip_region=None):
+        buffer = ScreenBuffer(80, 24)
+        resolver = StyleResolver(DefaultTheme())
+        bounds = Bounds(x=x, y=y, width=width, height=height)
+        ctx = PaintContext(buffer, resolver, bounds, clip_region=clip_region)
+        return ctx, buffer
+
+    def test_narrow_cell_written_and_returns_one(self):
+        ctx, buffer = self._ctx()
+        consumed = ctx.write_cell(3, 1, Cell("X", fg_color=(1, 2, 3)))
+        assert consumed == 1
+        assert buffer.get_cell(3, 1).char == "X"
+        assert buffer.get_cell(3, 1).fg_color == (1, 2, 3)
+
+    def test_outside_clip_not_written_still_returns_width(self):
+        clip = Bounds(x=0, y=0, width=5, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        consumed = ctx.write_cell(7, 0, Cell("X"))
+        assert consumed == 1
+        assert buffer.get_cell(7, 0).char == " "
+
+    def test_wide_cell_writes_head_and_continuation(self):
+        ctx, buffer = self._ctx()
+        consumed = ctx.write_cell(2, 0, Cell("日", bold=True))
+        assert consumed == 2
+        head = buffer.get_cell(2, 0)
+        cont = buffer.get_cell(3, 0)
+        assert head.char == "日" and head.bold is True
+        assert is_continuation(cont)
+        assert cont.bold is True
+
+    def test_wide_cell_head_only_in_clip_writes_space(self):
+        """Tail column outside the clip region -> styled space at head."""
+        clip = Bounds(x=0, y=0, width=3, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        consumed = ctx.write_cell(2, 0, Cell("日", fg_color=(9, 9, 9)))
+        assert consumed == 2
+        edge = buffer.get_cell(2, 0)
+        assert edge.char == " "
+        assert edge.fg_color == (9, 9, 9)
+        assert buffer.get_cell(3, 0).char == " "
+
+    def test_wide_cell_tail_only_in_clip_writes_space(self):
+        """Head column outside the clip region -> styled space at tail."""
+        clip = Bounds(x=3, y=0, width=5, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        ctx.write_cell(2, 0, Cell("日", fg_color=(7, 7, 7)))
+        assert buffer.get_cell(2, 0).char == " "
+        edge = buffer.get_cell(3, 0)
+        assert edge.char == " "
+        assert edge.fg_color == (7, 7, 7)
+
+    def test_explicit_continuation_cell_written_as_is(self):
+        """A caller-placed continuation cell is a plain single-column write."""
+        from wijjit.terminal.cell import CONTINUATION_CHAR
+
+        ctx, buffer = self._ctx()
+        consumed = ctx.write_cell(4, 0, Cell(CONTINUATION_CHAR, dim=True))
+        assert consumed == 1
+        cell = buffer.get_cell(4, 0)
+        assert is_continuation(cell)
+        assert cell.dim is True
+
+
+class TestWriteCells:
+    """Clipped bulk-run writes via write_cells / write_cells_vertical."""
+
+    def _ctx(self, width=20, height=5, x=0, y=0, clip_region=None):
+        buffer = ScreenBuffer(80, 24)
+        resolver = StyleResolver(DefaultTheme())
+        bounds = Bounds(x=x, y=y, width=width, height=height)
+        ctx = PaintContext(buffer, resolver, bounds, clip_region=clip_region)
+        return ctx, buffer
+
+    def test_full_run_written(self):
+        ctx, buffer = self._ctx()
+        ctx.write_cells(1, 0, [Cell("a"), Cell("b"), Cell("c")])
+        assert buffer.get_cell(1, 0).char == "a"
+        assert buffer.get_cell(2, 0).char == "b"
+        assert buffer.get_cell(3, 0).char == "c"
+
+    def test_run_sliced_to_clip(self):
+        clip = Bounds(x=2, y=0, width=3, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        ctx.write_cells(0, 0, [Cell(c) for c in "abcdefg"])
+        # Only columns 2..4 are inside the clip region.
+        assert buffer.get_cell(0, 0).char == " "
+        assert buffer.get_cell(1, 0).char == " "
+        assert buffer.get_cell(2, 0).char == "c"
+        assert buffer.get_cell(3, 0).char == "d"
+        assert buffer.get_cell(4, 0).char == "e"
+        assert buffer.get_cell(5, 0).char == " "
+
+    def test_row_outside_clip_writes_nothing(self):
+        clip = Bounds(x=0, y=0, width=20, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        ctx.write_cells(0, 2, [Cell("x"), Cell("y")])
+        assert buffer.get_cell(0, 2).char == " "
+
+    def test_severed_leading_continuation_becomes_space(self):
+        """A run cut so it starts on a continuation cell writes a space there."""
+        from wijjit.terminal.cell import CONTINUATION_CHAR
+
+        clip = Bounds(x=1, y=0, width=10, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        cells = [Cell("日", bold=True), Cell(CONTINUATION_CHAR, bold=True), Cell("b")]
+        ctx.write_cells(0, 0, cells)
+        # Head at col 0 clipped away; its continuation at col 1 becomes a space.
+        assert buffer.get_cell(0, 0).char == " "
+        edge = buffer.get_cell(1, 0)
+        assert edge.char == " "
+        assert edge.bold is True
+        assert buffer.get_cell(2, 0).char == "b"
+        # Caller's list is not mutated.
+        assert cells[1].char == CONTINUATION_CHAR
+
+    def test_severed_trailing_head_becomes_space(self):
+        """A run cut after a wide head (continuation outside) writes a space."""
+        from wijjit.terminal.cell import CONTINUATION_CHAR
+
+        clip = Bounds(x=0, y=0, width=2, height=1)
+        ctx, buffer = self._ctx(clip_region=clip)
+        cells = [Cell("a"), Cell("日", dim=True), Cell(CONTINUATION_CHAR, dim=True)]
+        ctx.write_cells(0, 0, cells)
+        assert buffer.get_cell(0, 0).char == "a"
+        edge = buffer.get_cell(1, 0)
+        assert edge.char == " "
+        assert edge.dim is True
+        assert buffer.get_cell(2, 0).char == " "
+        assert cells[1].char == "日"
+
+    def test_vertical_run_sliced_to_clip(self):
+        clip = Bounds(x=0, y=1, width=20, height=2)
+        ctx, buffer = self._ctx(clip_region=clip)
+        ctx.write_cells_vertical(0, 0, [Cell(c) for c in "abcd"])
+        assert buffer.get_cell(0, 0).char == " "
+        assert buffer.get_cell(0, 1).char == "b"
+        assert buffer.get_cell(0, 2).char == "c"
+        assert buffer.get_cell(0, 3).char == " "
+
+    def test_vertical_column_outside_clip_writes_nothing(self):
+        clip = Bounds(x=0, y=0, width=2, height=5)
+        ctx, buffer = self._ctx(clip_region=clip)
+        ctx.write_cells_vertical(4, 0, [Cell("x"), Cell("y")])
+        assert buffer.get_cell(4, 0).char == " "
+        assert buffer.get_cell(4, 1).char == " "
+
+
+class TestCursorAnchor:
+    """cursor_anchor returns absolute clipped caret coordinates."""
+
+    def test_inside_clip_returns_absolute(self):
+        buffer = ScreenBuffer(80, 24)
+        resolver = StyleResolver(DefaultTheme())
+        bounds = Bounds(x=10, y=5, width=20, height=3)
+        ctx = PaintContext(buffer, resolver, bounds)
+        assert ctx.cursor_anchor(2, 1) == (12, 6)
+
+    def test_outside_clip_returns_none(self):
+        buffer = ScreenBuffer(80, 24)
+        resolver = StyleResolver(DefaultTheme())
+        bounds = Bounds(x=10, y=5, width=20, height=3)
+        # Clip covers only the first row of the element.
+        clip = Bounds(x=10, y=5, width=20, height=1)
+        ctx = PaintContext(buffer, resolver, bounds, clip_region=clip)
+        assert ctx.cursor_anchor(2, 1) is None
+        assert ctx.cursor_anchor(2, 0) == (12, 5)

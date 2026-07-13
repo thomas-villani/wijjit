@@ -386,7 +386,7 @@ class PaintContext:
             < self.clip_region.y + self.clip_region.height
         )
 
-    def write_cell(self, x: int, y: int, cell: Cell) -> None:
+    def write_cell(self, x: int, y: int, cell: Cell) -> int:
         """Write a single cell to the buffer with clipping.
 
         Parameters
@@ -398,19 +398,199 @@ class PaintContext:
         cell : Cell
             Cell to write
 
+        Returns
+        -------
+        int
+            Number of terminal columns consumed by the cell (1 or 2),
+            regardless of whether anything was actually written. Per-cluster
+            render loops advance their column counter by this value.
+
         Notes
         -----
         Coordinates are relative to element bounds. The cell is only written
-        if it falls within both the element bounds and the clip_region.
+        where it falls within the clip_region.
+
+        A cell whose ``char`` has display width 2 (most CJK, many emoji) is
+        written as a head cell plus a continuation cell
+        (``char == CONTINUATION_CHAR``) in the next column carrying the same
+        style attributes, matching :meth:`write_text`. When only one of the
+        two columns is inside the clip region, a styled space is written in
+        the visible column so a half glyph never appears. A cell that is
+        itself a continuation cell, or whose char is width <= 1, is written
+        as a plain single clipped cell.
         """
+        from dataclasses import replace
+
+        from wcwidth import wcswidth  # type: ignore[import-untyped]
+
+        from wijjit.terminal.cell import CONTINUATION_CHAR
 
         # Translate to absolute coordinates
         abs_x = self.bounds.x + x
         abs_y = self.bounds.y + y
 
-        # Check clip region
-        if self._is_point_in_clip(abs_x, abs_y):
+        char_width = wcswidth(cell.char) if cell.char != CONTINUATION_CHAR else 1
+        if char_width is None or char_width < 2:
+            if self._is_point_in_clip(abs_x, abs_y):
+                self.buffer.set_cell(abs_x, abs_y, cell)
+            return 1
+
+        # Width-2 glyph: head column plus continuation column.
+        head_in_clip = self._is_point_in_clip(abs_x, abs_y)
+        tail_in_clip = self._is_point_in_clip(abs_x + 1, abs_y)
+        if head_in_clip and tail_in_clip:
             self.buffer.set_cell(abs_x, abs_y, cell)
+            self.buffer.set_cell(
+                abs_x + 1, abs_y, replace(cell, char=CONTINUATION_CHAR)
+            )
+        elif head_in_clip:
+            # Only the head column is visible: never write half a glyph.
+            self.buffer.set_cell(abs_x, abs_y, replace(cell, char=" "))
+        elif tail_in_clip:
+            self.buffer.set_cell(abs_x + 1, abs_y, replace(cell, char=" "))
+        return 2
+
+    def write_cells(self, x: int, y: int, cells: list[Cell]) -> None:
+        """Write a horizontal run of pre-built cells with clipping.
+
+        Fast path for callers that assemble whole rows of ``Cell`` objects:
+        the run is sliced to the intersection of the row with the clip
+        region and written with a single
+        :meth:`~wijjit.terminal.screen_buffer.ScreenBuffer.set_cells_horizontal`
+        call instead of per-cell writes.
+
+        Parameters
+        ----------
+        x : int
+            Starting X coordinate relative to element bounds
+        y : int
+            Y coordinate relative to element bounds
+        cells : list of Cell
+            Cells to write left to right. The list is not mutated.
+
+        Notes
+        -----
+        Wide glyphs severed at the slice edges are guarded: if the first
+        visible cell is a continuation cell (its head fell outside the clip
+        region), or the last visible cell is a width-2 head (its continuation
+        fell outside), a styled space is written in that column instead so a
+        half glyph never appears.
+        """
+        from dataclasses import replace
+
+        from wcwidth import wcswidth
+
+        from wijjit.terminal.cell import CONTINUATION_CHAR, is_continuation
+
+        if not cells:
+            return
+
+        abs_x = self.bounds.x + x
+        abs_y = self.bounds.y + y
+
+        # Row outside the clip region vertically: nothing to write.
+        if not (
+            self.clip_region.y <= abs_y < self.clip_region.y + self.clip_region.height
+        ):
+            return
+
+        clip_x_start = self.clip_region.x
+        clip_x_end = self.clip_region.x + self.clip_region.width
+        run_start = max(abs_x, clip_x_start)
+        run_end = min(abs_x + len(cells), clip_x_end)
+        if run_start >= run_end:
+            return
+
+        visible = cells[run_start - abs_x : run_end - abs_x]
+
+        # Guard severed wide glyphs at the slice edges.
+        if is_continuation(visible[0]) and run_start > abs_x:
+            visible[0] = replace(visible[0], char=" ")
+        last = visible[-1]
+        if (
+            last.char != CONTINUATION_CHAR
+            and run_end < abs_x + len(cells)
+            and (wcswidth(last.char) or 0) >= 2
+        ):
+            visible[-1] = replace(last, char=" ")
+
+        self.buffer.set_cells_horizontal(run_start, abs_y, visible)
+
+    def write_cells_vertical(self, x: int, y: int, cells: list[Cell]) -> None:
+        """Write a vertical run of pre-built cells with clipping.
+
+        Fast path for callers that assemble whole columns of ``Cell``
+        objects (borders, scrollbars): the run is sliced to the intersection
+        of the column with the clip region and written with a single
+        :meth:`~wijjit.terminal.screen_buffer.ScreenBuffer.set_cells_vertical`
+        call.
+
+        Parameters
+        ----------
+        x : int
+            X coordinate relative to element bounds
+        y : int
+            Starting Y coordinate relative to element bounds
+        cells : list of Cell
+            Cells to write top to bottom. The list is not mutated.
+
+        Notes
+        -----
+        Cells in a vertical run should be single-column glyphs; width-2
+        glyphs are not expanded into continuation cells here (a vertical run
+        cannot place the continuation column).
+        """
+        if not cells:
+            return
+
+        abs_x = self.bounds.x + x
+        abs_y = self.bounds.y + y
+
+        # Column outside the clip region horizontally: nothing to write.
+        if not (
+            self.clip_region.x <= abs_x < self.clip_region.x + self.clip_region.width
+        ):
+            return
+
+        clip_y_start = self.clip_region.y
+        clip_y_end = self.clip_region.y + self.clip_region.height
+        run_start = max(abs_y, clip_y_start)
+        run_end = min(abs_y + len(cells), clip_y_end)
+        if run_start >= run_end:
+            return
+
+        visible = cells[run_start - abs_y : run_end - abs_y]
+        self.buffer.set_cells_vertical(abs_x, run_start, visible)
+
+    def cursor_anchor(self, x: int, y: int) -> tuple[int, int] | None:
+        """Absolute screen coordinates for a caret at a relative position.
+
+        Parameters
+        ----------
+        x : int
+            X coordinate relative to element bounds
+        y : int
+            Y coordinate relative to element bounds
+
+        Returns
+        -------
+        tuple of (int, int) or None
+            Absolute ``(x, y)`` screen coordinates, or None if the position
+            falls outside the clip region (e.g. a caret scrolled out of a
+            frame's visible interior).
+
+        Notes
+        -----
+        Elements that show a text caret call this where they paint it so the
+        application can park the hardware terminal cursor on the same cell.
+        Clip awareness comes for free: a caret outside the visible region
+        yields None and the hardware cursor stays hidden.
+        """
+        abs_x = self.bounds.x + x
+        abs_y = self.bounds.y + y
+        if self._is_point_in_clip(abs_x, abs_y):
+            return (abs_x, abs_y)
+        return None
 
     def draw_border(
         self,
