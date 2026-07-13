@@ -298,10 +298,16 @@ class TestOutputComposition:
 
         assert "test content" in output
 
-    def test_ansi_codes_preserved_in_output(self):
-        """Test that ANSI color codes are preserved.
+    def test_ansi_codes_in_plaintext_body_are_stripped_cleanly(self):
+        """Raw ANSI pasted into a plain template body degrades to clean text.
 
-        Verifies ANSI code handling through pipeline.
+        ``PaintContext.write_text`` is documented to take plain text (no ANSI).
+        It strips whole escape sequences up front, so a raw escape embedded
+        directly in a template body is neither round-tripped as literal ESC
+        bytes (the old per-character writer's accidental behavior) nor left as
+        visible ``[31m``-style remnants - the text simply renders uncolored.
+        The supported path for styled content is ``content_type="ansi"`` (see
+        :func:`wijjit.rendering.ansi_adapter.ansi_string_to_cells`).
         """
         from wijjit.terminal.ansi import ANSIColor
 
@@ -318,8 +324,12 @@ class TestOutputComposition:
 
         output, elements, _ = renderer.render_with_layout(template, width=30, height=5)
 
-        # ANSI codes should be in output
-        assert ANSIColor.RED in output or "Colored Text" in output
+        # The red ESC sequence is not preserved as literal bytes anymore.
+        assert ANSIColor.RED not in output
+        # The full visible text renders - no sequence remnants, no clipping
+        # caused by invisible bytes eating the width budget.
+        assert "Colored Text" in output
+        assert "[31m" not in output
 
 
 class TestAutoIDGeneration:

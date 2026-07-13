@@ -350,9 +350,15 @@ behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
   tree expand-all, some layout/clip + Windows alt-keys); tracked with root
   causes in `RELEASE_PLAN.md` (Part 2) and `roadmap.md`.
 - No virtual scrolling for very large datasets.
-- Wide characters (CJK/emoji) are a known single-width limitation of the
-  screen buffer (see the `ScreenBuffer` docstring); some Unicode may render
-  imperfectly on Windows.
+- Wide characters (CJK/emoji/NFD): the standard text path is now wcwidth-aware
+  via continuation cells. `PaintContext.write_text`, the diff and full-render
+  emitters (`screen_buffer.py`, `inline/render.py`), and frame titles render
+  CJK/emoji/NFD column-correct (a width-2 glyph occupies a head cell plus an
+  empty-string continuation cell; see the `ScreenBuffer` docstring). Remaining
+  gaps: elements that write cells directly via per-char `set_cell` loops (review
+  items 2.1/2.11) and pre-rendered ANSI content (`ansi_string_to_cells`, e.g.
+  Rich-rendered tables with `content_type="ansi"`) still map one code point per
+  cell; some Unicode may render imperfectly on Windows.
 
 ## Adding Things (quick references)
 

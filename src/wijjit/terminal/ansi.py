@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import threading
+from collections.abc import Iterator
 from typing import Any
 
 from wcwidth import wcswidth, wcwidth  # type: ignore[import-untyped]
@@ -615,6 +616,59 @@ def visible_length(text: str) -> int:
     width = wcswidth(clean)
     # wcswidth returns -1 if string contains non-printable characters
     return width if width >= 0 else len(clean)
+
+
+def iter_text_clusters(text: str) -> Iterator[tuple[str, int]]:
+    """Yield ``(cluster, columns)`` pairs splitting text into display columns.
+
+    Each yielded ``cluster`` is one or more code points that occupy a single
+    grapheme-like display unit, and ``columns`` is its terminal column width
+    (1 or 2). Zero-width code points (combining marks, ``wcwidth == 0``) are
+    folded onto the preceding base cluster so an NFD-decomposed accented glyph
+    such as ``"é"`` yields a single width-1 cluster. Orphan leading marks
+    (no base cluster yet) and control characters (``wcwidth`` is ``None`` or
+    negative) are dropped.
+
+    Parameters
+    ----------
+    text : str
+        Plain text (no ANSI escape sequences) to split into display clusters.
+
+    Yields
+    ------
+    tuple of (str, int)
+        A ``(cluster, columns)`` pair where ``columns`` is 1 or 2.
+
+    Notes
+    -----
+    This is the column-correct counterpart to iterating ``text`` character by
+    character. Writers spend their width budget in terminal columns rather than
+    Python characters, so a CJK glyph consumes two columns and an emoji cluster
+    stays whole.
+
+    Examples
+    --------
+    >>> list(iter_text_clusters("Hi"))
+    [('H', 1), ('i', 1)]
+    >>> list(iter_text_clusters("日"))  # CJK, two columns wide
+    [('日', 2)]
+    """
+    cluster, width = "", 0
+    for ch in text:
+        w = wcwidth(ch)
+        if w == 0 and cluster:
+            # Zero-width mark: fold it onto the current base cluster.
+            cluster += ch
+            continue
+        if cluster:
+            yield cluster, width
+            cluster, width = "", 0
+        if w is None or w <= 0:
+            # Control character (negative) or orphan zero-width mark: drop.
+            continue
+        cluster, width = ch, w
+    if cluster:
+        yield cluster, width
 
 
 def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:

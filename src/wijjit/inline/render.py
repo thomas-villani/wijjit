@@ -14,7 +14,7 @@ import jinja2
 
 from wijjit.core.renderer import Renderer
 from wijjit.exceptions import TemplateError
-from wijjit.terminal.cell import Cell
+from wijjit.terminal.cell import Cell, is_continuation
 
 if TYPE_CHECKING:
     from wijjit.terminal.screen_buffer import ScreenBuffer
@@ -269,6 +269,12 @@ def _render_row_optimized(row: list[Cell], width: int) -> str:
     for i, cell in enumerate(row):
         if i >= width:
             break
+
+        # Skip the trailing column of a wide glyph: printing the head glyph
+        # already advanced the terminal two columns. The writer guarantees the
+        # continuation shares the head's style.
+        if is_continuation(cell):
+            continue
 
         # Extract style signature for comparison
         style_sig = (

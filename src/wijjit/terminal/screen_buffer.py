@@ -4,7 +4,31 @@ This module provides the ScreenBuffer class for managing 2D cell arrays and
 the DiffRenderer class for generating minimal ANSI output by comparing buffers.
 """
 
-from wijjit.terminal.cell import Cell
+from wcwidth import wcswidth  # type: ignore[import-untyped]
+
+from wijjit.terminal.cell import Cell, is_continuation
+
+
+def _cell_width(cell: Cell) -> int:
+    """Return the terminal column width of ``cell``.
+
+    Parameters
+    ----------
+    cell : Cell
+        Cell to measure.
+
+    Returns
+    -------
+    int
+        ``0`` for a continuation cell (the trailing column of a wide glyph is
+        already covered by its head), otherwise the display width of the cell's
+        character (at least 1). ``wcswidth`` returning ``-1`` for an unprintable
+        character is treated as width 1.
+    """
+    if is_continuation(cell):
+        return 0
+    width: int = wcswidth(cell.char)
+    return max(width, 1)
 
 
 class ScreenBuffer:
@@ -34,15 +58,23 @@ class ScreenBuffer:
 
     Notes
     -----
-    **Single-width limitation (0.1.0).** The buffer model is strictly one
-    cell per terminal column: each ``Cell`` holds exactly one display column
-    and there is no continuation/sentinel cell for width-2 glyphs. Wide
-    characters (most CJK, many emoji) therefore occupy a single buffer cell
-    while the real terminal advances two columns, which misaligns subsequent
-    cells, overflows borders, and desyncs the diff cursor. For 0.1.0, content
-    is assumed to be single-width. Full wide-character support (a width-aware
-    buffer plus a sweep of the remaining ``len()``-based width math) is tracked
-    on the roadmap; see ``roadmap.md``.
+    **Wide-character model.** A width-2 glyph (most CJK, many emoji) is stored
+    as two cells: a *head* cell holding the glyph and a *continuation* cell
+    whose ``char`` is the empty string (see
+    :func:`wijjit.terminal.cell.is_continuation`) carrying the head's style.
+    Zero-width combining marks (e.g. an NFD-decomposed accent) are folded onto
+    the base glyph as a single multi-code-point ``char``. The standard text
+    path -- :meth:`wijjit.rendering.paint_context.PaintContext.write_text` plus
+    the diff and full-render emitters here -- is column-correct: it skips
+    continuation cells and advances the diff cursor by each glyph's true column
+    width, so wide glyphs no longer overflow borders or desync the cursor.
+
+    Remaining gaps (roadmap): (a) elements that write cells directly through
+    ``buffer.set_cell`` in per-character loops (review items 2.1/2.11) are not
+    yet cluster-aware and can still miscolumn wide glyphs; (b)
+    :func:`wijjit.rendering.ansi_adapter.ansi_string_to_cells` -- used for
+    pre-rendered ANSI content such as Rich-rendered tables with
+    ``content_type="ansi"`` -- still maps one code point per cell.
 
     Examples
     --------
@@ -593,19 +625,41 @@ class DiffRenderer:
             end_col = len(new_row)
 
         commands = []
-        current_pos = None
+        current_pos: int | None = None
 
         for x in range(start_col, end_col):
-            if old_row[x] != new_row[x]:
+            new_cell = new_row[x]
+
+            if is_continuation(new_cell):
+                # Trailing column of a wide glyph. Printing the head glyph
+                # advances the terminal two columns, so this column is normally
+                # covered and must not be emitted (that would push everything
+                # after it one column right). But if this continuation differs
+                # from the old buffer and its head was NOT just emitted (which
+                # happens when the dirty scan starts on the continuation column,
+                # or the head lies outside [start_col, end_col)), re-emit the
+                # whole head so the glyph is not left half-drawn. current_pos is
+                # x + 1 exactly when the head at x-1 was just emitted (width 2).
+                if new_cell != old_row[x] and current_pos != x + 1:
+                    head_x = x - 1
+                    if head_x >= 0 and not is_continuation(new_row[head_x]):
+                        if current_pos != head_x:
+                            commands.append(f"\x1b[{row_num + 1};{head_x + 1}H")
+                        commands.append(new_row[head_x].to_ansi())
+                        current_pos = head_x + _cell_width(new_row[head_x])
+                continue
+
+            if new_cell != old_row[x]:
                 # Cell changed, need to update
                 if current_pos != x:
                     # Move cursor to position (1-indexed for ANSI)
                     commands.append(f"\x1b[{row_num + 1};{x + 1}H")
-                    current_pos = x
 
                 # Write new cell with styling
-                commands.append(new_row[x].to_ansi())
-                current_pos = x + 1
+                commands.append(new_cell.to_ansi())
+                # Advance by the glyph's column width so a wide glyph accounts
+                # for the continuation column the terminal also advanced past.
+                current_pos = x + _cell_width(new_cell)
 
         return commands
 
@@ -635,6 +689,13 @@ class DiffRenderer:
         current_style = None
 
         for cell in row:
+            # Skip the trailing column of a wide glyph: the head glyph already
+            # advanced the terminal two columns. Emitting the continuation cell
+            # would waste bytes and push the terminal an extra column right. The
+            # writer guarantees the continuation shares the head's style.
+            if is_continuation(cell):
+                continue
+
             # Extract style signature for comparison
             style_sig = (
                 cell.fg_color,

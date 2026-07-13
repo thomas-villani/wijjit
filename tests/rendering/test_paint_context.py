@@ -9,6 +9,7 @@ from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.style import Style
 from wijjit.styling.theme import DefaultTheme
+from wijjit.terminal.cell import is_continuation
 from wijjit.terminal.screen_buffer import ScreenBuffer
 
 
@@ -327,3 +328,135 @@ class TestPaintContext:
         assert cell.bold is True
         assert cell.italic is True
         assert cell.underline is True
+
+
+class TestWriteTextWideChars:
+    """Column-correct wide-character handling in PaintContext.write_text."""
+
+    def _ctx(self, width=20, height=1, x=0, y=0, clip_region=None):
+        buffer = ScreenBuffer(80, 24)
+        resolver = StyleResolver(DefaultTheme())
+        bounds = Bounds(x=x, y=y, width=width, height=height)
+        ctx = PaintContext(buffer, resolver, bounds, clip_region=clip_region)
+        return ctx, buffer
+
+    def test_cjk_head_and_continuation(self):
+        """A CJK glyph writes a head cell plus a styled continuation cell."""
+        ctx, buffer = self._ctx()
+        style = Style(fg_color=(10, 20, 30), bold=True)
+
+        ctx.write_text(0, 0, "日", style)  # CJK, 2 columns
+
+        head = buffer.get_cell(0, 0)
+        cont = buffer.get_cell(1, 0)
+        assert head.char == "日"
+        assert is_continuation(cont)
+        # Style carried on both head and continuation.
+        assert head.fg_color == (10, 20, 30) and head.bold is True
+        assert cont.fg_color == (10, 20, 30) and cont.bold is True
+
+    def test_budget_consumed_in_columns(self):
+        """A width-4 bounds fits exactly two CJK glyphs; a third is dropped."""
+        ctx, buffer = self._ctx(width=4)
+        style = Style()
+
+        ctx.write_text(0, 0, "日本語", style)  # three CJK glyphs
+
+        assert buffer.get_cell(0, 0).char == "日"
+        assert is_continuation(buffer.get_cell(1, 0))
+        assert buffer.get_cell(2, 0).char == "本"
+        assert is_continuation(buffer.get_cell(3, 0))
+        # Third glyph is out of budget -> nothing written at col 4.
+        assert buffer.get_cell(4, 0).char == " "
+
+    def test_wide_glyph_one_column_left_writes_space(self):
+        """With only one column of budget left, write a styled space."""
+        ctx, buffer = self._ctx(width=3)
+        style = Style(fg_color=(1, 2, 3))
+
+        # First CJK fills cols 0-1; second glyph has only col 2 of budget left.
+        ctx.write_text(0, 0, "日本", style)
+
+        assert buffer.get_cell(0, 0).char == "日"
+        assert is_continuation(buffer.get_cell(1, 0))
+        # No half glyph: a styled space, not the glyph.
+        edge = buffer.get_cell(2, 0)
+        assert edge.char == " "
+        assert edge.fg_color == (1, 2, 3)
+
+    def test_wide_glyph_straddling_clip_right_edge(self):
+        """Only the head column inside the clip region -> styled space there."""
+        # Clip region ends at column 2 (covers cols 0,1). Wide glyph at col 1
+        # has head inside (col 1) and tail outside (col 2).
+        clip = Bounds(x=0, y=0, width=2, height=1)
+        ctx, buffer = self._ctx(width=20, clip_region=clip)
+        style = Style(fg_color=(9, 9, 9))
+
+        ctx.write_text(0, 0, "A日", style)
+
+        assert buffer.get_cell(0, 0).char == "A"
+        edge = buffer.get_cell(1, 0)
+        assert edge.char == " "
+        assert edge.fg_color == (9, 9, 9)
+        # Tail column was outside clip -> untouched.
+        assert buffer.get_cell(2, 0).char == " "
+
+    def test_wide_glyph_straddling_clip_left_edge(self):
+        """Only the tail column inside the clip region -> styled space there."""
+        # Clip region starts at column 1. Wide glyph at col 0 has head outside
+        # (col 0) and tail inside (col 1).
+        clip = Bounds(x=1, y=0, width=19, height=1)
+        ctx, buffer = self._ctx(width=20, clip_region=clip)
+        style = Style(fg_color=(7, 7, 7))
+
+        ctx.write_text(0, 0, "日B", style)
+
+        # Head column outside clip -> untouched.
+        assert buffer.get_cell(0, 0).char == " "
+        edge = buffer.get_cell(1, 0)
+        assert edge.char == " "
+        assert edge.fg_color == (7, 7, 7)
+        assert buffer.get_cell(2, 0).char == "B"
+
+    def test_nfd_accents_cluster_onto_base(self):
+        """NFD 'cafe' with combining accent yields 4 cells; last char is composed."""
+        import unicodedata
+
+        text = unicodedata.normalize("NFD", "café")  # c a f e + combining
+        assert len(text) == 5  # decomposed: combining acute is a separate mark
+        ctx, buffer = self._ctx(width=10)
+
+        ctx.write_text(0, 0, text, Style())
+
+        assert buffer.get_cell(0, 0).char == "c"
+        assert buffer.get_cell(1, 0).char == "a"
+        assert buffer.get_cell(2, 0).char == "f"
+        # Base 'e' + combining acute folded into one cell.
+        assert buffer.get_cell(3, 0).char == unicodedata.normalize("NFD", "é")
+        # No continuation / extra cell.
+        assert buffer.get_cell(4, 0).char == " "
+
+    def test_control_char_dropped(self):
+        """A control character (tab) is dropped entirely."""
+        ctx, buffer = self._ctx(width=10)
+
+        ctx.write_text(0, 0, "a\tb", Style())
+
+        assert buffer.get_cell(0, 0).char == "a"
+        # Tab (wcwidth < 0) dropped; 'b' follows immediately.
+        assert buffer.get_cell(1, 0).char == "b"
+        assert buffer.get_cell(2, 0).char == " "
+
+    def test_clip_false_emits_head_and_continuation(self):
+        """The clip=False branch also emits head + continuation for wide glyphs."""
+        ctx, buffer = self._ctx(width=2)  # narrow bounds, but clip disabled
+        style = Style(fg_color=(5, 5, 5))
+
+        ctx.write_text(0, 0, "A日B", style, clip=False)
+
+        assert buffer.get_cell(0, 0).char == "A"
+        assert buffer.get_cell(1, 0).char == "日"
+        cont = buffer.get_cell(2, 0)
+        assert is_continuation(cont)
+        assert cont.fg_color == (5, 5, 5)
+        assert buffer.get_cell(3, 0).char == "B"

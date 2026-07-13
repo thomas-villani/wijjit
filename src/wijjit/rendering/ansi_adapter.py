@@ -10,7 +10,7 @@ to cell-based rendering.
 
 import re
 
-from wijjit.terminal.cell import Cell
+from wijjit.terminal.cell import Cell, is_continuation
 
 # Precompiled regex patterns for ANSI parsing
 # SGR (Select Graphic Rendition) - styling codes we want to parse
@@ -50,6 +50,13 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
 
     This is a temporary utility for the migration period and will be removed
     once all elements use cell-based rendering.
+
+    Wide characters in the pre-parsed ANSI content are mapped one code point per
+    cell here; unlike the standard
+    :meth:`wijjit.rendering.paint_context.PaintContext.write_text` path, this
+    bridge does not yet emit continuation cells for width-2 glyphs, so
+    pre-rendered ANSI (e.g. Rich-rendered tables) can still miscolumn wide
+    glyphs. Making this cluster-aware is tracked on the roadmap.
 
     Examples
     --------
@@ -166,6 +173,10 @@ def cells_to_ansi(cells: list[Cell]) -> str:
 
     parts = []
     for cell in cells:
+        # Skip continuation cells: the head glyph already advances the terminal
+        # two columns, so emitting the continuation would push output right.
+        if is_continuation(cell):
+            continue
         parts.append(cell.to_ansi())
 
     return "".join(parts)

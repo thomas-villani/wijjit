@@ -102,11 +102,27 @@ class PaintContext:
         Coordinates are relative to the element's bounds. The method
         automatically translates to absolute screen coordinates.
 
-        Text is written character by character, with each character
-        becoming a styled Cell in the buffer. If clip=True, text
-        extending beyond element bounds is truncated.
+        Text is written cluster by cluster and the width budget is spent in
+        terminal *columns*, not Python characters. A width-2 glyph (most CJK,
+        many emoji) is written as a head Cell holding the glyph plus a
+        continuation Cell (``char == CONTINUATION_CHAR``) in the next column
+        carrying the same style attributes; see
+        :func:`wijjit.terminal.cell.is_continuation`. Zero-width combining
+        marks are folded onto the preceding base glyph (one Cell), and control
+        characters are dropped.
 
-        Rendering is also clipped to the clip_region if set.
+        If ``clip=True``, text extending beyond the element bounds is truncated
+        in columns and rendering is also clipped to ``clip_region``. When only
+        one column of a width-2 glyph is inside the budget or clip region, a
+        styled space is written in the visible column so a half glyph never
+        appears.
+
+        ANSI escape sequences embedded in ``text`` are stripped (whole
+        sequences, via :func:`wijjit.terminal.ansi.strip_ansi`) rather than
+        honored: this method takes plain text, and the supported path for
+        pre-styled ANSI content is ``content_type="ansi"``. Stripping keeps
+        unsupported input degrading to clean uncolored text instead of
+        leaving visible sequence remnants after the ESC byte is dropped.
 
         Examples
         --------
@@ -122,7 +138,14 @@ class PaintContext:
 
         >>> ctx.write_text(0, 0, 'Very long text', style, clip=False)
         """
-        from wijjit.terminal.cell import Cell
+        from wijjit.terminal.ansi import iter_text_clusters, strip_ansi
+        from wijjit.terminal.cell import CONTINUATION_CHAR, Cell
+
+        # Plain-text contract: strip whole ANSI sequences up front so that
+        # unsupported pre-styled input degrades to clean text instead of the
+        # cluster loop dropping the ESC and leaving "[31m"-style remnants.
+        if "\x1b" in text:
+            text = strip_ansi(text)
 
         # Convert style to cell attributes
         cell_attrs = style.to_cell_attrs()
@@ -140,30 +163,68 @@ class PaintContext:
             ):
                 return
 
-            # Calculate max width clipping to bounds
+            # Width budget, spent in columns (not characters)
             max_width = self.bounds.width - x
 
             # Calculate clip region horizontal bounds
             clip_x_start = self.clip_region.x
             clip_x_end = self.clip_region.x + self.clip_region.width
 
-            # Write each character with clipping
-            for i, char in enumerate(text):
-                if i >= max_width:
+            col = 0
+            for cluster, cwidth in iter_text_clusters(text):
+                if col >= max_width:
                     break
 
-                char_x = abs_x + i
-                # Skip characters outside clip region horizontally
-                if char_x < clip_x_start or char_x >= clip_x_end:
+                head_x = abs_x + col
+                head_in_clip = clip_x_start <= head_x < clip_x_end
+
+                if cwidth == 1:
+                    if head_in_clip:
+                        self.buffer.set_cell(
+                            head_x, abs_y, Cell(char=cluster, **cell_attrs)
+                        )
+                    col += 1
                     continue
 
-                cell = Cell(char=char, **cell_attrs)
-                self.buffer.set_cell(char_x, abs_y, cell)
+                # Width-2 glyph: needs a head column and a tail column.
+                tail_x = head_x + 1
+                tail_in_clip = clip_x_start <= tail_x < clip_x_end
+                tail_in_budget = (col + 1) < max_width
+
+                if not tail_in_budget:
+                    # Only one column of budget left: never write half a glyph.
+                    if head_in_clip:
+                        self.buffer.set_cell(
+                            head_x, abs_y, Cell(char=" ", **cell_attrs)
+                        )
+                    col += 2
+                    continue
+
+                if head_in_clip and tail_in_clip:
+                    self.buffer.set_cell(
+                        head_x, abs_y, Cell(char=cluster, **cell_attrs)
+                    )
+                    self.buffer.set_cell(
+                        tail_x, abs_y, Cell(char=CONTINUATION_CHAR, **cell_attrs)
+                    )
+                elif head_in_clip:
+                    # Only the head column is inside the clip region.
+                    self.buffer.set_cell(head_x, abs_y, Cell(char=" ", **cell_attrs))
+                elif tail_in_clip:
+                    # Only the tail column is inside the clip region.
+                    self.buffer.set_cell(tail_x, abs_y, Cell(char=" ", **cell_attrs))
+                col += 2
         else:
-            # No clipping - write all characters
-            for i, char in enumerate(text):
-                cell = Cell(char=char, **cell_attrs)
-                self.buffer.set_cell(abs_x + i, abs_y, cell)
+            # No clipping - write all clusters, head + continuation for wide glyphs
+            col = 0
+            for cluster, cwidth in iter_text_clusters(text):
+                head_x = abs_x + col
+                self.buffer.set_cell(head_x, abs_y, Cell(char=cluster, **cell_attrs))
+                if cwidth == 2:
+                    self.buffer.set_cell(
+                        head_x + 1, abs_y, Cell(char=CONTINUATION_CHAR, **cell_attrs)
+                    )
+                col += cwidth
 
     def write_text_wrapped(
         self, x: int, y: int, text: str, style: "Style", max_width: int
