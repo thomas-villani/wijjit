@@ -1093,6 +1093,31 @@ class Wijjit:
         """
         self.focus_navigation_enabled = enabled
 
+    @property
+    def running(self) -> bool:
+        """Whether the application's event loop is currently running.
+
+        Returns
+        -------
+        bool
+            True from the moment the event loop enters its frame loop until
+            it stops (quit, Ctrl+Q, or teardown). False before ``run()`` and
+            after shutdown.
+
+        Notes
+        -----
+        Delegates to :attr:`EventLoop.running`, so background worker threads
+        can poll ``app.running`` to decide when to stop pushing updates.
+        Note the startup race: a thread started *before* ``run()`` observes
+        False until the loop actually starts, so gate worker loops on an
+        explicit ``threading.Event`` rather than on this flag alone.
+        """
+        return self.event_loop.running
+
+    @running.setter
+    def running(self, value: bool) -> None:
+        self.event_loop.running = value
+
     def quit(self) -> None:
         """Quit the application (delegates to EventLoop).
 

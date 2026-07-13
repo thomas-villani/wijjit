@@ -19,6 +19,7 @@ marked ``xfail`` and tracked in ``etc/issues.md``; remove the marker once fixed.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -45,6 +46,12 @@ EXCLUDED: dict[str, str] = {
 
 # Known-broken demos (tracked in etc/issues.md). Remove the entry once fixed.
 XFAIL: dict[str, str] = {}
+
+# Demos requiring an optional third-party package; skipped when the package
+# is not importable (mirrors the demo's own "pip install <pkg>" guidance).
+OPTIONAL_DEPS: dict[str, str] = {
+    "apps/system_monitor.py": "psutil",
+}
 
 # Deterministic, content-stable demos that get a full initial-screen golden.
 # (Excludes anything that reads the live filesystem, writes logs, or animates.)
@@ -94,6 +101,10 @@ def test_example_loads_and_renders(rel_path: str) -> None:
     """Every harness-driveable example loads and renders a non-blank screen."""
     if rel_path in EXCLUDED:
         pytest.skip(EXCLUDED[rel_path])
+    if rel_path in OPTIONAL_DEPS:
+        dep = OPTIONAL_DEPS[rel_path]
+        if importlib.util.find_spec(dep) is None:
+            pytest.skip(f"optional dependency '{dep}' not installed")
     if rel_path in XFAIL:
         pytest.xfail(XFAIL[rel_path])
 
