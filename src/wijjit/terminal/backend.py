@@ -27,12 +27,56 @@ from __future__ import annotations
 
 import shutil
 import sys
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Protocol, TextIO, runtime_checkable
 
 from wijjit.terminal.input import InputHandler
 
 if TYPE_CHECKING:
-    from wijjit.terminal.mouse import MouseTrackingMode
+    from wijjit.terminal.input import Key
+    from wijjit.terminal.mouse import MouseEvent, MouseTrackingMode
+
+
+@runtime_checkable
+class InputSource(Protocol):
+    """The input surface the event loop drives.
+
+    Wijjit's event loop never depends on *how* input is obtained, only on this
+    surface. The local backend satisfies it with
+    :class:`~wijjit.terminal.input.InputHandler` (prompt_toolkit on a reader
+    thread); a remote backend can satisfy it by decoding bytes off a socket on
+    the event loop. Declaring it as a protocol - rather than typing the seam
+    against the concrete local handler - is what makes those alternatives
+    expressible.
+
+    Attributes
+    ----------
+    mouse_enabled : bool
+        Whether mouse tracking is currently active on the terminal.
+    """
+
+    mouse_enabled: bool
+
+    async def read_input_async(
+        self, timeout: float | None = None
+    ) -> Key | MouseEvent | None:
+        """Wait for the next input event, or return None once ``timeout`` lapses."""
+        ...
+
+    def enable_mouse_tracking(self, mode: MouseTrackingMode | None = None) -> None:
+        """Turn on mouse reporting."""
+        ...
+
+    def disable_mouse_tracking(self) -> None:
+        """Turn off mouse reporting."""
+        ...
+
+    def close(self) -> None:
+        """Release the input source at teardown."""
+        ...
+
+    def restore_terminal(self) -> None:
+        """Undo terminal-affecting state (mouse tracking, raw mode)."""
+        ...
 
 
 class TerminalBackend:
@@ -98,8 +142,8 @@ class TerminalBackend:
         *,
         enable_mouse: bool,
         mouse_tracking_mode: MouseTrackingMode | None,
-    ) -> InputHandler:
-        """Build the :class:`~wijjit.terminal.input.InputHandler` for this app.
+    ) -> InputSource:
+        """Build the input source for this app.
 
         Parameters
         ----------
@@ -110,8 +154,10 @@ class TerminalBackend:
 
         Returns
         -------
-        InputHandler
-            An input handler wired to this backend's transport.
+        InputSource
+            An input source wired to this backend's transport. The local backend
+            returns an :class:`~wijjit.terminal.input.InputHandler`; other
+            backends may return anything satisfying :class:`InputSource`.
         """
         raise NotImplementedError
 
