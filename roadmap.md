@@ -82,15 +82,19 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
 - [ ] **Selectable text** — enable text selection / copy in display elements.
   Deferred: display elements render through Rich (pre-baked ANSI, no per-char
   model); a real implementation is a substantial feature.
-- [ ] **Wide-character (CJK / emoji) correctness** — near-term. The screen
-  buffer is currently one cell per column with no continuation cell for
-  width-2 glyphs, and several width calculations still use ``len()`` / raw
-  string slicing instead of ``visible_length`` / ``clip_to_width``. The result
-  is misaligned columns, border overflow, and cursor/click desync for CJK and
-  emoji content. 0.1.0 documents this as a known single-width limitation (see
-  ``ScreenBuffer`` docstring); the fix is a width-aware buffer (glyph cell +
-  sentinel continuation cell) plus a sweep of the remaining ``len()`` width
-  math. Tracked from the 0.1.0 code review (Theme A, CRITICALs #2/#3/#5).
+- [x] **Wide-character (CJK / emoji) correctness — standard text path**
+  (landed 2026-07-13). The width-aware buffer arrived as a glyph head cell +
+  sentinel continuation cell (no ``Cell`` field change): ``write_text`` spends
+  its budget in columns, NFD combining marks fold onto the base glyph, and the
+  diff/full-render emitters advance by true glyph width — border overflow,
+  diff-cursor desync, and the click offset are gone for template/frame text.
+- [ ] **Wide-character correctness — direct-paint elements** — the remaining
+  sweep of ``len()`` / raw-slicing width math in elements that bypass
+  ``write_text`` with per-char ``buffer.set_cell`` loops (``TextArea``,
+  ``Tree``, ``ListView``, ``LogView``, ``DataGrid``, ``CodeEditor``; overlaps
+  the clip-region sweep, review 2.1/2.11), plus ``ansi_string_to_cells``
+  pre-rendered content (Rich tables), which still maps one code point per
+  cell. Tracked from the 0.1.0 code review (Theme A, CRITICALs #2/#3/#5).
 
 ## 0.1.1 — deferred from the 0.1.0 example pass
 

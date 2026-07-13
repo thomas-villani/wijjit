@@ -156,7 +156,7 @@ Wijjit is at its **first public release (0.1.0)** and is stable and feature-comp
 Known limitations for 0.1.0:
 
 * **No virtual scrolling** — every row of a ``Table``, ``ListView``, or ``Tree`` is laid out on each render. Page or filter very large datasets before rendering them.
-* **Wide characters render at single width** — the screen buffer models one cell per column, so CJK text and emoji can misalign.
+* **Wide characters are column-correct on the standard text path only** — text rendered through templates and frames handles CJK/emoji/decomposed accents at their true width, but elements that paint cells directly (``TextArea``, ``Tree``, ``ListView``, pre-rendered ANSI content) can still misalign wide glyphs.
 * **No plugin system and no hot template reload** — both are on the roadmap.
 
 Links

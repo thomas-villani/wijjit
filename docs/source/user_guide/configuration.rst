@@ -563,6 +563,15 @@ DEBUG
 
    app.config['DEBUG'] = True  # Enable debug mode
 
+.. note::
+
+   Debug mode also enables **strict template undefined checking**: referencing
+   an undefined template name (``{{ typo }}``) raises ``jinja2.UndefinedError``
+   instead of silently rendering as an empty string. Use ``state.get('key')``
+   or the ``|default`` filter for genuinely optional keys. Production (the
+   default) stays lenient so one bad key cannot crash a running TUI;
+   ``wijjit validate`` always checks strictly.
+
 SHOW_FPS
 ^^^^^^^^
 
