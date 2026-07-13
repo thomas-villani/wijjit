@@ -329,9 +329,9 @@ class HeatMap(Element):
                     if cell_x < avail_width:
                         for cell_y_offset in range(self.cell_height):
                             if y + cell_y_offset < avail_height - legend_height:
-                                ctx.buffer.set_cell(
-                                    ctx.bounds.x + cell_x,
-                                    ctx.bounds.y + y + cell_y_offset,
+                                ctx.write_cell(
+                                    cell_x,
+                                    y + cell_y_offset,
                                     Cell(char=char, **cell_attrs),
                                 )
 
@@ -355,22 +355,6 @@ class HeatMap(Element):
                 normalized = i / max(1, bar_width - 1)
                 bar_color = get_gradient_color(normalized, 0.0, 1.0, self.color_scale)
                 bar_attrs = {**base_style.to_cell_attrs(), "bg_color": bar_color}
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + bar_start + i,
-                    ctx.bounds.y + legend_y,
-                    Cell(char=" ", **bar_attrs),
-                )
+                ctx.write_cell(bar_start + i, legend_y, Cell(char=" ", **bar_attrs))
 
             ctx.write_text(bar_end + 1, legend_y, max_label, legend_style)
-
-        # Fill background for empty areas
-        base_attrs = base_style.to_cell_attrs()
-        for y in range(avail_height):
-            for x in range(avail_width):
-                cell = ctx.buffer.get_cell(ctx.bounds.x + x, ctx.bounds.y + y)
-                if cell is None or cell.char == "\x00":
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + y,
-                        Cell(char=" ", **base_attrs),
-                    )

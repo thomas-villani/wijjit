@@ -2,11 +2,12 @@
 
 import pytest
 
-from tests.helpers import render_element
+from tests.helpers import render_element, render_element_buffer
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.tabbed_panel import TabbedPanel, TabPosition
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.frames import Frame, FrameStyle
+from wijjit.terminal.cell import is_continuation
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -512,6 +513,43 @@ class TestTabbedPanelRendering:
         # Should not raise
         output = render_element(panel, width=40, height=10)
         assert output  # Should produce some output
+
+
+class TestTabbedPanelWideChars:
+    """Wide (CJK) tab labels must render column-correct after PaintContext.
+
+    A width-2 glyph occupies a head cell holding the glyph plus an empty
+    continuation cell in the next column. Painting through ``write_text``
+    guarantees this and keeps the panel's right border at the correct column
+    instead of being pushed out by half-rendered glyphs.
+    """
+
+    def test_cjk_tab_label_uses_continuation_cells(self):
+        """A CJK label renders head+continuation cells, border stays aligned."""
+        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+
+        width, height = 30, 6
+        panel = TabbedPanel(width=width, height=height, border_style="single")
+        panel.add_tab("日本語", Frame(width=width - 4, height=height - 3))
+
+        buffer = render_element_buffer(panel, width=width, height=height)
+        row = buffer.cells[0]
+
+        # Active-tab format is "[<label>]" starting after the top-left corner.
+        # Each CJK glyph is width 2: a head cell plus a continuation cell.
+        assert row[1].char == "["
+        assert row[2].char == "日"  # head
+        assert is_continuation(row[3])  # continuation of the head glyph
+        assert row[4].char == "本"
+        assert is_continuation(row[5])
+        assert row[6].char == "語"
+        assert is_continuation(row[7])
+        assert row[8].char == "]"
+
+        # The right border must remain at the final column (not shifted or
+        # overwritten by a half-rendered wide glyph).
+        tr = BORDER_CHARS[BorderStyle.SINGLE]["tr"]
+        assert row[width - 1].char == tr
 
 
 class TestTabbedPanelStatePersistence:

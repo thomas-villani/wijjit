@@ -29,24 +29,7 @@ DIRECT_BUFFER_ACCESS = re.compile(
 # Remaining direct-buffer-access allowance per file (relative to
 # src/wijjit/elements/). Counts as of 2026-07-13; each migration workstream
 # lowers its file to zero. Do not raise any number.
-ALLOWED = {
-    "base.py": 1,
-    "display/barchart.py": 4,
-    "display/columnchart.py": 10,
-    "display/contentview.py": 13,
-    "display/gauge.py": 5,
-    "display/heatmap.py": 4,
-    "display/linechart.py": 7,
-    "display/list.py": 21,
-    "display/logview.py": 27,
-    "display/pager.py": 4,
-    "display/sparkline.py": 3,
-    "display/tabbed_panel.py": 52,
-    "display/table.py": 3,
-    "display/tree.py": 24,
-    "input/code_editor.py": 11,
-    "input/text.py": 19,
-}
+ALLOWED: dict[str, int] = {}
 
 
 def _count_direct_access() -> dict[str, int]:

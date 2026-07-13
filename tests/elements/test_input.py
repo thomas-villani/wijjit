@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.helpers import render_element
+from tests.helpers import render_element, render_element_buffer
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import ElementType
 from wijjit.elements.input.button import Button
@@ -230,6 +230,34 @@ class TestTextInput:
         # Create input and verify it was created with correct width
         input_field = TextInput(value="hi", width=10)
         assert input_field.width == 10
+
+    def test_caret_column_accounts_for_wide_chars(self):
+        """The reverse-video caret is placed by column width, not char count.
+
+        With two full-width CJK glyphs before the cursor, the caret must land
+        at column offset 4 (their combined display width), not 2 (their code
+        point count). Regression for the wide-char caret bug (review 2.11).
+        """
+        input_field = TextInput(value="日本", width=15)  # "日本"
+        input_field.on_focus()
+        input_field.cursor_pos = 2  # at end, past both wide glyphs
+        buf = render_element_buffer(input_field, width=20, height=1)
+        row = buf.cells[0]
+
+        # BRACKETS style: "[" occupies col 0, so text begins at col 1. The two
+        # wide glyphs span 4 columns, putting the caret cell at col 1 + 4 = 5.
+        normal = row[1]  # head cell of the first glyph (normal styling)
+        caret = row[5]
+        # The caret is reverse video: fg/bg swapped relative to normal content.
+        assert caret.fg_color == normal.bg_color
+        assert caret.bg_color == normal.fg_color
+
+        # The column that char-count math would wrongly pick (col 1 + 2 = 3)
+        # must NOT carry the caret styling.
+        wrong = row[3]
+        assert not (
+            wrong.fg_color == normal.bg_color and wrong.bg_color == normal.fg_color
+        )
 
 
 class TestButton:

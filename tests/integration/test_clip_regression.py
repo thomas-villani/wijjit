@@ -96,9 +96,6 @@ def _assert_element_clipped(element_tpl: str, context: dict | None = None) -> No
         ), f"frame top border was painted over: {lines[1]!r}"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="input/text.py bypasses the clip region (review 2.1)"
-)
 def test_textarea_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% textarea id="el" width=46 height='
@@ -107,9 +104,6 @@ def test_textarea_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="display/tree.py bypasses the clip region (review 2.1)"
-)
 def test_tree_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% tree id="el" data=tree_data height='
@@ -124,9 +118,6 @@ def test_tree_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="display/list.py bypasses the clip region (review 2.1)"
-)
 def test_listview_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% listview id="el" items=lv_items height='
@@ -136,9 +127,6 @@ def test_listview_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="display/logview.py bypasses the clip region (review 2.1)"
-)
 def test_logview_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% logview id="el" lines=log_lines width=46 height='
@@ -148,10 +136,6 @@ def test_logview_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="display/tabbed_panel.py bypasses the clip region (review 2.1)",
-)
 def test_tabbedpanel_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% tabbedpanel id="el" width=46 height='
@@ -162,10 +146,6 @@ def test_tabbedpanel_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="input/code_editor.py bypasses the clip region (review 2.1)",
-)
 def test_codeeditor_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% codeeditor id="el" language="python" width=46 height='
@@ -174,10 +154,6 @@ def test_codeeditor_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="display/contentview.py bypasses the clip region (review 2.1)",
-)
 def test_contentview_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% contentview id="el" content_type="plain" width=46 height='
@@ -186,10 +162,6 @@ def test_contentview_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="display/columnchart.py bypasses the clip region (review 2.1)",
-)
 def test_columnchart_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% columnchart id="el" data=chart_data width=46 height='
@@ -199,9 +171,6 @@ def test_columnchart_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="display/pager.py bypasses the clip region (review 2.1)"
-)
 def test_pager_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% pager id="el" width=46 height='
@@ -212,9 +181,6 @@ def test_pager_clipped_by_scrolled_frame():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="display/table.py bypasses the clip region (review 2.1)"
-)
 def test_table_clipped_by_scrolled_frame():
     _assert_element_clipped(
         '{% table id="el" columns=["A"] data=table_data height='

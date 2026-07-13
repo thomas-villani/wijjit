@@ -830,15 +830,13 @@ class Table(ScrollableElement):
             # Convert ANSI string to cells
             cells = ansi_string_to_cells(line)
 
-            # Write cells to buffer
-            for x, cell in enumerate(cells):
-                if x >= table_width:
-                    break
-                ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, cell)
+            # Write cells to buffer, truncated to the table width
+            ctx.write_cells(0, y, cells[:table_width])
 
             # Pad remaining width with empty cells if needed
-            for x in range(len(cells), table_width):
-                ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, Cell(char=" "))
+            if len(cells) < table_width:
+                pad_cells = [Cell(char=" ")] * (table_width - len(cells))
+                ctx.write_cells(len(cells), y, pad_cells)
 
             # Add scrollbar character if needed
             if needs_scrollbar:
@@ -846,8 +844,4 @@ class Table(ScrollableElement):
                 # Thumb cells use the full block glyph; everything else is track.
                 is_thumb = scrollbar_char == "\u2588"
                 sb_attrs = scrollbar_thumb_attrs if is_thumb else scrollbar_track_attrs
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + table_width,
-                    ctx.bounds.y + y,
-                    Cell(char=scrollbar_char, **sb_attrs),
-                )
+                ctx.write_cell(table_width, y, Cell(char=scrollbar_char, **sb_attrs))

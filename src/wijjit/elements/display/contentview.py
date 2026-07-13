@@ -744,19 +744,19 @@ class ContentView(ScrollableElement):
                 )
                 top_cells.extend([h_cell] * right_len)
                 top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
-                ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
+                ctx.write_cells(0, 0, top_cells)
             else:
                 h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
                 top_cells = [get_pooled_cell(char=chars["tl"], **border_attrs)]
                 top_cells.extend([h_cell] * border_width)
                 top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
-                ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
+                ctx.write_cells(0, 0, top_cells)
         else:
             h_cell = get_pooled_cell(char=chars["h"], **border_attrs)
             top_cells = [get_pooled_cell(char=chars["tl"], **border_attrs)]
             top_cells.extend([h_cell] * (total_width - 2))
             top_cells.append(get_pooled_cell(char=chars["tr"], **border_attrs))
-            ctx.buffer.set_cells_horizontal(ctx.bounds.x, ctx.bounds.y, top_cells)
+            ctx.write_cells(0, 0, top_cells)
 
         # Render content area
         content_ctx = ctx.sub_context(
@@ -767,10 +767,8 @@ class ContentView(ScrollableElement):
         # Render side borders
         v_cell = get_pooled_cell(char=chars["v"], **border_attrs)
         v_cells = [v_cell] * content_height
-        ctx.buffer.set_cells_vertical(ctx.bounds.x, ctx.bounds.y + 1, v_cells)
-        ctx.buffer.set_cells_vertical(
-            ctx.bounds.x + total_width - 1, ctx.bounds.y + 1, v_cells
-        )
+        ctx.write_cells_vertical(0, 1, v_cells)
+        ctx.write_cells_vertical(total_width - 1, 1, v_cells)
 
         # Render bottom border
         bottom_y = content_height + 1
@@ -778,9 +776,7 @@ class ContentView(ScrollableElement):
         bottom_cells = [get_pooled_cell(char=chars["bl"], **border_attrs)]
         bottom_cells.extend([h_cell] * (total_width - 2))
         bottom_cells.append(get_pooled_cell(char=chars["br"], **border_attrs))
-        ctx.buffer.set_cells_horizontal(
-            ctx.bounds.x, ctx.bounds.y + bottom_y, bottom_cells
-        )
+        ctx.write_cells(0, bottom_y, bottom_cells)
 
     def _render_to_content(
         self,
@@ -830,9 +826,7 @@ class ContentView(ScrollableElement):
                 if rendered_idx >= len(self.rendered_cells):
                     space_cell = get_pooled_cell(char=" ")
                     empty_line = [space_cell] * content_width
-                    ctx.buffer.set_cells_horizontal(
-                        ctx.bounds.x, ctx.bounds.y + current_y, empty_line
-                    )
+                    ctx.write_cells(0, current_y, empty_line)
                 else:
                     cells = self.rendered_cells[rendered_idx]
                     line_cells = cells[:content_width]
@@ -845,17 +839,13 @@ class ContentView(ScrollableElement):
                             [pad_cell] * (content_width - len(line_cells))
                         )
 
-                    ctx.buffer.set_cells_horizontal(
-                        ctx.bounds.x, ctx.bounds.y + current_y, line_cells
-                    )
+                    ctx.write_cells(0, current_y, line_cells)
             else:
                 # ANSI-based content types
                 if rendered_idx >= len(self.rendered_lines):
                     space_cell = get_pooled_cell(char=" ")
                     empty_line = [space_cell] * content_width
-                    ctx.buffer.set_cells_horizontal(
-                        ctx.bounds.x, ctx.bounds.y + current_y, empty_line
-                    )
+                    ctx.write_cells(0, current_y, empty_line)
                 else:
                     ansi_line = self.rendered_lines[rendered_idx]
                     cells = ansi_string_to_cells(ansi_line)
@@ -874,9 +864,7 @@ class ContentView(ScrollableElement):
                             [pad_cell] * (content_width - len(line_cells))
                         )
 
-                    ctx.buffer.set_cells_horizontal(
-                        ctx.bounds.x, ctx.bounds.y + current_y, line_cells
-                    )
+                    ctx.write_cells(0, current_y, line_cells)
 
             # Add scrollbar character
             if needs_scrollbar:
@@ -892,9 +880,9 @@ class ContentView(ScrollableElement):
                         )
                     scrollbar_attrs = scrollbar_style.to_cell_attrs()
 
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + content_width,
-                        ctx.bounds.y + current_y,
+                    ctx.write_cell(
+                        content_width,
+                        current_y,
                         Cell(char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs),
                     )
 
@@ -907,9 +895,7 @@ class ContentView(ScrollableElement):
             empty_line = [space_cell] * content_width
 
             while current_y < start_y + content_height:
-                ctx.buffer.set_cells_horizontal(
-                    ctx.bounds.x, ctx.bounds.y + current_y, empty_line
-                )
+                ctx.write_cells(0, current_y, empty_line)
 
                 if needs_scrollbar:
                     scrollbar_idx = current_y - start_y
@@ -924,9 +910,9 @@ class ContentView(ScrollableElement):
                             )
                         scrollbar_attrs = scrollbar_style.to_cell_attrs()
 
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + content_width,
-                            ctx.bounds.y + current_y,
+                        ctx.write_cell(
+                            content_width,
+                            current_y,
                             get_pooled_cell(
                                 char=scrollbar_chars[scrollbar_idx], **scrollbar_attrs
                             ),

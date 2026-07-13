@@ -22,6 +22,7 @@ from wijjit.rendering import PaintContext
 from wijjit.terminal.ansi import (
     clip_to_width,
     is_wrap_boundary,
+    iter_text_clusters,
     strip_ansi,
     visible_length,
     wrap_text,
@@ -498,6 +499,14 @@ class TextInput(AutocompleteMixin, Element):
             )
             after = visible_text[visible_cursor_pos + 1 :]
 
+            # Cursor/text positions are placed in terminal COLUMNS, not
+            # character counts: the caret column is the display width of the
+            # text before it, and the text after starts past the caret cell's
+            # own width (2 for a wide glyph). cursor_pos itself stays a
+            # character index; the visible-window slice above is char-based.
+            caret_col = visible_length(before)
+            after_col = caret_col + visible_length(cursor_char)
+
             # Create style with reverse video for cursor
             cursor_style = Style(
                 fg_color=resolved_style.bg_color or (0, 0, 0),
@@ -516,8 +525,8 @@ class TextInput(AutocompleteMixin, Element):
 
                 # Render text with cursor (use text_style for text content)
                 ctx.write_text(x_offset, 0, before, text_style)
-                ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(x_offset + len(before) + 1, 0, after, text_style)
+                ctx.write_text(x_offset + caret_col, 0, cursor_char, cursor_style)
+                ctx.write_text(x_offset + after_col, 0, after, text_style)
                 ctx.write_text(x_offset + self.width, 0, "]", resolved_style)
 
             elif self.style == InputStyle.BOX:
@@ -527,8 +536,8 @@ class TextInput(AutocompleteMixin, Element):
 
                 # Render text with cursor (use text_style for text content)
                 ctx.write_text(x_offset, 0, before, text_style)
-                ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(x_offset + len(before) + 1, 0, after, text_style)
+                ctx.write_text(x_offset + caret_col, 0, cursor_char, cursor_style)
+                ctx.write_text(x_offset + after_col, 0, after, text_style)
                 ctx.write_text(x_offset + self.width, 0, "\u2524", resolved_style)  # ┤
 
             elif self.style == InputStyle.BLOCK:
@@ -538,8 +547,8 @@ class TextInput(AutocompleteMixin, Element):
 
                 # Render text with cursor (use text_style for text content)
                 ctx.write_text(x_offset, 0, before, text_style)
-                ctx.write_text(x_offset + len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(x_offset + len(before) + 1, 0, after, text_style)
+                ctx.write_text(x_offset + caret_col, 0, cursor_char, cursor_style)
+                ctx.write_text(x_offset + after_col, 0, after, text_style)
                 ctx.write_text(x_offset + self.width, 0, "\u2590", resolved_style)  # ▐
 
             elif self.style == InputStyle.UNDERLINE:
@@ -555,15 +564,15 @@ class TextInput(AutocompleteMixin, Element):
 
                 # Render text with cursor
                 ctx.write_text(0, 0, before, underline_style)
-                ctx.write_text(len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(len(before) + 1, 0, after, underline_style)
+                ctx.write_text(caret_col, 0, cursor_char, cursor_style)
+                ctx.write_text(after_col, 0, after, underline_style)
 
             elif self.style == InputStyle.MINIMAL:
                 # Just text with styling (use text_style for text content)
                 # Render text with cursor
                 ctx.write_text(0, 0, before, text_style)
-                ctx.write_text(len(before), 0, cursor_char, cursor_style)
-                ctx.write_text(len(before) + 1, 0, after, text_style)
+                ctx.write_text(caret_col, 0, cursor_char, cursor_style)
+                ctx.write_text(after_col, 0, after, text_style)
 
         else:
             # Not focused or cursor out of bounds - render without cursor
@@ -825,7 +834,7 @@ class TextArea(Element):
             ``(width, height)`` where both include border characters.
         """
         border = 2 if self.border_style is not None else 0
-        width = self.width + border
+        width = self.width + border + self._scrollbar_column(self.height)
 
         if not self.autosize:
             return (width, self.height + border)
@@ -836,6 +845,35 @@ class TextArea(Element):
             # Never clamp below a single visible content row.
             total_height = min(total_height, max(border + 1, self.max_height))
         return (width, total_height)
+
+    def _scrollbar_column(self, viewport_height: int) -> int:
+        """Width (0 or 1) of the vertical scrollbar column for a viewport.
+
+        The painted box is ``content + scrollbar + borders`` wide, so both
+        sizing directions must budget the scrollbar column: intrinsic size
+        requests it and dynamic sizing reserves it inside the assigned
+        bounds. Historically it was omitted from both, and the border row
+        overflowed the assigned bounds by one column whenever the scrollbar
+        appeared - invisible while elements painted unclipped, but the
+        clip-aware paint path truncates that overflow (correctly), dropping
+        the border corner.
+
+        Parameters
+        ----------
+        viewport_height : int
+            Content viewport height (rows available for text).
+
+        Returns
+        -------
+        int
+            1 when a vertical scrollbar will occupy a column, else 0.
+        """
+        if not self.show_scrollbar:
+            return 0
+        # Same comparison ScrollManager uses for is_scrollable, evaluated
+        # against the prospective viewport height rather than a possibly
+        # stale one.
+        return 1 if self.scroll_manager.state.content_size > viewport_height else 0
 
     def set_bounds(self, bounds: Bounds) -> None:
         """Set bounds and dynamically resize if needed.
@@ -857,6 +895,11 @@ class TextArea(Element):
                 new_width = max(3, new_width - 2)  # Minimum width for borders
                 new_height = max(3, new_height - 2)  # Minimum height for borders
 
+            # Reserve the scrollbar column inside the assigned bounds so the
+            # painted box (content + scrollbar + borders) never exceeds them
+            # (see _scrollbar_column).
+            new_width = max(3, new_width - self._scrollbar_column(new_height))
+
             # Update dimensions if changed
             if new_width != self.width or new_height != self.height:
                 self.width = new_width
@@ -864,6 +907,20 @@ class TextArea(Element):
 
                 # Update scroll manager with new viewport size
                 self.scroll_manager.update_viewport_size(self.height)
+        elif bounds:
+            # Explicit-size path: the tag budgets borders into the layout
+            # width (width + 2) but cannot know at template time whether the
+            # scrollbar column will be needed. If the painted box (content +
+            # scrollbar + borders) would exceed the assigned bounds, give the
+            # scrollbar its column from the content width so the border stays
+            # inside the bounds; keeping self.width in sync keeps the wrap
+            # and horizontal-scroll math consistent with what is painted.
+            border = 2 if self.border_style is not None else 0
+            scrollbar = self._scrollbar_column(self.height)
+            if self.width + border + scrollbar > bounds.width:
+                new_width = max(3, bounds.width - border - scrollbar)
+                if new_width != self.width:
+                    self.width = new_width
 
     def _normalize_border_style(
         self, style: BorderStyle | Literal["single", "double", "rounded"] | None
@@ -3047,19 +3104,21 @@ class TextArea(Element):
         total_width = content_width + scrollbar_width + 2  # +2 for borders
         total_height = content_height + 2  # +2 for borders
 
-        # Render top border
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+        # Border runs are written as pre-built cell runs (write_cells /
+        # write_cells_vertical) rather than write_text: those clip only to the
+        # clip_region, not to the element bounds. The border frame spans the
+        # element's full total_width/total_height, which can legitimately reach
+        # the last bounds column (or overflow it by one when the scrollbar is
+        # not fully budgeted into the assigned bounds); write_text would clip
+        # that final corner off while the vertical sides would survive.
+
+        # Render top border as a single clipped row (corner + edge + corner).
+        top_cells = (
+            [Cell(char=chars["tl"], **border_attrs)]
+            + [Cell(char=chars["h"], **border_attrs)] * (total_width - 2)
+            + [Cell(char=chars["tr"], **border_attrs)]
         )
-        for x in range(1, total_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x, ctx.bounds.y, Cell(char=chars["h"], **border_attrs)
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + total_width - 1,
-            ctx.bounds.y,
-            Cell(char=chars["tr"], **border_attrs),
-        )
+        ctx.write_cells(0, 0, top_cells)
 
         # Render content area
         content_ctx = ctx.sub_context(
@@ -3069,37 +3128,19 @@ class TextArea(Element):
             content_ctx, content_style, 0, 0, content_width, content_height
         )
 
-        # Render side borders
-        for y in range(content_height):
-            ctx.buffer.set_cell(
-                ctx.bounds.x,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + total_width - 1,
-                ctx.bounds.y + 1 + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        # Render side borders as clipped vertical runs.
+        v_cells = [Cell(char=chars["v"], **border_attrs)] * content_height
+        ctx.write_cells_vertical(0, 1, v_cells)
+        ctx.write_cells_vertical(total_width - 1, 1, v_cells)
 
-        # Render bottom border
+        # Render bottom border as a single clipped row.
         bottom_y = total_height - 1
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["bl"], **border_attrs),
+        bottom_cells = (
+            [Cell(char=chars["bl"], **border_attrs)]
+            + [Cell(char=chars["h"], **border_attrs)] * (total_width - 2)
+            + [Cell(char=chars["br"], **border_attrs)]
         )
-        for x in range(1, total_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + bottom_y,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + total_width - 1,
-            ctx.bounds.y + bottom_y,
-            Cell(char=chars["br"], **border_attrs),
-        )
+        ctx.write_cells(0, bottom_y, bottom_cells)
 
     def _render_to_content(
         self,
@@ -3196,44 +3237,47 @@ class TextArea(Element):
                 else:
                     display_line = scrolled_line.ljust(content_width)
 
-                # Write line cells
-                for x, char in enumerate(display_line):
+                # Write line cluster by cluster: char_index tracks CHARACTER
+                # offset (cursor_col / selection are character indices) while
+                # column tracks the terminal COLUMN so wide glyphs land on the
+                # right cells and never straddle the content edge / border.
+                dy = start_y + i
+                char_index = 0
+                column = 0
+                for cluster, cwidth in iter_text_clusters(display_line):
+                    if column >= content_width:
+                        break
+
                     # Calculate actual column in content (accounting for scroll)
-                    actual_col = scroll_x + x
+                    actual_col = scroll_x + char_index
 
                     # Check if this position is selected
                     is_selected = self._is_position_selected(
                         actual_line_idx, actual_col
                     )
 
-                    # Check if this is cursor position (cursor takes priority over selection)
+                    # Cursor takes priority over selection. A per-char
+                    # condition styles the whole (atomic) cluster.
                     if show_cursor and actual_col == self.cursor_col:
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x,
-                            ctx.bounds.y + start_y + i,
-                            Cell(char=char, **cursor_attrs),
-                        )
+                        attrs = cursor_attrs
                     elif is_selected:
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x,
-                            ctx.bounds.y + start_y + i,
-                            Cell(char=char, **selection_attrs),
-                        )
+                        attrs = selection_attrs
                     else:
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x,
-                            ctx.bounds.y + start_y + i,
-                            Cell(char=char, **content_attrs),
-                        )
+                        attrs = content_attrs
+
+                    # A width-2 glyph that would straddle the content edge is
+                    # replaced by a styled space so no half glyph or overwrite
+                    # of the right border occurs.
+                    if cwidth == 2 and column + 2 > content_width:
+                        ctx.write_cell(column, dy, Cell(char=" ", **attrs))
+                        break
+
+                    column += ctx.write_cell(column, dy, Cell(char=cluster, **attrs))
+                    char_index += len(cluster)
 
             # Pad remaining lines to render_height
             for i in range(len(visible_lines), render_height):
-                for x in range(content_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + start_y + i,
-                        Cell(char=" ", **content_attrs),
-                    )
+                ctx.write_text(0, start_y + i, " " * content_width, content_style)
 
         else:
             # Rendering with wrapping enabled (horizontal scrollbar not used in wrap mode)
@@ -3267,37 +3311,44 @@ class TextArea(Element):
                         else:
                             display_line = segment + " " * (content_width - seg_len)
 
-                        # Write line cells
-                        for x, char in enumerate(display_line):
-                            # Calculate actual column position in the original line
-                            actual_col = actual_col_offset + x
+                        # Write line cluster by cluster: char_index is the
+                        # CHARACTER offset used by the per-char cursor /
+                        # selection conditions; column is the terminal COLUMN
+                        # so wide glyphs render as head + continuation cells.
+                        dy = start_y + rendered_line_count
+                        char_index = 0
+                        column = 0
+                        for cluster, cwidth in iter_text_clusters(display_line):
+                            if column >= content_width:
+                                break
+
+                            # Calculate actual column position in original line
+                            actual_col = actual_col_offset + char_index
 
                             # Check if this position is selected
                             is_selected = self._is_position_selected(
                                 _actual_row, actual_col
                             )
 
-                            # Check if this is cursor position (cursor takes priority)
-                            if show_cursor and x == cursor_visual_col:
-                                ctx.buffer.set_cell(
-                                    ctx.bounds.x + x,
-                                    ctx.bounds.y + start_y + rendered_line_count,
-                                    Cell(char=char, **cursor_attrs),
-                                )
-                            elif (
-                                is_selected and x < seg_len
-                            ):  # Only highlight actual content, not padding
-                                ctx.buffer.set_cell(
-                                    ctx.bounds.x + x,
-                                    ctx.bounds.y + start_y + rendered_line_count,
-                                    Cell(char=char, **selection_attrs),
-                                )
+                            # Cursor takes priority; a per-char condition styles
+                            # the whole (atomic) cluster.
+                            if show_cursor and char_index == cursor_visual_col:
+                                attrs = cursor_attrs
+                            elif is_selected and char_index < seg_len:
+                                # Only highlight actual content, not padding
+                                attrs = selection_attrs
                             else:
-                                ctx.buffer.set_cell(
-                                    ctx.bounds.x + x,
-                                    ctx.bounds.y + start_y + rendered_line_count,
-                                    Cell(char=char, **content_attrs),
-                                )
+                                attrs = content_attrs
+
+                            # Never straddle the content edge with a wide glyph.
+                            if cwidth == 2 and column + 2 > content_width:
+                                ctx.write_cell(column, dy, Cell(char=" ", **attrs))
+                                break
+
+                            column += ctx.write_cell(
+                                column, dy, Cell(char=cluster, **attrs)
+                            )
+                            char_index += len(cluster)
 
                         rendered_line_count += 1
                         if rendered_line_count >= render_height:
@@ -3309,12 +3360,7 @@ class TextArea(Element):
 
             # Pad remaining lines to render_height
             for i in range(rendered_line_count, render_height):
-                for x in range(content_width):
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + start_y + i,
-                        Cell(char=" ", **content_attrs),
-                    )
+                ctx.write_text(0, start_y + i, " " * content_width, content_style)
 
         # Add vertical scrollbar if needed
         if needs_scrollbar:
@@ -3322,13 +3368,14 @@ class TextArea(Element):
                 self.scroll_manager.state, render_height
             )
 
-            for i in range(render_height):
-                scrollbar_char = scrollbar_chars[i] if i < len(scrollbar_chars) else " "
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + content_width,
-                    ctx.bounds.y + start_y + i,
-                    Cell(char=scrollbar_char, **content_attrs),
+            sb_cells = [
+                Cell(
+                    char=(scrollbar_chars[i] if i < len(scrollbar_chars) else " "),
+                    **content_attrs,
                 )
+                for i in range(render_height)
+            ]
+            ctx.write_cells_vertical(content_width, start_y, sb_cells)
 
         # Add horizontal scrollbar if needed
         if needs_scrollbar_x:
@@ -3341,18 +3388,17 @@ class TextArea(Element):
                 self.scroll_manager_x.state, scrollbar_width, style="simple"
             )
 
-            for i, char in enumerate(scrollbar_str[:scrollbar_width]):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + start_x + i,
-                    ctx.bounds.y + scrollbar_y,
-                    Cell(char=char, **content_attrs),
-                )
+            h_cells = [
+                Cell(char=char, **content_attrs)
+                for char in scrollbar_str[:scrollbar_width]
+            ]
+            ctx.write_cells(start_x, scrollbar_y, h_cells)
 
             # If both scrollbars are present, add corner cell
             if needs_scrollbar:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + start_x + content_width,
-                    ctx.bounds.y + scrollbar_y,
+                ctx.write_cell(
+                    start_x + content_width,
+                    scrollbar_y,
                     Cell(char=" ", **content_attrs),
                 )
 

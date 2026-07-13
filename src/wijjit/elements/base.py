@@ -1393,6 +1393,5 @@ class TextElement(Element):
                             break
                     else:
                         break
-                ctx.buffer.set_cell(ctx.bounds.x + x, ctx.bounds.y + y, cell)
-                x += 1
+                x += ctx.write_cell(x, y, cell)
             y += 1

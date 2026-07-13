@@ -247,7 +247,6 @@ class ColumnChart(Element):
             return
 
         # Resolve styles
-        base_style = ctx.style_resolver.resolve_style(self, "columnchart")
         column_style = ctx.style_resolver.resolve_style(self, "columnchart.column")
         empty_style = ctx.style_resolver.resolve_style(self, "columnchart.column.empty")
         axis_style = ctx.style_resolver.resolve_style(self, "columnchart.axis")
@@ -296,12 +295,11 @@ class ColumnChart(Element):
             axis_attrs = axis_style.to_cell_attrs()
 
             # Draw vertical axis line
-            for y in range(chart_height + 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + self.axis_width - 1,
-                    ctx.bounds.y + y,
-                    Cell(char="\u2502" if use_unicode else "|", **axis_attrs),
-                )
+            axis_line_char = "\u2502" if use_unicode else "|"
+            axis_line_cells = [Cell(char=axis_line_char, **axis_attrs)] * (
+                chart_height + 1
+            )
+            ctx.write_cells_vertical(self.axis_width - 1, 0, axis_line_cells)
 
             # Draw axis labels
             for tick in ticks:
@@ -318,9 +316,9 @@ class ColumnChart(Element):
                     ctx.write_text(0, tick_y, tick_label, axis_style)
 
                     # Draw tick mark
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + self.axis_width - 1,
-                        ctx.bounds.y + tick_y,
+                    ctx.write_cell(
+                        self.axis_width - 1,
+                        tick_y,
                         Cell(char="\u251c" if use_unicode else "+", **axis_attrs),
                     )
 
@@ -328,12 +326,10 @@ class ColumnChart(Element):
                     if self.show_grid and tick_y > 0:
                         grid_char = "\u2500" if use_unicode else "-"
                         grid_attrs = grid_style.to_cell_attrs()
-                        for x in range(chart_left, avail_width):
-                            ctx.buffer.set_cell(
-                                ctx.bounds.x + x,
-                                ctx.bounds.y + tick_y,
-                                Cell(char=grid_char, **grid_attrs),
-                            )
+                        grid_cells = [Cell(char=grid_char, **grid_attrs)] * (
+                            avail_width - chart_left
+                        )
+                        ctx.write_cells(chart_left, tick_y, grid_cells)
 
         # Draw x-axis (bottom line)
         if self.show_labels or self.show_axis:
@@ -341,18 +337,16 @@ class ColumnChart(Element):
             axis_char = "\u2500" if use_unicode else "-"
             bottom_y = chart_height
 
-            for x in range(chart_left, avail_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + bottom_y,
-                    Cell(char=axis_char, **axis_attrs),
-                )
+            axis_line_cells = [Cell(char=axis_char, **axis_attrs)] * (
+                avail_width - chart_left
+            )
+            ctx.write_cells(chart_left, bottom_y, axis_line_cells)
 
             # Corner
             if self.show_axis:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + self.axis_width - 1,
-                    ctx.bounds.y + bottom_y,
+                ctx.write_cell(
+                    self.axis_width - 1,
+                    bottom_y,
                     Cell(char="\u2514" if use_unicode else "+", **axis_attrs),
                 )
 
@@ -386,23 +380,10 @@ class ColumnChart(Element):
                 row_y = y  # y from top
                 is_filled = (chart_height - y - 1) < column_height
 
-                for col_x in range(column_width):
-                    x_pos = column_x + col_x
-                    if x_pos >= avail_width:
-                        break
-
-                    if is_filled:
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x_pos,
-                            ctx.bounds.y + row_y,
-                            Cell(char=fill_char, **col_attrs),
-                        )
-                    else:
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x_pos,
-                            ctx.bounds.y + row_y,
-                            Cell(char=empty_char, **empty_attrs),
-                        )
+                row_char = fill_char if is_filled else empty_char
+                row_attrs = col_attrs if is_filled else empty_attrs
+                row_cells = [Cell(char=row_char, **row_attrs)] * column_width
+                ctx.write_cells(column_x, row_y, row_cells)
 
             # Partial fill at top (fractional part)
             fractional = norm_val * chart_height - int(norm_val * chart_height)
@@ -410,15 +391,10 @@ class ColumnChart(Element):
                 partial_y = chart_height - column_height - 1
                 if partial_y >= 0:
                     partial_char = get_block_char(fractional, "vertical", use_unicode)
-                    for col_x in range(column_width):
-                        x_pos = column_x + col_x
-                        if x_pos >= avail_width:
-                            break
-                        ctx.buffer.set_cell(
-                            ctx.bounds.x + x_pos,
-                            ctx.bounds.y + partial_y,
-                            Cell(char=partial_char, **col_attrs),
-                        )
+                    partial_cells = [
+                        Cell(char=partial_char, **col_attrs)
+                    ] * column_width
+                    ctx.write_cells(column_x, partial_y, partial_cells)
 
         # Render x-axis labels
         if self.show_labels:
@@ -438,15 +414,3 @@ class ColumnChart(Element):
                     column_x += padding
 
                 ctx.write_text(column_x, label_y, display_label, label_style)
-
-        # Fill remaining space with background
-        base_attrs = base_style.to_cell_attrs()
-        for y in range(avail_height):
-            for x in range(avail_width):
-                cell = ctx.buffer.get_cell(ctx.bounds.x + x, ctx.bounds.y + y)
-                if cell is None or cell.char == "\x00":
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + y,
-                        Cell(char=" ", **base_attrs),
-                    )

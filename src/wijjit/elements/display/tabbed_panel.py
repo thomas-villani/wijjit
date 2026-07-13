@@ -18,6 +18,7 @@ from wijjit.elements.base import (
 )
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame
 from wijjit.logging_config import get_logger
+from wijjit.styling.style import Style
 from wijjit.terminal.ansi import clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
@@ -1028,9 +1029,7 @@ class TabbedPanel(Container):
         current_x = 0
 
         # Top-left corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-        )
+        ctx.write_cell(current_x, 0, Cell(char=chars["tl"], **border_attrs))
         current_x += 1
 
         # Render each tab label on the top border line
@@ -1044,55 +1043,35 @@ class TabbedPanel(Container):
             else:
                 tab_text = f" {label} "
 
-            for char in tab_text:
-                if current_x < self.width - 1:
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + current_x,
-                        ctx.bounds.y,
-                        Cell(char=char, **label_attrs),
-                    )
-                    current_x += 1
+            # Reserve the final column for the top-right corner; clip in
+            # columns so wide (CJK) labels stay column-correct.
+            available = self.width - 1 - current_x
+            if available > 0:
+                clipped = clip_to_width(tab_text, available)
+                ctx.write_text(current_x, 0, clipped, Style(**label_attrs))
+                current_x += visible_length(clipped)
 
             # Separator between tabs (if not last tab)
             if i < len(self.tabs) - 1 and current_x < self.width - 1:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + current_x,
-                    ctx.bounds.y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
+                ctx.write_cell(current_x, 0, Cell(char=chars["h"], **border_attrs))
                 current_x += 1
 
         # Fill remaining top border
-        while current_x < self.width - 1:
-            ctx.buffer.set_cell(
-                ctx.bounds.x + current_x,
-                ctx.bounds.y,
-                Cell(char=chars["h"], **border_attrs),
+        if current_x < self.width - 1:
+            fill = [Cell(char=chars["h"], **border_attrs)] * (
+                self.width - 1 - current_x
             )
-            current_x += 1
+            ctx.write_cells(current_x, 0, fill)
 
         # Top-right corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y,
-            Cell(char=chars["tr"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, 0, Cell(char=chars["tr"], **border_attrs))
 
         # Line 1: Separator line between tabs and content
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y + 1, Cell(char=chars["v"], **border_attrs)
+        ctx.write_cell(0, 1, Cell(char=chars["v"], **border_attrs))
+        ctx.write_cells(
+            1, 1, [Cell(char=chars["h"], **border_attrs)] * (self.width - 2)
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + 1,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + 1,
-            Cell(char=chars["v"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, 1, Cell(char=chars["v"], **border_attrs))
 
         # Line 2 onwards: Content area
         # Render active tab's content (Frame or FrameNode with children)
@@ -1110,32 +1089,19 @@ class TabbedPanel(Container):
             )
 
         # Render left and right borders for content area
-        for y in range(2, self.height - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
-            )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + self.width - 1,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        side_border = [Cell(char=chars["v"], **border_attrs)] * (self.height - 3)
+        ctx.write_cells_vertical(0, 2, side_border)
+        ctx.write_cells_vertical(self.width - 1, 2, side_border)
 
         # Bottom border
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + self.height - 1,
-            Cell(char=chars["bl"], **border_attrs),
+        ctx.write_cell(0, self.height - 1, Cell(char=chars["bl"], **border_attrs))
+        ctx.write_cells(
+            1,
+            self.height - 1,
+            [Cell(char=chars["h"], **border_attrs)] * (self.width - 2),
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + self.height - 1,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + self.height - 1,
-            Cell(char=chars["br"], **border_attrs),
+        ctx.write_cell(
+            self.width - 1, self.height - 1, Cell(char=chars["br"], **border_attrs)
         )
 
     def _render_bottom_tabs(
@@ -1173,29 +1139,16 @@ class TabbedPanel(Container):
         from wijjit.terminal.cell import Cell
 
         # Top border
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+        ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
+        ctx.write_cells(
+            1, 0, [Cell(char=chars["h"], **border_attrs)] * (self.width - 2)
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x, ctx.bounds.y, Cell(char=chars["h"], **border_attrs)
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y,
-            Cell(char=chars["tr"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, 0, Cell(char=chars["tr"], **border_attrs))
 
         # Content area borders
-        for y in range(1, content_height):
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
-            )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + self.width - 1,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        side_border = [Cell(char=chars["v"], **border_attrs)] * (content_height - 1)
+        ctx.write_cells_vertical(0, 1, side_border)
+        ctx.write_cells_vertical(self.width - 1, 1, side_border)
 
         # Render active tab's content using helper (handles FrameNode and state)
         if 0 <= self.active_tab_index < len(self.tabs):
@@ -1212,21 +1165,14 @@ class TabbedPanel(Container):
 
         # Separator line between content and tabs
         separator_y = content_height
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + separator_y,
-            Cell(char=chars["v"], **border_attrs),
+        ctx.write_cell(0, separator_y, Cell(char=chars["v"], **border_attrs))
+        ctx.write_cells(
+            1,
+            separator_y,
+            [Cell(char=chars["h"], **border_attrs)] * (self.width - 2),
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + separator_y,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + separator_y,
-            Cell(char=chars["v"], **border_attrs),
+        ctx.write_cell(
+            self.width - 1, separator_y, Cell(char=chars["v"], **border_attrs)
         )
 
         # Bottom border with tab labels
@@ -1234,11 +1180,7 @@ class TabbedPanel(Container):
         current_x = 0
 
         # Bottom-left corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + tab_y,
-            Cell(char=chars["bl"], **border_attrs),
-        )
+        ctx.write_cell(0, tab_y, Cell(char=chars["bl"], **border_attrs))
         current_x += 1
 
         # Render each tab label
@@ -1252,39 +1194,28 @@ class TabbedPanel(Container):
             else:
                 tab_text = f" {label} "
 
-            for char in tab_text:
-                if current_x < self.width - 1:
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + current_x,
-                        ctx.bounds.y + tab_y,
-                        Cell(char=char, **label_attrs),
-                    )
-                    current_x += 1
+            # Reserve the final column for the bottom-right corner; clip in
+            # columns so wide (CJK) labels stay column-correct.
+            available = self.width - 1 - current_x
+            if available > 0:
+                clipped = clip_to_width(tab_text, available)
+                ctx.write_text(current_x, tab_y, clipped, Style(**label_attrs))
+                current_x += visible_length(clipped)
 
             # Separator between tabs
             if i < len(self.tabs) - 1 and current_x < self.width - 1:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + current_x,
-                    ctx.bounds.y + tab_y,
-                    Cell(char=chars["h"], **border_attrs),
-                )
+                ctx.write_cell(current_x, tab_y, Cell(char=chars["h"], **border_attrs))
                 current_x += 1
 
         # Fill remaining bottom border
-        while current_x < self.width - 1:
-            ctx.buffer.set_cell(
-                ctx.bounds.x + current_x,
-                ctx.bounds.y + tab_y,
-                Cell(char=chars["h"], **border_attrs),
+        if current_x < self.width - 1:
+            fill = [Cell(char=chars["h"], **border_attrs)] * (
+                self.width - 1 - current_x
             )
-            current_x += 1
+            ctx.write_cells(current_x, tab_y, fill)
 
         # Bottom-right corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + tab_y,
-            Cell(char=chars["br"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, tab_y, Cell(char=chars["br"], **border_attrs))
 
     def _render_left_tabs(
         self,
@@ -1322,35 +1253,25 @@ class TabbedPanel(Container):
 
         # Render tab area on the left
         # Top-left corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
-        )
+        ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
 
         # Top border of tab area
-        for x in range(1, tab_area_width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x, ctx.bounds.y, Cell(char=chars["h"], **border_attrs)
-            )
+        ctx.write_cells(
+            1, 0, [Cell(char=chars["h"], **border_attrs)] * (tab_area_width - 2)
+        )
 
         # Tab area separator
-        ctx.buffer.set_cell(
-            ctx.bounds.x + tab_area_width - 1,
-            ctx.bounds.y,
-            Cell(char=chars["h"], **border_attrs),
-        )
+        ctx.write_cell(tab_area_width - 1, 0, Cell(char=chars["h"], **border_attrs))
 
         # Top border of content area
-        for x in range(tab_area_width, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x, ctx.bounds.y, Cell(char=chars["h"], **border_attrs)
-            )
+        ctx.write_cells(
+            tab_area_width,
+            0,
+            [Cell(char=chars["h"], **border_attrs)] * (self.width - 1 - tab_area_width),
+        )
 
         # Top-right corner
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y,
-            Cell(char=chars["tr"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, 0, Cell(char=chars["tr"], **border_attrs))
 
         # Render tab labels vertically
         for i, (label, _) in enumerate(self.tabs):
@@ -1362,9 +1283,7 @@ class TabbedPanel(Container):
             label_attrs = active_tab_attrs if is_active else tab_attrs
 
             # Left border
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
-            )
+            ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
 
             # Tab label with visual indicator: [Label] for active, " Label " for inactive
             if is_active:
@@ -1374,42 +1293,25 @@ class TabbedPanel(Container):
             tab_text = tab_text[: tab_area_width - 2]  # Clip if too long
             tab_text = tab_text.ljust(tab_area_width - 2)
 
-            for j, char in enumerate(tab_text):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + 1 + j,
-                    ctx.bounds.y + y,
-                    Cell(char=char, **label_attrs),
-                )
+            ctx.write_text(1, y, tab_text, Style(**label_attrs))
 
             # Vertical separator
-            ctx.buffer.set_cell(
-                ctx.bounds.x + tab_area_width - 1,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+            ctx.write_cell(tab_area_width - 1, y, Cell(char=chars["v"], **border_attrs))
 
         # Fill remaining tab area with empty lines
         for y in range(len(self.tabs) + 1, self.height - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
+            ctx.write_cell(0, y, Cell(char=chars["v"], **border_attrs))
+            ctx.write_cells(
+                1, y, [Cell(char=" ", **border_attrs)] * (tab_area_width - 2)
             )
-            for x in range(1, tab_area_width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x, ctx.bounds.y + y, Cell(char=" ", **border_attrs)
-                )
-            ctx.buffer.set_cell(
-                ctx.bounds.x + tab_area_width - 1,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+            ctx.write_cell(tab_area_width - 1, y, Cell(char=chars["v"], **border_attrs))
 
         # Render content area borders
-        for y in range(1, self.height - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + self.width - 1,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        ctx.write_cells_vertical(
+            self.width - 1,
+            1,
+            [Cell(char=chars["v"], **border_attrs)] * (self.height - 2),
+        )
 
         # Render active tab's content using helper (handles FrameNode and state)
         if 0 <= self.active_tab_index < len(self.tabs):
@@ -1425,21 +1327,14 @@ class TabbedPanel(Container):
             )
 
         # Bottom border
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + self.height - 1,
-            Cell(char=chars["bl"], **border_attrs),
+        ctx.write_cell(0, self.height - 1, Cell(char=chars["bl"], **border_attrs))
+        ctx.write_cells(
+            1,
+            self.height - 1,
+            [Cell(char=chars["h"], **border_attrs)] * (self.width - 2),
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + self.height - 1,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + self.height - 1,
-            Cell(char=chars["br"], **border_attrs),
+        ctx.write_cell(
+            self.width - 1, self.height - 1, Cell(char=chars["br"], **border_attrs)
         )
 
     def _render_right_tabs(
@@ -1477,39 +1372,20 @@ class TabbedPanel(Container):
         from wijjit.terminal.cell import Cell
 
         # Top border
-        ctx.buffer.set_cell(
-            ctx.bounds.x, ctx.bounds.y, Cell(char=chars["tl"], **border_attrs)
+        ctx.write_cell(0, 0, Cell(char=chars["tl"], **border_attrs))
+        ctx.write_cells(
+            1, 0, [Cell(char=chars["h"], **border_attrs)] * (self.width - 2)
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x, ctx.bounds.y, Cell(char=chars["h"], **border_attrs)
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y,
-            Cell(char=chars["tr"], **border_attrs),
-        )
+        ctx.write_cell(self.width - 1, 0, Cell(char=chars["tr"], **border_attrs))
 
         # Render content area border and tab area separator
-        for y in range(1, self.height - 1):
-            # Left border
-            ctx.buffer.set_cell(
-                ctx.bounds.x, ctx.bounds.y + y, Cell(char=chars["v"], **border_attrs)
-            )
-
-            # Separator between content and tabs
-            ctx.buffer.set_cell(
-                ctx.bounds.x + content_width,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
-
-            # Right border
-            ctx.buffer.set_cell(
-                ctx.bounds.x + self.width - 1,
-                ctx.bounds.y + y,
-                Cell(char=chars["v"], **border_attrs),
-            )
+        vertical_run = [Cell(char=chars["v"], **border_attrs)] * (self.height - 2)
+        # Left border
+        ctx.write_cells_vertical(0, 1, vertical_run)
+        # Separator between content and tabs
+        ctx.write_cells_vertical(content_width, 1, vertical_run)
+        # Right border
+        ctx.write_cells_vertical(self.width - 1, 1, vertical_run)
 
         # Render active tab's content using helper (handles FrameNode and state)
         if 0 <= self.active_tab_index < len(self.tabs):
@@ -1541,36 +1417,25 @@ class TabbedPanel(Container):
             tab_text = tab_text[: tab_area_width - 1]  # Clip if too long
             tab_text = tab_text.ljust(tab_area_width - 1)
 
-            for j, char in enumerate(tab_text):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + content_width + 1 + j,
-                    ctx.bounds.y + y,
-                    Cell(char=char, **label_attrs),
-                )
+            ctx.write_text(content_width + 1, y, tab_text, Style(**label_attrs))
 
         # Fill remaining tab area with empty lines
         for y in range(len(self.tabs) + 1, self.height - 1):
-            for x in range(content_width + 1, self.width - 1):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x, ctx.bounds.y + y, Cell(char=" ", **border_attrs)
-                )
+            ctx.write_cells(
+                content_width + 1,
+                y,
+                [Cell(char=" ", **border_attrs)] * (self.width - content_width - 2),
+            )
 
         # Bottom border
-        ctx.buffer.set_cell(
-            ctx.bounds.x,
-            ctx.bounds.y + self.height - 1,
-            Cell(char=chars["bl"], **border_attrs),
+        ctx.write_cell(0, self.height - 1, Cell(char=chars["bl"], **border_attrs))
+        ctx.write_cells(
+            1,
+            self.height - 1,
+            [Cell(char=chars["h"], **border_attrs)] * (self.width - 2),
         )
-        for x in range(1, self.width - 1):
-            ctx.buffer.set_cell(
-                ctx.bounds.x + x,
-                ctx.bounds.y + self.height - 1,
-                Cell(char=chars["h"], **border_attrs),
-            )
-        ctx.buffer.set_cell(
-            ctx.bounds.x + self.width - 1,
-            ctx.bounds.y + self.height - 1,
-            Cell(char=chars["br"], **border_attrs),
+        ctx.write_cell(
+            self.width - 1, self.height - 1, Cell(char=chars["br"], **border_attrs)
         )
 
     def get_intrinsic_size(self) -> tuple[int, int]:

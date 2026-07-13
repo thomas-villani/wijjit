@@ -2,10 +2,11 @@
 
 import pytest
 
-from tests.helpers import render_element
+from tests.helpers import render_element, render_element_buffer
 from wijjit.elements.base import ElementType
 from wijjit.elements.display.list import ListView
 from wijjit.layout.bounds import Bounds
+from wijjit.terminal.cell import is_continuation
 from wijjit.terminal.input import Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -386,3 +387,39 @@ class TestListView:
         # Dividers should be between item groups (after details)
         output = render_element(listview, width=50, height=20)
         assert isinstance(output, str)
+
+
+class TestListViewWideChars:
+    """Wide-character (CJK) rendering regression tests (review 2.1/2.11).
+
+    A full-width glyph must render as a head cell plus an empty continuation
+    cell so it occupies two terminal columns, and the list view's own border
+    must stay intact instead of being pushed out or overwritten.
+    """
+
+    def test_cjk_item_renders_continuation_cells_and_keeps_border(self):
+        """A CJK list item paints head + continuation cells; border intact."""
+        listview = ListView(
+            items=["日本語 item"],  # "日本語 item"
+            bullet=None,
+            width=15,
+            height=3,
+            border_style="single",
+            show_scrollbar=False,
+        )
+        buf = render_element_buffer(listview, width=15, height=3)
+
+        # Row 0 is the top border; row 1 is the single content row. Content
+        # begins at column 1 (after the left border).
+        content = buf.cells[1]
+        assert content[1].char == "日"
+        assert is_continuation(content[2])
+        assert content[3].char == "本"
+        assert is_continuation(content[4])
+        assert content[5].char == "語"
+        assert is_continuation(content[6])
+        assert content[7].char == " "
+        assert content[8].char == "i"
+
+        # The right border is not overwritten by the wide content.
+        assert content[14].char == "│"  # "│"

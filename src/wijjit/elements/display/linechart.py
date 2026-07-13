@@ -330,7 +330,6 @@ class LineChart(Element):
             return
 
         # Resolve styles
-        base_style = ctx.style_resolver.resolve_style(self, "linechart")
         line_style = ctx.style_resolver.resolve_style(self, "linechart.line")
         axis_style = ctx.style_resolver.resolve_style(self, "linechart.axis")
         label_style = ctx.style_resolver.resolve_style(self, "linechart.label")
@@ -383,12 +382,9 @@ class LineChart(Element):
             ticks = calculate_axis_ticks(min_val, max_val, min(5, chart_height // 2))
 
             # Draw vertical axis line
-            for y in range(chart_height):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + self.axis_width - 1,
-                    ctx.bounds.y + y,
-                    Cell(char="\u2502" if use_unicode else "|", **axis_attrs),
-                )
+            axis_line_char = "\u2502" if use_unicode else "|"
+            axis_line_cells = [Cell(char=axis_line_char, **axis_attrs)] * chart_height
+            ctx.write_cells_vertical(self.axis_width - 1, 0, axis_line_cells)
 
             # Draw axis labels and tick marks
             for tick in ticks:
@@ -406,9 +402,9 @@ class LineChart(Element):
                     ctx.write_text(0, tick_y, tick_label, axis_style)
 
                     # Tick mark
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + self.axis_width - 1,
-                        ctx.bounds.y + tick_y,
+                    ctx.write_cell(
+                        self.axis_width - 1,
+                        tick_y,
                         Cell(char="\u251c" if use_unicode else "+", **axis_attrs),
                     )
 
@@ -418,32 +414,24 @@ class LineChart(Element):
             axis_char = "\u2500" if use_unicode else "-"
             axis_y = chart_height
 
-            for x in range(chart_left, avail_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + x,
-                    ctx.bounds.y + axis_y,
-                    Cell(char=axis_char, **axis_attrs),
-                )
+            axis_line_cells = [Cell(char=axis_char, **axis_attrs)] * (
+                avail_width - chart_left
+            )
+            ctx.write_cells(chart_left, axis_y, axis_line_cells)
 
             # Corner
             if self.show_axis:
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + self.axis_width - 1,
-                    ctx.bounds.y + axis_y,
+                ctx.write_cell(
+                    self.axis_width - 1,
+                    axis_y,
                     Cell(char="\u2514" if use_unicode else "+", **axis_attrs),
                 )
 
         # Write braille canvas to buffer
         lines = canvas.to_lines()
-        line_attrs = line_style.to_cell_attrs()
 
         for y, line in enumerate(lines):
-            for x, char in enumerate(line):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + chart_left + x,
-                    ctx.bounds.y + y,
-                    Cell(char=char, **line_attrs),
-                )
+            ctx.write_text(chart_left, y, line, line_style)
 
         # Render x-axis labels
         if self.show_labels and self.labels:
@@ -481,15 +469,3 @@ class LineChart(Element):
                 legend_text = legend_text[: chart_width - 3] + "..."
 
             ctx.write_text(legend_x, legend_y, legend_text, legend_style)
-
-        # Fill background
-        base_attrs = base_style.to_cell_attrs()
-        for y in range(avail_height):
-            for x in range(avail_width):
-                cell = ctx.buffer.get_cell(ctx.bounds.x + x, ctx.bounds.y + y)
-                if cell is None or cell.char == "\x00":
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + x,
-                        ctx.bounds.y + y,
-                        Cell(char=" ", **base_attrs),
-                    )

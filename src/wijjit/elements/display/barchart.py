@@ -533,20 +533,12 @@ class BarChart(ScrollableElement):
                 bar_attrs = {**bar_attrs, "fg_color": bar_color}
 
             # Draw filled portion
-            for x in range(fill_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + bar_start_x + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=fill_char, **bar_attrs),
-                )
+            fill_cells = [Cell(char=fill_char, **bar_attrs)] * fill_width
+            ctx.write_cells(bar_start_x, current_y, fill_cells)
 
             # Draw empty portion
-            for x in range(empty_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + bar_start_x + fill_width + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=empty_char, **empty_attrs),
-                )
+            empty_cells = [Cell(char=empty_char, **empty_attrs)] * empty_width
+            ctx.write_cells(bar_start_x + fill_width, current_y, empty_cells)
 
             # Render value
             if self.show_values:
@@ -557,14 +549,15 @@ class BarChart(ScrollableElement):
             current_y += self.bar_height
 
         # Fill remaining rows with empty space
-        while current_y < viewport_height + border_offset:
-            for x in range(viewport_width):
-                ctx.buffer.set_cell(
-                    ctx.bounds.x + border_offset + x,
-                    ctx.bounds.y + current_y,
-                    Cell(char=" ", **base_style.to_cell_attrs()),
-                )
-            current_y += 1
+        if current_y < viewport_height + border_offset:
+            ctx.fill_rect(
+                border_offset,
+                current_y,
+                viewport_width,
+                viewport_height + border_offset - current_y,
+                " ",
+                base_style,
+            )
 
         # Render scrollbar
         if needs_scrollbar:
@@ -572,11 +565,9 @@ class BarChart(ScrollableElement):
                 self.scroll_manager.state, viewport_height
             )
             scrollbar_x = self.width - 1 - border_offset
+            base_attrs = base_style.to_cell_attrs()
 
-            for y, char in enumerate(scrollbar_chars):
-                if y + border_offset < self.height - border_offset:
-                    ctx.buffer.set_cell(
-                        ctx.bounds.x + scrollbar_x,
-                        ctx.bounds.y + y + border_offset,
-                        Cell(char=char, **base_style.to_cell_attrs()),
-                    )
+            scrollbar_cells = [
+                Cell(char=char, **base_attrs) for char in scrollbar_chars
+            ]
+            ctx.write_cells_vertical(scrollbar_x, border_offset, scrollbar_cells)

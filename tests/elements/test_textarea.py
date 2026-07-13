@@ -4,8 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
+from tests.helpers import render_element_buffer
 from wijjit.elements.base import ElementType
 from wijjit.elements.input.text import TextArea
+from wijjit.terminal.cell import is_continuation
 from wijjit.terminal.input import Key, Keys, KeyType
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
@@ -1345,3 +1347,105 @@ class TestTextAreaAutosize:
             assert textarea.height == 3
             screen = harness.screen()
         assert "one" in screen and "three" in screen
+
+
+class TestTextAreaWideChars:
+    """Wide-character (CJK) rendering regression tests (review 2.11).
+
+    Full-width glyphs must render as a head cell plus an empty continuation
+    cell so they occupy two terminal columns, the right border must stay put,
+    and the reverse-video cursor must land on the correct column.
+    """
+
+    def test_cjk_content_renders_continuation_cells_and_keeps_border(self):
+        """CJK content paints head + continuation cells; border stays intact."""
+        ta = TextArea(width=10, height=3, border_style="single", wrap_mode="none")
+        ta.set_value("日本X")  # two full-width glyphs then an ASCII char
+        w = ta.width + 2  # + left/right borders
+        h = ta.height + 2  # + top/bottom borders
+        buf = render_element_buffer(ta, width=w, height=h)
+
+        # Row 0 is the top border; the first content row is row 1. Content
+        # begins at column 1 (after the left border).
+        content = buf.cells[1]
+        assert content[1].char == "日"
+        assert is_continuation(content[2])  # continuation of the first glyph
+        assert content[3].char == "本"
+        assert is_continuation(content[4])  # continuation of the second glyph
+        assert content[5].char == "X"
+
+        # The right border is not overwritten by the wide content.
+        assert content[w - 1].char == "│"  # vertical border bar
+
+    def test_cursor_after_cjk_glyph_sits_at_correct_column(self):
+        """The reverse-video cursor lands on the correct COLUMN after CJK."""
+        ta = TextArea(width=10, height=3, border_style="single", wrap_mode="none")
+        ta.set_value("日本X")
+        ta.focused = True
+        ta.cursor_row = 0
+        ta.cursor_col = 2  # on the "X", after both full-width glyphs
+        w = ta.width + 2
+        h = ta.height + 2
+        buf = render_element_buffer(ta, width=w, height=h)
+
+        content = buf.cells[1]
+        # "日本" spans 4 columns; with the left border offset of 1 the cursor
+        # cell (reverse video on "X") lands at column 1 + 4 = 5.
+        caret = content[5]
+        normal = content[1]  # head cell of the first glyph (normal styling)
+        assert caret.char == "X"
+        # Reverse video: the caret cell's background is the normal text
+        # foreground, and its own foreground is swapped away from that.
+        assert caret.bg_color == normal.fg_color
+        assert caret.fg_color != normal.fg_color
+
+
+class TestTextAreaScrollbarBudget:
+    """The painted box must fit the layout-assigned bounds (review 2.1).
+
+    Historically the border box was ``content + scrollbar + borders`` wide
+    while the tag budgeted only ``content + borders`` into the layout, so a
+    visible scrollbar pushed the right border one column past the assigned
+    bounds. Unclipped writes masked the overflow; the clip-aware paint path
+    truncates it (dropping the border corner). The element now takes the
+    scrollbar column out of the content width instead.
+    """
+
+    def _harness(self, body: str, height: int):
+        from wijjit.testing import WijjitHarness, app_from_template
+
+        app = app_from_template(
+            '{% textarea id="ta" width=20 height='
+            + str(height)
+            + ' border="single" show_scrollbar=true %}'
+            + body
+            + "{% endtextarea %}"
+        )
+        return app, WijjitHarness(app, size=(40, 12))
+
+    def test_scrollbar_column_taken_from_content_not_border_overflow(self):
+        """With a visible scrollbar the border corner stays inside bounds."""
+        app, harness = self._harness("\n".join(f"L{i}" for i in range(10)), height=4)
+        with harness as h:
+            ta = app.get_element_by_id("ta")
+            assert ta.scroll_manager.state.is_scrollable, "setup: must scroll"
+            lines = h.screen().splitlines()
+            top = lines[ta.bounds.y]
+            right_edge = ta.bounds.x + ta.bounds.width - 1
+            assert top[ta.bounds.x] == "┌"  # top-left corner
+            assert top[right_edge] == "┐"  # top-right corner inside bounds
+            assert top[right_edge + 1] == " "  # nothing painted past bounds
+            # Scrollbar occupies a column inside the border box.
+            content_row = lines[ta.bounds.y + 1]
+            assert "█" in content_row[ta.bounds.x : right_edge]
+
+    def test_without_scrollbar_full_content_width_is_kept(self):
+        """No scrollbar: content width is untouched and the box fills bounds."""
+        app, harness = self._harness("one\ntwo", height=8)
+        with harness as h:
+            ta = app.get_element_by_id("ta")
+            assert not ta.scroll_manager.state.is_scrollable
+            assert ta.width == 20
+            lines = h.screen().splitlines()
+            top = lines[ta.bounds.y]
+            assert top[ta.bounds.x + ta.bounds.width - 1] == "┐"

@@ -75,8 +75,14 @@ def begin_chart_border(
     inner_width = max(0, width - 2 * thickness)
     inner_height = max(0, height - 2 * thickness)
     inner = ctx.sub_context(thickness, thickness, inner_width, inner_height)
-    # Clip content to the inner region so it cannot overdraw the border.
-    inner.clip_region = inner.bounds
+    # Clip content to the inner region so it cannot overdraw the border, but
+    # intersect with the inherited clip region rather than replacing it --
+    # otherwise a chart nested in a scrolled/clipped frame could paint past
+    # the ancestor's visible area (review item 2.1).
+    from wijjit.layout.bounds import Bounds
+
+    clipped = inner.bounds.intersect(ctx.clip_region)
+    inner.clip_region = clipped if clipped is not None else Bounds(0, 0, 0, 0)
     return inner, inner_width, inner_height
 
 

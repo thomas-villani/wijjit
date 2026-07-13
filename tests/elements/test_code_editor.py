@@ -442,3 +442,42 @@ class TestCodeEditorIntegration:
         editor.set_language("javascript")
         assert editor.get_value() == code
         assert editor.highlighter.language == "javascript"
+
+
+class TestCodeEditorWideChars:
+    """Wide-character (CJK) column correctness in cell rendering."""
+
+    @pytest.mark.skipif(
+        not PYGMENTS_AVAILABLE, reason="Pygments required for syntax highlighting"
+    )
+    def test_cjk_in_string_literal_renders_continuation_cell(self):
+        """A width-2 CJK glyph in a highlighted line occupies a head cell plus
+        a continuation cell so following columns stay aligned."""
+        from tests.helpers import render_element_buffer
+        from wijjit.terminal.cell import is_continuation
+
+        # A CJK char inside a Python string literal; highlighting is enabled.
+        code = 'x = "中"'
+        editor = CodeEditor(
+            language="python",
+            value=code,
+            show_line_numbers=False,
+            show_scrollbar=False,
+            border_style=None,
+            width=40,
+            height=1,
+        )
+        assert editor.highlighter.is_highlighting_enabled()
+
+        buffer = render_element_buffer(editor, width=40, height=1)
+        row = buffer.cells[0]
+
+        # Columns: 0 'x' 1 ' ' 2 '=' 3 ' ' 4 '"' 5 '中'(head) 6 cont 7 '"'
+        assert row[0].char == "x"
+        assert row[4].char == '"'
+        # The wide glyph occupies the head cell at column 5...
+        assert row[5].char == "中"
+        # ...and a continuation cell at column 6 (no half glyph, no shift).
+        assert is_continuation(row[6])
+        # The closing quote lands at column 7, not overwritten by the glyph.
+        assert row[7].char == '"'
