@@ -78,6 +78,44 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **Wide characters (CJK, emoji, decomposed accents) misaligned everything to
+  their right.** Layout measured text in terminal columns (`wcwidth`) but the
+  writer stored one buffer cell per Python character and the diff renderer
+  assumed every cell advanced the cursor one column, so a width-2 glyph pushed
+  the frame's right border out of place, desynced the diff cursor
+  run-length-dependently, and offset mouse clicks for the rest of the row. The
+  standard text path is now column-correct: a wide glyph occupies a head cell
+  plus a continuation cell, zero-width combining marks fold onto their base
+  glyph (NFD filenames like macOS's `Résumé.txt` render correctly), and the
+  diff/full-render emitters advance by true glyph width. Raw ANSI escapes
+  embedded in *plain* text bodies are now stripped cleanly rather than
+  accidentally round-tripped (use `content_type="ansi"` for pre-styled
+  content). Elements that paint cells directly (TextArea and friends) are not
+  yet cluster-aware; see the `ScreenBuffer` docstring for the exact scope.
+- **Template typos failed silently - undefined variables rendered as empty and
+  misspelled attributes vanished.** `{{ mispeled }}` rendered as `""` and
+  `{% for x in mispeled %}` iterated zero times with no diagnostic (this once
+  kept a fully working feature marked "unsupported" for eight months). With
+  `DEBUG` enabled (`Wijjit(debug=True)` or `WIJJIT_DEBUG=1`), templates now use
+  Jinja's `StrictUndefined` and raise on undefined names; production stays
+  lenient so one bad key cannot crash a running TUI. `wijjit validate` is
+  always strict and reports a bare undefined name as `undefined-variable`.
+  Separately, only the `textinput` tag used to forward unrecognized attributes
+  onto its element description, so the validator could catch attribute typos
+  on exactly one tag; every VNode-building tag now forwards extras, so
+  `{% button wdith=20 %}` is flagged as `unknown-attribute` instead of
+  disappearing. `Button` accepts `style` as a string (`style="box"`) as part
+  of this, falling back to brackets with a warning for unknown names.
+- **Exceptions in async state callbacks vanished; worker-thread callbacks
+  outlived shutdown.** An `async` `on_change`/`watch` callback that raised was
+  never surfaced - the task's exception was never retrieved, so the error
+  appeared (if at all) as a cryptic "Task exception was never retrieved" at
+  garbage collection. And a state write from a worker thread scheduled its
+  callback via a fire-and-forget future invisible to `flush_pending_async`
+  and shutdown, so it could still be running after the terminal was restored.
+  Callback task failures now flow through the app's error handling like any
+  other handler error, and worker-thread writes create their tasks on the
+  event-loop thread where flush and the shutdown sweep already track them.
 - **Any `print()` or traceback during a run corrupted the alternate screen
   until a full redraw - including the framework's own error path.** Output is a
   diff model: the renderer keeps the last displayed buffer and repaints only the

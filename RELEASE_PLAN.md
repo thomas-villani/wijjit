@@ -91,15 +91,18 @@ can start from the analysis, not a fresh repro. Cross-referenced in `roadmap.md`
 
 ### 2a - Framework: correctness / architecture
 
-- **Wide-char (Theme A) screen-buffer rewrite.** The buffer model is 1 cell == 1
-  column with no continuation cell for width-2 glyphs, so CJK/emoji desync the
-  diff renderer's cursor positioning (`terminal/screen_buffer.py`), and `len()`/
-  raw slicing is still used for width math in several input elements
-  (`text.py`, `checkbox.py`, `radio.py`, `code_editor.py`, `datagrid.py`) and the
-  frame cell renderer (`layout/frames.py`). This is also the root of the spinner
-  "clock...k" residue and scroll-ghost dots. Documented as a known limitation for
-  0.1.0. Fix needs glyph cell + sentinel continuation cell + width-aware diff
-  positioning across `paint_context`/`screen_buffer`/the diff renderer.
+- **Wide-char (Theme A) screen-buffer rewrite.** *Core landed 2026-07-13*: the
+  continuation-cell model (glyph head cell + empty-char sentinel, no `Cell`
+  field change), a column-correct `write_text` (NFD combining marks fold onto
+  the base glyph, controls dropped, ANSI stripped whole), width-aware diff/
+  full-render emitters, and `visible_length`/`clip_to_width` frame-title math -
+  exactly the fix this item called for across `paint_context`/`screen_buffer`/
+  the diff renderer. See `etc/issues-opus4.8-260709.md` 1.3 for the resolution.
+  **Remaining**: the `len()`/raw-slicing width math in elements that paint via
+  direct `buffer.set_cell` loops (`text.py`, `checkbox.py`, `radio.py`,
+  `code_editor.py`, `datagrid.py` - overlaps the clip-region sweep, review 2.1/
+  2.11) and `ansi_string_to_cells` pre-rendered content (Rich tables etc.),
+  which still map one code point per cell.
 - **Reconciler ephemeral-state correctness.** (1) Keyless elements lose ephemeral
   state (cursor/scroll/selection) on update because VNodes key on `id` - needs a
   positional/path cache (`reconciler.py`). (2) Positional frame-ID generation
@@ -107,24 +110,27 @@ can start from the analysis, not a fresh repro. Cross-referenced in `roadmap.md`
   (`render_context.py`). This is also the true root of tree "expand all" not
   taking effect on live updates (external state writes don't repaint the tree
   deterministically; wiring runs after paint).
-  **(3) ESCALATED - this is silent data loss, not just ephemeral-state loss.**
-  Auto-generated ids are per-render positional counters
-  (`tags/layout.py:324-342`; `LayoutContext` is rebuilt each render,
-  `renderer.py:480`), and `wiring.py:206-219` uses that same positional id as the
-  **state key**. So an unkeyed `{% for %}` that inserts at the head does not only
-  misattach the cursor - it moves the user's *typed value* to the wrong logical
-  row. Reproduced end-to-end via `WijjitHarness`; see
-  `etc/issues-opus4.8-260709.md` section 1.1 for the repro. An explicit stable
-  `id="row_" ~ item.id` fixes it, so the near-term fix is a **lint + runtime
-  warning** for unkeyed list-like siblings (`devtools/validate.py` has no such
-  check today, and no test exercises a reorder), with a real `key=` attribute
-  distinct from `id=` as the proper fix.
+  **(3) FIXED 2026-07-10 - was silent data loss, not just ephemeral-state
+  loss.** Auto-generated ids are per-render positional counters and the
+  positional id doubled as the **state key**, so an unkeyed `{% for %}` head
+  insert moved the user's *typed value* to the wrong logical row. The fix
+  landed as a first-class `key=` attribute distinct from `id=` (which also
+  derives a stable per-row state id for inputs), an `unkeyed-loop-element`
+  lint in `devtools/validate.py`, and a reorder/head-insert regression suite
+  (`tests/integration/test_loop_reconciliation.py`). The unkeyed default
+  still migrates (pinned by a test - changing it risked masking real id
+  collisions). See `etc/issues-opus4.8-260709.md` section 1.1 for the full
+  resolution. Parts (1) and (2) above remain open.
 - **CodeEditor soft-wrap scroll desync** - renders actual lines while scroll
   content size counts wrapped lines; long lines clip (`code_editor.py:478,839`).
-- **Unknown-attribute forwarding on tags** - deliberately not done: forwarding
-  arbitrary tag kwargs to the VNode is unsafe (the registry only filters by
-  signature on *create*, so the *update* path would `setattr` typo'd attributes).
-  Dropped props are already logged at debug by `element_registry`.
+- **Unknown-attribute forwarding on tags** - *DONE 2026-07-13*, reversing the
+  earlier "deliberately not done" call. The stated risk (the update path would
+  `setattr` typo'd attributes) does not hold: `Reconciler._apply_prop_changes`
+  is `hasattr`-guarded, so an unknown name is skipped on update just as the
+  registry filters it on create. All VNode-building tags now forward leftover
+  kwargs through one `forward_extra_props` choke point (`tags/layout.py`), so
+  `wijjit validate` flags attribute typos on every element instead of only
+  textinput. See `etc/issues-opus4.8-260709.md` 3.1.
 - **Legacy "normal" mouse mode + per-byte multi-byte input** (`mouse.py`,
   `input.py`) - SGR is the default and works; the legacy path needs bypassing
   prompt_toolkit's UTF-8 decode (architectural, low value).
@@ -141,20 +147,20 @@ can start from the analysis, not a fresh repro. Cross-referenced in `roadmap.md`
   frame top on scroll" (clip region not clamping to frame borders) and
   frame_overflow's HStack width distribution for `3x50%` in one row. Needs a
   focused layout-engine repro.
-- **Undefined template variables render as empty string.** The Jinja environment
-  uses the default `Undefined`, not `StrictUndefined` (no `undefined=` kwarg in
-  `Environment(...)`, `renderer.py:168-171`). `{{ mispeled }}` renders as `""` and
-  `{% for x in mispeled %}` iterates zero times, both silently. `wijjit validate`
-  catches this statically, but nothing does at runtime. Adopt `StrictUndefined`
-  under a dev/debug config flag (defaulting on in `validate`), keeping lenient
-  behavior in production so a single bad key can't crash a running TUI.
-  **What this already cost:** the two `test_menu_integration.py` skips (now
-  fixed - see Completed) claimed dynamic and conditional menu items were
-  "not yet fully supported". They were supported all along; the tests referenced
-  bare `actions` / `is_admin` instead of `state.actions` / `state.is_admin`, and
-  default `Undefined` iterates as empty. A working feature was believed broken
-  for eight months because a typo failed silently. A hard error would have caught
-  it the day it was written.
+- **Undefined template variables render as empty string** - *DONE 2026-07-13*,
+  exactly as proposed here: `Renderer(strict_undefined=...)` gated on the
+  `DEBUG` config flag (so `Wijjit(debug=True)` raises `UndefinedError` through
+  the normal error path), unconditionally strict in `wijjit validate` (with a
+  lenient fallback re-render so a raise does not strand the tree checks, and
+  render-time `undefined-variable` findings deduped against the static check),
+  lenient in production and inline paths so a single bad key can't crash a
+  running TUI. See `etc/issues-opus4.8-260709.md` 3.2.
+  **What the old behavior already cost:** the two `test_menu_integration.py`
+  skips (fixed earlier - see Completed) claimed dynamic and conditional menu
+  items were "not yet fully supported". They were supported all along; the
+  tests referenced bare `actions` / `is_admin` instead of `state.actions` /
+  `state.is_admin`, and default `Undefined` iterates as empty. A working
+  feature was believed broken for eight months because a typo failed silently.
 
 ### 2b - Framework: internal dedup / cleanup (no API-shape risk)
 

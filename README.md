@@ -518,8 +518,11 @@ See the [CHANGELOG](CHANGELOG.md) for what shipped and
 - **No virtual scrolling.** Every row of a `Table`, `ListView`, or `Tree` is
   laid out on each render. A few thousand rows is comfortable; a hundred
   thousand is not — page or filter large datasets before rendering them.
-- **Wide characters render at single width.** The screen buffer models one cell
-  per column, so CJK text and emoji can misalign. Tracked for 0.1.1.
+- **Wide characters are column-correct on the standard text path only.** Text
+  rendered through templates and frames handles CJK/emoji/decomposed accents
+  at their true width, but elements that paint cells directly (`TextArea`,
+  `Tree`, `ListView`, and pre-rendered ANSI content) can still misalign wide
+  glyphs. Tracked for 0.1.1.
 - **No plugin system and no hot template reload.** Both are on the roadmap.
 - **Some Windows alt-key combinations** are not delivered by the underlying
   terminal input layer.
