@@ -496,6 +496,24 @@ class TestAppHelpers:
 
         assert app.running is False
 
+    def test_running_delegates_to_event_loop(self):
+        """app.running mirrors the event loop's running flag.
+
+        Regression: ``Wijjit.running`` used to be a plain attribute that was
+        never set True anywhere, so worker threads polling ``app.running``
+        (the natural pattern for background samplers) exited immediately.
+        """
+        app = Wijjit()
+        assert app.running is False
+
+        # The loop starting is what makes the app "running".
+        app.event_loop.running = True
+        assert app.running is True
+
+        # Setter forwards, keeping quit()'s assignment meaningful.
+        app.running = False
+        assert app.event_loop.running is False
+
     def test_refresh(self):
         """Test forcing a refresh."""
         app = Wijjit()
