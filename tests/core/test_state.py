@@ -93,6 +93,27 @@ class TestState:
         state = State({"a": 1, "b": 2})
         assert set(state.items()) == {("a", 1), ("b", 2)}
 
+    def test_copy_returns_independent_state(self):
+        """copy() returns a detached State, and does not raise.
+
+        UserDict.copy() reassigns self.data, which State.__setattr__ rejects,
+        so the inherited copy() raised StateKeyError. State overrides it.
+        """
+        state = State({"a": 1})
+        callback = Mock()
+        state.on_change(callback)
+
+        clone = state.copy()
+
+        assert isinstance(clone, State)
+        assert dict(clone) == {"a": 1}
+
+        # Independent data: writing to the clone leaves the original alone...
+        clone["a"] = 2
+        assert state["a"] == 1
+        # ...and the original's callbacks are not carried over.
+        callback.assert_not_called()
+
     def test_on_change_callback(self):
         """Test global change callback."""
         state = State({"count": 0})

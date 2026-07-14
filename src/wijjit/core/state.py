@@ -160,6 +160,26 @@ class State(UserDict[str, Any]):
         memo[id(self)] = result
         return result
 
+    def copy(self) -> "State":
+        """Create a shallow copy of the state data, excluding callbacks.
+
+        Returns
+        -------
+        State
+            A new State instance with the same data but no callbacks or
+            watchers.
+
+        Notes
+        -----
+        This override is required. ``UserDict.copy`` reassigns ``self.data``
+        on the instance, which ``State.__setattr__`` rejects (``data`` is the
+        backing store and replacing it wholesale would fire no change
+        callbacks). Inheriting it therefore raised ``StateKeyError`` on every
+        call. Callbacks are dropped for the same reason as in
+        :meth:`__deepcopy__`: they are bound to the originating app.
+        """
+        return State(dict(self.data))
+
     def __setitem__(self, key: str, value: Any) -> None:
         """Set an item and trigger change callbacks.
 
