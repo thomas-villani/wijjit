@@ -170,6 +170,37 @@ class ScriptedInputHandler:
         """No-op cleanup."""
 
 
+class _RecordingBackend:
+    """Tee around the app's terminal backend that records emitted frames.
+
+    Delegates every attribute to the wrapped backend and appends each
+    ``write_frame`` payload - the exact ANSI byte string the app would send
+    to the terminal - to a shared list. This is the only place the raw
+    emitted stream (diff output, SGR sequences, cursor escapes) is
+    observable: the harness's ``screen()``/``screen_ansi()`` re-serialize
+    the cell buffer and never see it.
+
+    Parameters
+    ----------
+    inner : object
+        The real backend to delegate to.
+    frames : list of str
+        Shared sink that recorded frames are appended to.
+    """
+
+    def __init__(self, inner: object, frames: list[str]) -> None:
+        self._inner = inner
+        self._frames = frames
+
+    def write_frame(self, data: str) -> None:
+        """Record the frame payload, then forward it to the real backend."""
+        self._frames.append(data)
+        self._inner.write_frame(data)  # type: ignore[attr-defined]
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+
 class WijjitHarness:
     """Drive a Wijjit app headlessly and inspect the rendered screen.
 
@@ -216,6 +247,11 @@ class WijjitHarness:
         self._errors: list[tuple[str, BaseException]] = []
         self._orig_handle_error = None
 
+        # Raw frame payloads recorded from app._backend.write_frame while the
+        # harness is driving (see emitted_frames / last_frame / emitted_ansi).
+        self._emitted_frames: list[str] = []
+        self._orig_backend: object | None = None
+
     # -- lifecycle ---------------------------------------------------------
 
     def start(self) -> WijjitHarness:
@@ -234,6 +270,13 @@ class WijjitHarness:
         self.app.input_handler = self._input  # type: ignore[assignment]
         self._apply_headless_config()
         self._capture_errors()
+
+        # Tee the backend so the raw emitted ANSI stream is recorded.
+        self._emitted_frames.clear()
+        self._orig_backend = self.app._backend
+        self.app._backend = _RecordingBackend(  # type: ignore[assignment]
+            self._orig_backend, self._emitted_frames
+        )
 
         self._loop = asyncio.new_event_loop()
         self._run(self._startup_async())
@@ -261,6 +304,9 @@ class WijjitHarness:
             self._restore_error_handler()
             if self._orig_input is not None:
                 self.app.input_handler = self._orig_input
+            if self._orig_backend is not None:
+                self.app._backend = self._orig_backend  # type: ignore[assignment]
+                self._orig_backend = None
             self._started = False
 
     def __enter__(self) -> WijjitHarness:
@@ -669,6 +715,45 @@ class WijjitHarness:
             If the screen does not match the stored snapshot.
         """
         assert self.screen() == snapshot
+
+    @property
+    def emitted_frames(self) -> list[str]:
+        """Raw ANSI frame payloads the app wrote to its backend, in order.
+
+        Each entry is exactly what one ``_render`` pass sent to
+        ``backend.write_frame``: the diffed cell updates with real SGR and
+        cursor-position escapes. Unlike :meth:`screen_ansi` (which
+        re-serializes the cell buffer), this is the true emitted byte
+        stream, so it can assert diff size, escape-sequence hygiene, and
+        cursor parking.
+
+        Returns
+        -------
+        list of str
+            A copy of the recorded frame payloads.
+        """
+        return list(self._emitted_frames)
+
+    @property
+    def last_frame(self) -> str:
+        """The most recent raw frame payload written to the backend.
+
+        Returns
+        -------
+        str
+            The last ``write_frame`` payload, or ``""`` if none yet.
+        """
+        return self._emitted_frames[-1] if self._emitted_frames else ""
+
+    def emitted_ansi(self) -> str:
+        """The concatenated raw ANSI stream emitted so far.
+
+        Returns
+        -------
+        str
+            All recorded frame payloads joined in emission order.
+        """
+        return "".join(self._emitted_frames)
 
     @property
     def state(self):
