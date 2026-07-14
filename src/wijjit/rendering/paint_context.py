@@ -421,7 +421,7 @@ class PaintContext:
         """
         from dataclasses import replace
 
-        from wcwidth import wcswidth  # type: ignore[import-untyped]
+        from wcwidth import wcswidth
 
         from wijjit.terminal.cell import CONTINUATION_CHAR
 
