@@ -449,6 +449,9 @@ class TextInput(AutocompleteMixin, Element):
         """
         from wijjit.styling.style import Style
 
+        # No caret until this render proves one is painted (and visible).
+        self._hw_cursor_pos = None
+
         # Resolve style based on input state
         if self.focused:
             resolved_style = ctx.style_resolver.resolve_style(self, "input:focus")
@@ -573,6 +576,11 @@ class TextInput(AutocompleteMixin, Element):
                 ctx.write_text(0, 0, before, text_style)
                 ctx.write_text(caret_col, 0, cursor_char, cursor_style)
                 ctx.write_text(after_col, 0, after, text_style)
+
+            # Park the hardware cursor on the caret cell. x_offset is 0 for
+            # UNDERLINE/MINIMAL and 1 for the framed styles; cursor_anchor
+            # returns None when the caret is clipped out of view.
+            self._hw_cursor_pos = ctx.cursor_anchor(x_offset + caret_col, 0)
 
         else:
             # Not focused or cursor out of bounds - render without cursor
@@ -3048,6 +3056,9 @@ class TextArea(Element):
         # This ensures scroll state is synced before rendering
         self._update_horizontal_scroll()
 
+        # No caret until this render proves one is painted (and visible).
+        self._hw_cursor_pos = None
+
         # Resolve base styles
         if self.focused:
             content_style = ctx.style_resolver.resolve_style(self, "textarea:focus")
@@ -3260,6 +3271,7 @@ class TextArea(Element):
                     # condition styles the whole (atomic) cluster.
                     if show_cursor and actual_col == self.cursor_col:
                         attrs = cursor_attrs
+                        self._hw_cursor_pos = ctx.cursor_anchor(column, dy)
                     elif is_selected:
                         attrs = selection_attrs
                     else:
@@ -3334,6 +3346,7 @@ class TextArea(Element):
                             # the whole (atomic) cluster.
                             if show_cursor and char_index == cursor_visual_col:
                                 attrs = cursor_attrs
+                                self._hw_cursor_pos = ctx.cursor_anchor(column, dy)
                             elif is_selected and char_index < seg_len:
                                 # Only highlight actual content, not padding
                                 attrs = selection_attrs

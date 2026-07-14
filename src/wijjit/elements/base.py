@@ -280,6 +280,14 @@ class Element(ABC):
             None  # State key for highlight persistence
         )
 
+        # Hardware-cursor anchor: absolute screen cell of this element's text
+        # caret as of the last paint, or None when the element has no caret or
+        # the caret is clipped out of view. Caret-bearing elements reset this
+        # at the top of render_to and set it via PaintContext.cursor_anchor
+        # where they paint the reverse-video caret; the application parks the
+        # terminal's real cursor there after each frame (HARDWARE_CURSOR).
+        self._hw_cursor_pos: tuple[int, int] | None = None
+
         # Mouse event callbacks
         self.on_double_click: Callable[[MouseEvent], None] | None = None
         self.on_context_menu: Callable[[MouseEvent], list[Any] | None] | None = None
@@ -484,6 +492,29 @@ class Element(ABC):
         ...     return (width, height)
         """
         return (1, 1)
+
+    def get_hardware_cursor_position(self) -> tuple[int, int] | None:
+        """Absolute screen cell where the hardware terminal cursor should park.
+
+        Returns
+        -------
+        tuple[int, int] or None
+            ``(x, y)`` absolute screen coordinates of the element's text
+            caret as painted in the last render, or None when the element
+            has no caret, is not focused, or the caret is clipped out of
+            view (e.g. scrolled outside a frame interior).
+
+        Notes
+        -----
+        After each frame the application queries the focused element and,
+        when this returns a position, appends a cursor-move + show-cursor
+        escape so the terminal's real cursor blinks on the caret cell
+        (see the ``HARDWARE_CURSOR`` config key). The default returns the
+        ``_hw_cursor_pos`` attribute, which caret-bearing elements
+        (TextInput, TextArea, CodeEditor) maintain during ``render_to``
+        via :meth:`PaintContext.cursor_anchor`.
+        """
+        return self._hw_cursor_pos
 
     @property
     def parent_frame(self) -> Any:

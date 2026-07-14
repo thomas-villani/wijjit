@@ -269,6 +269,12 @@ class SuspendManager:
 
         self.suspended = False
 
+        # The shell and the restore sequence above moved (and possibly
+        # re-hid) the real terminal cursor; force the next frame to re-park
+        # the hardware cursor from scratch.
+        self.app._hw_cursor_last = None
+        self.app._hw_cursor_shown = False
+
         # Mark app as needing re-render to restore display
         self.app.needs_render = True
         logger.debug("Marked app for re-render after resume")
