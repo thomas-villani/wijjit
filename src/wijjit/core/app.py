@@ -387,6 +387,14 @@ class Wijjit:
         # foreign bytes written out-of-band to the terminal.
         self._force_full_repaint = False
 
+        # Hardware-cursor parking state (see _apply_hardware_cursor): the
+        # screen cell the terminal cursor was last parked on, and whether we
+        # currently have the cursor shown. _hw_cursor_last is reset (to force
+        # a re-park) whenever the on-screen state may have been disturbed
+        # out-of-band (full repaint, suspend/resume).
+        self._hw_cursor_last: tuple[int, int] | None = None
+        self._hw_cursor_shown = False
+
         # Non-fatal error tracebacks captured while the alternate screen is
         # active. Writing them to the shared TTY mid-frame would corrupt the
         # rendered UI (and persist in the diff model), so they are buffered
@@ -1313,8 +1321,14 @@ class Wijjit:
 
             # Display output
             # Ensure output ends with RESET to clear any lingering formatting (e.g., DIM from backdrop)
+            frame_dirty = bool(output)
             if not output.endswith(ANSIStyle.RESET):
                 output += ANSIStyle.RESET
+
+            # Park the hardware cursor on the focused caret (if any) as the
+            # very last bytes of the frame, after the trailing RESET, so the
+            # terminal's real cursor ends up on the caret cell.
+            output = self._apply_hardware_cursor(output, frame_dirty)
 
             # Cell-based rendering uses DiffRenderer which handles screen clearing internally:
             # - When use_diff_rendering=True: Clears on first render, then only outputs diffs
@@ -2177,6 +2191,60 @@ class Wijjit:
 
         return output + fps_overlay
 
+    def _apply_hardware_cursor(self, output: str, frame_dirty: bool) -> str:
+        """Append hardware-cursor parking escapes to a frame.
+
+        When the focused element reports a caret cell (see
+        ``Element.get_hardware_cursor_position``), the frame is suffixed
+        with an absolute cursor move plus show-cursor so the terminal's
+        real cursor blinks on the painted caret. When no caret is visible,
+        hide-cursor is emitted once. Idle frames with an unmoved caret get
+        no extra bytes, preserving the emit-nothing-when-idle property.
+
+        Parameters
+        ----------
+        output : str
+            Frame payload about to be written to the backend (already
+            RESET-terminated).
+        frame_dirty : bool
+            Whether this frame contained any cell updates before the
+            trailing RESET was appended. Any cell update moves the real
+            terminal cursor, so the park must be re-emitted even if the
+            caret cell itself did not change.
+
+        Returns
+        -------
+        str
+            The frame payload, possibly suffixed with cursor escapes.
+
+        Notes
+        -----
+        Disabled via the ``HARDWARE_CURSOR`` config key. ``_hw_cursor_last``
+        is cleared by :meth:`request_full_repaint` and on suspend/resume so
+        the next frame re-parks unconditionally.
+        """
+        if not self.config["HARDWARE_CURSOR"]:
+            return output
+
+        pos: tuple[int, int] | None = None
+        focused = self.focus_manager.get_focused_element()
+        if focused is not None:
+            get_pos = getattr(focused, "get_hardware_cursor_position", None)
+            if get_pos is not None:
+                pos = get_pos()
+
+        if pos is not None:
+            if frame_dirty or pos != self._hw_cursor_last or not self._hw_cursor_shown:
+                x, y = pos
+                output += f"\x1b[{y + 1};{x + 1}H\x1b[?25h"
+            self._hw_cursor_shown = True
+            self._hw_cursor_last = pos
+        elif self._hw_cursor_shown:
+            output += "\x1b[?25l"
+            self._hw_cursor_shown = False
+            self._hw_cursor_last = None
+        return output
+
     def _add_bounds_overlay(self, output: str) -> str:
         """Add element bounds visualization overlay to output.
 
@@ -2349,4 +2417,8 @@ class Wijjit:
         heartbeat.
         """
         self._force_full_repaint = True
+        # The repaint rewrites every cell (moving the real cursor) and may be
+        # covering foreign escape bytes; force the next frame to re-park the
+        # hardware cursor unconditionally.
+        self._hw_cursor_last = None
         self.needs_render = True

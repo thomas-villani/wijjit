@@ -406,6 +406,7 @@ class TestDefaultConfig:
             # Display & Terminal
             "USE_ALTERNATE_SCREEN",
             "HIDE_CURSOR",
+            "HARDWARE_CURSOR",
             # Colors & Theming
             "NO_COLOR",
             "DEFAULT_THEME",
@@ -461,6 +462,7 @@ class TestDefaultConfig:
 
         assert DefaultConfig.USE_ALTERNATE_SCREEN is True
         assert DefaultConfig.HIDE_CURSOR is True
+        assert DefaultConfig.HARDWARE_CURSOR is True
 
         assert DefaultConfig.DEFAULT_THEME == "default"
         assert DefaultConfig.THEME_FILE is None

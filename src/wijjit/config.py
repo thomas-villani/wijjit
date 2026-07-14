@@ -363,6 +363,16 @@ class DefaultConfig:
     #: Hide cursor during application runtime
     HIDE_CURSOR = True
 
+    #: Park the hardware terminal cursor on the focused text caret. When the
+    #: focused element reports a caret cell (TextInput, TextArea, CodeEditor),
+    #: each frame ends with a cursor-move + show-cursor escape so the real
+    #: terminal cursor sits (and blinks) on the caret; it is hidden again
+    #: when no caret is visible. Terminals and screen readers track the
+    #: hardware cursor, so this improves accessibility over the painted
+    #: reverse-video caret alone. Works with the default ``HIDE_CURSOR=True``
+    #: startup state; inline apps are unaffected.
+    HARDWARE_CURSOR = True
+
     #: Terminal window title (OSC 0 / "title bar" text). When set, Wijjit
     #: emits the title on startup so the terminal tab/window shows it.
     #: Most shells reset the title from their prompt hook when the app

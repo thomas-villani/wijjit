@@ -466,8 +466,11 @@ class TestEmittedAnsiGoldens:
             assert re.search(r"\x1b\[\d+;\d+H", frame), frame
             # No full-screen clear for a one-character edit.
             assert "\x1b[2J" not in frame
-            # Styles are closed out by the end of the frame.
-            assert frame.rstrip().endswith("\x1b[0m")
+            # Styles are closed out by the end of the frame. The focused
+            # caret appends a hardware-cursor park (CUP + show-cursor) AFTER
+            # the trailing reset; strip that suffix before checking.
+            body = re.sub(r"(\x1b\[\d+;\d+H\x1b\[\?25h|\x1b\[\?25l)$", "", frame)
+            assert body.rstrip().endswith("\x1b[0m")
             # Every styled run is eventually reset: after the final SGR that
             # sets attributes there must be a reset before the frame ends.
             last_set = max(

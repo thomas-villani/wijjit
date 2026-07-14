@@ -820,6 +820,9 @@ class CodeEditor(TextArea):
         - Line numbers (optional)
         - Theme-based token coloring
         """
+        # No caret until this render proves one is painted (and visible).
+        self._hw_cursor_pos = None
+
         # Resolve base styles
         if self.focused:
             content_style = ctx.style_resolver.resolve_style(self, "textarea:focus")
@@ -1070,6 +1073,7 @@ class CodeEditor(TextArea):
                 # Check for cursor
                 if show_cursor and char_col == self.cursor_col:
                     attrs = cursor_attrs
+                    self._hw_cursor_pos = ctx.cursor_anchor(x_start + disp, y)
                 # Check for selection
                 elif self._is_position_selected(line_idx, char_col):
                     attrs = selection_attrs
@@ -1083,6 +1087,7 @@ class CodeEditor(TextArea):
         while disp < width:
             # Check for cursor at end of line
             if show_cursor and char_col == self.cursor_col:
+                self._hw_cursor_pos = ctx.cursor_anchor(x_start + disp, y)
                 ctx.write_cell(x_start + disp, y, Cell(char=" ", **cursor_attrs))
             else:
                 ctx.write_cell(x_start + disp, y, Cell(char=" ", **content_attrs))
@@ -1147,6 +1152,7 @@ class CodeEditor(TextArea):
             # Check for cursor
             if show_cursor and char_col == self.cursor_col:
                 attrs = cursor_attrs
+                self._hw_cursor_pos = ctx.cursor_anchor(x_start + disp, y)
             # Check for selection
             elif self._is_position_selected(line_idx, char_col):
                 attrs = selection_attrs
@@ -1160,6 +1166,7 @@ class CodeEditor(TextArea):
         while disp < width:
             if show_cursor and char_col == self.cursor_col:
                 attrs = cursor_attrs
+                self._hw_cursor_pos = ctx.cursor_anchor(x_start + disp, y)
             elif self._is_position_selected(line_idx, char_col):
                 attrs = selection_attrs
             else:
