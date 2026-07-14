@@ -122,6 +122,7 @@ class Gauge(Element):
         label: str | None = None,
         unit: str = "",
         border_style: str = "none",
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -159,7 +160,7 @@ class Gauge(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     def set_value(self, value: float) -> None:
         """Update gauge value.

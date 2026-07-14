@@ -108,6 +108,7 @@ class Slider(Element):
         float_mode: bool = False,
         label: str | None = None,
         show_value: bool = True,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
@@ -138,7 +139,7 @@ class Slider(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def value(self) -> float | int:

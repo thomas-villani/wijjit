@@ -210,13 +210,16 @@ class DataGrid(ScrollableElement):
         editable: bool = True,
         border_style: BorderStyle | str = "single",
         show_scrollbar: bool = True,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
         self.focusable = True
 
-        # Normalize data and potentially infer columns
-        self.data, inferred_columns = self._normalize_data(data)
+        # Normalize data and potentially infer columns. Assigning through the
+        # ``data`` property is deliberate - see its setter.
+        normalized, inferred_columns = self._normalize_data(data)
+        self._data: list[list[str]] = normalized
         self._column_keys: list[str] = []
 
         # Use inferred columns if none provided
@@ -270,7 +273,36 @@ class DataGrid(ScrollableElement):
         self._cursor_state_key_override: str | None = None
 
         # Template attributes
-        self.bind: bool = True
+        self.bind: bool | str = bind
+
+    @property
+    def data(self) -> list[list[str]]:
+        """The grid's rows, as a list of lists of strings.
+
+        Returns
+        -------
+        list of list of str
+            The grid's own working rows. Mutating them in place (as
+            :meth:`set_cell` does) is intentional and does not touch whatever
+            the rows were assigned from.
+        """
+        return self._data
+
+    @data.setter
+    def data(self, value: DataInput | None) -> None:
+        """Normalize and *copy* rows on assignment.
+
+        The copy is load-bearing for state binding. The reconciler assigns the
+        ``data`` prop straight onto the element on every update, and for a bound
+        grid that prop is the list living in ``state[key]``. Without this,
+        ``self._data`` would alias state's list, so ``set_cell`` would mutate
+        state in place - and then ``State.__setitem__`` would compare the
+        incoming value against an ``old_value`` that had already changed
+        underneath it, find them equal, and fire no change callback at all. The
+        grid would keep the right data and stop re-rendering.
+        """
+        normalized, _ = self._normalize_data(value)
+        self._data = normalized
 
     def _normalize_data(
         self, data: DataInput | None

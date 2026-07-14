@@ -65,6 +65,7 @@ class StatusBar(Element):
         bg_color: str | None = None,
         text_color: str | None = None,
         width: int = 80,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -78,7 +79,7 @@ class StatusBar(Element):
         self.width = width
 
         # Template metadata
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     def _get_bg_color_code(self) -> str | None:
         """Get ANSI background color code.

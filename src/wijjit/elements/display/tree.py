@@ -154,6 +154,7 @@ class Tree(ScrollableElement):
         title: str | None = None,
         action: str | None = None,
         tab_index: int | None = None,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -199,7 +200,7 @@ class Tree(ScrollableElement):
 
         # Template metadata
         self.action = action
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
         # State persistence keys - auto-generated from id
         # scroll_state_key provided by ScrollableElement (auto-generates to "{id}:scroll")

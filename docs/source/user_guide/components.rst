@@ -43,7 +43,7 @@ CodeEditor
        :caption: ``examples/widgets/code_editor_demo.py`` - syntax highlighting with theme switching
 
 DataGrid
-    Spreadsheet-like data entry element (:mod:`wijjit.elements.input.datagrid`). Implements VisiCalc/Lotus 1-2-3 style editing with an entry line at the top for data input. Supports keyboard navigation (arrow keys, Tab, Enter), mouse interaction (click cells, scroll), and automatic state binding.
+    Spreadsheet-like data entry element (:mod:`wijjit.elements.input.datagrid`). Implements VisiCalc/Lotus 1-2-3 style editing with an entry line at the top for data input. Supports keyboard navigation (arrow keys, Tab, Enter), mouse interaction (click cells, scroll), and two-way state binding - committed edits are written back to ``state[id]``. Note that DataGrid normalizes every cell to ``str``, so the rows it writes back are strings.
 
     Key attributes:
 
@@ -187,9 +187,9 @@ Toggle
 
 Special behaviors:
 
-* ``bind=False`` lets you manage the value manually (useful for derived or formatted inputs).
+* ``bind=False`` lets you manage the value manually (useful for derived or formatted inputs), and ``bind="some_key"`` binds to that state key instead of the id - so two widgets can share one key, and an id need not colonize one. See :ref:`bind-attribute`.
 * ``action`` on inputs triggers when Enter is pressed.
-* ``id`` is mandatory for binding; Wijjit auto-generates ids but naming them yourself keeps focus/state debugging easier.
+* With ``bind=True`` the ``id`` *is* the state key (except for ``radio``/``radiogroup``, which key off the group ``name``). Wijjit auto-generates ids, but naming them yourself keeps focus/state debugging easier.
 
 Display widgets
 ---------------

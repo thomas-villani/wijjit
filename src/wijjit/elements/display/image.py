@@ -115,6 +115,7 @@ class ImageView(Element):
         braille: bool = False,
         invert: bool = False,
         background: tuple[int, int, int] = (0, 0, 0),
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -129,7 +130,7 @@ class ImageView(Element):
         self.background = background
 
         # Template metadata
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
         # Cache
         self._cached_image: Any = None  # PIL.Image.Image

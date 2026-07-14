@@ -108,6 +108,7 @@ class Toggle(Element):
         on_label: str = "ON",
         off_label: str = "OFF",
         label_mode: LabelMode = "single",
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.BUTTON  # Interactive like button
@@ -128,7 +129,7 @@ class Toggle(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def checked(self) -> bool:

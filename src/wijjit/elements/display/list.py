@@ -124,6 +124,7 @@ class ListView(ScrollableElement):
         indent_details: int = 2,
         dim_details: bool = True,
         tab_index: int | None = None,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -158,7 +159,7 @@ class ListView(ScrollableElement):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
         # State persistence (scroll_state_key provided by ScrollableElement)
 
