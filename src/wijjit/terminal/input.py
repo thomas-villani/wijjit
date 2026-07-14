@@ -194,6 +194,7 @@ class Keys:
 
     # Additional control keys
     CTRL_D = Key("ctrl+d", KeyType.CONTROL, "\x04")
+    CTRL_Y = Key("ctrl+y", KeyType.CONTROL, "\x19")
     CTRL_Z = Key("ctrl+z", KeyType.CONTROL, "\x1a")
     CTRL_SPACE = Key("ctrl+space", KeyType.CONTROL, "\x00")
 
@@ -229,6 +230,7 @@ SINGLE_CHAR_KEYS = {
     "\x00": Keys.CTRL_SPACE,  # Ctrl+Space (NUL character)
     "\x03": Keys.CTRL_C,
     "\x04": Keys.CTRL_D,
+    "\x19": Keys.CTRL_Y,
     "\x1a": Keys.CTRL_Z,
 }
 
@@ -253,6 +255,7 @@ PROMPT_TOOLKIT_KEY_MAP = {
     PTKeys.Backspace: Keys.BACKSPACE,
     PTKeys.ControlC: Keys.CTRL_C,
     PTKeys.ControlD: Keys.CTRL_D,
+    PTKeys.ControlY: Keys.CTRL_Y,
     PTKeys.ControlZ: Keys.CTRL_Z,
     PTKeys.ControlAt: Keys.CTRL_SPACE,  # Ctrl+Space (Ctrl+@ = NUL)
     # Control+navigation keys

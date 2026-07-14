@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Undo/redo in `TextArea` and `CodeEditor`** (`Ctrl+Z` / `Ctrl+Y`). Editing
+  was previously unrecoverable: `_delete_selection`, cut, and
+  select-all-then-type discarded content with no history at all. Snapshots are
+  taken at the key boundary rather than inside the mutating primitives, so a
+  keypress that runs several of them is **one** undo unit - typing over a
+  selection (delete + insert) and an insert that triggers a hard-wrap reflow
+  each undo as a single action. A run of character insertions coalesces, so
+  typing a word is one undo, not one per letter; the run breaks on any other
+  edit, a cursor move, or a selection change. History is bounded at 200 entries
+  and is cheap (each snapshot shares the line strings it did not change).
+  `CodeEditor` inherits this and re-highlights on undo. New `ctrl+y` key
+  (redo is not `Ctrl+Shift+Z`: terminals do not reliably distinguish shift on a
+  control chord).
 - **`bind` now accepts a state key name**, not just a bool. `bind=True`
   (unchanged default) binds to the element's default key - its `id`, or the
   group `name` for `radio`/`radiogroup`. `bind="some_key"` binds to
@@ -110,6 +123,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (text / ansi / html / markdown / rich) in display elements.
 - Ctrl+Z suspend/resume (SIGTSTP) on Unix.
 - Flask-style configuration system (`app.config`).
+
+### Removed
+- **~126 lines of dead code in `TextArea`.** `_render_cursor_in_line` and
+  `_apply_selection_to_line_ansi` were a pre-cell-buffer path that built ANSI
+  strings by hand (one hardcoding a theme color). Rendering has gone through
+  `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
 - **Sync state callbacks ran on whatever thread performed the write**, racing

@@ -18,6 +18,8 @@ TextInput / TextArea
 
     ``textarea`` adds scrollbars, selection APIs, and clipboard shortcuts. It's ideal for log editing, notes, or prompt composition. Pair it with derived state to show live counts, as demonstrated below.
 
+    ``textarea`` (and ``codeeditor``, which extends it) supports **undo with ``Ctrl+Z`` and redo with ``Ctrl+Y``**. Typing a word is a single undo rather than one per letter, and a keypress that does several things at once - typing over a selection, or an insertion that triggers a hard-wrap reflow - undoes as one action. History is bounded at 200 edits and is discarded when the content is replaced programmatically (``element.value = "..."`` with different text). ``undo()`` and ``redo()`` are also callable from Python.
+
     .. literalinclude:: ../../../examples/widgets/textarea_demo.py
        :language: jinja
        :caption: Template excerpt from ``examples/widgets/textarea_demo.py``

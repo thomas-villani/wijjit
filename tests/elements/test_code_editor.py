@@ -9,6 +9,7 @@ from wijjit.elements.input.highlighting import (
     get_available_themes,
     get_style_for_token,
 )
+from wijjit.terminal.input import Key, Keys, KeyType
 
 # Skip importing pygments.token at module level to allow tests to run
 # even if Pygments has issues
@@ -481,3 +482,38 @@ class TestCodeEditorWideChars:
         assert is_continuation(row[6])
         # The closing quote lands at column 7, not overwritten by the glyph.
         assert row[7].char == '"'
+
+
+class TestCodeEditorUndo:
+    """CodeEditor inherits TextArea's undo (review 2.10).
+
+    It overrides no mutating primitive and no handle_key, so the undo hook at
+    TextArea's key boundary covers it. Its _emit_change override re-tokenizes,
+    and undo routes through _emit_change, so highlighting follows an undo.
+    """
+
+    def test_undo_reverts_an_edit(self):
+        editor = CodeEditor(value="x = 1", language="python")
+        editor.cursor_col = 5
+
+        editor.handle_key(Key("!", KeyType.CHARACTER, "!"))
+        assert editor.get_value() == "x = 1!"
+
+        assert editor.handle_key(Keys.CTRL_Z) is True
+        assert editor.get_value() == "x = 1"
+
+    def test_undo_retokenizes(self):
+        """Highlighting must follow the undo, not lag a frame behind."""
+        editor = CodeEditor(value="x = 1", language="python")
+        editor.cursor_col = 5
+
+        for ch in " + 2":
+            editor.handle_key(Key(ch, KeyType.CHARACTER, ch))
+        assert editor.get_value() == "x = 1 + 2"
+
+        editor.handle_key(Keys.CTRL_Z)
+
+        assert editor.get_value() == "x = 1"
+        # Tokens are rebuilt from the restored text, not the pre-undo text.
+        tokens = editor.highlighter.get_line_tokens(0)
+        assert "".join(text for _token_type, text in tokens).rstrip("\n") == "x = 1"
