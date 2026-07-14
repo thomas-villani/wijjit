@@ -109,6 +109,7 @@ class LineChart(Element):
         color: str | None = None,
         series_colors: dict[str, str] | None = None,
         border_style: str = "single",
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -135,7 +136,7 @@ class LineChart(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def data(self) -> list[Any] | dict[str, list[Any]] | None:

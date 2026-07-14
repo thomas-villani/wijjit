@@ -124,7 +124,7 @@ class TextInput(AutocompleteMixin, Element):
         completer: Completer | None = None,
         autocomplete: list[str] | str | bool | Completer | None = None,
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         password: bool = False,
         mask_char: str = "*",
     ) -> None:
@@ -739,7 +739,7 @@ class TextArea(Element):
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = "single",
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         dynamic_sizing: bool = False,
         autosize: bool = False,
         max_height: int | None = None,

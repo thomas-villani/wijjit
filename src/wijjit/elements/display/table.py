@@ -113,6 +113,7 @@ class Table(ScrollableElement):
         show_scrollbar: bool = True,
         border_style: str = "single",
         tab_index: int | None = None,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -181,7 +182,7 @@ class Table(ScrollableElement):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     def restore_scroll_position(self, position: int) -> None:
         """Restore scroll position from saved state.

@@ -118,6 +118,7 @@ class TabbedPanel(Container):
         height: int = 20,
         border_style: str = "single",
         active_tab_index: int = 0,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -145,7 +146,7 @@ class TabbedPanel(Container):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
         # State persistence - auto-generated from id
         self._active_tab_state_key_override: str | None = None

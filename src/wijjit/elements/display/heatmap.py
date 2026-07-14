@@ -108,6 +108,7 @@ class HeatMap(Element):
         min_value: float | None = None,
         max_value: float | None = None,
         border_style: str = "single",
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -134,7 +135,7 @@ class HeatMap(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     def _normalize_grid(self, data: list[list[Any]]) -> list[list[float]]:
         """Normalize grid data to floats.

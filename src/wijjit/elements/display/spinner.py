@@ -112,6 +112,7 @@ class Spinner(Element):
         label: str = "",
         color: str | None = None,
         frame_index: int = 0,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -126,7 +127,7 @@ class Spinner(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     def next_frame(self) -> None:
         """Advance to the next animation frame.

@@ -17,6 +17,7 @@ from wijjit.logging_config import get_logger
 from wijjit.tags.layout import (
     apply_common_attributes,
     get_element_marker,
+    resolve_bind_key,
     safe_int,
 )
 
@@ -72,7 +73,7 @@ class SparklineExtension(Extension):
         color: str | None = None,
         border: str | None = None,
         border_style: str = "none",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the sparkline tag."""
@@ -87,10 +88,11 @@ class SparklineExtension(Extension):
             id = context.generate_id("sparkline")
 
         # Get data from state if binding enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -175,7 +177,7 @@ class BarChartExtension(Extension):
         show_scrollbar: bool = True,
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the barchart tag."""
@@ -190,10 +192,11 @@ class BarChartExtension(Extension):
             id = context.generate_id("barchart")
 
         # Get data from state if binding enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -288,7 +291,7 @@ class ColumnChartExtension(Extension):
         color_scale: str = "green",
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the columnchart tag."""
@@ -303,10 +306,11 @@ class ColumnChartExtension(Extension):
             id = context.generate_id("columnchart")
 
         # Get data from state if binding enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -396,7 +400,7 @@ class LineChartExtension(Extension):
         color: str | None = None,
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the linechart tag."""
@@ -411,10 +415,11 @@ class LineChartExtension(Extension):
             id = context.generate_id("linechart")
 
         # Get data from state if binding enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -503,7 +508,7 @@ class GaugeExtension(Extension):
         unit: str = "",
         border: str | None = None,
         border_style: str = "none",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the gauge tag."""
@@ -518,10 +523,11 @@ class GaugeExtension(Extension):
             id = context.generate_id("gauge")
 
         # Get value from state if binding enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    value = float(state[id])
+                if bind_key in state:
+                    value = float(state[bind_key])
             except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -621,7 +627,7 @@ class HeatMapExtension(Extension):
         max_value: float | None = None,
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the heatmap tag."""
@@ -636,10 +642,11 @@ class HeatMapExtension(Extension):
             id = context.generate_id("heatmap")
 
         # Get data from state if binding enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 

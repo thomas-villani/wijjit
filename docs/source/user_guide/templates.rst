@@ -54,7 +54,7 @@ Every layout tag contributes nodes to the ``LayoutContext`` so the layout engine
 Form & input tags
 -----------------
 
-All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``state`` by ``id`` when ``bind=True`` (default).
+All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``state`` by ``id`` when ``bind=True`` (default). ``bind`` also accepts a **state key name**, which decouples the id from storage - see :ref:`bind-attribute`.
 
 ``{% textinput %}…{% endtextinput %}``
     Single-line input (:class:`wijjit.elements.input.text.TextInput`). Attributes: ``id``, ``placeholder``, ``width``, ``max_length``, ``action`` (triggered on Enter), ``bind``. Example: ``{% textinput id="username" placeholder="handle" width=24 %}{% endtextinput %}``.
@@ -83,7 +83,36 @@ All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``stat
 ``{% toggle %}…{% endtoggle %}``
     Boolean switch with visual indicator (:class:`wijjit.elements.input.toggle.Toggle`). Clearer on/off feedback than checkbox. Attributes: ``id``, ``checked``, ``label``, ``label_mode`` (``single`` or ``dual``), ``on_label``, ``off_label``, ``bind``. Colors themeable via ``toggle.on``, ``toggle.off``, ``toggle:focus`` CSS.
 
-Each input element stores its ``id`` on the underlying element so focus, state binding, and change events work automatically. To opt out of binding (for read-only inputs), set ``bind=False`` and manage the value manually via wiring helpers.
+Each input element stores its ``id`` on the underlying element so focus, state binding, and change events work automatically.
+
+.. _bind-attribute:
+
+The ``bind`` attribute
+^^^^^^^^^^^^^^^^^^^^^^
+
+``bind`` takes a bool **or a state key name**:
+
+``bind=True`` (default)
+    Bind to the element's default key: its ``id`` for most elements, and the **group name** for ``radio`` / ``radiogroup`` (every radio in a group shares one key, which holds the group's selection; a ``radiogroup`` with no ``name`` falls back to its id).
+
+``bind=False``
+    No binding at all. The element neither reads state nor writes it; manage the value yourself.
+
+``bind="some_key"``
+    Bind to ``state["some_key"]`` regardless of the id. This decouples identity from storage, so the id stays a pure identity:
+
+    .. code-block:: jinja
+
+        {# Two views of one value - impossible with id-based binding #}
+        {% textinput id="editor_a" bind="draft" %}{% endtextinput %}
+        {% textinput id="editor_b" bind="draft" %}{% endtextinput %}
+
+        {# An id that does not colonize a state key #}
+        {% slider id="volume_widget" bind="volume" %}{% endslider %}
+
+The key is a single, flat state key - not a dotted path into nested data.
+
+Binding is **two-way for inputs** (the element reads ``state[key]`` at render and writes it back on change) and **one-way for display elements** such as ``table``, ``listview``, and the charts, which only read their data from the key.
 
 Display & data tags
 -------------------

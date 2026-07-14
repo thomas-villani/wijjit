@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`bind` now accepts a state key name**, not just a bool. `bind=True`
+  (unchanged default) binds to the element's default key - its `id`, or the
+  group `name` for `radio`/`radiogroup`. `bind="some_key"` binds to
+  `state["some_key"]` whatever the id is, which unfuses element identity from
+  state storage: two widgets can now share one key
+  (`{% textinput id="a" bind="draft" %}` + `{% textinput id="b" bind="draft" %}`),
+  and giving an element an id no longer colonizes that state key. Both halves
+  of the binding - the tags' render-time read and the wiring's write-back -
+  now resolve the key through one shared `resolve_bind_key`, so an element
+  cannot read one key and write another. Works on display and chart tags too,
+  where binding stays one-way (read-only).
 - **Hardware cursor parking** (`HARDWARE_CURSOR` config, default on). The
   caret used to be only a painted reverse-video cell while the terminal's
   real cursor stayed hidden for the whole session, so terminals could not
@@ -101,6 +112,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **`Slider`, `Toggle`, and `DataGrid` never wrote their value back to
+  state.** All three advertised `bind=True` and read `state[id]` at render,
+  but none was wired, so nothing subscribed to the `on_change` they were
+  already firing: the binding ran one way, silently. `examples/widgets/slider_demo.py`
+  showed this in the shipped demo - drag the slider to 59 and its own readout,
+  driven from `state["volume"]`, still said 50. All three are now wired, so
+  `bind` means the same thing on every input. **Behavior change:** apps using
+  these three with a bound id now see `state[id]` update on interaction.
+  DataGrid normalizes every cell to `str`, so the rows it writes back are
+  strings.
+- **`bind=False` was ignored by every element except `TextInput`/`TextArea`.**
+  The other element classes hardcoded `self.bind = True` and did not accept
+  `bind` in `__init__`, and the element registry filters props against the
+  constructor signature - so the prop never reached them. All 25 element
+  constructors now take `bind`.
 - **`State` no longer reserves 21 key names.** Because `State` subclasses
   `UserDict`, every one of its methods claimed a key name: `state["items"]`,
   `state["keys"]`, `state["get"]`, `state["data"]` and 17 others raised

@@ -28,6 +28,7 @@ from wijjit.tags.layout import (
     normalize_element_kwargs,
     parse_tag_attributes,
     process_body_content,
+    resolve_bind_key,
     safe_int,
 )
 
@@ -93,7 +94,7 @@ class TableExtension(Extension):
         show_scrollbar: bool = True,
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the table tag.
@@ -123,8 +124,10 @@ class TableExtension(Extension):
             ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Rich border style (default: "single")
-        bind : bool
-            Whether to auto-bind data to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds data to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         classes : str, optional
             CSS-like class names for styling
 
@@ -154,10 +157,11 @@ class TableExtension(Extension):
             id = context.generate_id("table")
 
         # If binding is enabled and id is provided, try to get data from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -254,7 +258,7 @@ class TreeExtension(Extension):
         indent_size: int = 2,
         on_select: str | None = None,
         expanded: str | list[Any] | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         border: str | None = None,
         border_style: str = "single",
         title: str | None = None,
@@ -294,8 +298,10 @@ class TreeExtension(Extension):
             Examples:
                 expanded="expanded_nodes"  # Two-way binding to state["expanded_nodes"]
                 expanded=["node1", "node2"]  # One-time initialization
-        bind : bool
-            Whether to auto-bind data to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds data to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         border : str
             Border style: "single", "double", "rounded", or "none" (default: "none")
         title : str, optional
@@ -346,10 +352,11 @@ class TreeExtension(Extension):
             id = context.generate_id("tree")
 
         # If binding is enabled and id is provided, try to get data from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    data = state[id]
+                if bind_key in state:
+                    data = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -562,7 +569,7 @@ class ProgressBarExtension(Extension):
         show_percentage: bool | None = None,
         fill_char: str | None = None,
         empty_char: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the progressbar tag.
@@ -592,8 +599,10 @@ class ProgressBarExtension(Extension):
             Character for filled portion. Overrides bar_style if specified.
         empty_char : str, optional
             Character for empty portion. Overrides bar_style if specified.
-        bind : bool
-            Whether to auto-bind value to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds value to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -616,10 +625,11 @@ class ProgressBarExtension(Extension):
             id = context.generate_id("progressbar")
 
         # If binding is enabled and id is provided, try to get value from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    value = float(state[id])
+                if bind_key in state:
+                    value = float(state[bind_key])
             except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -700,7 +710,7 @@ class SpinnerExtension(Extension):
         style: Literal["dots", "line", "bouncing", "clock"] | str = "dots",
         label: str = "",
         color: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the spinner tag.
@@ -719,8 +729,10 @@ class SpinnerExtension(Extension):
             Label text to display next to spinner (default: "")
         color : str, optional
             Color name for the spinner (default: None)
-        bind : bool
-            Whether to auto-bind active state to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds active state to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -741,10 +753,11 @@ class SpinnerExtension(Extension):
             id = context.generate_id("spinner")
 
         # If binding is enabled and id is provided, try to get active state from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    active = bool(state[id])
+                if bind_key in state:
+                    active = bool(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -835,7 +848,7 @@ class LogViewExtension(Extension):
         border: str | None = None,
         border_style: str = "single",
         title: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the logview tag.
@@ -871,8 +884,10 @@ class LogViewExtension(Extension):
             Border style (default: "single")
         title : str, optional
             Border title
-        bind : bool
-            Whether to auto-bind lines to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds lines to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -923,10 +938,11 @@ class LogViewExtension(Extension):
             id = layout_context.generate_id("logview")
 
         # If binding is enabled and id is provided, try to get lines from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    state_lines = state[id]
+                if bind_key in state:
+                    state_lines = state[bind_key]
                     # Ensure it's a list
                     if isinstance(state_lines, list):
                         lines = state_lines
@@ -1052,7 +1068,7 @@ class ListViewExtension(Extension):
         title: str | None = None,
         indent_details: int = 2,
         dim_details: bool = True,
-        bind: bool = True,
+        bind: bool | str = True,
         raw: bool = False,
         **kwargs: Any,
     ) -> str:
@@ -1088,8 +1104,10 @@ class ListViewExtension(Extension):
             Details indentation (default: 2)
         dim_details : bool
             Whether to dim details text (default: True)
-        bind : bool
-            Whether to auto-bind items to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds items to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         raw : bool
             Preserve whitespace in body content (default: False)
 
@@ -1151,10 +1169,11 @@ class ListViewExtension(Extension):
                 items = []
 
         # If binding is enabled and id is provided, try to get items from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    state_items = state[id]
+                if bind_key in state:
+                    state_items = state[bind_key]
                     # Ensure it's a list
                     if isinstance(state_items, list):
                         items = state_items
@@ -1406,7 +1425,7 @@ class StatusBarExtension(Extension):
         right: str = "",
         bg_color: str | None = None,
         text_color: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the statusbar tag.
@@ -1427,8 +1446,10 @@ class StatusBarExtension(Extension):
             Background color name (default: None)
         text_color : str, optional
             Text color name (default: None)
-        bind : bool
-            Whether to auto-bind sections to state (default: True)
+        bind : bool or str
+            State binding. True auto-binds sections to state; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -1454,12 +1475,13 @@ class StatusBarExtension(Extension):
         right = str(right) if right else ""
 
         # If binding is enabled and id is provided, try to get content from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
                 # Check for individual section keys
-                left_key = f"{id}_left"
-                center_key = f"{id}_center"
-                right_key = f"{id}_right"
+                left_key = f"{bind_key}_left"
+                center_key = f"{bind_key}_center"
+                right_key = f"{bind_key}_right"
 
                 if left_key in state:
                     left = str(state[left_key])
@@ -1797,7 +1819,7 @@ class TabbedPanelExtension(Extension):
         height: int | str = 20,
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the tabbedpanel tag.
@@ -1821,8 +1843,10 @@ class TabbedPanelExtension(Extension):
             ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", "rounded" (default: "single")
-        bind : bool
-            Whether to auto-bind active tab to state (default: True)
+        bind : bool or str
+            State binding. True auto-binds active tab to state; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -2063,7 +2087,7 @@ class ContentViewExtension(Extension):
         border: str | None = None,
         border_style: str = "single",
         title: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the contentview tag.
@@ -2100,8 +2124,10 @@ class ContentViewExtension(Extension):
             Border style (default: "single")
         title : str, optional
             Border title
-        bind : bool
-            Whether to auto-bind content to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds content to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         **kwargs : dict
             Additional attributes
 
@@ -2137,10 +2163,11 @@ class ContentViewExtension(Extension):
             caller()
 
         # If binding is enabled and id is provided, try to get content from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    content = str(state[id])
+                if bind_key in state:
+                    content = str(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 
@@ -2339,7 +2366,7 @@ class PagerExtension(Extension):
         height: int | str = 20,
         border: str | None = None,
         border_style: str = "single",
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the pager tag.
@@ -2369,8 +2396,10 @@ class PagerExtension(Extension):
             ``none``). Takes precedence over ``border_style`` when given.
         border_style : str
             Border style: "single", "double", "rounded", "none" (default: "single")
-        bind : bool
-            Whether to auto-bind current page to state (default: True)
+        bind : bool or str
+            State binding. True auto-binds current page to state; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -2500,7 +2529,7 @@ class ImageViewExtension(Extension):
         braille: bool = False,
         invert: bool = False,
         background: tuple[int, int, int] | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the imageview tag.
@@ -2523,8 +2552,10 @@ class ImageViewExtension(Extension):
             Invert the threshold in braille mode (default: False)
         background : tuple, optional
             Background RGB for transparency (default: (0, 0, 0))
-        bind : bool
-            Whether to auto-bind src to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds src to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
 
         Returns
         -------
@@ -2551,10 +2582,11 @@ class ImageViewExtension(Extension):
             id = context.generate_id("imageview")
 
         # If binding is enabled and id is in state, get src from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    src = state[id]
+                if bind_key in state:
+                    src = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore ImageView state: {e}")
 

@@ -115,6 +115,7 @@ class Select(ScrollableElement):
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = None,
         title: str | None = None,
+        bind: bool | str = True,
     ):
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.SELECTABLE
@@ -192,7 +193,7 @@ class Select(ScrollableElement):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
         # scroll_state_key provided by ScrollableElement (auto-generates to "{id}:scroll")
         # highlight_state_key auto-generates to "{id}:highlight"
         self._highlight_state_key_override: str | None = None

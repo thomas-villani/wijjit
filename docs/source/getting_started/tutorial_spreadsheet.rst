@@ -195,11 +195,17 @@ widget to avoid a double border.
 Step 4 - reading the grid's live edits
 --------------------------------------
 
-This is the key concept. ``DataGrid`` binding is **one-directional**: the
-``data=sheet`` prop pushes ``state["sheet"]`` into the grid at render time, but
-the user's edits stay on the *element* - they are not written back into state
-automatically. So a handler that needs the edited values must read the live
-element with :meth:`~wijjit.Wijjit.get_element_by_id`:
+``DataGrid`` binding is **two-way**: the ``data=sheet`` prop pushes
+``state["sheet"]`` into the grid at render time, and each committed cell edit is
+written back to ``state["sheet"]``. So a handler can simply read state.
+
+(Wijjit 0.1.0 wrote back nothing here - the grid, like ``slider`` and
+``toggle``, advertised ``bind=True`` but had no write path, so edits lived only
+on the element. If you are reading older code, that is what the
+``get_element_by_id`` dance below was working around.)
+
+Reading the live element still works, and is what you want for an unbound grid
+(``bind=False``):
 
 .. code-block:: python
 

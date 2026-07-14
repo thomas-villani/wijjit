@@ -114,6 +114,7 @@ class ColumnChart(Element):
         color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         border_style: str = "single",
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -139,7 +140,7 @@ class ColumnChart(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def data(self) -> list[Any]:

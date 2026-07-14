@@ -124,6 +124,7 @@ class BarChart(ScrollableElement):
         show_scrollbar: bool = True,
         border_style: str = "single",
         tab_index: int | None = None,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -167,7 +168,7 @@ class BarChart(ScrollableElement):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def data(self) -> list[Any]:

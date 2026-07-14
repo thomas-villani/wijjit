@@ -24,6 +24,7 @@ from wijjit.tags.layout import (
     forward_extra_props,
     get_element_marker,
     parse_tag_attributes,
+    resolve_bind_key,
     safe_int,
 )
 from wijjit.terminal.ansi import visible_length
@@ -79,7 +80,7 @@ class TextInputExtension(Extension):
         width: int = 20,
         value: str = "",
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         autocomplete: list[str] | str | bool | Completer | None = None,
         **kwargs: Any,
     ) -> str:
@@ -100,8 +101,10 @@ class TextInputExtension(Extension):
             (state binding still takes precedence).
         action : str, optional
             Action ID to dispatch when Enter is pressed
-        bind : bool
-            Whether to auto-bind value to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds value to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         autocomplete : list, str, bool, Completer, or None
             Autocomplete configuration. Can be:
             - None/False: Disabled (default)
@@ -138,12 +141,15 @@ class TextInputExtension(Extension):
             value = body
 
         # If binding is enabled and id is provided, try to get initial value from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    value = str(state[id])
+                if bind_key in state:
+                    value = str(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for textinput '{id}': {e}")
+                logger.warning(
+                    f"Failed to restore state for textinput '{bind_key}': {e}"
+                )
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("TextInput", key=id)
@@ -361,7 +367,7 @@ class SelectExtension(Extension):
         width: int = 20,
         visible_rows: int = 5,
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         border_style: (
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = None,
@@ -390,8 +396,10 @@ class SelectExtension(Extension):
             Number of visible rows in the list (default: 5)
         action : str, optional
             Action ID to dispatch when value changes
-        bind : bool
-            Whether to auto-bind value to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds value to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         border_style : str, optional
             Border style: "single", "double", "rounded", or None (default: None)
         title : str, optional
@@ -465,10 +473,11 @@ class SelectExtension(Extension):
             id = auto_element_id(context, "select", kwargs)
 
         # If binding is enabled and id is provided, try to get initial value from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    state_value = state[id]
+                if bind_key in state:
+                    state_value = state[bind_key]
                     if multiple:
                         # Multi-select: expect list/set from state
                         if isinstance(state_value, (list, set, tuple)):
@@ -479,7 +488,7 @@ class SelectExtension(Extension):
                         # Single-select: expect string from state
                         value = str(state_value) if state_value is not None else None
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for select '{id}': {e}")
+                logger.warning(f"Failed to restore state for select '{bind_key}': {e}")
 
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
@@ -666,7 +675,7 @@ class CheckboxExtension(Extension):
         label: str = "",
         checked: bool = False,
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the checkbox tag."""
@@ -681,12 +690,15 @@ class CheckboxExtension(Extension):
             id = auto_element_id(context, "checkbox", kwargs)
 
         # If binding is enabled, try to get initial checked state from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    checked = bool(state[id])
+                if bind_key in state:
+                    checked = bool(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for checkbox '{id}': {e}")
+                logger.warning(
+                    f"Failed to restore state for checkbox '{bind_key}': {e}"
+                )
 
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
@@ -750,7 +762,7 @@ class RadioExtension(Extension):
         checked: bool = False,
         value: str = "",
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the radio tag."""
@@ -776,13 +788,18 @@ class RadioExtension(Extension):
             name = render_ctx.current_radiogroup
 
         # If binding is enabled, try to get checked state from state[name]
-        if bind and name:
+        # A radio's default key is its group *name*, never its id: every radio
+        # in a group reads and writes the one key holding the group's selection.
+        # Passing id=None keeps that exact - an ungrouped radio binds to nothing
+        # unless bind= names a key explicitly.
+        bind_key = resolve_bind_key(bind, None, default_key=name)
+        if bind_key:
             try:
-                if name in state:
+                if bind_key in state:
                     # Check if this radio's value matches the group's selected value
-                    checked = state[name] == value
+                    checked = state[bind_key] == value
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for radio '{name}': {e}")
+                logger.warning(f"Failed to restore state for radio '{bind_key}': {e}")
 
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
@@ -850,7 +867,7 @@ class CheckboxGroupExtension(Extension):
         ) = None,
         title: str | None = None,
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the checkboxgroup tag."""
@@ -872,13 +889,14 @@ class CheckboxGroupExtension(Extension):
             id = auto_element_id(context, "checkboxgroup", kwargs)
 
         # If binding is enabled, try to get selected values from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    selected = state[id]
+                if bind_key in state:
+                    selected = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(
-                    f"Failed to restore state for checkbox_group '{id}': {e}"
+                    f"Failed to restore state for checkbox_group '{bind_key}': {e}"
                 )
 
         # Ensure selected is a list
@@ -969,7 +987,7 @@ class RadioGroupExtension(Extension):
         ) = None,
         title: str | None = None,
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the radiogroup tag."""
@@ -995,12 +1013,17 @@ class RadioGroupExtension(Extension):
             name = id
 
         # If binding is enabled, try to get selected value from state[name]
-        if bind and name:
+        # Like Radio: the group's key is its name (which already falls back to
+        # the id above), never the id directly.
+        bind_key = resolve_bind_key(bind, None, default_key=name)
+        if bind_key:
             try:
-                if name in state:
-                    selected = state[name]
+                if bind_key in state:
+                    selected = state[bind_key]
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for radio_group '{name}': {e}")
+                logger.warning(
+                    f"Failed to restore state for radio_group '{bind_key}': {e}"
+                )
 
         # Ensure options is a list
         if options is None:
@@ -1152,7 +1175,7 @@ class TextAreaExtension(Extension):
         show_scrollbar_x: bool = False,
         border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         autosize: bool = False,
         max_height: int | None = None,
         **kwargs: Any,
@@ -1183,8 +1206,10 @@ class TextAreaExtension(Extension):
             Border style (default: "single")
         action : str, optional
             Action ID to dispatch on content change
-        bind : bool
-            Whether to auto-bind value to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds value to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         autosize : bool
             Grow the height to fit the content up to ``max_height`` total rows
             (default: False). When enabled the ``height`` attribute is ignored.
@@ -1264,12 +1289,15 @@ class TextAreaExtension(Extension):
 
         # If binding is enabled and id is provided, try to get value from state
         # (state value takes precedence over body/value parameter)
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    value = str(state[id])
+                if bind_key in state:
+                    value = str(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for textarea '{id}': {e}")
+                logger.warning(
+                    f"Failed to restore state for textarea '{bind_key}': {e}"
+                )
 
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
@@ -1364,7 +1392,7 @@ class CodeEditorExtension(Extension):
         show_scrollbar: bool = True,
         border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the codeeditor tag.
@@ -1398,8 +1426,10 @@ class CodeEditorExtension(Extension):
             Border style (default: "single")
         action : str, optional
             Action ID to dispatch on content change
-        bind : bool
-            Whether to auto-bind value to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds value to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         classes : str, optional
             CSS-like class names for styling
         tab_index : int, optional
@@ -1450,12 +1480,15 @@ class CodeEditorExtension(Extension):
             caller()  # Consume body anyway
 
         # Get value from state if binding is enabled
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    value = str(state[id])
+                if bind_key in state:
+                    value = str(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for codeeditor '{id}': {e}")
+                logger.warning(
+                    f"Failed to restore state for codeeditor '{bind_key}': {e}"
+                )
 
         # Check if this element should be focused
         is_focused = focused_id and id and focused_id == id
@@ -1535,7 +1568,7 @@ class SliderExtension(Extension):
         label: str | None = None,
         show_value: bool = True,
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the slider tag."""
@@ -1557,12 +1590,13 @@ class SliderExtension(Extension):
         if id is None:
             id = auto_element_id(context, "slider", kwargs)
 
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    value = float(state[id])
+                if bind_key in state:
+                    value = float(state[bind_key])
             except (KeyError, TypeError, AttributeError, ValueError) as e:
-                logger.warning(f"Failed to restore state for slider '{id}': {e}")
+                logger.warning(f"Failed to restore state for slider '{bind_key}': {e}")
 
         is_focused = focused_id and id and focused_id == id
 
@@ -1634,7 +1668,7 @@ class ToggleExtension(Extension):
         off_label: str = "OFF",
         label_mode: Literal["single", "dual"] = "single",
         action: str | None = None,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the toggle tag."""
@@ -1646,12 +1680,13 @@ class ToggleExtension(Extension):
         if id is None:
             id = auto_element_id(context, "toggle", kwargs)
 
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    checked = bool(state[id])
+                if bind_key in state:
+                    checked = bool(state[bind_key])
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for toggle '{id}': {e}")
+                logger.warning(f"Failed to restore state for toggle '{bind_key}': {e}")
 
         is_focused = focused_id and id and focused_id == id
 
@@ -1741,7 +1776,7 @@ class DataGridExtension(Extension):
         border: str | None = None,
         border_style: str = "single",
         show_scrollbar: bool = True,
-        bind: bool = True,
+        bind: bool | str = True,
         **kwargs: Any,
     ) -> str:
         """Render the datagrid tag.
@@ -1772,8 +1807,10 @@ class DataGridExtension(Extension):
             Border style: "single", "double", "rounded", etc. (default: "single")
         show_scrollbar : bool
             Whether to show scrollbars when content overflows (default: True)
-        bind : bool
-            Whether to auto-bind data to state[id] (default: True)
+        bind : bool or str
+            State binding. True auto-binds data to state[id]; False disables
+            binding; a string names the state key to bind to instead, so the
+            id stays a pure identity (default: True).
         classes : str, optional
             CSS-like class names for styling
         tab_index : int, optional
@@ -1805,14 +1842,17 @@ class DataGridExtension(Extension):
         caller()
 
         # If binding is enabled and id is provided, try to get data from state
-        if bind and id:
+        bind_key = resolve_bind_key(bind, id)
+        if bind_key:
             try:
-                if id in state:
-                    state_data = state[id]
+                if bind_key in state:
+                    state_data = state[bind_key]
                     if isinstance(state_data, list):
                         data = state_data
             except (KeyError, TypeError, AttributeError) as e:
-                logger.warning(f"Failed to restore state for datagrid '{id}': {e}")
+                logger.warning(
+                    f"Failed to restore state for datagrid '{bind_key}': {e}"
+                )
 
         # Ensure data is a list
         if data is None:

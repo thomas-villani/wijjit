@@ -180,6 +180,60 @@ def auto_element_id(
     return cast(str, layout_context.generate_id(element_type))
 
 
+def resolve_bind_key(
+    bind: bool | str,
+    id: str | None,
+    default_key: str | None = None,
+) -> str | None:
+    """Resolve which state key an element binds to.
+
+    The single source of truth for the ``bind`` attribute, used by both halves
+    of the binding: the tags (which read ``state[key]`` at render time) and
+    :class:`~wijjit.core.wiring.ElementWiringManager` (which writes it back on
+    change). Keeping one resolver is what makes ``bind`` mean the same thing on
+    every element.
+
+    ``bind`` is a bool *or* a state key name. As a bool it selects the
+    element's default key, which fuses identity with storage: ``id="name"``
+    binds to ``state["name"]``. As a string it names the key outright, so the
+    id is free to stay an identity - two widgets can share one key, and giving
+    an element an id no longer colonizes that state key.
+
+    Parameters
+    ----------
+    bind : bool or str
+        ``True`` to bind to the default key, ``False`` (or ``""``) not to bind,
+        or a state key name to bind to that key.
+    id : str or None
+        The element's id - the default key for most elements.
+    default_key : str or None, optional
+        The default key when it is not the id. Radio and RadioGroup pass their
+        (already-resolved) group ``name``, because a radio group's identity is
+        the group, not the individual element.
+
+    Returns
+    -------
+    str or None
+        The state key to bind to, or None when this element does not bind.
+
+    Examples
+    --------
+    >>> resolve_bind_key(True, "volume")
+    'volume'
+    >>> resolve_bind_key("settings_volume", "volume")   # id stays an identity
+    'settings_volume'
+    >>> resolve_bind_key(False, "volume") is None
+    True
+    """
+    if not bind:
+        # Covers False, None, and "" - an empty key name binds to nothing.
+        return None
+    if isinstance(bind, str):
+        # isinstance(True, str) is False, so a bool can never land here.
+        return bind
+    return default_key or id
+
+
 def apply_reconciliation_key(vnode: Any, kwargs: dict[str, Any]) -> None:
     """Override a VNode's reconciliation key from an explicit ``key`` attribute.
 

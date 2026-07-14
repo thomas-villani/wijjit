@@ -159,8 +159,9 @@ def compute_chart(rows: list[list[str]]) -> list[tuple[str, float]]:
 def current_rows() -> list[list[str]]:
     """Read the live grid contents (committed edits), falling back to state.
 
-    DataGrid binding is one-directional (state -> grid at render), so edits live
-    on the element until we read them back here.
+    DataGrid binding is two-way, so ``state["sheet"]`` already tracks committed
+    edits. Reading the element first still costs nothing and keeps this correct
+    for an unbound grid (``bind=False``).
 
     Returns
     -------

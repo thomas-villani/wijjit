@@ -132,6 +132,7 @@ class Pager(Container):
         show_titles: bool = False,
         loop: bool = False,
         current_page: int = 0,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -165,7 +166,7 @@ class Pager(Container):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
         # State persistence
         self._page_state_key_override: str | None = None

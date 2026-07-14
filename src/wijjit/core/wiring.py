@@ -15,11 +15,15 @@ from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
 from wijjit.elements.input.checkbox import Checkbox, CheckboxGroup
 from wijjit.elements.input.code_editor import CodeEditor
+from wijjit.elements.input.datagrid import DataGrid
 from wijjit.elements.input.radio import Radio, RadioGroup
 from wijjit.elements.input.select import Select
+from wijjit.elements.input.slider import Slider
 from wijjit.elements.input.text import TextArea, TextInput
+from wijjit.elements.input.toggle import Toggle
 from wijjit.elements.menu import ContextMenu, DropdownMenu, MenuElement
 from wijjit.logging_config import get_logger
+from wijjit.tags.layout import resolve_bind_key
 
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
@@ -121,6 +125,41 @@ class ElementWiringManager:
             for radio in siblings:
                 radio.radio_group = siblings
 
+    @staticmethod
+    def _bind_key(
+        elem: Any,
+        default_key: str | None = None,
+        *,
+        id_is_default: bool = True,
+    ) -> str | None:
+        """Resolve the state key this element binds to, or None.
+
+        The write half of binding. It delegates to the same
+        :func:`~wijjit.tags.layout.resolve_bind_key` the tags use for the read
+        half, so an element can never read one key and write another.
+
+        Parameters
+        ----------
+        elem : Element
+            The element being wired. Its ``bind`` prop is a bool (bind to the
+            default key / do not bind) or a state key name.
+        default_key : str or None, optional
+            The default key when it is not the element's id. Radio and
+            RadioGroup pass their group ``name``.
+        id_is_default : bool, optional
+            Whether the id may serve as the default key. Radio and RadioGroup
+            pass False: a radio's key is its *group*, so an ungrouped radio
+            binds to nothing rather than falling back to an id that would give
+            each radio its own key and break the group's mutual exclusion.
+
+        Returns
+        -------
+        str or None
+            The state key, or None when this element does not bind.
+        """
+        elem_id = getattr(elem, "id", None) if id_is_default else None
+        return resolve_bind_key(elem.bind, elem_id, default_key)
+
     def _wire_element(self, elem: Element, state: State) -> None:
         """Wire callbacks for a single element.
 
@@ -187,6 +226,20 @@ class ElementWiringManager:
         if isinstance(elem, RadioGroup):
             self._wire_radio_group(elem, state)
 
+        # Wire up Slider callbacks
+        if isinstance(elem, Slider):
+            self._wire_slider(elem, state)
+
+        # Wire up Toggle callbacks
+        if isinstance(elem, Toggle):
+            self._wire_toggle(elem, state)
+
+        # Wire up DataGrid callbacks. DataGrid subclasses ScrollableElement, so
+        # this runs after _wire_scrollable above and must not disturb its
+        # scroll-persistence callbacks - it only claims on_data_change.
+        if isinstance(elem, DataGrid):
+            self._wire_datagrid(elem, state)
+
     def _wire_textinput(self, elem: TextInput, state: State) -> None:
         """Wire TextInput callbacks.
 
@@ -203,18 +256,17 @@ class ElementWiringManager:
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if elem.bind and elem.id:
+        bind_key = self._bind_key(elem)
+        if bind_key:
             # Initialize element value from state if key exists
             # Note: cursor_pos is now preserved by reconciliation (ephemeral state)
-            if elem.id in state:
-                elem.value = str(state[elem.id])
+            if bind_key in state:
+                elem.value = str(state[bind_key])
 
             # Set up two-way binding
-            elem_id = elem.id
-
-            def on_change_handler(old_val, new_val, eid=elem_id):
+            def on_change_handler(old_val, new_val, key=bind_key):
                 # Update state when element changes
-                state[eid] = new_val
+                state[key] = new_val
 
             elem.on_change = on_change_handler
 
@@ -248,16 +300,15 @@ class ElementWiringManager:
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if elem.bind and elem.id:
+        bind_key = self._bind_key(elem)
+        if bind_key:
             # Note: Cursor, selection, and scroll state are now preserved by
             # reconciliation (ephemeral state) - no need to save/restore manually
 
             # Set up two-way binding for content only
-            elem_id = elem.id
-
-            def on_change_handler(old_val, new_val, eid=elem_id):
+            def on_change_handler(old_val, new_val, key=bind_key):
                 # Update content state
-                state[eid] = new_val
+                state[key] = new_val
 
             elem.on_change = on_change_handler
 
@@ -298,37 +349,34 @@ class ElementWiringManager:
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if elem.bind and elem.id:
+        bind_key = self._bind_key(elem)
+        if bind_key:
             if elem.multiple:
                 # Multi-select mode: state holds a list
-                if elem.id in state:
-                    state_value = state[elem.id]
+                if bind_key in state:
+                    state_value = state[bind_key]
                     if isinstance(state_value, (list, set, tuple)):
                         elem.selected_values = set(state_value)
                     elif state_value is not None:
                         elem.selected_values = {str(state_value)}
 
                 # Set up two-way binding for multi-select
-                elem_id = elem.id
-
-                def on_change_handler_multi(old_val, new_val, eid=elem_id):
+                def on_change_handler_multi(old_val, new_val, key=bind_key):
                     # Update state when element changes (new_val is a list)
-                    state[eid] = new_val
+                    state[key] = new_val
 
                 elem.on_change = on_change_handler_multi
             else:
                 # Single-select mode: state holds a single value
-                if elem.id in state:
-                    elem.value = state[elem.id]
+                if bind_key in state:
+                    elem.value = state[bind_key]
                     # Update selected_index to match the value
                     elem.selected_index = elem._find_option_index(elem.value)
 
                 # Set up two-way binding for single-select
-                elem_id = elem.id
-
-                def on_change_handler_single(old_val, new_val, eid=elem_id):
+                def on_change_handler_single(old_val, new_val, key=bind_key):
                     # Update state when element changes
-                    state[eid] = new_val
+                    state[key] = new_val
 
                 elem.on_change = on_change_handler_single
 
@@ -418,17 +466,16 @@ class ElementWiringManager:
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if elem.bind and elem.id:
+        bind_key = self._bind_key(elem)
+        if bind_key:
             # Initialize element checked state from state if key exists
-            if elem.id in state:
-                elem.checked = bool(state[elem.id])
+            if bind_key in state:
+                elem.checked = bool(state[bind_key])
 
             # Set up two-way binding
-            elem_id = elem.id
-
-            def on_change_handler(old_val, new_val, eid=elem_id):
+            def on_change_handler(old_val, new_val, key=bind_key):
                 # Update state when element changes
-                state[eid] = new_val
+                state[key] = new_val
 
             elem.on_change = on_change_handler
 
@@ -447,20 +494,23 @@ class ElementWiringManager:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
-        # Wire up state binding if enabled (bind to group name, not id)
-        if elem.bind and elem.name:
-            # Initialize element checked state from state[name]
-            if elem.name in state:
-                elem.checked = state[elem.name] == elem.value
+        # Wire up state binding if enabled. A radio's default key is its group
+        # name, never its id: every radio in a group reads and writes the one
+        # key holding the group's selection. id_is_default=False keeps an
+        # ungrouped radio unbound rather than giving it a key of its own.
+        bind_key = self._bind_key(elem, elem.name, id_is_default=False)
+        if bind_key:
+            # Initialize element checked state from the group's key
+            if bind_key in state:
+                elem.checked = state[bind_key] == elem.value
 
             # Set up two-way binding
-            radio_name = elem.name
             radio_value = elem.value
 
-            def on_change_handler(old_val, new_val, rname=radio_name, rval=radio_value):
+            def on_change_handler(old_val, new_val, key=bind_key, rval=radio_value):
                 # Update state when radio is selected
                 if new_val:  # Only update state when radio is selected (not deselected)
-                    state[rname] = rval
+                    state[key] = rval
 
             elem.on_change = on_change_handler
 
@@ -480,17 +530,16 @@ class ElementWiringManager:
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
         # Wire up state binding if enabled
-        if elem.bind and elem.id:
+        bind_key = self._bind_key(elem)
+        if bind_key:
             # Initialize element selected values from state if key exists
-            if elem.id in state:
-                elem.selected_values = set(state[elem.id])
+            if bind_key in state:
+                elem.selected_values = set(state[bind_key])
 
             # Set up two-way binding
-            elem_id = elem.id
-
-            def on_change_handler(old_val, new_val, eid=elem_id):
+            def on_change_handler(old_val, new_val, key=bind_key):
                 # Update state when element changes
-                state[eid] = new_val
+                state[key] = new_val
 
             elem.on_change = on_change_handler
 
@@ -519,19 +568,19 @@ class ElementWiringManager:
             action_id = elem.action
             elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
 
-        # Wire up state binding if enabled (bind to group name)
-        if elem.bind and elem.name:
-            # Initialize element selected value from state[name]
-            if elem.name in state:
-                elem.selected_value = state[elem.name]
+        # Wire up state binding if enabled. Like Radio, the group's key is its
+        # name (which the tag already defaults to the id), never the id itself.
+        bind_key = self._bind_key(elem, elem.name, id_is_default=False)
+        if bind_key:
+            # Initialize element selected value from the group's key
+            if bind_key in state:
+                elem.selected_value = state[bind_key]
                 elem.selected_index = elem._find_option_index(elem.selected_value)
 
             # Set up two-way binding
-            group_name = elem.name
-
-            def on_change_handler(old_val, new_val, gname=group_name):
+            def on_change_handler(old_val, new_val, key=bind_key):
                 # Update state when element changes
-                state[gname] = new_val
+                state[key] = new_val
 
             elem.on_change = on_change_handler
 
@@ -544,6 +593,108 @@ class ElementWiringManager:
                 state[hkey] = new_index
 
             elem.on_highlight_change = on_highlight_handler
+
+    def _wire_slider(self, elem: Slider, state: State) -> None:
+        """Wire Slider callbacks.
+
+        Parameters
+        ----------
+        elem : Slider
+            Slider element to wire
+        state : State
+            Application state
+
+        Notes
+        -----
+        Slider advertised ``bind=True`` and its tag read ``state[id]`` at
+        render, but no wiring ever subscribed to the ``on_change`` the element
+        was already firing - so dragging a slider moved the bar on screen and
+        left state untouched, forever. The read side alone is not a binding.
+
+        Slider has no ``on_action`` slot (unlike Toggle), so its ``action``
+        attribute stays unwired. That gap is pre-existing and separate from the
+        binding one closed here.
+        """
+        # Wire up state binding if enabled
+        bind_key = self._bind_key(elem)
+        if bind_key:
+            if bind_key in state:
+                try:
+                    elem.value = float(state[bind_key])
+                except (TypeError, ValueError) as e:
+                    logger.warning(f"Failed to restore slider '{bind_key}': {e}")
+
+            def on_change_handler(old_val, new_val, key=bind_key):
+                # Update state when the slider moves
+                state[key] = new_val
+
+            elem.on_change = on_change_handler
+
+    def _wire_toggle(self, elem: Toggle, state: State) -> None:
+        """Wire Toggle callbacks.
+
+        Parameters
+        ----------
+        elem : Toggle
+            Toggle element to wire
+        state : State
+            Application state
+
+        Notes
+        -----
+        Same gap as Slider: the element fired ``on_change`` with nobody
+        listening, so a toggle never wrote its new value back to state.
+        """
+        # Wire up action callback if action is specified
+        if elem.action:
+            action_id = elem.action
+            elem.on_action = lambda aid=action_id: self.app._dispatch_action(aid)
+
+        # Wire up state binding if enabled
+        bind_key = self._bind_key(elem)
+        if bind_key:
+            if bind_key in state:
+                elem.checked = bool(state[bind_key])
+
+            def on_change_handler(old_val, new_val, key=bind_key):
+                # Update state when the toggle flips
+                state[key] = new_val
+
+            elem.on_change = on_change_handler
+
+    def _wire_datagrid(self, elem: DataGrid, state: State) -> None:
+        """Wire DataGrid state binding.
+
+        Parameters
+        ----------
+        elem : DataGrid
+            DataGrid element to wire
+        state : State
+            Application state
+
+        Notes
+        -----
+        The write-back **must copy the rows**. ``DataGrid.set_cell`` mutates
+        ``self.data`` in place and then fires ``on_data_change(self.data)`` -
+        the element's own live list. Storing that reference would make
+        ``state[key] is elem.data``, so on the *next* edit ``State.__setitem__``
+        would compare the new value against itself, find them equal, and fire
+        no change callback at all: the grid would update once and then go
+        silent. Copying keeps state's snapshot distinct from the element's
+        working list.
+
+        Note also that DataGrid normalizes every cell to ``str`` on load, so
+        the rows written back here are strings regardless of what was seeded.
+        """
+        bind_key = self._bind_key(elem)
+        if not bind_key:
+            return
+
+        def on_data_change_handler(rows, key=bind_key):
+            # Copy - see the note above on the equality gate.
+            state[key] = [list(row) for row in rows]
+
+        elem.on_data_change = on_data_change_handler
 
     def wire_menu_elements(
         self,

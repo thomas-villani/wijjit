@@ -118,6 +118,7 @@ class ProgressBar(Element):
         show_percentage: bool | None = None,
         fill_char: str | None = None,
         empty_char: str | None = None,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes)
         self.element_type = ElementType.DISPLAY
@@ -154,7 +155,7 @@ class ProgressBar(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def max_value(self) -> float:

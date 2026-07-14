@@ -66,6 +66,7 @@ class Checkbox(Element):
         tab_index: int | None = None,
         label: str = "",
         checked: bool = False,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.BUTTON  # Treat as interactive button-like
@@ -81,7 +82,7 @@ class Checkbox(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
     @property
     def checked(self) -> bool:
@@ -320,6 +321,7 @@ class CheckboxGroup(Element):
             BorderStyle | Literal["single", "double", "rounded"] | None
         ) = None,
         title: str | None = None,
+        bind: bool | str = True,
     ):
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.SELECTABLE
@@ -348,7 +350,7 @@ class CheckboxGroup(Element):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
         # highlight_state_key auto-generates to "{id}:highlight"
         self._highlight_state_key_override: str | None = None
 

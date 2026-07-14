@@ -151,6 +151,7 @@ class LogView(ScrollableElement):
         border_style: str = "single",
         title: str | None = None,
         tab_index: int | None = None,
+        bind: bool | str = True,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -196,7 +197,7 @@ class LogView(ScrollableElement):
 
         # Template metadata
         self.action: str | None = None
-        self.bind: bool = True
+        self.bind: bool | str = bind
 
         # State persistence - auto-generated from id
         # scroll_state_key provided by ScrollableElement (auto-generates to "{id}:scroll")
