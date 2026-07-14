@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Hardware cursor parking** (`HARDWARE_CURSOR` config, default on). The
+  caret used to be only a painted reverse-video cell while the terminal's
+  real cursor stayed hidden for the whole session, so terminals could not
+  blink it and screen readers had nothing to track. When the focused element
+  reports a caret cell (TextInput, TextArea, CodeEditor), each frame now ends
+  with a cursor-move + show-cursor escape parking the real cursor on the
+  caret - column-correct for wide CJK/emoji input - and hides it again when
+  no caret is visible (unfocused, or scrolled out of a frame's interior).
+  Idle frames add no bytes, so the diff renderer's emit-nothing-when-idle
+  property is unchanged. Custom elements can opt in by overriding
+  `Element.get_hardware_cursor_position()` / setting the anchor via
+  `PaintContext.cursor_anchor()`.
+- **Raw emitted-ANSI capture in the test harness.** `WijjitHarness`
+  previously discarded everything the app wrote; it now records each
+  `write_frame` payload: `h.emitted_frames` (list of raw frames),
+  `h.last_frame`, and `h.emitted_ansi()`. Tests can assert on the exact byte
+  stream a terminal receives - diff shape, SGR hygiene, cursor escapes - and
+  the suite now carries lossless emitted-ANSI goldens for a themed
+  multi-element screen.
+- **Deterministic performance budgets**
+  (`tests/benchmarks/test_perf_budgets.py`): asserted ceilings on bytes
+  emitted (idle frame, one-value change, scroll, end-to-end keystroke) and
+  on layout passes per frame, so a silent perf regression fails CI without
+  flaky wall-clock thresholds.
+- New demo app: `examples/apps/system_monitor.py`, a live system resource
+  monitor (CPU/memory line chart, per-core gauges; requires `psutil`)
+  driven by a background worker thread updating reactive state.
+
+### Fixed
+- **Elements could paint over the borders and content around a scrolled
+  frame.** `PaintContext` enforces a clip region, but roughly half the
+  element library bypassed it by writing buffer cells directly, so an
+  element taller than a scrollable frame's interior overwrote the frame's
+  border and whatever sat above/below it once scrolled. All element
+  rendering now goes through clipped, wide-char-aware `PaintContext` write
+  APIs (`write_cell` emits head + continuation cells for wide glyphs and
+  returns the columns consumed; new bulk `write_cells` /
+  `write_cells_vertical` cover row/column runs), a ratchet test keeps
+  direct buffer writes out of `src/wijjit/elements/`, and a clip-regression
+  suite drives ten element types through both overflow directions. The
+  migration also fixed three latent bugs: chart borders *replaced* the
+  inherited clip instead of intersecting it, TextArea/CodeEditor painted one
+  column wider than their assigned bounds when a scrollbar appeared, and
+  ContentView bled padding rows outside its bounds.
+- **Wide characters landed on the wrong cells in element-painted content.**
+  TextArea/CodeEditor content, the reverse-video cursor, and selection
+  highlights were placed by character index at one-cell pitch, so CJK/emoji
+  shifted the row and the cursor/selection highlighted the wrong cells;
+  TextInput's caret had the same off-by-width bug. Element content loops are
+  now per-cluster with separate character (semantics) and column (placement)
+  counters. Pre-rendered ANSI content (`content_type="ansi"`) still maps one
+  code point per cell; see the `ScreenBuffer` docstring for scope.
+- **`app.running` was always `False`.** The `Wijjit.running` attribute was
+  set in `__init__` and never updated, so a worker thread polling it to know
+  when to stop (as examples suggest) exited immediately. It is now a
+  property delegating to the event loop's running flag.
+
 ## [0.1.0] - 2026-06-28
 
 First public release.
