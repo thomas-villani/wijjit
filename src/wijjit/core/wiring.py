@@ -677,11 +677,17 @@ class ElementWiringManager:
         The write-back **must copy the rows**. ``DataGrid.set_cell`` mutates
         ``self.data`` in place and then fires ``on_data_change(self.data)`` -
         the element's own live list. Storing that reference would make
-        ``state[key] is elem.data``, so on the *next* edit ``State.__setitem__``
-        would compare the new value against itself, find them equal, and fire
-        no change callback at all: the grid would update once and then go
-        silent. Copying keeps state's snapshot distinct from the element's
-        working list.
+        ``state[key] is elem.data``, aliasing application state to the
+        element's working list.
+
+        ``State`` no longer goes *silent* on that alias - since review 2.9 it
+        detects the same-object write and fires a change rather than comparing
+        a mutated list against itself - but the copy is still required. An
+        aliased value mutates under the app with no write going through
+        ``State`` at all, so a reader sees edits before they are committed,
+        and the ``old_value``/``new_value`` handed to every callback are the
+        same object, which defeats any callback that diffs them. Copying keeps
+        state's snapshot distinct from the element's working list.
 
         Note also that DataGrid normalizes every cell to ``str`` on load, so
         the rows written back here are strings regardless of what was seeded.
@@ -691,7 +697,7 @@ class ElementWiringManager:
             return
 
         def on_data_change_handler(rows, key=bind_key):
-            # Copy - see the note above on the equality gate.
+            # Copy - see the note above on aliasing.
             state[key] = [list(row) for row in rows]
 
         elem.on_data_change = on_data_change_handler

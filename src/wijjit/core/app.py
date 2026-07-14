@@ -1370,6 +1370,22 @@ class Wijjit:
             Previous value
         new_value : Any
             New value
+
+        Notes
+        -----
+        **This must run on the event-loop thread**, and ``State`` guarantees
+        that (see :meth:`State._invoke_sync_callback`). Two things here depend
+        on it, both silently:
+
+        * :func:`get_terminal_size` reads a ``ContextVar``. Context is not
+          propagated to worker or executor threads, so off the loop thread it
+          falls back to the *process* terminal size - marking, say, an 80x24
+          region dirty on a 200x60 session and leaving everything beyond that
+          unrepainted.
+        * ``dirty_manager`` is mutated without a lock and can be read by the
+          renderer mid-frame.
+
+        Do not "optimize" the loop-thread marshalling in ``State`` away.
         """
         self.needs_render = True
 

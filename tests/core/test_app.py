@@ -832,3 +832,57 @@ class TestDebugStrictUndefined:
         with WijjitHarness(app, size=(40, 10)) as h:
             h.assert_no_errors()
             assert h.screen().strip()
+
+
+class TestStateChangeThreadAffinity:
+    """``_on_state_change`` must run on the loop thread (review 2.8).
+
+    It reads the terminal size from a ContextVar
+    (:func:`wijjit.terminal.size.get_terminal_size`) and mutates the dirty
+    manager. ``loop.run_in_executor`` does not propagate context, so running
+    it off the loop thread silently reads the *process* terminal size instead
+    of the session's, and marks the wrong region dirty.
+    """
+
+    def _make_app(self):
+        from wijjit import Wijjit, render_template_string
+
+        app = Wijjit()
+        app.state["msg"] = "hi"
+
+        @app.view("main", default=True)
+        def main():
+            return render_template_string("{% text %}{{ state.msg }}{% endtext %}")
+
+        return app
+
+    @pytest.mark.asyncio
+    async def test_set_async_marks_dirty_with_the_session_size(self):
+        """A state write via ``set_async`` must mark the dirty region using the
+        session's terminal size, not the process fallback."""
+        from wijjit.terminal.size import terminal_size_scope
+
+        app = self._make_app()
+        dirty = app.renderer.dirty_manager
+
+        with terminal_size_scope(200, 60):
+            await app.state.set_async("msg", "changed")
+
+        assert (dirty._screen_width, dirty._screen_height) == (200, 60), (
+            "_on_state_change read the terminal size off the loop thread, so the "
+            "ContextVar override was lost and the wrong region was marked dirty"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_batch_update_marks_dirty_with_the_session_size(self):
+        """Same for the async batch context."""
+        from wijjit.terminal.size import terminal_size_scope
+
+        app = self._make_app()
+        dirty = app.renderer.dirty_manager
+
+        with terminal_size_scope(200, 60):
+            async with app.state.async_batch_update():
+                app.state["msg"] = "changed"
+
+        assert (dirty._screen_width, dirty._screen_height) == (200, 60)

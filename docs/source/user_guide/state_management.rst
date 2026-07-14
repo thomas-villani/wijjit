@@ -14,7 +14,40 @@ State fundamentals
 * **Watchers** – arbitrary functions can subscribe to all changes (``state.on_change``) or to a specific key (``state.watch("username", callback)``).
 * **Async support** – callbacks may be ``async def``; Wijjit tracks ``_pending_tasks`` so the event loop can await them without leaking coroutines.
 
-It is safe to mutate nested structures, but remember that mutating a list in-place will not trigger watchers until you reassign the list (``state.todos = list(state.todos)``) or call ``state["todos"] = state["todos"]`` after editing. Prefer constructing new containers for clarity.
+.. _in-place-mutation:
+
+In-place mutation and the order that matters
+--------------------------------------------
+
+``State`` detects **reassignment**, not in-place mutation. ``state["todos"].append(x)`` never goes through ``__setitem__`` at all, so no watcher fires and nothing re-renders.
+
+The rule that always works is **build the new container first, then assign**:
+
+.. code-block:: python
+
+    app.state["todos"] = [*app.state["todos"], new_todo]      # fires
+
+    todos = list(app.state["todos"])   # copy FIRST
+    todos.append(new_todo)             # mutate the copy
+    app.state["todos"] = todos         # fires
+
+**Order is everything, and the failing order is silent.** If you mutate the stored list *first* and try to reassign afterwards, change detection has nothing left to compare against - the value it would compare with has already been mutated:
+
+.. code-block:: python
+
+    app.state["todos"].append(x)                       # mutates the stored list
+    app.state["todos"] = list(app.state["todos"])      # SILENT: value-equal copy
+
+That copy is a new object, but it is *equal* to the already-mutated original, so it is indistinguishable from a no-op write. There is no way for ``State`` to catch it.
+
+The one escape hatch, if you have already mutated in place, is to assign **the same object** back:
+
+.. code-block:: python
+
+    app.state["todos"].append(x)
+    app.state["todos"] = app.state["todos"]   # fires (and logs a warning)
+
+``State`` cannot prove the container is unchanged, so it fires rather than risk a missed repaint. It warns, because building the new container first is better. Prefer the immutable form.
 
 Common mutation patterns
 ------------------------
@@ -129,7 +162,9 @@ Long-running operations should not block the event loop. Typical pattern:
         finally:
             app.state.loading = False
 
-``State`` ensures watchers run on the loop thread; avoid mutating state from raw background threads. If you must, schedule back onto the loop using ``asyncio.run_coroutine_threadsafe`` or ``loop.call_soon_threadsafe``. To run heavy synchronous handlers off the main loop, set the config keys ``RUN_SYNC_IN_EXECUTOR = True`` (and optionally ``EXECUTOR_MAX_WORKERS``); they can then update state safely afterward.
+``State`` runs watchers on the event-loop thread, whether they are sync or async, and whichever thread performed the write: a write from a background thread is marshalled back onto the loop before callbacks fire. So it is safe to do ``state[key] = value`` from a worker thread, and safe to set ``RUN_SYNC_IN_EXECUTOR = True`` (with an optional ``EXECUTOR_MAX_WORKERS``) to run heavy synchronous handlers off the main loop and have them update state afterward.
+
+Two caveats. Marshalling means a watcher fired from a worker thread runs **slightly later** than the assignment, not inline with it - so do not assume the UI has repainted by the time ``state[key] = value`` returns. And a ``State`` used with no running event loop (bare, or in a sync-only script) simply invokes callbacks inline on the calling thread; there is nowhere to marshal to.
 
 A plain assignment fires async watchers but does not wait for them (they run as
 background tasks). When you need the callbacks to finish before continuing, use

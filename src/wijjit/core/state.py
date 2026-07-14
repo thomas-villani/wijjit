@@ -191,14 +191,70 @@ class State(UserDict[str, Any]):
         -----
         Any key is allowed, including names that shadow a State or dict method
         (``state["items"]``). See :attr:`_SHADOWED_NAMES` for what that costs.
+
+        Change detection compares the new value against the *live* object
+        already stored under ``key``. That is exact for immutable values, but
+        for a mutable container it means the pre-mutation snapshot is gone the
+        moment the caller mutates it in place. Two consequences:
+
+        * ``state[k] = state[k]`` (the same object back again) cannot be shown
+          to be unchanged, so it **fires** - see :meth:`_is_aliased_mutable`.
+          This is the supported escape hatch after an in-place mutation, and
+          it warns, because building the new container first is better.
+        * ``state[k] = list(state[k])`` after an in-place mutation is a *new*
+          object that is value-equal to the already-mutated original, so it is
+          indistinguishable from a genuine no-op write and stays silent. There
+          is no fix short of snapshotting every container handed out on read.
+
+        The rule that always works: build the new container **first**, then
+        assign (``state[k] = [*state[k], x]``). Order matters, and only the
+        copy-then-mutate direction is detectable.
         """
         old_value = self.data.get(key)
+        aliased = self._is_aliased_mutable(key, value)
         super().__setitem__(key, value)
+
+        if aliased:
+            logger.warning(
+                f"State key '{key}' was reassigned the same mutable object it "
+                f"already held. Firing a change because an in-place mutation "
+                f"cannot be ruled out. Prefer building the new container "
+                f"first: state['{key}'] = [*state['{key}'], value]"
+            )
+            self._trigger_change(key, old_value, value)
+            return
 
         # Only trigger callbacks if value actually changed
         if old_value != value:
             logger.debug(f"State change: {key} = {value} (was {old_value})")
             self._trigger_change(key, old_value, value)
+
+    def _is_aliased_mutable(self, key: str, value: Any) -> bool:
+        """Report whether ``value`` *is* the mutable object already at ``key``.
+
+        Parameters
+        ----------
+        key : str
+            The state key being written.
+        value : Any
+            The incoming value.
+
+        Returns
+        -------
+        bool
+            True when the incoming value is the identical object already
+            stored and that object is a mutable container, so an in-place
+            mutation cannot be ruled out by comparing values.
+
+        Notes
+        -----
+        Restricted to the built-in mutable containers rather than "anything
+        not hashable" so that a custom value object with a meaningful
+        ``__eq__`` keeps the cheap equality gate.
+        """
+        if not isinstance(value, list | dict | set | bytearray):
+            return False
+        return key in self.data and self.data[key] is value
 
     def __getattr__(self, name: str) -> Any:
         """Get state value via attribute access.
@@ -723,6 +779,86 @@ class State(UserDict[str, Any]):
             f"outside of async context"
         )
 
+    def _invoke_sync_callback(
+        self,
+        callback: Callable[..., Any],
+        key: str,
+        old_value: Any,
+        new_value: Any,
+        kind: str,
+    ) -> None:
+        """Invoke a sync state callback on the event-loop thread.
+
+        Parameters
+        ----------
+        callback : Callable
+            The synchronous callback to invoke.
+        key : str
+            The state key that changed.
+        old_value : Any
+            The previous value.
+        new_value : Any
+            The new value.
+        kind : str
+            Either ``"callback"`` or ``"watcher"`` (for diagnostics).
+
+        Notes
+        -----
+        The async callback path was made thread-safe first (see
+        :meth:`_schedule_state_coroutine`); this is the sync half, and it
+        mirrors the same three cases.
+
+        Sync callbacks used to run inline on whatever thread performed the
+        write. That is a real hazard because the host app registers
+        ``_on_state_change`` as a sync callback, and it mutates the renderer's
+        dirty-region state (unlocked) and reads the terminal size from a
+        **ContextVar**. Context does not propagate across threads, so off the
+        loop thread that read silently falls back to the *process* terminal
+        size and the wrong region is marked dirty.
+
+        So: run inline when we are already on a loop thread (the common case,
+        and what keeps ordering intuitive), marshal onto the captured loop
+        with ``call_soon_threadsafe`` when a worker thread performed the
+        write, and fall back to running inline when there is no loop at all -
+        a bare ``State`` used outside an app must keep working.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Capture the loop so a later worker-thread write has somewhere to
+            # marshal to. _schedule_state_coroutine also captures it, but only
+            # ever runs for *async* callbacks - an app with only sync callbacks
+            # would otherwise never learn its loop.
+            object.__setattr__(self, "_loop", loop)
+            callback(key, old_value, new_value)
+            return
+
+        captured = self._loop
+        if captured is not None and captured.is_running():
+
+            def _invoke() -> None:
+                try:
+                    callback(key, old_value, new_value)
+                except Exception as e:
+                    logger.error(
+                        f"Error in state {kind} for key '{key}': {e}",
+                        exc_info=True,
+                    )
+
+            try:
+                captured.call_soon_threadsafe(_invoke)
+                return
+            except RuntimeError:
+                # Loop closed between the is_running() check and scheduling;
+                # fall through and run inline rather than dropping the change.
+                pass
+
+        # No event loop to marshal onto (bare State, sync-only app).
+        callback(key, old_value, new_value)
+
     def _dispatch_change(self, key: str, old_value: Any, new_value: Any) -> None:
         """Invoke global callbacks and key watchers for a change.
 
@@ -749,8 +885,9 @@ class State(UserDict[str, Any]):
                         "callback",
                     )
                 else:
-                    # Call sync callback immediately on this thread
-                    callback(key, old_value, new_value)
+                    self._invoke_sync_callback(
+                        callback, key, old_value, new_value, "callback"
+                    )
             except Exception as e:
                 # Log error but don't stop other callbacks
                 logger.error(
@@ -770,8 +907,9 @@ class State(UserDict[str, Any]):
                             "watcher",
                         )
                     else:
-                        # Call sync callback immediately on this thread
-                        callback(key, old_value, new_value)
+                        self._invoke_sync_callback(
+                            callback, key, old_value, new_value, "watcher"
+                        )
                 except Exception as e:
                     logger.error(
                         f"Error in state watcher for key '{key}': {e}", exc_info=True
@@ -793,6 +931,17 @@ class State(UserDict[str, Any]):
             The previous value
         new_value : Any
             The new value
+
+        Notes
+        -----
+        Sync callbacks are invoked **inline on the loop thread**, not shipped
+        to an executor. They already run inline in the sync dispatch path
+        (:meth:`_dispatch_change`), so the executor bought no concurrency -
+        the caller awaited each one anyway - while silently breaking the two
+        things ``app._on_state_change`` depends on: the terminal-size
+        ContextVar (not propagated into an executor thread, so it read the
+        process size instead of the session's) and unlocked access to the
+        renderer's dirty-region state. See review item 2.8.
         """
         # Trigger global change callbacks
         for callback in self._change_callbacks:
@@ -800,11 +949,7 @@ class State(UserDict[str, Any]):
                 if asyncio.iscoroutinefunction(callback):
                     await callback(key, old_value, new_value)
                 else:
-                    # Run sync callback in executor to avoid blocking
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(
-                        None, callback, key, old_value, new_value
-                    )
+                    callback(key, old_value, new_value)
             except Exception as e:
                 # Log error but don't stop other callbacks
                 logger.error(
@@ -819,11 +964,7 @@ class State(UserDict[str, Any]):
                     if asyncio.iscoroutinefunction(callback):
                         await callback(key, old_value, new_value)
                     else:
-                        # Run sync callback in executor
-                        loop = asyncio.get_running_loop()
-                        await loop.run_in_executor(
-                            None, callback, key, old_value, new_value
-                        )
+                        callback(key, old_value, new_value)
                 except Exception as e:
                     logger.error(
                         f"Error in state watcher for key '{key}': {e}", exc_info=True
