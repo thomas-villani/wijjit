@@ -1449,3 +1449,205 @@ class TestTextAreaScrollbarBudget:
             lines = h.screen().splitlines()
             top = lines[ta.bounds.y]
             assert top[ta.bounds.x + ta.bounds.width - 1] == "┐"
+
+
+class TestTextAreaUndo:
+    """Undo/redo (review 2.10).
+
+    Snapshots are taken at the ``handle_key`` boundary, so a keypress that runs
+    several mutating primitives (typing over a selection; an insert that
+    triggers a hard-wrap reflow) is one undo unit.
+    """
+
+    @staticmethod
+    def _type(textarea, text):
+        for ch in text:
+            textarea.handle_key(Key(ch, KeyType.CHARACTER, ch))
+
+    def test_undo_reverts_a_single_edit(self):
+        textarea = TextArea(value="hello")
+        textarea.cursor_col = 5
+
+        self._type(textarea, "!")
+        assert textarea.get_value() == "hello!"
+
+        assert textarea.handle_key(Keys.CTRL_Z) is True
+        assert textarea.get_value() == "hello"
+
+    def test_typing_a_word_coalesces_into_one_undo(self):
+        """A run of insertions is one entry, not one per letter."""
+        textarea = TextArea(value="")
+
+        self._type(textarea, "hello")
+        assert textarea.get_value() == "hello"
+
+        textarea.handle_key(Keys.CTRL_Z)
+
+        assert textarea.get_value() == ""
+
+    def test_cursor_move_breaks_the_insert_run(self):
+        """Moving the caret starts a new undo unit."""
+        textarea = TextArea(value="")
+
+        self._type(textarea, "ab")
+        textarea.handle_key(Keys.HOME)
+        self._type(textarea, "X")
+        assert textarea.get_value() == "Xab"
+
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == "ab", "the X should undo on its own"
+
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == ""
+
+    def test_select_all_then_type_is_recoverable(self):
+        """The review's headline unrecoverable case.
+
+        Select-all-then-type ran a delete *and* an insert inside one keypress
+        and permanently discarded the document. It is now one undo unit.
+        """
+        textarea = TextArea(value="line one\nline two\nline three")
+
+        textarea.handle_key(Key("ctrl+a", KeyType.CONTROL))
+        assert textarea._has_selection()
+
+        self._type(textarea, "x")
+        assert textarea.get_value() == "x"
+
+        assert textarea.handle_key(Keys.CTRL_Z) is True
+        assert textarea.get_value() == "line one\nline two\nline three"
+
+    def test_undo_restores_cursor_and_selection(self):
+        textarea = TextArea(value="hello world")
+        textarea.cursor_row = 0
+        textarea.cursor_col = 11
+
+        self._type(textarea, "!")
+        textarea.handle_key(Keys.CTRL_Z)
+
+        assert textarea.cursor_row == 0
+        assert textarea.cursor_col == 11
+
+    def test_backspace_is_undoable(self):
+        textarea = TextArea(value="hello")
+        textarea.cursor_col = 5
+
+        textarea.handle_key(Keys.BACKSPACE)
+        assert textarea.get_value() == "hell"
+
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == "hello"
+
+    def test_newline_is_undoable(self):
+        textarea = TextArea(value="ab")
+        textarea.cursor_col = 1
+
+        textarea.handle_key(Keys.ENTER)
+        assert textarea.get_value() == "a\nb"
+
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == "ab"
+
+    def test_delete_selection_is_undoable(self):
+        textarea = TextArea(value="hello world")
+        textarea.selection_anchor = (0, 0)
+        textarea.cursor_col = 6
+
+        textarea.handle_key(Keys.DELETE)
+        assert textarea.get_value() == "world"
+
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == "hello world"
+
+    def test_redo_reapplies_an_undone_edit(self):
+        textarea = TextArea(value="hello")
+        textarea.cursor_col = 5
+
+        self._type(textarea, "!")
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == "hello"
+
+        assert textarea.handle_key(Keys.CTRL_Y) is True
+        assert textarea.get_value() == "hello!"
+
+    def test_new_edit_clears_the_redo_stack(self):
+        textarea = TextArea(value="a")
+        textarea.cursor_col = 1
+
+        self._type(textarea, "b")
+        textarea.handle_key(Keys.CTRL_Z)
+        assert textarea.get_value() == "a"
+
+        self._type(textarea, "c")
+        assert textarea.get_value() == "ac"
+
+        assert textarea.handle_key(Keys.CTRL_Y) is False
+        assert textarea.get_value() == "ac"
+
+    def test_undo_on_empty_history_is_a_no_op(self):
+        textarea = TextArea(value="hello")
+
+        assert textarea.handle_key(Keys.CTRL_Z) is False
+        assert textarea.get_value() == "hello"
+
+    def test_undo_emits_change_so_bound_state_follows(self):
+        """Undo must route through _emit_change or the bound state key and
+        CodeEditor's re-tokenization would both miss it."""
+        changes = []
+        textarea = TextArea(value="hello")
+        textarea.cursor_col = 5
+        textarea.on_change = lambda old, new: changes.append((old, new))
+
+        self._type(textarea, "!")
+        changes.clear()
+
+        textarea.handle_key(Keys.CTRL_Z)
+
+        assert changes == [("hello!", "hello")]
+
+    def test_undo_history_is_bounded(self):
+        """The stack drops its oldest entry past the limit."""
+        from wijjit.elements.input.undo import EditSnapshot, UndoHistory
+
+        history = UndoHistory(limit=3)
+        for i in range(5):
+            history.push(EditSnapshot((str(i),), 0, 0, None))
+
+        # Only the last 3 survive; unwinding them all exhausts the stack.
+        current = EditSnapshot(("now",), 0, 0, None)
+        restored = []
+        while history.can_undo:
+            snap = history.undo(current)
+            restored.append(snap.lines[0])
+            current = snap
+
+        assert restored == ["4", "3", "2"]
+
+    def test_set_value_with_different_text_clears_history(self):
+        """A programmatic replacement is a new document."""
+        textarea = TextArea(value="hello")
+        textarea.cursor_col = 5
+        self._type(textarea, "!")
+
+        textarea.set_value("something else")
+
+        assert textarea.handle_key(Keys.CTRL_Z) is False
+        assert textarea.get_value() == "something else"
+
+    def test_set_value_with_identical_text_preserves_history(self):
+        """The prop-sync poisoning guard.
+
+        ``value`` is not an ephemeral prop, so the reconciler re-applies it
+        from props every render and a bound TextArea round-trips its own value
+        back through set_value on each keystroke. Clearing history on an
+        identical write would empty the undo stack every frame.
+        """
+        textarea = TextArea(value="hello")
+        textarea.cursor_col = 5
+        self._type(textarea, "!")
+
+        # The round-trip: state was written "hello!", and comes back as a prop.
+        textarea.set_value("hello!")
+
+        assert textarea.handle_key(Keys.CTRL_Z) is True
+        assert textarea.get_value() == "hello"

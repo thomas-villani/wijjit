@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.autocomplete.mixin import AutocompleteMixin
 from wijjit.elements.base import Element, ElementType, invoke_callback
+from wijjit.elements.input.undo import EditSnapshot, UndoHistory
 from wijjit.layout.frames import BORDER_CHARS, BorderStyle
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
@@ -783,6 +784,13 @@ class TextArea(Element):
         self._last_click_time: float = 0.0  # For detecting double-clicks
         self._last_click_pos: tuple[int, int] | None = None  # Last click position
 
+        # Undo/redo history. Snapshots are taken at the handle_key boundary,
+        # not inside the mutating primitives - see handle_key.
+        self._history = UndoHistory()
+        # Cursor position immediately after the last character insertion, used
+        # to coalesce a contiguous run of insertions into one undo entry.
+        self._insert_run_end: tuple[int, int] | None = None
+
         # Vertical scroll management
         self.scroll_manager = ScrollManager(
             content_size=1, viewport_size=height  # One line initially
@@ -1080,8 +1088,27 @@ class TextArea(Element):
         -----
         This replaces all content and resets cursor to start.
         Updates scroll manager with new content size.
+
+        A programmatic replacement is a new document, so it discards undo
+        history - but **only when the text actually differs**, so re-setting
+        the text the element already holds is a true no-op.
+
+        The reconciler path is already safe without this check, which is worth
+        knowing before anyone "simplifies" it: ``value`` is not an ephemeral
+        prop, so ``apply_props`` re-assigns it on every render and a bound
+        TextArea round-trips its own value (type -> ``state[key] = v`` ->
+        re-render -> ``apply_props``). But that goes through the :attr:`value`
+        setter, which already skips ``set_value`` when the text is unchanged -
+        it guards cursor and scroll against exactly the same round-trip. This
+        check covers the *direct* caller instead: app code doing
+        ``element.set_value(x)`` with the current text should not silently drop
+        the user's undo stack.
         """
         old_value = self.get_value()
+
+        if text.replace("\r\n", "\n") != old_value:
+            self._history.clear()
+            self._insert_run_end = None
 
         # Split into lines (handle both \n and \r\n)
         self.lines = text.replace("\r\n", "\n").split("\n")
@@ -1232,8 +1259,78 @@ class TextArea(Element):
         if self.on_change and old_value != new_value:
             invoke_callback(self.on_change, old_value, new_value)
 
+    def _snapshot(self) -> EditSnapshot:
+        """Capture the current document, cursor and selection.
+
+        Returns
+        -------
+        EditSnapshot
+            An immutable capture suitable for the undo stack.
+        """
+        return EditSnapshot(
+            lines=tuple(self.lines),
+            cursor_row=self.cursor_row,
+            cursor_col=self.cursor_col,
+            selection_anchor=self.selection_anchor,
+        )
+
+    def _restore(self, snapshot: EditSnapshot) -> None:
+        """Restore a previously captured state and emit a change.
+
+        Parameters
+        ----------
+        snapshot : EditSnapshot
+            The state to restore.
+        """
+        old_value = self.get_value()
+
+        self.lines = list(snapshot.lines)
+        self.cursor_row = snapshot.cursor_row
+        self.cursor_col = snapshot.cursor_col
+        self.selection_anchor = snapshot.selection_anchor
+
+        # Content size changed, so scroll extents must be recomputed and the
+        # caret brought back into view before the next paint.
+        self.scroll_manager.update_content_size(self._calculate_total_visual_lines())
+        self._update_horizontal_scroll()
+        self._ensure_cursor_visible()
+
+        # Routing through _emit_change is what makes undo reach the bound state
+        # key (wiring's on_change write-back) and, for CodeEditor, re-tokenize.
+        self._emit_change(old_value, self.get_value())
+
+    def undo(self) -> bool:
+        """Revert the most recent edit.
+
+        Returns
+        -------
+        bool
+            True if a state was restored, False if there was nothing to undo.
+        """
+        snapshot = self._history.undo(self._snapshot())
+        if snapshot is None:
+            return False
+        self._restore(snapshot)
+        self._insert_run_end = None
+        return True
+
+    def redo(self) -> bool:
+        """Re-apply the most recently undone edit.
+
+        Returns
+        -------
+        bool
+            True if a state was restored, False if there was nothing to redo.
+        """
+        snapshot = self._history.redo(self._snapshot())
+        if snapshot is None:
+            return False
+        self._restore(snapshot)
+        self._insert_run_end = None
+        return True
+
     def handle_key(self, key: Key) -> bool:
-        """Handle keyboard input.
+        """Handle keyboard input, recording undo history around any edit.
 
         Parameters
         ----------
@@ -1244,6 +1341,75 @@ class TextArea(Element):
         -------
         bool
             True if key was handled
+
+        Notes
+        -----
+        Undo snapshots are taken **here**, at the key boundary, rather than
+        inside the five mutating primitives (``_insert_char``,
+        ``_insert_newline``, ``_backspace``, ``_delete``,
+        ``_delete_selection``) and ``_paste``. Those mutate ``self.lines``
+        independently and share no choke point, so hooking them would mean six
+        hooks - and would produce *worse* semantics, because a single keypress
+        can legitimately run several of them. Typing over a selection is a
+        delete plus an insert; an insert in hard-wrap mode is an insert plus a
+        reflow (``_apply_hard_wrap_to_line``). Snapshotting at this boundary
+        makes each of those one undo unit, which is what a user expects, and
+        costs one hook instead of six.
+
+        A contiguous run of character insertions coalesces into a single entry
+        (tracked by ``_insert_run_end``), so typing a word is one undo rather
+        than one per letter. The run breaks on any other edit, on a cursor
+        move, and on a selection change - all of which land the next insert
+        somewhere other than where the last one ended.
+        """
+        # Undo/redo are handled before anything else, and are never themselves
+        # recorded. Ctrl+Z is free: suspend is driven by SIGTSTP, which raw
+        # mode suppresses by clearing ISIG (see core/suspend.py). Redo is
+        # Ctrl+Y, not Ctrl+Shift+Z - terminals do not reliably distinguish
+        # shift on a control chord, and prompt_toolkit has no key for it.
+        if key.name == "ctrl+z":
+            return self.undo()
+        if key.name == "ctrl+y":
+            return self.redo()
+
+        before = self._snapshot()
+        is_insertion = bool(key.is_char and key.char) and not self._has_selection()
+
+        handled = self._handle_edit_key(key)
+
+        if handled and tuple(self.lines) != before.lines:
+            # Coalesce only if this insertion continues the previous one from
+            # exactly where it left off.
+            continues_run = (
+                is_insertion
+                and self._insert_run_end is not None
+                and self._insert_run_end == (before.cursor_row, before.cursor_col)
+            )
+            if not continues_run:
+                self._history.push(before)
+            self._insert_run_end = (
+                (self.cursor_row, self.cursor_col) if is_insertion else None
+            )
+
+        return handled
+
+    def _handle_edit_key(self, key: Key) -> bool:
+        """Dispatch a key to the editing and navigation primitives.
+
+        Parameters
+        ----------
+        key : Key
+            Key press to handle
+
+        Returns
+        -------
+        bool
+            True if key was handled
+
+        Notes
+        -----
+        Split out of :meth:`handle_key` so undo bookkeeping wraps the whole
+        dispatch. Do not call this directly - it performs no undo recording.
         """
         old_value = self.get_value()
 
