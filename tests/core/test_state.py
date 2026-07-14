@@ -8,6 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from wijjit.core.state import State
+from wijjit.exceptions import StateKeyError
 
 
 class TestState:
@@ -377,78 +378,79 @@ class TestState:
         state["my_list"] = [1, 2, 3, 4, 5]
         callback.assert_called_once()
 
-    def test_reserved_name_in_init(self):
-        """Test that using reserved dict method names in init raises error."""
-        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
-            State({"items": []})
+    def test_method_named_keys_allowed_in_init(self):
+        """Keys that shadow a State/dict method are legal at construction."""
+        state = State({"items": [1, 2], "keys": {"a": 1}, "values": 123})
 
-        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
-            State({"keys": {}})
+        assert state["items"] == [1, 2]
+        assert state["keys"] == {"a": 1}
+        assert state["values"] == 123
 
-        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
-            State({"values": 123})
-
-    def test_reserved_name_in_setitem(self):
-        """Test that setting reserved dict method names raises error."""
+    def test_method_named_keys_allowed_in_setitem(self):
+        """Subscript assignment accepts method-shadowing names."""
         state = State()
 
-        with pytest.raises(ValueError, match="State key 'items' is reserved"):
-            state["items"] = []
+        state["items"] = ["a"]
+        state["get"] = "gettable"
+        state["update"] = 7
 
-        with pytest.raises(ValueError, match="State key 'keys' is reserved"):
-            state["keys"] = {}
+        assert state["items"] == ["a"]
+        assert state["get"] == "gettable"
+        assert state["update"] == 7
 
-        with pytest.raises(ValueError, match="State key 'values' is reserved"):
-            state["values"] = 123
+    def test_data_key_coexists_with_backing_store(self):
+        """state['data'] is a normal key; self.data stays the backing store."""
+        state = State({"data": "my value"})
 
-    def test_non_reserved_names_work(self):
-        """Test that non-reserved names work fine."""
-        # These should all work without error
-        state = State(
-            {
-                "items_list": [],
-                "my_keys": {},
-                "data_values": 123,
-                "count": 0,
-                "message": "hello",
-            }
-        )
+        assert state["data"] == "my value"
+        # The backing store still holds every key, including 'data' itself.
+        assert state.data == {"data": "my value"}
 
-        assert state["items_list"] == []
-        assert state["my_keys"] == {}
-        assert state["data_values"] == 123
+    def test_mapping_protocol_survives_shadowed_keys(self):
+        """dict(state) calls keys(); it must not resolve to a user key.
 
-        # Setting new non-reserved keys should also work
-        state["new_key"] = "test"
-        assert state["new_key"] == "test"
+        This is why the shadowing is not inverted on the Python side: the
+        Mapping protocol reaches the methods through attribute access.
+        """
+        state = State({"items": [1], "keys": "k", "values": "v", "get": "g"})
 
-    def test_reset_with_reserved_names(self):
-        """Test that reset validates reserved dict method names."""
-        state = State({"valid_key": "value"})
+        assert dict(state) == {"items": [1], "keys": "k", "values": "v", "get": "g"}
+        assert len(state) == 4
+        assert set(state.keys()) == {"items", "keys", "values", "get"}
+        assert state.get("items") == [1]
 
-        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
-            state.reset({"items": []})
+    def test_attribute_write_of_shadowed_name_raises(self):
+        """state.items = x is refused: the same syntax cannot read it back."""
+        state = State()
 
-        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
-            state.reset({"keys": {}})
+        with pytest.raises(StateKeyError, match=r"'items' shadows State.items"):
+            state.items = ["a"]
 
-        with pytest.raises(ValueError, match="State keys cannot use reserved names"):
-            state.reset({"values": 123})
+        # The error points at the working form, which does not raise.
+        state["items"] = ["a"]
+        assert state["items"] == ["a"]
 
-        # Original state should be unchanged after failed reset
-        assert state["valid_key"] == "value"
+    def test_attribute_write_of_data_still_raises(self):
+        """state.data = {...} would replace the store without callbacks."""
+        state = State({"count": 1})
 
-    def test_reset_without_reserved_names_works(self):
-        """Test that reset works with non-reserved names."""
+        with pytest.raises(StateKeyError, match="backing store"):
+            state.data = {"other": 2}
+
+        assert state["count"] == 1
+
+    def test_method_named_keys_in_update_and_reset(self):
+        """update() and reset() accept method-shadowing names too."""
         state = State({"old_key": "old"})
 
-        # Should work without error
-        state.reset({"items_list": [], "my_keys": {}, "data_values": 123})
+        state.update({"items": [1]}, values=2)
+        assert state["items"] == [1]
+        assert state["values"] == 2
 
+        state.reset({"keys": "k", "copy": "c"})
         assert "old_key" not in state
-        assert state["items_list"] == []
-        assert state["my_keys"] == {}
-        assert state["data_values"] == 123
+        assert state["keys"] == "k"
+        assert state["copy"] == "c"
 
 
 class TestReentrancyGuard:

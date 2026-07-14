@@ -9,7 +9,7 @@ State fundamentals
 ``State`` subclasses :class:`collections.UserDict` so it exposes familiar dict semantics while adding:
 
 * **Attribute access** – ``state.greeting`` mirrors ``state["greeting"]``; templates can use either form.
-* **Validation** – keys that collide with dict methods (``items``, ``keys``, ``pop``…) raise ``ValueError`` so templates never shadow built-in attributes.
+* **Any key name** – including ones that share a name with a ``State`` method (``items``, ``keys``, ``get``, ``data``…). Templates resolve ``{{ state.items }}`` to your value; in Python, reach those keys with ``state["items"]``. See :ref:`method-named-keys`.
 * **Change detection** – ``__setitem__`` and ``__setattr__`` compare the new value to the previous one; callbacks fire only when a value actually changed.
 * **Watchers** – arbitrary functions can subscribe to all changes (``state.on_change``) or to a specific key (``state.watch("username", callback)``).
 * **Async support** – callbacks may be ``async def``; Wijjit tracks ``_pending_tasks`` so the event loop can await them without leaking coroutines.
@@ -81,6 +81,39 @@ one watcher (or every watcher for the key if ``callback`` is omitted), and
     app.state.unwatch("username", log_change)   # or unwatch("username") for all
     app.state.off_change(log_change)
 
+.. _method-named-keys:
+
+Keys that share a name with a State method
+------------------------------------------
+
+``State`` is a mapping *and* an object, so a handful of key names – ``items``,
+``keys``, ``values``, ``get``, ``data``, ``update``, ``copy``, ``pop``,
+``on_change``, ``watch``, and the rest of the public API – also name a method.
+Such keys are perfectly legal. Only Python's *attribute* syntax is ambiguous
+for them, and Wijjit resolves that ambiguity explicitly rather than banning
+the names:
+
+.. code-block:: python
+
+    app.state["items"] = [1, 2, 3]   # always works
+    app.state.items                  # the bound method - attribute lookup wins
+    app.state.items = [1, 2, 3]      # raises StateKeyError, pointing you at subscript
+
+.. code-block:: jinja
+
+    {{ state.items }}                {# your list: templates look the key up first #}
+    {% for x in state.items %}...{% endfor %}
+
+In templates the key always wins, because Wijjit's Jinja environment checks
+``state`` for the key before falling back to attribute lookup. That fallback is
+what keeps ``{% for k, v in state.items() %}`` and ``{{ state.get('k', d) }}``
+working in apps that do *not* define keys by those names.
+
+The one cost, and the reason to think twice before naming a key after a method:
+in an app that defines ``state["get"]``, the expression ``{{ state.get('k') }}``
+resolves to that value and then fails with a ``TypeError`` because it is not
+callable. Use ``{{ state['k'] }}`` or the ``default`` filter there instead.
+
 Async and background work
 -------------------------
 
@@ -92,7 +125,7 @@ Long-running operations should not block the event loop. Typical pattern:
         app.state.loading = True
         try:
             data = await api.fetch()
-            app.state.items = data
+            app.state["items"] = data   # 'items' shadows a method: use subscript
         finally:
             app.state.loading = False
 
