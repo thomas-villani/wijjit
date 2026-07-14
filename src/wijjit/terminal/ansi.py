@@ -12,7 +12,7 @@ import threading
 from collections.abc import Iterator
 from typing import Any
 
-from wcwidth import wcswidth, wcwidth  # type: ignore[import-untyped]
+from wcwidth import wcswidth, wcwidth
 
 from wijjit.logging_config import get_logger
 

@@ -4,7 +4,7 @@ This module provides the ScreenBuffer class for managing 2D cell arrays and
 the DiffRenderer class for generating minimal ANSI output by comparing buffers.
 """
 
-from wcwidth import wcswidth  # type: ignore[import-untyped]
+from wcwidth import wcswidth
 
 from wijjit.terminal.cell import Cell, is_continuation
 

@@ -267,9 +267,15 @@ ignore_missing_imports = true
 module = "wijjit.core.suspend"
 disable_error_code = ["unused-ignore"]
 
-# The wcwidth `# type: ignore[import-untyped]` is needed against older,
-# stub-less wcwidth releases but is "unused" once wcwidth ships py.typed; relax
-# warn_unused_ignores so the import line is valid across wcwidth versions.
+# wcwidth ships py.typed in newer releases but not in older ones (0.2.14 has no
+# marker, so mypy reports import-untyped there and treats the module as Any).
+# Silencing it at the third-party boundary - as we already do for pyperclip and
+# PIL - keeps the three `from wcwidth import ...` lines valid across versions.
+# The alternative, a `# type: ignore[import-untyped]` on each import, is itself
+# version-dependent: it is required against a stub-less wcwidth and reported as
+# an unused ignore against a typed one, so CI and a dev venv on different
+# wcwidth releases cannot both be green. This override has no such split, and
+# where wcwidth does ship types mypy still uses them.
 [[tool.mypy.overrides]]
-module = "wijjit.terminal.ansi"
-disable_error_code = ["unused-ignore"]
+module = "wcwidth"
+ignore_missing_imports = true
