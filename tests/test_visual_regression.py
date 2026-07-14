@@ -397,6 +397,88 @@ class TestComplexTemplateSnapshots:
         assert output == snapshot
 
 
+class TestEmittedAnsiGoldens:
+    """Goldens over the RAW emitted ANSI stream, escape codes included.
+
+    Every other golden/snapshot in the suite strips ANSI (plain-text buffer
+    serializations), so SGR regressions, missing resets, and style bleed were
+    previously invisible (review Part 4). These snapshot the exact byte
+    stream the app writes to its backend, via the harness's recording tee.
+    """
+
+    TEMPLATE = """
+{% vstack width=80 height=24 %}
+    {% frame height=3 title="Emitted ANSI Golden" border="double" %}
+        Styled multi-element screen
+    {% endframe %}
+    {% hstack height=12 %}
+        {% frame width=40 title="Form" %}
+            {% vstack %}
+                {% textinput id="name" placeholder="Your name" %}{% endtextinput %}
+                {% button id="ok" %}Submit{% endbutton %}
+            {% endvstack %}
+        {% endframe %}
+        {% frame width=40 title="Chart" %}
+            {% barchart id="chart" data=chart_data width=34 height=8 %}{% endbarchart %}
+        {% endframe %}
+    {% endhstack %}
+{% endvstack %}
+    """.strip()
+
+    def _harness(self):
+        from wijjit.testing import WijjitHarness, app_from_template
+
+        app = app_from_template(
+            self.TEMPLATE,
+            context={"chart_data": [("Mon", 10), ("Tue", 25), ("Wed", 18)]},
+        )
+        app.config["DEFAULT_THEME"] = "dark"
+        return WijjitHarness(app, size=(80, 24))
+
+    def test_first_paint_emitted_ansi(self, snapshot):
+        """The initial full paint's raw ANSI stream is stable."""
+        with self._harness() as h:
+            assert h.emitted_frames, "no frame was emitted"
+            assert h.emitted_frames[0] == snapshot
+
+    def test_focus_diff_emitted_ansi(self, snapshot):
+        """Focusing the input emits a stable, small styled diff frame."""
+        with self._harness() as h:
+            h.press("tab")
+            assert h.last_frame == snapshot
+
+    def test_keystroke_diff_is_wellformed(self):
+        """A one-char edit emits an absolute-positioned, reset-terminated diff.
+
+        Not a golden: asserts structural SGR hygiene so it stays robust to
+        theme changes while still catching missing resets, full-screen
+        repaints on tiny edits, and relative-positioning regressions.
+        """
+        import re
+
+        with self._harness() as h:
+            h.press("tab")
+            h.type("x")
+            frame = h.last_frame
+
+            assert frame, "keystroke emitted no frame"
+            # Diff runs are anchored with absolute cursor positioning.
+            assert re.search(r"\x1b\[\d+;\d+H", frame), frame
+            # No full-screen clear for a one-character edit.
+            assert "\x1b[2J" not in frame
+            # Styles are closed out by the end of the frame.
+            assert frame.rstrip().endswith("\x1b[0m")
+            # Every styled run is eventually reset: after the final SGR that
+            # sets attributes there must be a reset before the frame ends.
+            last_set = max(
+                (m.start() for m in re.finditer(r"\x1b\[[0-9;]*m", frame)),
+                default=-1,
+            )
+            assert "\x1b[0m" in frame[last_set:] or frame[last_set:].startswith(
+                "\x1b[0m"
+            )
+
+
 class TestAlignmentSnapshots:
     """Snapshot tests for content alignment."""
 

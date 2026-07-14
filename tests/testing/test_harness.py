@@ -153,3 +153,28 @@ def test_scripted_input_handler_queue():
 async def test_read_input_async_returns_none_when_empty():
     handler = ScriptedInputHandler()
     assert await handler.read_input_async(timeout=0.0) is None
+
+
+class TestEmittedFrameCapture:
+    """The harness records raw write_frame payloads and restores the backend."""
+
+    def test_emitted_frames_record_the_raw_stream(self):
+        app = make_app()
+        with WijjitHarness(app, size=(60, 14)) as h:
+            assert len(h.emitted_frames) >= 1
+            first = h.emitted_frames[0]
+            # Full first paint: screen clear + real SGR styling.
+            assert "\x1b[2J" in first
+            assert "\x1b[" in first
+            before = len(h.emitted_frames)
+            h.press("tab")
+            assert len(h.emitted_frames) > before
+            assert h.emitted_ansi().startswith(first)
+            assert h.last_frame == h.emitted_frames[-1]
+
+    def test_backend_restored_after_close(self):
+        app = make_app()
+        original = app._backend
+        with WijjitHarness(app, size=(60, 14)):
+            assert app._backend is not original  # tee installed
+        assert app._backend is original  # tee removed
