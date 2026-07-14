@@ -69,9 +69,11 @@ class ScreenBuffer:
     continuation cells and advances the diff cursor by each glyph's true column
     width, so wide glyphs no longer overflow borders or desync the cursor.
 
-    Remaining gaps (roadmap): (a) elements that write cells directly through
-    ``buffer.set_cell`` in per-character loops (review items 2.1/2.11) are not
-    yet cluster-aware and can still miscolumn wide glyphs; (b)
+    Element rendering also goes through this path now: all elements paint via
+    the clipped, wide-aware ``PaintContext`` write APIs (``write_text``,
+    ``write_cell``, ``write_cells``/``write_cells_vertical``); direct
+    ``buffer.set_cell`` loops were migrated out (review items 2.1/2.11) and a
+    ratchet test keeps them out. Remaining gap (roadmap):
     :func:`wijjit.rendering.ansi_adapter.ansi_string_to_cells` -- used for
     pre-rendered ANSI content such as Rich-rendered tables with
     ``content_type="ansi"`` -- still maps one code point per cell.
