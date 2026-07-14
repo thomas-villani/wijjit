@@ -112,6 +112,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **Sync state callbacks ran on whatever thread performed the write**, racing
+  the renderer and - worse - reading the wrong terminal size. `State` now runs
+  every callback on the event-loop thread regardless of which thread wrote,
+  marshalling with `call_soon_threadsafe` when a worker thread performs the
+  assignment (the async half of this landed earlier; this is the sync half).
+  `set_async()` and `async_batch_update()` used to `run_in_executor` their sync
+  callbacks, which was the framework's *own* path off the loop thread - no user
+  threads required. That mattered because `get_terminal_size()` reads a
+  `ContextVar` and context is not propagated into executor threads, so
+  `app._on_state_change` silently fell back to the *process* terminal size and
+  marked, say, an 80x24 region dirty on a 200x60 session - leaving everything
+  beyond that unrepainted. A `State` with no running loop still invokes
+  callbacks inline, so bare/sync use is unchanged.
+- **Reassigning a mutable value after mutating it in place fired nothing.**
+  `state["rows"] = state["rows"]` (after `rows.append(x)`) compared the mutated
+  list against itself, hit the equality gate, and silently did not re-render -
+  and so did the other idiom the docs recommended, `state["rows"] =
+  list(state["rows"])`, because a value-equal copy of an already-mutated list is
+  indistinguishable from a no-op write. `State` now detects the same-object
+  write, fires the change (it cannot prove the container is unchanged, and a
+  spurious repaint beats a missed one), and warns pointing at the immutable
+  idiom. The value-equal-copy case is unfixable and is now documented as such:
+  **build the new container first, then assign** (`state[k] = [*state[k], x]`).
+  Order is what matters - copy-then-mutate works, mutate-then-copy is silent.
+  The equality gate is unchanged for scalars and immutable containers.
 - **`Slider`, `Toggle`, and `DataGrid` never wrote their value back to
   state.** All three advertised `bind=True` and read `state[id]` at render,
   but none was wired, so nothing subscribed to the `on_change` they were

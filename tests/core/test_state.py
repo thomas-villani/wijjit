@@ -641,3 +641,253 @@ class TestAsyncCallbackTracking:
         await state.flush_pending_async()
 
         assert completed == [2]
+
+
+class TestInPlaceMutation:
+    """Reassigning a mutable value after mutating it in place (review 2.9).
+
+    ``__setitem__`` compares the incoming value against the *live* object in
+    ``self.data``. Once a container has been mutated in place, the
+    pre-mutation snapshot is gone, so a value-based comparison cannot tell a
+    real change from a no-op. See :meth:`State.__setitem__`.
+    """
+
+    def test_bare_inplace_append_is_still_silent(self):
+        """``state[k].append(x)`` never reaches __setitem__, so nothing fires.
+
+        This is inherent - the write never goes through State at all - and is
+        pinned here so the limit stays visible.
+        """
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["rows"].append("b")
+
+        callback.assert_not_called()
+
+    def test_self_assign_of_mutated_list_fires(self):
+        """``state[k] = state[k]`` after an in-place mutation must notify.
+
+        We cannot prove the container did not change, and a spurious repaint
+        is strictly better than a missed one. Before the 2.9 fix this fired
+        nothing: the equality gate compared the mutated list against itself.
+        """
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        rows = state["rows"]
+        rows.append("b")
+        state["rows"] = rows
+
+        callback.assert_called_once()
+
+    def test_self_assign_of_mutated_dict_fires(self):
+        """Same escape hatch for dicts."""
+        state = State({"cfg": {"a": 1}})
+        callback = Mock()
+        state.on_change(callback)
+
+        cfg = state["cfg"]
+        cfg["b"] = 2
+        state["cfg"] = cfg
+
+        callback.assert_called_once()
+
+    def test_self_assign_of_mutated_set_fires(self):
+        """Same escape hatch for sets."""
+        state = State({"tags": {"a"}})
+        callback = Mock()
+        state.on_change(callback)
+
+        tags = state["tags"]
+        tags.add("b")
+        state["tags"] = tags
+
+        callback.assert_called_once()
+
+    def test_self_assign_of_unmutated_container_also_fires(self):
+        """The alias case fires even when nothing actually changed.
+
+        This is the accepted cost of the escape hatch: we cannot distinguish
+        "mutated in place" from "genuinely unchanged" once we are handed back
+        the same object. A redundant repaint is the safe direction.
+        """
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["rows"] = state["rows"]
+
+        callback.assert_called_once()
+
+    def test_immutable_rebuild_fires_once(self):
+        """The recommended idiom: build the new container, then assign."""
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["rows"] = [*state["rows"], "b"]
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b"]
+
+    def test_value_equal_copy_after_mutation_cannot_be_detected(self):
+        """The un-rescuable case, pinned deliberately.
+
+        ``state[k] = list(state[k])`` after an in-place mutation is a *new*
+        object, so the alias check does not catch it - and it is value-equal
+        to the already-mutated original, so the equality gate rejects it. It
+        is indistinguishable from a genuine no-op write, and there is no fix
+        short of snapshotting every container on read. The docs tell users to
+        build the new list first instead.
+        """
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["rows"].append("b")
+        state["rows"] = list(state["rows"])
+
+        callback.assert_not_called()
+
+    def test_scalar_no_op_write_stays_silent(self):
+        """The equality gate must survive for scalars."""
+        state = State({"count": 5, "name": "a", "flag": True})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["count"] = 5
+        state["name"] = "a"
+        state["flag"] = True
+
+        callback.assert_not_called()
+
+    def test_immutable_container_no_op_write_stays_silent(self):
+        """Tuples/frozensets/strings cannot be mutated in place, so the
+        equality gate is still trustworthy for them."""
+        state = State({"pair": (1, 2), "frozen": frozenset({1})})
+        callback = Mock()
+        state.on_change(callback)
+
+        state["pair"] = (1, 2)
+        state["frozen"] = frozenset({1})
+
+        callback.assert_not_called()
+
+    def test_self_assign_warns_pointing_at_the_immutable_idiom(self, wijjit_caplog):
+        """The escape hatch works, but tells you the better way."""
+        state = State({"rows": ["a"]})
+        state.on_change(Mock())
+
+        state["rows"] = state["rows"]
+
+        warnings = [
+            r.getMessage()
+            for r in wijjit_caplog.records
+            if r.levelno >= logging.WARNING
+        ]
+        assert any("rows" in m for m in warnings)
+
+
+class TestSyncCallbackThreadAffinity:
+    """Sync state callbacks must run on the loop thread (review 2.8).
+
+    ``app._on_state_change`` mutates renderer/dirty state and reads the
+    terminal size from a ContextVar. Running it on a writer or executor
+    thread both races the renderer and reads the wrong size (context is not
+    propagated across threads).
+    """
+
+    @pytest.mark.asyncio
+    async def test_worker_thread_write_runs_sync_callback_on_loop_thread(self):
+        """A sync on_change registered on the loop must not be invoked on the
+        worker thread that performed the write."""
+        state = State({"a": 0})
+        threads = []
+        loop_thread = threading.get_ident()
+
+        def record(key, old, new):
+            threads.append(threading.get_ident())
+
+        state.on_change(record)
+
+        # Capture state._loop via a loop-thread set first.
+        state["a"] = 1
+        assert threads == [loop_thread]
+
+        t = threading.Thread(target=lambda: state.__setitem__("a", 2))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive()
+
+        await state.flush_pending_async()
+
+        assert len(threads) == 2
+        assert threads[1] == loop_thread, "sync callback ran on the writer thread"
+
+    @pytest.mark.asyncio
+    async def test_set_async_runs_sync_callback_on_loop_thread(self):
+        """``set_async`` must not ship sync callbacks to an executor thread.
+
+        It used to ``await loop.run_in_executor(...)`` them, which is what
+        silently broke the terminal-size ContextVar read in
+        ``app._on_state_change``.
+        """
+        state = State({"a": 0})
+        threads = []
+        loop_thread = threading.get_ident()
+
+        state.on_change(lambda key, old, new: threads.append(threading.get_ident()))
+
+        await state.set_async("a", 1)
+
+        assert threads == [loop_thread]
+
+    @pytest.mark.asyncio
+    async def test_async_batch_update_runs_sync_callback_on_loop_thread(self):
+        """Same for the async batch context, which shares the dispatch path."""
+        state = State({"a": 0, "b": 0})
+        threads = []
+        loop_thread = threading.get_ident()
+
+        state.on_change(lambda key, old, new: threads.append(threading.get_ident()))
+
+        async with state.async_batch_update():
+            state["a"] = 1
+            state["b"] = 2
+
+        assert len(threads) == 2
+        assert all(t == loop_thread for t in threads)
+
+    @pytest.mark.asyncio
+    async def test_sync_watcher_also_runs_on_loop_thread(self):
+        """Key watchers take the same dispatch path as global callbacks."""
+        state = State({"a": 0})
+        threads = []
+        loop_thread = threading.get_ident()
+
+        state.watch("a", lambda key, old, new: threads.append(threading.get_ident()))
+
+        state["a"] = 1
+
+        t = threading.Thread(target=lambda: state.__setitem__("a", 2))
+        t.start()
+        t.join(timeout=5)
+        assert not t.is_alive()
+
+        await state.flush_pending_async()
+
+        assert len(threads) == 2
+        assert all(t == loop_thread for t in threads)
+
+    def test_sync_callback_without_a_loop_still_runs_inline(self):
+        """Bare State objects (no running loop) must keep working."""
+        state = State({"a": 0})
+        calls = []
+        state.on_change(lambda key, old, new: calls.append((key, old, new)))
+
+        state["a"] = 1
+
+        assert calls == [("a", 0, 1)]
