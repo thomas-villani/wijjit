@@ -199,7 +199,7 @@ Inside any template you can reference:
   (e.g., ``{{ title | default("overview") }}``).
 * Utility filters – everything from standard Jinja filters to custom helpers you register via ``app.renderer.env.filters``.
 
-Use ``{% set total = state.items | length %}`` for quick calculations, or compute in Python if it cleanly lives in your domain logic.
+Use ``{% set total = state.todos | length %}`` for quick calculations, or compute in Python if it cleanly lives in your domain logic.
 
 Best practices
 --------------

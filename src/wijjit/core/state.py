@@ -56,14 +56,22 @@ class State(UserDict[str, Any]):
     2
     """
 
-    # Reserved names that cannot be used as state keys because they collide with
-    # attribute access. Two groups:
-    #   1. dict/UserDict methods (accessing state.<name> returns the bound method),
-    #      plus "data" (UserDict's backing store).
-    #   2. State's own public methods (same shadowing problem).
-    # Using any of these as a key would make ``state.<name>`` / ``{{ state.<name> }}``
-    # resolve to the method or backing dict instead of the stored value.
-    _RESERVED_NAMES = {
+    # Names that collide with an attribute of this class: the dict/UserDict
+    # methods (plus "data", UserDict's backing store) and State's own public
+    # methods. They are all perfectly legal state *keys* - ``state["items"]``
+    # reads and writes ``self.data["items"]`` like any other key, and templates
+    # resolve ``{{ state.items }}`` to the key because ``WijjitEnvironment``
+    # (core/renderer.py) looks the key up before falling back to the attribute.
+    #
+    # What they cannot do is round-trip through Python *attribute* access:
+    # ``state.items`` finds the bound method (``__getattr__`` only fires when
+    # normal lookup fails), so it never reaches the data. We cannot invert that
+    # with ``__getattribute__`` without breaking the Mapping protocol itself -
+    # ``dict(state)`` calls ``state.keys()``, and internals call ``state.get()``.
+    # So attribute-style *writes* of these names are rejected in ``__setattr__``
+    # rather than silently storing a value the same syntax cannot read back;
+    # subscript access is unrestricted.
+    _SHADOWED_NAMES = {
         # dict / UserDict
         "items",
         "keys",
@@ -116,17 +124,6 @@ class State(UserDict[str, Any]):
         )  # Optional Callable[[str, BaseException], None] the host app can
         # set (``state._error_hook = fn``) to receive failures from async
         # on_change/watch callbacks that would otherwise only be logged.
-
-        # Validate keys don't conflict with dict methods
-        if data:
-            reserved_keys = set(data.keys()) & self._RESERVED_NAMES
-            if reserved_keys:
-                raise StateKeyError(
-                    f"State keys cannot use reserved names: {sorted(reserved_keys)}. "
-                    f"These names conflict with dict/State methods and will cause issues in Jinja2 templates. "
-                    f"Please use different key names, such as: "
-                    f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_keys))}"
-                )
 
         super().__init__(data or {})
 
@@ -190,19 +187,11 @@ class State(UserDict[str, Any]):
         value : Any
             The new value
 
-        Raises
-        ------
-        ValueError
-            If key is a reserved dict method name
+        Notes
+        -----
+        Any key is allowed, including names that shadow a State or dict method
+        (``state["items"]``). See :attr:`_SHADOWED_NAMES` for what that costs.
         """
-        # Validate key doesn't conflict with dict methods
-        if key in self._RESERVED_NAMES:
-            raise StateKeyError(
-                f"State key '{key}' is reserved (conflicts with a dict/State method). "
-                f"Please use a different key name such as '{key}_list' or '{key}_data'. "
-                f"In templates, use state['{key}_list'] instead of state.{key}."
-            )
-
         old_value = self.data.get(key)
         super().__setitem__(key, value)
 
@@ -247,24 +236,44 @@ class State(UserDict[str, Any]):
             The state key
         value : Any
             The new value
+
+        Raises
+        ------
+        StateKeyError
+            If ``name`` shadows a State or dict method (see
+            :attr:`_SHADOWED_NAMES`). The key itself is legal - use
+            ``state[name] = value``.
         """
         if name.startswith("_"):
             # Private attributes are set normally.
             object.__setattr__(self, name, value)
         elif name == "data":
-            # UserDict stores its backing dict in ``self.data``. Allow the
-            # internal assignment during construction (before ``data`` exists),
-            # but reject ``state.data = {...}`` afterwards: it would silently
-            # replace the whole store and fire no change callbacks. ``data`` is
-            # a reserved key (see _RESERVED_NAMES).
+            # UserDict stores its backing dict in ``self.data``. This branch
+            # must stay ahead of the _SHADOWED_NAMES guard below: UserDict's
+            # __init__ assigns ``self.data = {}`` before ``data`` exists in
+            # __dict__, and rejecting that would make State unconstructible.
+            # Afterwards, reject ``state.data = {...}``: it would silently
+            # replace the whole store and fire no change callbacks.
             if "data" not in self.__dict__:
                 object.__setattr__(self, name, value)
             else:
                 raise StateKeyError(
-                    "'data' is reserved (it is State's backing store). "
-                    "To replace all state use state.reset(new_dict); to set a "
-                    "value use a different key such as state['data_value']."
+                    "'data' is State's backing store, so 'state.data = ...' "
+                    "would replace all state without firing change callbacks. "
+                    "To replace all state use state.reset(new_dict); to store a "
+                    "value under the key 'data' use state['data'] = value."
                 )
+        elif name in self._SHADOWED_NAMES:
+            # The key is legal, but this *syntax* cannot read it back:
+            # ``state.items`` finds the bound method, never the data. Refuse
+            # the write rather than store a value the same expression cannot
+            # retrieve.
+            raise StateKeyError(
+                f"'{name}' shadows State.{name}, so 'state.{name}' reads back "
+                f"the method, not your value. Use state['{name}'] = value "
+                f"instead - the key itself is fine, and templates resolve "
+                f"{{{{ state.{name} }}}} to it."
+            )
         else:
             # Set as state data
             self[name] = value
@@ -854,14 +863,6 @@ class State(UserDict[str, Any]):
         >>> await state.set_async("user", {"name": "Alice"})
         # Database save is guaranteed to have completed
         """
-        # Validate key
-        if key in self._RESERVED_NAMES:
-            raise StateKeyError(
-                f"State key '{key}' is reserved (conflicts with a dict/State method). "
-                f"Please use a different key name such as '{key}_list' or '{key}_data'. "
-                f"In templates, use state['{key}_list'] instead of state.{key}."
-            )
-
         old_value = self.data.get(key)
         super().__setitem__(key, value)
 
@@ -915,28 +916,10 @@ class State(UserDict[str, Any]):
         **kwargs : Any
             Additional key-value pairs to update
 
-        Raises
-        ------
-        ValueError
-            If any key is a reserved dict method name
-
         Notes
         -----
-        This method validates all keys before updating to ensure none are
-        reserved. Each update triggers change callbacks via __setitem__.
+        Each update triggers change callbacks via __setitem__.
         """
-        # Validate all keys first (from both dict and kwargs)
-        all_keys = set(other.keys()) | set(kwargs.keys())
-        reserved_found = all_keys & self._RESERVED_NAMES
-        if reserved_found:
-            raise StateKeyError(
-                f"State keys cannot use reserved names: {sorted(reserved_found)}. "
-                f"These names conflict with dict/State methods and will cause issues in Jinja2 templates. "
-                f"Please use different key names, such as: "
-                f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_found))}"
-            )
-
-        # All keys are valid, proceed with update
         for key, value in other.items():
             self[key] = value
         for key, value in kwargs.items():
@@ -949,23 +932,7 @@ class State(UserDict[str, Any]):
         ----------
         data : dict, optional
             New state data. If None, clears all state.
-
-        Raises
-        ------
-        ValueError
-            If any key is a reserved dict method name
         """
-        # Validate keys don't conflict with dict methods
-        if data:
-            reserved_keys = set(data.keys()) & self._RESERVED_NAMES
-            if reserved_keys:
-                raise StateKeyError(
-                    f"State keys cannot use reserved names: {sorted(reserved_keys)}. "
-                    f"These names conflict with dict/State methods and will cause issues in Jinja2 templates. "
-                    f"Please use different key names, such as: "
-                    f"{', '.join(f'{k}_list' if k == 'items' else f'{k}_data' for k in sorted(reserved_keys))}"
-                )
-
         old_data = dict(self.data)
         self.data.clear()
 

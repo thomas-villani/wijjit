@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import Reconciler
 from wijjit.core.render_context import render_context_scope
+from wijjit.core.state import State
 from wijjit.core.vdom import VNode
 from wijjit.elements.base import Element
 from wijjit.layout.engine import (
@@ -113,6 +114,57 @@ from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 logger = get_logger(__name__)
 
 
+class WijjitEnvironment(Environment):
+    """Jinja2 environment that resolves State keys ahead of State methods.
+
+    Jinja compiles ``{{ state.items }}`` to ``environment.getattr(state,
+    "items")``, whose default implementation tries ``getattr`` first. On a
+    :class:`~wijjit.core.state.State` (a ``UserDict``) that finds the bound
+    ``items`` method and never reaches the data, which is why a whole family
+    of names - ``items``, ``keys``, ``values``, ``get``, ``data``, ... - used
+    to be banned as state keys outright.
+
+    Preferring the key when one exists frees every one of those names. The
+    fallback to normal attribute lookup is what keeps the escape hatches
+    working: with no ``items`` key, ``{% for k, v in state.items() %}`` still
+    iterates the mapping, and ``{{ state.get('k', d) }}`` - the documented
+    idiom for guarding optional keys under ``DEBUG`` / ``StrictUndefined`` -
+    still calls the method. A genuinely missing name still falls all the way
+    through to ``self.undefined(...)``, so strict mode still raises.
+
+    Only ``State`` is special-cased; a plain dict in the template context keeps
+    Jinja's normal semantics, so ``{% for k, v in mydict.items() %}`` is
+    unaffected.
+
+    Notes
+    -----
+    The cost, which is inherent and documented: in an app that *does* define a
+    key named ``get``, ``{{ state.get('k') }}`` resolves to that value and then
+    fails with ``TypeError: not callable``. Naming a key after a method makes
+    the method unreachable from templates in that app.
+    """
+
+    def getattr(self, obj: Any, attribute: str) -> Any:
+        """Look up ``attribute`` on ``obj``, preferring State keys.
+
+        Parameters
+        ----------
+        obj : Any
+            The object being accessed in the template.
+        attribute : str
+            The attribute name.
+
+        Returns
+        -------
+        Any
+            The state value if ``obj`` is a State holding that key, otherwise
+            whatever Jinja's default lookup produces.
+        """
+        if isinstance(obj, State) and attribute in obj.data:
+            return obj.data[attribute]
+        return super().getattr(obj, attribute)
+
+
 class Renderer:
     """Template renderer using Jinja2.
 
@@ -180,7 +232,7 @@ class Renderer:
             logger.debug("Using DictLoader for inline string templates")
 
         # Create Jinja2 environment with custom extensions
-        self.env = Environment(
+        self.env = WijjitEnvironment(
             loader=loader,
             autoescape=autoescape,
             auto_reload=auto_reload,

@@ -35,41 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New demo app: `examples/apps/system_monitor.py`, a live system resource
   monitor (CPU/memory line chart, per-core gauges; requires `psutil`)
   driven by a background worker thread updating reactive state.
-
-### Fixed
-- **Elements could paint over the borders and content around a scrolled
-  frame.** `PaintContext` enforces a clip region, but roughly half the
-  element library bypassed it by writing buffer cells directly, so an
-  element taller than a scrollable frame's interior overwrote the frame's
-  border and whatever sat above/below it once scrolled. All element
-  rendering now goes through clipped, wide-char-aware `PaintContext` write
-  APIs (`write_cell` emits head + continuation cells for wide glyphs and
-  returns the columns consumed; new bulk `write_cells` /
-  `write_cells_vertical` cover row/column runs), a ratchet test keeps
-  direct buffer writes out of `src/wijjit/elements/`, and a clip-regression
-  suite drives ten element types through both overflow directions. The
-  migration also fixed three latent bugs: chart borders *replaced* the
-  inherited clip instead of intersecting it, TextArea/CodeEditor painted one
-  column wider than their assigned bounds when a scrollbar appeared, and
-  ContentView bled padding rows outside its bounds.
-- **Wide characters landed on the wrong cells in element-painted content.**
-  TextArea/CodeEditor content, the reverse-video cursor, and selection
-  highlights were placed by character index at one-cell pitch, so CJK/emoji
-  shifted the row and the cursor/selection highlighted the wrong cells;
-  TextInput's caret had the same off-by-width bug. Element content loops are
-  now per-cluster with separate character (semantics) and column (placement)
-  counters. Pre-rendered ANSI content (`content_type="ansi"`) still maps one
-  code point per cell; see the `ScreenBuffer` docstring for scope.
-- **`app.running` was always `False`.** The `Wijjit.running` attribute was
-  set in `__init__` and never updated, so a worker thread polling it to know
-  when to stop (as examples suggest) exited immediately. It is now a
-  property delegating to the event loop's running flag.
-
-## [0.1.0] - 2026-06-28
-
-First public release.
-
-### Added
 - **`key=` reconciliation attribute** for element tags, separate from `id=`.
   Elements inside a `{% for %}` loop are keyed by position by default, so
   inserting or reordering rows silently migrates a row's state - a text input's
@@ -136,6 +101,51 @@ First public release.
 - Flask-style configuration system (`app.config`).
 
 ### Fixed
+- **`State` no longer reserves 21 key names.** Because `State` subclasses
+  `UserDict`, every one of its methods claimed a key name: `state["items"]`,
+  `state["keys"]`, `state["get"]`, `state["data"]` and 17 others raised
+  `StateKeyError`. Banning `items` in a framework built to render lists is a
+  landmine, and Wijjit's own documentation stepped on it twice. The collision
+  was only ever in Jinja's attribute lookup, so it is fixed there: the
+  template environment now resolves a present state key before falling back
+  to the attribute, so `{{ state.items }}` renders your list while
+  `{% for k, v in state.items() %}` and `{{ state.get('k', d) }}` still work
+  in apps that define no such keys. All key names are now legal via subscript.
+  Python-side attribute *reads* of a method-shadowing name still find the
+  method (inverting that would break `dict(state)`, which calls `keys()`), so
+  attribute *writes* of those names raise a `StateKeyError` pointing at
+  `state["items"] = ...` rather than storing a value the same syntax cannot
+  read back.
+- **`State.copy()` raised `StateKeyError` on every call.** `UserDict.copy()`
+  reassigns `self.data`, which `State.__setattr__` rejects to stop callers
+  silently replacing the whole store. `State` now overrides `copy()`.
+- **Elements could paint over the borders and content around a scrolled
+  frame.** `PaintContext` enforces a clip region, but roughly half the
+  element library bypassed it by writing buffer cells directly, so an
+  element taller than a scrollable frame's interior overwrote the frame's
+  border and whatever sat above/below it once scrolled. All element
+  rendering now goes through clipped, wide-char-aware `PaintContext` write
+  APIs (`write_cell` emits head + continuation cells for wide glyphs and
+  returns the columns consumed; new bulk `write_cells` /
+  `write_cells_vertical` cover row/column runs), a ratchet test keeps
+  direct buffer writes out of `src/wijjit/elements/`, and a clip-regression
+  suite drives ten element types through both overflow directions. The
+  migration also fixed three latent bugs: chart borders *replaced* the
+  inherited clip instead of intersecting it, TextArea/CodeEditor painted one
+  column wider than their assigned bounds when a scrollbar appeared, and
+  ContentView bled padding rows outside its bounds.
+- **Wide characters landed on the wrong cells in element-painted content.**
+  TextArea/CodeEditor content, the reverse-video cursor, and selection
+  highlights were placed by character index at one-cell pitch, so CJK/emoji
+  shifted the row and the cursor/selection highlighted the wrong cells;
+  TextInput's caret had the same off-by-width bug. Element content loops are
+  now per-cluster with separate character (semantics) and column (placement)
+  counters. Pre-rendered ANSI content (`content_type="ansi"`) still maps one
+  code point per cell; see the `ScreenBuffer` docstring for scope.
+- **`app.running` was always `False`.** The `Wijjit.running` attribute was
+  set in `__init__` and never updated, so a worker thread polling it to know
+  when to stop (as examples suggest) exited immediately. It is now a
+  property delegating to the event loop's running flag.
 - **Wide characters (CJK, emoji, decomposed accents) misaligned everything to
   their right.** Layout measured text in terminal columns (`wcwidth`) but the
   writer stored one buffer cell per Python character and the diff renderer
