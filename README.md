@@ -389,29 +389,36 @@ for every attribute.
 
 ## Performance
 
-Wijjit renders through a virtual DOM into a cell-based screen buffer, then
-writes only the cells that actually changed.
+Wijjit renders through a virtual DOM into a cell-based screen buffer. Each frame
+it writes only the cells that actually changed, and on the incremental path it
+also skips re-painting elements whose content and position did not change at all.
 
 On a 200x60 terminal, a full repaint of a dashboard (a table, two charts, and a
-button row) writes **15,949 bytes**. Advancing the sparkline by one tick writes
-**39 bytes**. A frame in which nothing changed writes **nothing at all**. That
+button row) writes **15,980 bytes**. Advancing the sparkline by one tick writes
+**37 bytes**. A frame in which nothing changed writes **nothing at all**. That
 is what keeps a Wijjit app flicker-free and responsive over SSH.
 
 | Dashboard frame | 80x24 | 200x60 |
 | --- | --- | --- |
-| Bytes written, full repaint | 3,696 B | 15,949 B |
-| Bytes written, one change | 39 B | 39 B |
+| Bytes written, full repaint | 3,676 B | 15,980 B |
+| Bytes written, one change | 37 B | 37 B |
 | Bytes written, idle frame | 0 B | 0 B |
-| Render time, full repaint | ~7 ms | ~20 ms |
-| Render time, one change | ~8 ms | ~25 ms |
+| Render time, full repaint | ~14 ms | ~20 ms |
+| Render time, one change | ~13 ms | ~14 ms |
 
 Reproduce with `uv run python scripts/bench_perf.py`. The byte counts are
 deterministic and regression-tested; the timings come from one Windows machine,
 vary by tens of percent with system load, and are rounded accordingly.
 
-Note that the diff renderer costs slightly *more* CPU than a blind repaint — it
-compares every cell — and buys a large reduction in terminal I/O in exchange.
-The [performance guide](https://thomas-villani.github.io/wijjit/user_guide/performance.html)
+The steady-state render is cheaper than a full repaint, not just quieter on the
+wire. The incremental paint path — the one a running app uses — starts each frame
+from a copy of the previous one, skips the elements that did not change, and
+diffs only what moved, so a localized edit does work proportional to *what
+changed* rather than to the size of the view. A full repaint (the worst case:
+first paint or a terminal resize) still touches every cell. The dashboard's
+one-change render is only modestly cheaper because its table repaints wholesale;
+a form of independent widgets sees roughly a 2x steady-state speedup. The
+[performance guide](https://thomas-villani.github.io/wijjit/user_guide/performance.html)
 has the full picture, including how to profile your own app.
 
 ## Accessibility
