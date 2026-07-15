@@ -149,3 +149,86 @@ def test_engagement_requires_the_flag():
 
     # All 5 labels repaint every frame when the fast path is disabled.
     assert calls["n"] >= 5, f"expected all labels to repaint, got {calls['n']}"
+
+
+# --------------------------------------------------------------------------
+# Interactive-widget signatures (checkbox/toggle/slider/radiogroup/...).
+# Each widget added a render_signature(); drive real interactions with verify
+# mode on so any missing render input surfaces as an error, and pin on/off
+# equivalence across the same script.
+# --------------------------------------------------------------------------
+
+_WIDGET_TEMPLATE = (
+    "{% vstack %}"
+    '{% textinput id="name" %}{% endtextinput %}'
+    '{% checkbox id="agree" %}I agree{% endcheckbox %}'
+    '{% toggle id="dark" %}Dark mode{% endtoggle %}'
+    '{% slider id="vol" min=0 max=100 %}{% endslider %}'
+    '{% radiogroup id="plan" options=plans %}{% endradiogroup %}'
+    '{% checkboxgroup id="feats" options=feats %}{% endcheckboxgroup %}'
+    "{% endvstack %}"
+)
+
+_PLANS = [
+    {"value": "basic", "label": "Basic"},
+    {"value": "pro", "label": "Pro"},
+]
+_FEATS = [
+    {"value": "a", "label": "Alpha"},
+    {"value": "b", "label": "Beta"},
+]
+
+
+def _make_widget_app():
+    app = Wijjit()
+
+    @app.view("main", default=True)
+    def main():
+        return render_template_string(_WIDGET_TEMPLATE, plans=_PLANS, feats=_FEATS)
+
+    return app
+
+
+def _drive_widgets(skip_unchanged, verify=False):
+    """Tab through the widgets and mutate each; return per-frame screens."""
+    app = _make_widget_app()
+    screens = []
+    with WijjitHarness(app, size=(50, 18)) as h:
+        app.renderer.skip_unchanged_elements = skip_unchanged
+        app.renderer._verify_skips = verify
+        h.press("tab")  # -> name
+        h.type("Al")
+        screens.append(h.screen())
+        h.press("tab")  # -> checkbox
+        h.press("space")  # toggle checked
+        screens.append(h.screen())
+        h.press("tab")  # -> toggle
+        h.press("space")  # flip toggle
+        screens.append(h.screen())
+        h.press("tab")  # -> slider
+        h.press("right")  # move handle
+        h.press("right")
+        screens.append(h.screen())
+        h.press("tab")  # -> radiogroup
+        h.press("down")  # change selection/highlight
+        screens.append(h.screen())
+        h.press("tab")  # -> checkboxgroup
+        h.press("space")  # toggle a member
+        screens.append(h.screen())
+        h.assert_no_errors()
+        return screens
+
+
+def test_widget_signatures_screen_equals_full_paint():
+    """Widget interactions render identically with the skip fast path on/off."""
+    on = _drive_widgets(True)
+    off = _drive_widgets(False)
+    assert len(on) == len(off)
+    for i, (a, b) in enumerate(zip(on, off, strict=True)):
+        assert a == b, f"widget frame {i} differs between skip-on and skip-off"
+
+
+def test_widget_signatures_pass_verify_mode():
+    """Verify mode finds no incomplete widget signature across interactions."""
+    screens = _drive_widgets(True, verify=True)
+    assert all(s.strip() for s in screens)

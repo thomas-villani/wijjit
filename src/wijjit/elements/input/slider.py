@@ -212,6 +212,26 @@ class Slider(Element):
         ratio = pos / (track_width - 1)
         return self.min_val + ratio * (self.max_val - self.min_val)
 
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the backing value and range (which fix the handle position),
+        the track width, and the label/value-display flags. ``focused`` (handle
+        color) is folded into :meth:`_style_signature`. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "slider",
+            self._value,
+            self.min_val,
+            self.max_val,
+            self.width,
+            self.label,
+            self.show_value,
+            self.float_mode,
+            self._style_signature(),
+        )
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render slider to paint context.
 

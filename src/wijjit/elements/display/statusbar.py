@@ -6,7 +6,7 @@ fixed bar at the bottom of the screen with left, center, and right sections.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.terminal.ansi import ANSIColor, clip_to_width, visible_length
@@ -108,6 +108,25 @@ class StatusBar(Element):
 
         color_name = self.text_color.upper()
         return getattr(ANSIColor, color_name, None)
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the three section texts and the instance color overrides
+        (``bg_color``/``text_color``) plus the style-affecting state. Section
+        placement/clipping is a pure function of these and the bar width
+        (compared separately as geometry). See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "statusbar",
+            self.left,
+            self.center,
+            self.right,
+            self.bg_color,
+            self.text_color,
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the status bar using cell-based rendering (NEW API).

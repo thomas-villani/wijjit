@@ -5,7 +5,7 @@ indicators in terminal user interfaces. Supports multiple display styles
 including filled bars, percentages, and gradients.
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.rendering.paint_context import PaintContext
@@ -375,6 +375,26 @@ class ProgressBar(Element):
             return bar + percentage_text
         else:
             return bar
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the value and range (the percentage is a pure function of
+        those), the display and bar characters, whether the percentage text is
+        shown, and the style-affecting state. The ``color`` prop is not read by
+        this cell-based ``render_to`` (coloring comes from theme styles). See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "progress",
+            self.value,
+            self.max_value,
+            self.style,
+            self.show_percentage,
+            self.fill_char,
+            self.empty_char,
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the progress bar using cell-based rendering (NEW API).

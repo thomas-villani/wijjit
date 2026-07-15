@@ -5,7 +5,7 @@ circle/dot indicator with an optional label. Supports preset statuses
 (error, warning, success, etc.) and custom user-defined statuses.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.terminal.ansi import supports_unicode
@@ -171,6 +171,23 @@ class StatusIndicator(Element):
             return INDICATOR_SQUARE
         else:  # "filled" or default
             return INDICATOR_FILLED
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the current status, indicator style, label, and the runtime
+        status registry (which drives the indicator color and character), plus
+        the style-affecting state. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "status_indicator",
+            self._status,
+            self.indicator_style,
+            self.label,
+            tuple(sorted(self._statuses.items())),
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render status indicator to paint context.

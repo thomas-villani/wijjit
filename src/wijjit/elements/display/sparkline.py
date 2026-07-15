@@ -343,6 +343,27 @@ class Sparkline(Element):
 
         return canvas.to_lines()
 
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the extracted values, the rendering style, the display
+        dimensions, the min/max and current-value toggles, the color override,
+        the border style, and the style-affecting state. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "sparkline",
+            tuple(self.values),
+            self.style,
+            self.width,
+            self.height,
+            self.show_current,
+            self.show_minmax,
+            self.color,
+            self.border_style,
+            self._style_signature(),
+        )
+
     def render_to(self, ctx: PaintContext) -> None:
         """Render the sparkline using cell-based rendering.
 

@@ -219,6 +219,33 @@ class ColumnChart(Element):
     def color(self, value: str) -> None:
         self.color_mode = value  # type: ignore[assignment]
 
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the extracted values and labels, the chart/column geometry
+        (width, height, column width, spacing, axis width), the label/axis/grid
+        toggles, the coloring inputs (mode, scale), the border style, and the
+        style-affecting state. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "columnchart",
+            tuple(self.values),
+            tuple(self.labels),
+            self.width,
+            self.height,
+            self.column_width,
+            self.spacing,
+            self.show_labels,
+            self.show_axis,
+            self.axis_width,
+            self.show_grid,
+            self.color_mode,
+            self.color_scale,
+            self.border_style,
+            self._style_signature(),
+        )
+
     def render_to(self, ctx: PaintContext) -> None:
         """Render the column chart using cell-based rendering.
 

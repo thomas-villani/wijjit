@@ -201,6 +201,16 @@ class Checkbox(Element):
 
         return (width, 1)
 
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the label plus the style-affecting state (``checked`` and
+        ``focused`` are folded into :meth:`_style_signature`); the checkbox
+        glyph is a pure function of those. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return ("checkbox", self.label, self._style_signature())
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render checkbox using cell-based rendering.
 
@@ -520,6 +530,26 @@ class CheckboxGroup(Element):
                     start += text_len + 1  # +1 for the inter-option space
 
         return False
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the options, the selected set (snapshotted - it is mutated in
+        place by :meth:`toggle_option`), the keyboard highlight, and the
+        border/layout inputs the paint reads. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "checkboxgroup",
+            tuple((o["value"], o["label"]) for o in self.options),
+            frozenset(self.selected_values),
+            self.highlighted_index,
+            self.orientation,
+            self.width,
+            self.border_style,
+            self.title,
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render checkbox group using cell-based rendering.
