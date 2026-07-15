@@ -131,6 +131,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **Text style could bleed into the shell prompt after the app exited.**
+  Teardown showed the cursor and left the alternate buffer but never reset SGR
+  attributes, so an active colour/bold/reverse from the last frame - or, worse,
+  from a frame whose render raised before it could emit its own trailing reset -
+  persisted on the normal screen. Every teardown path (the event loop's normal
+  `finally`, the signal/`atexit` emergency restore, and `ScreenManager.cleanup`)
+  now emits `\x1b[0m` before showing the cursor and leaving the alternate buffer
+  (review Part 4 #5a).
 - **Nested scrollable frames re-ran layout ~O(2^depth) every frame.** A
   scrollable frame that needs a scrollbar re-lays-out its whole subtree one
   column narrower to reserve the gutter; because that second pass recursed into

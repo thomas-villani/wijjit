@@ -310,6 +310,10 @@ class EventLoop:
             # Unregister suspend handlers before terminal cleanup
             self.app.suspend_manager.unregister()
             logger.debug("Unregistered suspend handlers")
+            # Reset any lingering text style so a crash mid-frame (or a final
+            # styled cell) does not colour the user's shell prompt.
+            self.app.screen_manager.reset_sgr()
+            logger.debug("Reset SGR attributes")
             # Show cursor before exiting
             self.app.screen_manager.show_cursor()
             logger.debug("Shown cursor")
@@ -345,7 +349,8 @@ class EventLoop:
         This is the signal-safe subset of the normal ``finally`` teardown:
         output-only writes plus ``termios`` restoration, in the same order used
         for suspend (suspend handlers off, then mouse tracking and raw mode off,
-        then cursor shown, then the alternate buffer exited last). It
+        then SGR attributes reset, cursor shown, and the alternate buffer exited
+        last). It
         deliberately does **not** cancel tasks, join the reader
         thread, or shut down the executor - any of which could block or deadlock
         when invoked from a signal - since the process is terminating anyway.
@@ -364,6 +369,10 @@ class EventLoop:
         # then leave the alternate buffer last.
         try:
             app.input_handler.restore_terminal()
+        except Exception:
+            pass
+        try:
+            app.screen_manager.reset_sgr()
         except Exception:
             pass
         try:

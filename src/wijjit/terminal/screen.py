@@ -10,7 +10,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TextIO
 
-from wijjit.terminal.ansi import ANSICursor, ANSIScreen
+from wijjit.terminal.ansi import ANSICursor, ANSIScreen, ANSIStyle
 
 
 class ScreenManager:
@@ -127,6 +127,18 @@ class ScreenManager:
             self.output.flush()
             self._cursor_hidden = False
 
+    def reset_sgr(self) -> None:
+        """Reset all text graphic attributes (SGR) to their defaults.
+
+        Emitted on teardown so an active color/bold/reverse style does not
+        bleed into the user's shell prompt after the app exits. This matters
+        most on an abnormal exit: a render that raises mid-frame never emits
+        its own trailing reset, so whatever SGR state the previous frame left
+        active would otherwise persist on the normal screen.
+        """
+        self.output.write(ANSIStyle.RESET)
+        self.output.flush()
+
     def set_title(self, title: str) -> None:
         """Set the terminal window title.
 
@@ -167,6 +179,7 @@ class ScreenManager:
         to an already-closed stream during interpreter shutdown are swallowed.
         """
         try:
+            self.reset_sgr()
             if self._cursor_hidden:
                 self.show_cursor()
             if self.in_alternate_buffer:

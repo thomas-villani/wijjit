@@ -9,16 +9,69 @@ removed on a clean exit, and restores the right terminal state when invoked.
 from __future__ import annotations
 
 import asyncio
+import io
 import threading
 from unittest.mock import Mock, patch
 
 import pytest
 
-from wijjit.core.app import Wijjit
+from wijjit import Wijjit, render_template_string
 from wijjit.core.event_loop import EventLoop
 from wijjit.core.state import State
+from wijjit.terminal.ansi import ANSICursor, ANSIScreen, ANSIStyle
+from wijjit.terminal.backend import TerminalBackend
 from wijjit.terminal.cleanup import get_terminal_cleanup
 from wijjit.terminal.input import Key, KeyType
+
+
+class _NullInput:
+    """An :class:`InputSource` that never yields input and touches nothing."""
+
+    mouse_enabled = False
+
+    async def read_input_async(self, timeout=None):
+        return None
+
+    def enable_mouse_tracking(self, mode=None):
+        pass
+
+    def disable_mouse_tracking(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def restore_terminal(self) -> None:
+        pass
+
+
+class _CaptureBackend(TerminalBackend):
+    """Backend that records every byte written to the terminal.
+
+    ``owns_terminal=False`` keeps it from installing process-global
+    signal/atexit handlers or driving a real tty, so the loop's teardown is
+    exercised in full without side effects on the test process.
+    """
+
+    owns_terminal = False
+    provides_size = True
+
+    def __init__(self, size: tuple[int, int] = (80, 24)) -> None:
+        self.buffer = io.StringIO()
+        self._size = size
+
+    @property
+    def screen_output(self) -> io.StringIO:
+        return self.buffer
+
+    def write_frame(self, data: str) -> None:
+        self.buffer.write(data)
+
+    def get_size(self) -> tuple[int, int]:
+        return self._size
+
+    def create_input_handler(self, *, enable_mouse, mouse_tracking_mode):
+        return _NullInput()
 
 
 class TestEmergencyRestoreWiring:
@@ -69,6 +122,7 @@ class TestEmergencyRestoreBehavior:
 
         app.suspend_manager.unregister.assert_called_once()
         app.input_handler.restore_terminal.assert_called_once()
+        app.screen_manager.reset_sgr.assert_called_once()
         app.screen_manager.show_cursor.assert_called_once()
         app.screen_manager.exit_alternate_buffer.assert_called_once()
 
@@ -162,6 +216,76 @@ class TestWorkerScheduledStateTasksVisibleToShutdown:
 
         assert all(task.cancelled() for task in pending_tasks)
         assert state._pending_tasks == set()
+
+
+class TestTerminalRestoreOnCrash:
+    """Review Part 4 #5a: a crash *after* the terminal is set up must still
+    restore it on the way out.
+
+    The dangerous case is an exception that escapes ``run_async`` once the app
+    is already in the alternate buffer with the cursor hidden - without the
+    teardown, the user is dumped back to a hidden-cursor alternate screen with
+    whatever text style the frame left active. A render-time template error is
+    the cleanest trigger: the view builds a valid ``RenderedView`` (so setup
+    completes and the alternate buffer is entered), and the error only fires
+    when ``_render(fatal=True)`` executes the template, inside the try/finally.
+    """
+
+    def _run_until_crash(
+        self, template: str, **context
+    ) -> tuple[BaseException | None, str]:
+        backend = _CaptureBackend()
+        app = Wijjit(backend=backend)
+
+        @app.view("main", default=True)
+        def main():
+            return render_template_string(template, **context)
+
+        raised: BaseException | None = None
+        try:
+            asyncio.run(app.event_loop.run_async())
+        except BaseException as exc:  # noqa: BLE001
+            raised = exc
+        return raised, backend.buffer.getvalue()
+
+    def test_render_crash_propagates_and_restores_terminal(self):
+        def boom():
+            raise RuntimeError("boom during render")
+
+        raised, out = self._run_until_crash(
+            "{% text %}{{ boom() }}{% endtext %}", boom=boom
+        )
+
+        # The error is not swallowed - the app exits by propagating it.
+        assert isinstance(raised, RuntimeError)
+
+        # The terminal was actually set up before the crash...
+        assert ANSIScreen.alternate_buffer_on() in out
+        assert ANSICursor.hide() in out
+
+        # ...and every teardown step was emitted on the way out.
+        assert ANSIStyle.RESET in out, "SGR was not reset on crash teardown"
+        assert ANSICursor.show() in out, "cursor was not shown on crash teardown"
+        assert (
+            ANSIScreen.alternate_buffer_off() in out
+        ), "alternate buffer was not exited on crash teardown"
+
+    def test_teardown_order_leaves_a_clean_normal_screen(self):
+        def boom():
+            raise RuntimeError("boom during render")
+
+        _, out = self._run_until_crash("{% text %}{{ boom() }}{% endtext %}", boom=boom)
+
+        enter = out.index(ANSIScreen.alternate_buffer_on())
+        reset = out.rindex(ANSIStyle.RESET)
+        show = out.rindex(ANSICursor.show())
+        exit_alt = out.index(ANSIScreen.alternate_buffer_off())
+
+        # Restore happens after setup, and the alternate buffer is left last so
+        # the SGR reset and cursor-show land while still on the alt screen (SGR
+        # state is shared, so the normal screen is clean once we switch back).
+        assert enter < reset < exit_alt
+        assert enter < show < exit_alt
 
 
 @pytest.fixture(autouse=True)
