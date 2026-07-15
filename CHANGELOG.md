@@ -131,6 +131,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **Nested scrollable frames re-ran layout ~O(2^depth) every frame.** A
+  scrollable frame that needs a scrollbar re-lays-out its whole subtree one
+  column narrower to reserve the gutter; because that second pass recursed into
+  nested frames that also doubled, a depth-3 chain cost 7 layout passes per
+  render and each extra level doubled again. `FrameNode.assign_bounds` now
+  predicts the gutter from the frame's persisted `_needs_scroll` and lays the
+  subtree out once, re-laying-out only on the frame where scrolling actually
+  turns on or off. Steady-state layout is now one pass per frame - linear in
+  depth (depth-3: 7 -> 3 passes); the cold first render settled 7 -> 6. The
+  reserved-gutter behavior is unchanged (review item 2.4).
 - **`SplitPanel` could compute negative panel sizes and held the app strongly.**
   When `min_first + min_second` exceeded the usable space, `_calculate_sizes`
   drove a pane negative (e.g. `(-2, 5)`); sizes now clamp into `[0, usable]` and

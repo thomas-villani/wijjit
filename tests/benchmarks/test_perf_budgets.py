@@ -146,12 +146,23 @@ class TestAppLevelByteBudgets:
 class TestLayoutPassBudget:
     """Pin the layout-pass count so review item 2.4 cannot get worse.
 
-    ``FrameNode.assign_bounds`` re-runs the whole subtree layout a second
-    time when a scrollable frame needs a scrollbar column, so nesting
-    scrollable frames doubles per level: a depth-3 chain costs 7 passes
-    (1 + 2 + 4) per render today. That O(2^depth) behavior is review item
-    2.4; this test pins the current cost so a fix ratchets it DOWN and any
-    regression that adds another multiplier fails loudly.
+    ``FrameNode.assign_bounds`` re-lays-out the whole subtree a second time
+    when a scrollable frame needs a scrollbar column. Before review 2.4 was
+    fixed that second pass ran on *every* frame and recursed into nested
+    frames that also doubled, so a depth-3 chain cost 7 passes (1 + 2 + 4)
+    per render, O(2^depth).
+
+    The fix predicts the gutter from the frame's persisted ``_needs_scroll``
+    so steady-state layout is a single pass per frame - linear in depth. The
+    redundant re-layout now runs only on the frame where scrolling turns on
+    or off (a transition), so:
+
+    - the first render (cold, ``_needs_scroll`` starts False everywhere)
+      settled from 7 to 6 passes, and
+    - every subsequent render of the same tree is 3 passes (one per frame).
+
+    These budgets pin both so the fix cannot silently regress and any change
+    that reintroduces a per-level multiplier fails loudly.
     """
 
     NESTED = """
@@ -160,7 +171,7 @@ class TestLayoutPassBudget:
 {% endframe %}{% endframe %}{% endframe %}
 """
 
-    def test_nested_scrollable_frames_layout_pass_count(self, monkeypatch):
+    def _count_passes(self, renderer, monkeypatch):
         from wijjit.layout.engine import FrameNode
 
         calls = {"n": 0}
@@ -171,13 +182,32 @@ class TestLayoutPassBudget:
             return orig(self, *args, **kwargs)
 
         monkeypatch.setattr(FrameNode, "assign_bounds", spy)
-        renderer = Renderer()
         renderer.render_with_layout(self.NESTED, width=80, height=24)
+        monkeypatch.undo()
+        return calls["n"]
 
-        # Measured 2026-07-13: 7 (the 2^depth - 1 doubling of review 2.4).
-        assert 0 < calls["n"] <= 7, (
-            f"depth-3 nested scrollable frames took {calls['n']} "
-            "FrameNode.assign_bounds passes (was 7; see review item 2.4)"
+    def test_cold_layout_pass_count(self, monkeypatch):
+        """First render of a cold tree (review 2.4: was 7, now 6)."""
+        renderer = Renderer()
+        passes = self._count_passes(renderer, monkeypatch)
+        assert 0 < passes <= 6, (
+            f"cold depth-3 nested scrollable frames took {passes} "
+            "FrameNode.assign_bounds passes (budget 6; see review item 2.4)"
+        )
+
+    def test_steady_state_layout_is_linear(self, monkeypatch):
+        """Re-rendering the same tree is one pass per frame (was 7, now 3).
+
+        This is the review-2.4 win: with ``_needs_scroll`` already known from
+        the prior frame, the gutter is reserved up front and no frame does the
+        doubling second pass. Depth-3 -> 3 passes, linear in depth.
+        """
+        renderer = Renderer()
+        renderer.render_with_layout(self.NESTED, width=80, height=24)  # warm up
+        passes = self._count_passes(renderer, monkeypatch)
+        assert 0 < passes <= 3, (
+            f"steady-state depth-3 nested scrollable frames took {passes} "
+            "FrameNode.assign_bounds passes (budget 3; see review item 2.4)"
         )
 
 

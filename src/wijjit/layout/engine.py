@@ -2112,9 +2112,6 @@ class FrameNode(Container):
 
         # Lay out children in content area
         if self.content_container.children:
-            self.content_container.assign_bounds(
-                inner_x, inner_y, inner_width, inner_height
-            )
 
             # Calculate total child content height for scrolling
             # Recursively find the bottom-most element across all descendants
@@ -2148,31 +2145,52 @@ class FrameNode(Container):
 
                 return max_bottom
 
-            # Find maximum bottom across all descendants
-            max_bottom = find_max_bottom(self.content_container, inner_y)
+            def scrollbar_reserved() -> bool:
+                """Whether the vertical-scrollbar column must be reserved.
 
-            # Set child content height on frame for scrolling calculations
-            # Always call this when there are children, even if calculated height is 0
+                The scrollbar is drawn in the rightmost interior column (the
+                renderer's clip and the frame's own ``render_to`` both subtract
+                one column for it), so a ``width="fill"`` child laid out at the
+                full inner width overhangs into it: its right border falls
+                outside the clip and the scrollbar overdraws it, leaving the
+                child visually open on the right. When this is true the children
+                are laid out one column narrower so their right edge clears the
+                gutter.
+                """
+                return (
+                    self.frame.style.scrollable
+                    and self.frame._needs_scroll
+                    and self.frame.style.show_scrollbar
+                    and inner_width > 1
+                )
+
+            # Predict the gutter from the frame's *previous* scroll state so the
+            # common case lays the whole subtree out exactly once. ``_needs_scroll``
+            # persists on the reused Frame element across renders, so a frame that
+            # was scrolling last frame is almost certainly scrolling this one; a
+            # frame that fit still fits. Laying out at the correct width up front
+            # avoids the full re-layout that made review item 2.4 O(2^depth): that
+            # second pass recurses into nested frames, each of which doubled again.
+            reserve = scrollbar_reserved()
+            layout_width = inner_width - 1 if reserve else inner_width
+            self.content_container.assign_bounds(
+                inner_x, inner_y, layout_width, inner_height
+            )
+            # Always call this when there are children, even if calculated height
+            # is 0 - it (re)creates the scroll manager and recomputes _needs_scroll
+            # from the measured content height.
+            max_bottom = find_max_bottom(self.content_container, inner_y)
             self.frame.set_child_content_height(max_bottom)
 
-            # Reserve the vertical-scrollbar column once we know scrolling is
-            # actually needed. The scrollbar is drawn in the rightmost interior
-            # column (the renderer's clip and the frame's own render_to both
-            # subtract one column for it), so a width="fill" child laid out at
-            # the full inner width overhangs into that column: its right border
-            # falls outside the clip and the scrollbar overdraws it, leaving the
-            # child frame visually open on the right. Re-lay the children one
-            # column narrower so their right edge clears the scrollbar. This is
-            # gated on _needs_scroll (known only after the first layout populates
-            # the content height) so frames whose content fits are unchanged.
-            if (
-                self.frame.style.scrollable
-                and self.frame._needs_scroll
-                and self.frame.style.show_scrollbar
-                and inner_width > 1
-            ):
+            # Correct a mispredicted gutter with a single re-layout. This runs
+            # only on the transition frame where scrolling turns on (content grew
+            # past the viewport) or off (content shrank to fit) - not in steady
+            # state - so the amortized cost stays at one subtree layout per frame.
+            if scrollbar_reserved() != reserve:
+                reserve = not reserve
+                layout_width = inner_width - 1 if reserve else inner_width
                 self.content_container.assign_bounds(
-                    inner_x, inner_y, inner_width - 1, inner_height
+                    inner_x, inner_y, layout_width, inner_height
                 )
                 max_bottom = find_max_bottom(self.content_container, inner_y)
                 self.frame.set_child_content_height(max_bottom)
