@@ -4,8 +4,7 @@ This module provides the ScreenBuffer class for managing 2D cell arrays and
 the DiffRenderer class for generating minimal ANSI output by comparing buffers.
 """
 
-from wcwidth import wcswidth
-
+from wijjit.terminal.ansi import display_width
 from wijjit.terminal.cell import Cell, is_continuation
 
 # A single shared blank cell used to fill empty buffer positions. Cells are
@@ -58,7 +57,7 @@ def _cell_width(cell: Cell) -> int:
     """
     if is_continuation(cell):
         return 0
-    width: int = wcswidth(cell.char)
+    width: int = display_width(cell.char)
     return max(width, 1)
 
 

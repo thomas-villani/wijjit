@@ -426,6 +426,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **Faster text-width measurement: printable-ASCII fast path (`display_width`).**
+  With the per-frame allocation and full-screen diff costs removed by the two
+  changes below, profiling a 40-row Latin-text view showed the single largest
+  remaining per-render cost was `wcwidth`/`wcswidth` — the per-character Unicode
+  table bisection run for every glyph painted, every cell measured by the diff,
+  and every `visible_length` call. A new `wijjit.terminal.ansi.display_width`
+  fast-paths the overwhelmingly common all-printable-ASCII case (where each code
+  point is provably one column, so the width is just `len`) and otherwise defers
+  to `wcswidth` unchanged; the cell/width/wrap call sites route through it (and
+  their per-call `from wcwidth import ...` imports were hoisted). CJK/emoji/NFD
+  width handling is unaffected. Measured ~2x faster per render (~8.6 ms -> ~4.6 ms
+  on the profiled view); benefits the full-repaint path too, not just the
+  incremental one (review 2.5).
 - **Incremental (damage-tracked) rendering.** The base render used to repaint
   the whole view into a fresh buffer and diff the entire screen every frame, so
   a one-character edit cost the same as a full redraw (the bulk of per-keystroke

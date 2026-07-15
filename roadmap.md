@@ -184,9 +184,18 @@ handler was always correct).
   fallback and an ``incremental_render`` off-switch. Measured **~32% less
   per-render CPU on a localized edit** in a 40-row view, screen output
   byte-identical to the full-repaint path (pinned by an equivalence test +
-  emitted-bytes replay). **Still open:** (c) skip re-painting *unchanged
-  elements* entirely (``write_text`` still runs for every element each frame —
-  the diff is now cheap but the paint is not); and template/reconcile/wiring
+  emitted-bytes replay). **(4) printable-ASCII width fast path** — with the
+  allocation and diff costs gone, re-profiling showed the top remaining cost was
+  ``wcwidth``/``wcswidth`` (per-character Unicode-table bisection for every glyph
+  painted and every cell measured). ``ansi.display_width`` now fast-paths the
+  all-printable-ASCII case (provably one column each -> ``len``) and defers to
+  ``wcswidth`` otherwise; measured **~2x faster per render** (~8.6->~4.6 ms) and
+  it helps the full-repaint path too. **Still open:** (c) skip re-painting
+  *unchanged elements* entirely (``write_text`` still runs for every element each
+  frame — after the width fix the next-biggest lever is the paint itself: a
+  per-element render signature to blit an unchanged element's region from the
+  previous buffer); ``Cell`` allocation churn on paint (``__post_init__`` /
+  ``__eq__`` still show high call counts); and template/reconcile/wiring
   memoization (a distant last by measured cost).
 - [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
   while its scroll content size counts *wrapped* lines, so long lines clip

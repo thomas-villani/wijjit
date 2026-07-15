@@ -596,6 +596,36 @@ def _ansi_256_to_rgb(color_idx: int) -> tuple[int, int, int]:
         return (gray, gray, gray)
 
 
+def display_width(text: str) -> int:
+    """Terminal column width of ``text``, with a printable-ASCII fast path.
+
+    Semantically identical to :func:`wcwidth.wcswidth` - it returns the number
+    of terminal columns the string occupies, or ``-1`` when the string contains
+    an unprintable character - but skips the per-character Unicode-table
+    bisections for the overwhelmingly common all-printable-ASCII case.
+
+    The fast path is provably exact: within ASCII, ``str.isprintable()`` is true
+    exactly for the range ``0x20`` - ``0x7e``, and every code point in that range
+    is one column wide, so the width equals ``len(text)``. Any string containing
+    a wide/zero-width/combining glyph (non-ASCII) or an ASCII control character
+    (unprintable) falls through to ``wcswidth`` unchanged.
+
+    Parameters
+    ----------
+    text : str
+        Plain text (no ANSI codes) to measure.
+
+    Returns
+    -------
+    int
+        Display width in terminal columns, or ``-1`` if unprintable.
+    """
+    if text.isascii() and text.isprintable():
+        return len(text)
+    # wcwidth is untyped (returns Any); wcswidth always yields an int here.
+    return int(wcswidth(text))
+
+
 def visible_length(text: str) -> int:
     """Get the visible display width of text (excluding ANSI codes).
 
@@ -613,7 +643,7 @@ def visible_length(text: str) -> int:
         Visible display width of the text in terminal columns
     """
     clean = strip_ansi(text)
-    width = wcswidth(clean)
+    width = display_width(clean)
     # wcswidth returns -1 if string contains non-printable characters
     return width if width >= 0 else len(clean)
 
@@ -655,7 +685,11 @@ def iter_text_clusters(text: str) -> Iterator[tuple[str, int]]:
     """
     cluster, width = "", 0
     for ch in text:
-        w = wcwidth(ch)
+        # Printable-ASCII fast path: every code point in 0x20-0x7e is exactly
+        # one column, so skip the wcwidth Unicode-table lookup for it (the
+        # dominant case for Latin text). wcwidth handles the rest.
+        o = ord(ch)
+        w = 1 if 0x20 <= o < 0x7F else wcwidth(ch)
         if w == 0 and cluster:
             # Zero-width mark: fold it onto the current base cluster.
             cluster += ch
@@ -713,8 +747,10 @@ def clip_to_width(text: str, width: int, ellipsis: str = "...") -> str:
             i = end
         else:
             # Regular character - use wcwidth for proper display width
+            # (printable-ASCII fast path avoids the table lookup).
             char = text[i]
-            char_width = wcwidth(char)
+            o = ord(char)
+            char_width = 1 if 0x20 <= o < 0x7F else wcwidth(char)
             # wcwidth returns -1 for non-printable, treat as width 1
             if char_width < 0:
                 char_width = 1
