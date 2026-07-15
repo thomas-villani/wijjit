@@ -84,165 +84,31 @@ final CHANGELOG date. See Part 1.
 
 ## Part 2 - Deferred to 0.1.1
 
-These are intentionally out of scope for 0.1.0: demo-level, platform-specific
-(Windows input), cosmetic, or architecture-level (layout/render/reconcile) work
-not suitable for a rushed pre-release fix. Root causes are preserved so the fix
-can start from the analysis, not a fresh repro. Cross-referenced in `roadmap.md`.
+The detailed 0.1.1 backlog now lives in **`roadmap.md`**, which was made the
+single post-0.1.0 backlog on 2026-07-15. The framework correctness/architecture,
+internal-dedup, MEDIUM/LOW-correctness, and demo-polish items that used to be
+enumerated here (Parts 2a-2d) were migrated there, deduplicated against the
+existing roadmap buckets and the still-open framework-review findings. See in
+`roadmap.md`:
 
-### 2a - Framework: correctness / architecture
+- **0.1.1 -> Rendering / layout architecture** - dual frame-render path,
+  horizontal child-frame scroll (Group C), frame-overflow clip clamping
+  (Group D), per-keystroke full re-render (review 2.5), CodeEditor soft-wrap.
+- **0.1.1 -> Ephemeral-state preservation contract** - Tree expand-all (Group E),
+  keyless-element ephemeral loss + positional frame IDs, declarative ephemeral
+  props (review 2.6).
+- **0.1.1 -> Input & terminal handling** - Esc/Alt timeout + Alt-digit
+  reachability, SIGWINCH resize, ANSI-adapter pattern, DCS, mixed `%`+`fill`,
+  legacy mouse mode (review 2.12 tail).
+- **0.1.1 -> Framework correctness / cleanup** - internal dedup and the
+  MEDIUM/LOW correctness list (former Parts 2b/2c).
+- **0.1.1 -> Cosmetic / theming, Viewport / scrolling UX, Platform-specific** -
+  the demo-level polish (former Part 2d).
+- **0.1.x / 0.2+** - wide-char direct-paint sweep, plugin seam (review 3.5),
+  tagline repositioning (review 3.6), and the larger new-scope work.
 
-- **Wide-char (Theme A) screen-buffer rewrite.** *Core landed 2026-07-13*: the
-  continuation-cell model (glyph head cell + empty-char sentinel, no `Cell`
-  field change), a column-correct `write_text` (NFD combining marks fold onto
-  the base glyph, controls dropped, ANSI stripped whole), width-aware diff/
-  full-render emitters, and `visible_length`/`clip_to_width` frame-title math -
-  exactly the fix this item called for across `paint_context`/`screen_buffer`/
-  the diff renderer. See `etc/issues-opus4.8-260709.md` 1.3 for the resolution.
-  **Remaining**: the `len()`/raw-slicing width math in elements that paint via
-  direct `buffer.set_cell` loops (`text.py`, `checkbox.py`, `radio.py`,
-  `code_editor.py`, `datagrid.py` - overlaps the clip-region sweep, review 2.1/
-  2.11) and `ansi_string_to_cells` pre-rendered content (Rich tables etc.),
-  which still map one code point per cell.
-- **Reconciler ephemeral-state correctness.** (1) Keyless elements lose ephemeral
-  state (cursor/scroll/selection) on update because VNodes key on `id` - needs a
-  positional/path cache (`reconciler.py`). (2) Positional frame-ID generation
-  breaks scroll/collapse preservation under conditional layouts
-  (`render_context.py`). This is also the true root of tree "expand all" not
-  taking effect on live updates (external state writes don't repaint the tree
-  deterministically; wiring runs after paint).
-  **(3) FIXED 2026-07-10 - was silent data loss, not just ephemeral-state
-  loss.** Auto-generated ids are per-render positional counters and the
-  positional id doubled as the **state key**, so an unkeyed `{% for %}` head
-  insert moved the user's *typed value* to the wrong logical row. The fix
-  landed as a first-class `key=` attribute distinct from `id=` (which also
-  derives a stable per-row state id for inputs), an `unkeyed-loop-element`
-  lint in `devtools/validate.py`, and a reorder/head-insert regression suite
-  (`tests/integration/test_loop_reconciliation.py`). The unkeyed default
-  still migrates (pinned by a test - changing it risked masking real id
-  collisions). See `etc/issues-opus4.8-260709.md` section 1.1 for the full
-  resolution. Parts (1) and (2) above remain open.
-- **CodeEditor soft-wrap scroll desync** - renders actual lines while scroll
-  content size counts wrapped lines; long lines clip (`code_editor.py:478,839`).
-- **Unknown-attribute forwarding on tags** - *DONE 2026-07-13*, reversing the
-  earlier "deliberately not done" call. The stated risk (the update path would
-  `setattr` typo'd attributes) does not hold: `Reconciler._apply_prop_changes`
-  is `hasattr`-guarded, so an unknown name is skipped on update just as the
-  registry filters it on create. All VNode-building tags now forward leftover
-  kwargs through one `forward_extra_props` choke point (`tags/layout.py`), so
-  `wijjit validate` flags attribute typos on every element instead of only
-  textinput. See `etc/issues-opus4.8-260709.md` 3.1.
-- **Legacy "normal" mouse mode + per-byte multi-byte input** (`mouse.py`,
-  `input.py`) - SGR is the default and works; the legacy path needs bypassing
-  prompt_toolkit's UTF-8 decode (architectural, low value).
-- **Windows alt-/ctrl- key combos** (layout demo `[R][S][H][Q]` hints) - the
-  Win32 ESC-timeout lookahead likely never synthesizes `alt+` combos; verify on a
-  real console and document as a known limitation if it's a prompt_toolkit/Win32
-  limit.
-- **Horizontal scroll for child-content frames** - a multi-file layout+render
-  feature: lay child content out at intrinsic width under `overflow_x=scroll/auto`,
-  compute the horizontal extent, add a child-content horizontal scroll manager,
-  and thread `scroll_offset_x` + x-clip through the renderer (`frames.py`,
-  `engine.py`, `renderer.py`). Works today for TextArea and frame *text* content.
-- **Frame overflow / clip-region on scroll** - "features panel overflows the
-  frame top on scroll" (clip region not clamping to frame borders) and
-  frame_overflow's HStack width distribution for `3x50%` in one row. Needs a
-  focused layout-engine repro.
-- **Undefined template variables render as empty string** - *DONE 2026-07-13*,
-  exactly as proposed here: `Renderer(strict_undefined=...)` gated on the
-  `DEBUG` config flag (so `Wijjit(debug=True)` raises `UndefinedError` through
-  the normal error path), unconditionally strict in `wijjit validate` (with a
-  lenient fallback re-render so a raise does not strand the tree checks, and
-  render-time `undefined-variable` findings deduped against the static check),
-  lenient in production and inline paths so a single bad key can't crash a
-  running TUI. See `etc/issues-opus4.8-260709.md` 3.2.
-  **What the old behavior already cost:** the two `test_menu_integration.py`
-  skips (fixed earlier - see Completed) claimed dynamic and conditional menu
-  items were "not yet fully supported". They were supported all along; the
-  tests referenced bare `actions` / `is_admin` instead of `state.actions` /
-  `state.is_admin`, and default `Undefined` iterates as empty. A working
-  feature was believed broken for eight months because a typo failed silently.
-
-### 2b - Framework: internal dedup / cleanup (no API-shape risk)
-
-From the code-review Theme F and the API-audit CC-10/CC-14 tails. None are
-API-visible; they're where future bugs get applied inconsistently.
-- `read_input` vs `read_input_async` (~250 lines near-duplicated); scroll
-  key/wheel + `on_scroll` block re-inlined ~50x across the six scrollables;
-  view lifecycle-hook dispatch + `_navigate_sync/async_impl` near-duplicated;
-  border `2`/`-2` geometry (add `inner_dimensions()` helper - `BORDER_THICKNESS`
-  constant already landed); size-spec resolution across VStack/HStack/Grid; chart
-  `_get_*_color` wrappers; State reserved-key message x5; `DirtyRegion`
-  re-implements `Bounds` geometry.
-- Dead legacy string-render methods (`progress.py`, `statusbar.py`, `tree.py`,
-  `select.py`, `reconciler._collect_elements`, `mouse_router._route_to_element`);
-  large dead `CSSParser` compat class; divergent named-color->RGB maps
-  (centralize `ANSI_PALETTE`/`CSS_PALETTE`).
-- Manager-naming nits (CC-14 remainder): `clear_cache` means different caches on
-  Renderer vs Reconciler; hover/focus getter-setter verb parity; three manager DI
-  styles.
-
-### 2c - Remaining MEDIUM/LOW correctness items (condensed)
-
-Lower-severity items surfaced by the code review, not release-blocking:
-- **Core:** `on_key` registry overwrites handlers sharing a key; `State` has no
-  locking around callback lists despite documented multi-thread access;
-  `batch_update` drops all notifications on exception after applying writes;
-  `dispatch_async` lacks per-handler exception isolation; `set_focus_filter(None)`
-  is a no-op contradicting its docstring; non-interactive overlays
-  (tooltips/notifications at TOOLTIP z-index) can swallow clicks to base UI.
-- **Layout:** frame inner dims can go negative (missing `max(0,...)`);
-  `space-around` mis-distributes remainder + double-counts `column_gap`;
-  split-panel `_clamp_ratio` vs `_calculate_sizes` disagreement (resize jitter)
-  and unvalidated persisted state; `Size` fill/percentage classification
-  ambiguous for `"100%"`.
-- ~~**Input:** `Select.item_renderer`; `DataGrid` ragged rows; `handle_mouse`
-  not chaining to `super()`.~~ **All done** - see Completed ("Mouse-callback
-  chaining"). `item_renderer` was already removed in the pre-release audit
-  polish; this bullet was simply never struck.
-- **Display:** Table sort not stable + string-coerces mixed types; LogView
-  `set_lines` only auto-scrolls when content *grew*, so a direct-set replacement
-  of equal/shorter length doesn't re-tail (the reconcile/prop-sync path used by
-  apps is fixed - see Completed); ContentView re-renders content every frame;
-  Pager `remove_page` leaves scroll-state keys pointing at the wrong page.
-- **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
-  ticks/min-max not reserved in auto-height; HeatMap legend `bar_width` can go
-  negative; ImageView broad `except` + brittle duck-typing.
-- **Styling:** `font-weight:normal`/`text-decoration:none` never turn attributes
-  OFF; `theme.set_style` doesn't invalidate the resolver cache (stale styles);
-  `_infer_class_from_element` has stale keys (`radiobutton`, `listview`->`list`)
-  so ListView base styling isn't applied; no JSON theme loader despite CLAUDE.md
-  mentioning JSON.
-- **Config/API:** invalid `WIJJIT_LOG_LEVEL` silently -> INFO;
-  `LOG_TO_CONSOLE`/`LOG_FORMAT` config keys not wired; CLI `--context`/`context=`
-  silently ignored in `.py` app mode for `validate`/`tree`. (Note: `wijjit run`
-  itself works — it is intercepted before argparse and forwarded to pytest; the
-  `run` subparser exists only so `--help` lists it.)
-
-### 2d - Demo-level polish (cosmetic / behavioral, 0.1.1)
-
-Open items from the demo sweep; each is demo-scoped unless noted:
-- `autocomplete.py` - original caret not erased on language toggle (cosmetic
-  caret-erase on re-render).
-- `grid` - rowspan/colspan cells have no border (DataGrid span rendering).
-- `alert_dialog_demo.py` - color the error/success/info alert modals
-  (severity-based modal theming).
-- `content_view_demo.py` - scrolling main frame lets elements escape the top of
-  the parent frame (clip-region clamp on scroll; see 2a frame overflow).
-- `logview_demo.py` - buttons run off the right edge (demo layout). The
-  streaming-log auto-scroll-to-bottom is now fixed (see Completed).
-- `status_indicator_demo.py` - support a blinking state / blink after a change.
-- `textarea_demo.py` - need to show the end of long lines.
-- `tree_demo.py` - right panel shrinks to content; "add test node" button no-ops;
-  the `>` selector's background color is wrong (column ignores BG); expand-all /
-  collapse-all don't take effect (see 2a reconciler/tree expand-all).
-- `code_editor_demo.py` - Tab moves focus instead of indenting; add an option to
-  capture Tab.
-- `listview_demo.py` - "Add Fruit"/"Add Task" append correctly but the new row
-  lands below the viewport (no auto-scroll to the new row).
-- `context_menu_demo.py` - right-click context-menu path (Copy) needs a
-  real-console repro (experimental real-terminal mouse).
-- `executor_demo.py` - threaded-executor operation log needs a real wall-clock
-  thread-completion check (the frame-stepped headless harness can't drive it).
+This document is now the release *runbook* (Part 1); `roadmap.md` owns the
+backlog.
 
 ---
 
