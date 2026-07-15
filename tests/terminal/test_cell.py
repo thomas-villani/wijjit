@@ -3,7 +3,54 @@
 import pytest
 
 from wijjit.terminal import ansi
-from wijjit.terminal.cell import Cell
+from wijjit.terminal.cell import Cell, intern_cell
+
+
+class TestInternCell:
+    """intern_cell shares one Cell per (char, style) and matches Cell()."""
+
+    def test_same_key_returns_same_object(self):
+        """Identical arguments return the exact same object (interning)."""
+        a = intern_cell("R", (200, 200, 200), None, False, False, False, False, False)
+        b = intern_cell("R", (200, 200, 200), None, False, False, False, False, False)
+        assert a is b
+
+    def test_different_key_returns_different_object(self):
+        """A differing char or style attribute yields a distinct cell."""
+        base = intern_cell(
+            "R", (200, 200, 200), None, False, False, False, False, False
+        )
+        assert (
+            intern_cell("S", (200, 200, 200), None, False, False, False, False, False)
+            is not base
+        )
+        assert (
+            intern_cell("R", (0, 0, 0), None, False, False, False, False, False)
+            is not base
+        )
+        assert (
+            intern_cell("R", (200, 200, 200), None, True, False, False, False, False)
+            is not base
+        )
+
+    def test_equivalent_to_direct_construction(self):
+        """An interned cell equals (and renders like) a directly-built one."""
+        interned = intern_cell(
+            "X", (10, 20, 30), (1, 2, 3), True, False, True, False, False
+        )
+        direct = Cell(
+            "X", fg_color=(10, 20, 30), bg_color=(1, 2, 3), bold=True, underline=True
+        )
+        assert interned == direct
+        assert interned.to_ansi() == direct.to_ansi()
+        assert interned._style_mask == direct._style_mask
+
+    def test_interned_cells_feed_identity_short_circuit(self):
+        """Two interned lookups compare equal via the is-short-circuit."""
+        a = intern_cell("=", None, None, False, False, False, False, False)
+        b = intern_cell("=", None, None, False, False, False, False, False)
+        # Same object -> Cell.__eq__ returns True without comparing fields.
+        assert a is b and a == b
 
 
 class TestCell:

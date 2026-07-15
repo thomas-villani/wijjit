@@ -190,13 +190,17 @@ handler was always correct).
   painted and every cell measured). ``ansi.display_width`` now fast-paths the
   all-printable-ASCII case (provably one column each -> ``len``) and defers to
   ``wcswidth`` otherwise; measured **~2x faster per render** (~8.6->~4.6 ms) and
-  it helps the full-repaint path too. **Still open:** (c) skip re-painting
-  *unchanged elements* entirely (``write_text`` still runs for every element each
-  frame — after the width fix the next-biggest lever is the paint itself: a
-  per-element render signature to blit an unchanged element's region from the
-  previous buffer); ``Cell`` allocation churn on paint (``__post_init__`` /
-  ``__eq__`` still show high call counts); and template/reconcile/wiring
-  memoization (a distant last by measured cost).
+  it helps the full-repaint path too. **(5) interned cells on the paint path** —
+  ``write_text``/``fill_rect`` newed up a ``Cell`` per glyph per frame; a bounded
+  ``cell.intern_cell`` now shares one immutable cell per ``(char, style)`` (keyed
+  positionally), cutting allocation churn and feeding the diff's identity
+  short-circuit (unchanged glyph -> same object frame-over-frame). Measured
+  **~15% less per-render CPU** on top of (4). **Still open:** (c) skip
+  re-painting *unchanged elements* entirely (``write_text`` still runs for every
+  element each frame — the next-biggest lever is the paint itself: a per-element
+  render signature to blit an unchanged element's region from the previous
+  buffer); and template/reconcile/wiring memoization (a distant last by measured
+  cost).
 - [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
   while its scroll content size counts *wrapped* lines, so long lines clip
   (``code_editor.py:478,839``).
