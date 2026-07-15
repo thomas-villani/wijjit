@@ -444,6 +444,35 @@ class WijjitHarness:
         self._pump()
         return self
 
+    def resize(self, width: int, height: int) -> WijjitHarness:
+        """Resize the virtual terminal and drive the resulting re-layout.
+
+        Changes the size reported by the app's backend and pumps a frame, so
+        the event loop's resize-detection path runs exactly as it does on a live
+        terminal resize: overlays re-centre, notification positions update,
+        scroll offsets re-clamp to the new viewport, and the view re-lays-out
+        and repaints at the new dimensions. ``screen()`` / ``screen_ansi()``
+        reflect the new size afterward.
+
+        Parameters
+        ----------
+        width : int
+            New terminal width in columns.
+        height : int
+            New terminal height in rows.
+
+        Returns
+        -------
+        WijjitHarness
+            ``self``, for chaining.
+        """
+        if not self._started:
+            raise RuntimeError("resize() requires a started harness (call start())")
+        self._size = (width, height)
+        self.app.needs_render = True
+        self._pump()
+        return self
+
     # -- waiting -----------------------------------------------------------
 
     def wait_for(
@@ -843,9 +872,11 @@ class WijjitHarness:
 
     def _patch_terminal_size(self) -> None:
         self._orig_get_size = shutil.get_terminal_size
-        width, height = self._size
-        size = os.terminal_size((width, height))
-        shutil.get_terminal_size = lambda *a, **k: size  # type: ignore[assignment]
+        # Read self._size at call time (not captured) so resize() takes effect
+        # by updating the field, with no need to re-patch.
+        shutil.get_terminal_size = (  # type: ignore[assignment]
+            lambda *a, **k: os.terminal_size(self._size)
+        )
 
     def _restore_terminal_size(self) -> None:
         if self._orig_get_size is not None:
