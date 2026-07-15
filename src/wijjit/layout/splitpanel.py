@@ -6,6 +6,7 @@ two child elements with a draggable divider.
 
 from __future__ import annotations
 
+import weakref
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -216,11 +217,20 @@ class SplitPanel(Container):
         self._second_size: int = 0
         self._divider_pos: int = 0
 
-        # App reference for state binding
-        self._app: Wijjit | None = None
+        # App reference for state binding. Held weakly (like parent_frame) so a
+        # SplitPanel does not keep the whole application alive - the app owns the
+        # element tree, so a strong ref back would be a cycle.
+        self._app_ref: weakref.ref[Wijjit] | None = None
 
         # Make focusable if resizable (for keyboard navigation)
         self.focusable = resizable
+
+    @property
+    def _app(self) -> Wijjit | None:
+        """The bound application, or None if unset or already collected."""
+        if self._app_ref is None:
+            return None
+        return self._app_ref()
 
     def _parse_ratio(self, ratio_str: str) -> tuple[float, float]:
         """Parse ratio string to normalized tuple.
@@ -277,7 +287,7 @@ class SplitPanel(Container):
         app : Wijjit
             The application instance
         """
-        self._app = app
+        self._app_ref = weakref.ref(app)
         self._load_state()
 
     def _calculate_sizes(self, available: int) -> tuple[int, int, int]:
@@ -296,6 +306,10 @@ class SplitPanel(Container):
         # Divider takes 1 character
         usable = available - 1
 
+        # Too little room for even the divider: nothing to split.
+        if usable <= 0:
+            return (0, 0, 0)
+
         if self.first_collapsed:
             return (0, usable, 0)
         if self.second_collapsed:
@@ -312,6 +326,13 @@ class SplitPanel(Container):
         if second_size < self.min_second and not self.second_collapsed:
             second_size = min(self.min_second, usable - self.min_first)
             first_size = usable - second_size
+
+        # When both minimums cannot fit (min_first + min_second > usable) the
+        # steps above can drive a size negative. Clamp into [0, usable] and
+        # derive the other pane so the two always sum to usable and neither is
+        # negative - a best-effort split when there is simply not enough room.
+        first_size = max(0, min(first_size, usable))
+        second_size = usable - first_size
 
         divider_pos = first_size
 
@@ -473,20 +494,22 @@ class SplitPanel(Container):
 
     def _sync_state(self) -> None:
         """Persist ratio to app.state if id is set."""
-        if self.id and self._app:
-            self._app.state[f"{self.id}_ratio"] = self.current_ratio
-            self._app.state[f"{self.id}_collapsed"] = (
+        app = self._app
+        if self.id and app:
+            app.state[f"{self.id}_ratio"] = self.current_ratio
+            app.state[f"{self.id}_collapsed"] = (
                 self.first_collapsed,
                 self.second_collapsed,
             )
 
     def _load_state(self) -> None:
         """Load ratio from app.state on init."""
-        if self.id and self._app:
-            if f"{self.id}_ratio" in self._app.state:
-                self.current_ratio = self._app.state[f"{self.id}_ratio"]
-            if f"{self.id}_collapsed" in self._app.state:
-                self.first_collapsed, self.second_collapsed = self._app.state[
+        app = self._app
+        if self.id and app:
+            if f"{self.id}_ratio" in app.state:
+                self.current_ratio = app.state[f"{self.id}_ratio"]
+            if f"{self.id}_collapsed" in app.state:
+                self.first_collapsed, self.second_collapsed = app.state[
                     f"{self.id}_collapsed"
                 ]
 

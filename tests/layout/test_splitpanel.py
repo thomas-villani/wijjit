@@ -84,6 +84,23 @@ class TestSplitPanelSizeCalculation:
         first, second, divider_pos = panel._calculate_sizes(101)
         assert second >= 20
 
+    def test_no_negative_sizes_when_minimums_do_not_fit(self):
+        """Sizes stay non-negative when both minimums cannot fit (review 2.12).
+
+        min_first + min_second (10) exceeds usable space, which used to drive a
+        panel negative (e.g. (-2, 5, -2)). Sizes must clamp to [0, usable] and
+        still sum to usable.
+        """
+        panel = SplitPanel(ratio="50:50", min_first=5, min_second=5)
+        for available in (0, 1, 2, 3, 4, 6):
+            first, second, divider_pos = panel._calculate_sizes(available)
+            usable = max(0, available - 1)
+            assert (
+                first >= 0 and second >= 0
+            ), f"negative size at available={available}: {(first, second)}"
+            assert first + second == usable
+            assert 0 <= divider_pos <= usable
+
 
 class TestSplitPanelCollapse:
     """Tests for collapse behavior."""
@@ -255,6 +272,34 @@ class TestSplitPanelEphemeralState:
         assert panel.current_ratio == (0.3, 0.7)
         assert panel.first_collapsed is False
         assert panel.second_collapsed is True
+
+
+class TestSplitPanelAppRef:
+    """The app reference is weak so a panel never keeps the app alive (2.12)."""
+
+    def test_set_app_binds_and_reads_back(self):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        panel = SplitPanel(id="sp")
+        panel.set_app(app)
+        assert panel._app is app
+
+    def test_app_is_held_weakly(self):
+        import gc
+
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        panel = SplitPanel(id="sp")
+        panel.set_app(app)
+
+        del app
+        gc.collect()
+
+        # The panel must not have kept the app alive; the property degrades to
+        # None instead of dangling.
+        assert panel._app is None
 
 
 class TestSplitPanelNode:
