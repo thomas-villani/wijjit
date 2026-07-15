@@ -9,7 +9,7 @@ This demo showcases the CodeEditor element with:
 - All TextArea features (selection, clipboard, etc.)
 
 Controls:
-- Tab/Shift+Tab: Navigate between elements
+- Tab/Shift+Tab: Navigate between elements (the editor is focused first)
 - Arrow keys: Move cursor in editor
 - Ctrl+A: Select all
 - Ctrl+C/X/V: Copy/Cut/Paste
@@ -164,7 +164,7 @@ def main_view():
     {% endhstack %}
 
     {% codeeditor id="editor" language=state.language theme=state.theme
-                  width=84 height=15 show_line_numbers=True %}
+                  width=84 height=15 show_line_numbers=True tab_index=0 %}
     {% endcodeeditor %}
 
     {% hstack spacing=2 %}
