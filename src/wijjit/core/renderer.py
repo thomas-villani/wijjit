@@ -330,12 +330,13 @@ class Renderer:
         # scans changes rather than the whole screen. _spare_base_buffer is the
         # retired base buffer from the prior frame, reused as this frame's paint
         # target (pooled to avoid reallocation). _last_coverage is the set of
-        # cells painted last frame, used to blank vacated content. The path is
-        # only taken when it is provably safe (no overlays this or last frame,
-        # same size, not a forced full repaint) and can be disabled wholesale.
+        # cells painted last frame (packed ``y * width + x``), used to blank
+        # vacated content. The path is only taken when it is provably safe (no
+        # overlays this or last frame, same size, not a forced full repaint) and
+        # can be disabled wholesale.
         self.incremental_render = True
         self._spare_base_buffer: ScreenBuffer | None = None
-        self._last_coverage: set[tuple[int, int]] | None = None
+        self._last_coverage: set[int] | None = None
 
         # Diff renderer for efficient incremental updates
         self._diff_renderer = DiffRenderer()
@@ -1664,8 +1665,12 @@ class Renderer:
         this_coverage = buffer.end_tracking()
         if incremental and self._last_coverage:
             blank = buffer.blank_cell
-            for x, y in self._last_coverage - this_coverage:
-                buffer.set_cell(x, y, blank)
+            w = buffer.width
+            # Coverage is packed as ``y * width + x``; the incremental path is
+            # gated on an unchanged buffer size, so ``w`` matches the width used
+            # to pack ``_last_coverage`` on the previous frame.
+            for p in self._last_coverage - this_coverage:
+                buffer.set_cell(p % w, p // w, blank)
         self._last_coverage = this_coverage
 
         # Convert buffer to ANSI string for terminal output
