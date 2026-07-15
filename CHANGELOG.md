@@ -131,6 +131,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **Diff renderer emitted a redundant SGR prefix and reset per changed cell.**
+  `_render_row_diff` wrote `cell.to_ansi()` (style codes + char + `\x1b[0m`) for
+  every changed cell, so a contiguous run of same-styled cells shipped the whole
+  style prefix and a reset once *per cell* - a 10-cell run of red text was ~230
+  bytes. It now groups runs the way the full-render path already did: one prefix
+  per run, and the style even carries across a cursor jump to the next run (a
+  cursor move does not touch SGR state), with a single trailing reset. The same
+  10-cell run is now 37 bytes. Output is byte-for-byte equivalent in effect;
+  only redundant escapes are removed. Serves the project's bytes-saved
+  performance story (review item 2.12).
 - **Sync state callbacks ran on whatever thread performed the write**, racing
   the renderer and - worse - reading the wrong terminal size. `State` now runs
   every callback on the event-loop thread regardless of which thread wrote,
