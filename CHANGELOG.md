@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`WijjitHarness.resize(width, height)`** for driving a terminal resize
+  through the running loop in tests. It changes the size the app's backend
+  reports and pumps a frame, so the event loop's resize-detection path runs
+  exactly as on a live resize: the view re-lays-out, scroll offsets re-clamp to
+  the new viewport, centered overlays re-centre, and the buffer repaints at the
+  new dimensions. `screen()` / `screen_ansi()` reflect the new size afterward.
+  The harness was previously fixed-size, so none of this was testable (review
+  Part 4 #4).
 - **Undo/redo in `TextArea` and `CodeEditor`** (`Ctrl+Z` / `Ctrl+Y`). Editing
   was previously unrecoverable: `_delete_selection`, cut, and
   select-all-then-type discarded content with no history at all. Snapshots are
