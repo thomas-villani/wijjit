@@ -165,13 +165,25 @@ handler was always correct).
   scrolling the outer frame lets children escape the frame *top* (clip not
   clamped to the border row). ``frame_overflow_demo``: 3x50%-in-one-row HStack
   width distribution. Needs a focused layout-engine repro.
-- [ ] **Per-keystroke full re-render is linear in view size** (review 2.5).
-  Every handled key re-executes the whole template (compile-cached but
-  ``template.render`` runs the full body), diffs the whole VNode tree from the
-  root, and re-wires *all* elements (fresh lambdas) — regardless of how localized
-  the change is. No subtree-skip or VNode memoization. This is the root of the
-  honest "diff renderer saves bytes, not CPU" story; fine for typical views, but
-  it will not scale to large ones. Needs a subtree-dirty / memoization pass.
+- [~] **Per-keystroke full re-render is linear in view size** (review 2.5).
+  Profiling reframed this: the template re-exec / VNode diff / re-wire trio the
+  review named is **not** where the time goes — on a 40-row bound-input view,
+  Jinja render was ~11%, layout ~10%, and reconcile + wiring did not even reach
+  the top 25. **~64% was the paint stage** in ``_compose_output_cells``: newing
+  up a full-screen ``ScreenBuffer`` of ``Cell`` objects every frame (~1.28M
+  ``Cell.__post_init__`` calls over 200 renders) plus a full-buffer diff (every
+  state write marks the whole screen dirty, so the diff scans all rows).
+  **Landed:** empty buffer positions now share one blank ``Cell`` instead of
+  allocating one per position (``screen_buffer.py`` ``_BLANK_CELL``) — a
+  semantics-preserving ~17% cut in per-render CPU on that view, pinned by a
+  ratchet test. **Still open:** (a) reuse the ``ScreenBuffer`` across frames
+  (ping-pong the two retained base buffers instead of reallocating the row
+  lists — fiddly given the overlay/composite consumers of ``_last_base_buffer`` /
+  ``_last_displayed_buffer``); (b) only mark the changed element's region dirty
+  on a state write instead of the whole screen, so the diff scans locally;
+  (c) only repaint dirty elements rather than the whole element tree every frame
+  (higher risk — correctness). Template/reconcile/wiring memoization is a distant
+  fourth by measured cost.
 - [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
   while its scroll content size counts *wrapped* lines, so long lines clip
   (``code_editor.py:478,839``).

@@ -426,6 +426,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **Faster per-frame paint: empty screen-buffer cells share one blank `Cell`.**
+  `ScreenBuffer` used to allocate a distinct `Cell(" ")` for every position on
+  every render (a fresh buffer is composed each frame), which profiling showed
+  was the single largest per-keystroke cost — far more than the template
+  re-execution or VNode diff. Empty positions now reference one shared blank
+  cell, which is safe because the pipeline replaces cell slots and never mutates
+  a cell in place. Measured ~17% less CPU per render on a 40-row bound-input
+  view, with byte-for-byte identical output (review 2.5, partial; further wins —
+  buffer reuse and locality-limited diffing — tracked in `roadmap.md`).
 - **Setting `on_double_click` on a `Button` now suppresses activation on
   double-click.** The base handler runs first and claims the event, so the
   callback fires instead of the button activating. Without the callback, a
