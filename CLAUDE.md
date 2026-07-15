@@ -342,8 +342,8 @@ defaults; `tests/core/test_config.py` covers it.
 `examples/` has 72 runnable demos, organized into `basic/` (15), `widgets/`
 (30), `advanced/` (22), `styling/` (2), `apps/` (3). Run with
 `python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
-behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
-(Part 2).
+behavioral bugs deferred to 0.1.1, tracked with root causes in `roadmap.md`
+(the single post-0.1.0 backlog).
 
 ## Known Limitations / In-Progress
 
@@ -352,7 +352,7 @@ behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
   work.
 - A handful of demo bugs are deferred to 0.1.1 (horizontal child-frame scroll,
   tree expand-all, some layout/clip + Windows alt-keys); tracked with root
-  causes in `RELEASE_PLAN.md` (Part 2) and `roadmap.md`.
+  causes in `roadmap.md` (the single post-0.1.0 backlog).
 - No virtual scrolling for very large datasets.
 - Wide characters (CJK/emoji/NFD): the text path is wcwidth-aware via
   continuation cells. `PaintContext.write_text`, the diff and full-render
@@ -373,4 +373,5 @@ behavioral bugs deferred to 0.1.1, tracked with root causes in `RELEASE_PLAN.md`
 
 - New element: `docs/NEW-ELEMENTS.md`.
 - Docs structure: `docs/DOCUMENTATION_PLAN.md`.
-- Outstanding bugs/backlog: `RELEASE_PLAN.md` (Part 2) and `roadmap.md`.
+- Outstanding bugs/backlog: `roadmap.md` (the single post-0.1.0 backlog).
+  `RELEASE_PLAN.md` is the publish runbook.

@@ -3,6 +3,25 @@
 Scoping decisions for upcoming Wijjit releases. This is a living document —
 update as items move between buckets.
 
+## Sources & status (consolidated 2026-07-15)
+
+This is now the **single backlog** for all post-0.1.0 work. It absorbed the
+per-item backlogs that used to live in the other release trackers:
+
+- **`RELEASE_PLAN.md`** — trimmed to the release *runbook* only (Part 1: the
+  external publish steps). Its former "Part 2 — deferred to 0.1.1" backlog was
+  merged into this file (see "Framework correctness / cleanup" and the 0.1.1
+  sections below).
+- The pre-tag audit tracker's Tier 1–3 items all landed and were verified against
+  the tree; the only pre-tag item left is the CHANGELOG date, owned by
+  `RELEASE_PLAN.md` §1a.
+- The remaining framework-correctness items below carry short `(review N.N)`
+  labels — internal shorthand from the 0.1.0 code-review pass, kept only so the
+  original analysis is easy to correlate.
+
+**0.1.0 itself is code-complete** — everything below is post-tag work. The
+release is gated only on the external publish steps in `RELEASE_PLAN.md` Part 1.
+
 ## 0.1.0 (current release target)
 
 The framework is feature-complete for a credible first release: ~3000 tests
@@ -95,6 +114,13 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
   the clip-region sweep, review 2.1/2.11), plus ``ansi_string_to_cells``
   pre-rendered content (Rich tables), which still maps one code point per
   cell. Tracked from the 0.1.0 code review (Theme A, CRITICALs #2/#3/#5).
+- [ ] **Reposition the tagline** (review 3.6, docs-only). "Flask for the Console"
+  is a good on-ramp but a misleading *architectural* claim — the live-view +
+  vdom + reconciler design is the React model, and the Flask-shaped parts
+  (``@app.view``, ``render_template_string``, ``@app.on_action``) are thin.
+  Consider leading with what is genuinely defensible and Textual can't match: a
+  **lintable, headlessly-driveable, byte-diffed** template TUI toolkit. Keep
+  "Flask for the Console" as the on-ramp, not the architecture claim.
 
 ## 0.1.1 — deferred from the 0.1.0 example pass
 
@@ -139,6 +165,16 @@ handler was always correct).
   scrolling the outer frame lets children escape the frame *top* (clip not
   clamped to the border row). ``frame_overflow_demo``: 3x50%-in-one-row HStack
   width distribution. Needs a focused layout-engine repro.
+- [ ] **Per-keystroke full re-render is linear in view size** (review 2.5).
+  Every handled key re-executes the whole template (compile-cached but
+  ``template.render`` runs the full body), diffs the whole VNode tree from the
+  root, and re-wires *all* elements (fresh lambdas) — regardless of how localized
+  the change is. No subtree-skip or VNode memoization. This is the root of the
+  honest "diff renderer saves bytes, not CPU" story; fine for typical views, but
+  it will not scale to large ones. Needs a subtree-dirty / memoization pass.
+- [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
+  while its scroll content size counts *wrapped* lines, so long lines clip
+  (``code_editor.py:478,839``).
 
 ### Ephemeral-state preservation contract (reconciler)
 
@@ -161,6 +197,25 @@ those same fields.
   preserve" rule. Needs a reconciler design pass. Also (cosmetic): ``tree_demo``
   color behind the ``>`` selector ignores the BG; right panel shrinks to
   content; add-node button.
+- [ ] **Keyless elements lose ephemeral state on update; positional frame IDs
+  break under conditional layouts.** (1) Because VNodes key on ``id`` and unkeyed
+  elements get per-render positional ids, a keyless element loses its ephemeral
+  state (cursor/scroll/selection) on update — needs a positional/path cache
+  (``reconciler.py``). (2) Positional frame-ID generation breaks scroll/collapse
+  preservation under conditional (``{% if %}``) layouts (``render_context.py``).
+  Part (3) of this family — positional ids doubling as *state keys*, silent data
+  loss — was fixed in 0.1.0 via first-class ``key=`` (see review 1.1 / CHANGELOG);
+  (1) and (2) remain.
+- [ ] **Declarative control of ephemeral props** (review 2.6, generalizes Group
+  E). ``EPHEMERAL_PROPS`` (cursor/scroll/selection/highlight/focus) is filtered
+  out in *both* directions — ``_diff_props`` never turns a changed ephemeral prop
+  into a prop_change, and ``apply_props`` skips it. So there is no declarative way
+  to say "scroll this log to the bottom", "put the cursor at 0", or "select all"
+  from ``state`` / template context; a template setting ``cursor_pos={{ … }}`` is
+  silently ignored. The only escape hatch is imperative mutation of the live
+  element inside a handler (awkward, undocumented). The reactive story stops at
+  *value*; UI-position state is imperative-only. Same reconciler design pass as
+  Group E: a "bound prop lets state win, else preserve" rule.
 
 ### Frozen view-``data`` snapshot (DX trap) — RESOLVED 0.1.0
 
@@ -230,6 +285,100 @@ those same fields.
   column; the emoji clock frame ("Working with clock..k") is sized with
   ``len()``. Ties into the wide-character correctness item above.
 
+### Input & terminal handling (from the 0.1.0 code review, 2.12 tail)
+
+Small, mostly self-contained fixes deferred from the review's 2.12 batch (the
+CONFIRMED cheap wins there already shipped: fill-remainder distribution, grouped
+diff SGR, once-per-frame size sampling, SplitPanel clamp+weakref).
+
+- [ ] **Esc/Alt second 50ms timeout; only letters reach ``alt+``.** On ``escape``
+  Wijjit blocks up to 50ms for a follow-up (``input.py:552-578`` sync,
+  ``815-841`` async), *on top of* prompt_toolkit's own vt100 disambiguation — so
+  every standalone ESC carries a 50ms latency floor. Only ``isalpha()`` follow-ups
+  become ``alt+<x>`` (``input.py:562``), so **Alt+digit, Alt+punctuation, and
+  Alt+arrow are unreachable** on every platform. Overlaps Group G (Win32 alt-keys).
+- [ ] **SIGWINCH-driven resize.** No ``SIGWINCH`` handler; resize is polled via
+  ``get_terminal_size()`` once per frame (``event_loop.py``), so an idle app can
+  take up to the 0.5s input timeout to reflect a resize. (The mid-frame *tearing*
+  half — sampling the size 3x per ``_render`` — was fixed in 2.12.)
+- [ ] **``_OTHER_ANSI_PATTERN`` weaker than ``ansi.py``** (SUSPECTED).
+  ``ansi_adapter.py:21`` uses ``\x1b\[[0-9;?]*[A-Za-z]``, omitting ``<`` /
+  intermediates and restricting the final byte to letters, so ``\x1b[3~`` is not
+  matched and the fallthrough plants a **literal ``\x1b`` Cell** into the buffer.
+  Any ``content_type="ansi"`` content with a ``~``-terminated CSI gets a garbage
+  escape cell. Reuse the correct ECMA-48 ``ANSI_ESCAPE_PATTERN`` from ``ansi.py``.
+- [ ] **DCS sequences pass through ``strip_ansi``** (SUSPECTED, minor).
+  ``\x1bP…\x1b\\`` (Sixel) matches neither branch of ``ANSI_ESCAPE_PATTERN`` (needs
+  ``\x1b[`` or ``\x1b]``), so it counts as visible text.
+- [ ] **Legacy "normal" mouse mode + per-byte multi-byte input** (``mouse.py``,
+  ``input.py``). SGR is the default and works; the legacy path needs bypassing
+  prompt_toolkit's UTF-8 decode. Architectural, low value — migrated from
+  ``RELEASE_PLAN`` Part 2a.
+- [ ] **Mixed ``%`` + ``fill`` siblings mis-account space** (SUSPECTED — could not
+  reproduce; **write a test first**). ``VStack.assign_bounds`` reserves a
+  percentage child's *intrinsic* height alongside fixed children but the per-child
+  loop assigns ``int(content_height * pct)`` and advances by that larger value
+  (``engine.py:540-549, 586-587, 632``). Likely needs a taller element to surface.
+
+### Framework correctness / cleanup (from the 0.1.0 code review)
+
+Migrated from the former ``RELEASE_PLAN.md`` Part 2b/2c. None are API-visible;
+they are where future bugs get applied inconsistently. Lower-severity, not
+release-blocking — pull forward opportunistically.
+
+**Internal dedup / consolidation (no API-shape risk):**
+- [ ] ``read_input`` vs ``read_input_async`` (~250 lines near-duplicated); the
+  scroll key/wheel + ``on_scroll`` block re-inlined ~50x across the six
+  scrollables; view lifecycle-hook dispatch + ``_navigate_sync/async_impl``
+  near-duplicated; border ``2``/``-2`` geometry (add an ``inner_dimensions()``
+  helper — ``BORDER_THICKNESS`` already landed); size-spec resolution across
+  VStack/HStack/Grid; chart ``_get_*_color`` wrappers; the State reserved-key
+  message x5; ``DirtyRegion`` re-implements ``Bounds`` geometry.
+- [ ] Dead legacy string-render methods (``progress.py``, ``statusbar.py``,
+  ``tree.py``, ``select.py``, ``reconciler._collect_elements``,
+  ``mouse_router._route_to_element``); the large dead ``CSSParser`` compat class;
+  divergent named-color→RGB maps (centralize ``ANSI_PALETTE`` / ``CSS_PALETTE``).
+- [ ] Manager-naming nits: ``clear_cache`` means different caches on Renderer vs
+  Reconciler; hover/focus getter-setter verb parity; three manager DI styles.
+
+**MEDIUM/LOW correctness (condensed):**
+- [ ] **Core:** ``on_key`` registry overwrites handlers sharing a key; ``State``
+  has no locking around callback lists despite documented multi-thread access;
+  ``batch_update`` drops all notifications on exception after applying writes;
+  ``dispatch_async`` lacks per-handler exception isolation; ``set_focus_filter(None)``
+  is a no-op contradicting its docstring; non-interactive overlays
+  (tooltips/notifications at TOOLTIP z-index) can swallow clicks to base UI.
+- [ ] **Layout:** frame inner dims can go negative (missing ``max(0,…)``);
+  ``space-around`` mis-distributes remainder + double-counts ``column_gap``;
+  split-panel ``_clamp_ratio`` vs ``_calculate_sizes`` disagreement (resize
+  jitter) + unvalidated persisted state; ``Size`` fill/percentage classification
+  ambiguous for ``"100%"``.
+- [ ] **Display:** Table sort not stable + string-coerces mixed types; ContentView
+  re-renders content every frame; Pager ``remove_page`` leaves scroll-state keys
+  pointing at the wrong page. (LogView ``set_lines`` re-tail and the
+  reconcile/prop-sync path already fixed — see CHANGELOG.)
+- [ ] **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
+  ticks/min-max not reserved in auto-height; HeatMap legend ``bar_width`` can go
+  negative; ImageView broad ``except`` + brittle duck-typing.
+- [ ] **Styling:** ``font-weight:normal`` / ``text-decoration:none`` never turn
+  attributes OFF; ``theme.set_style`` doesn't invalidate the resolver cache (stale
+  styles); ``_infer_class_from_element`` has stale keys (``radiobutton``,
+  ``listview``→``list``) so ListView base styling isn't applied; no JSON theme
+  loader despite CLAUDE.md mentioning JSON.
+- [ ] **Config/API:** invalid ``WIJJIT_LOG_LEVEL`` silently → INFO; CLI
+  ``--context`` / ``context=`` silently ignored in ``.py`` app mode for
+  ``validate`` / ``tree``.
+- [ ] **Lower-priority semver/API notes** (from the 0.1.0 release audit — "fix
+  opportunistically, else document"): make params after the first keyword-only on
+  ``Wijjit.__init__`` / ``WijjitHarness.__init__``; unify the state-init kwarg name
+  (``initial_state`` vs ``app_from_template(state=)`` vs ``State(data=)``);
+  ``Wijjit(**config_overrides)`` silently uppercases typo'd kwargs into config
+  keys; two classes named ``MouseEvent`` (core wrapper vs terminal, the core one
+  unexported though MOUSE handlers receive it); ``vstack`` supports only
+  ``spacing`` while ``hstack`` calls ``spacing`` "legacy" (align docs);
+  ``harness.py`` sets ``UNICODE_SUPPORT = True`` (invalid for the
+  ``auto/force/disable`` contract, and post-``__init__`` so it no-ops — a bug).
+
 ## 0.2+ (new scope, post-0.1)
 
 Clearly new functionality or substantial subsystems. Worth doing, not now.
@@ -245,6 +394,14 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
 - [ ] Shell-pipe passthrough for subshell / other apps
 
 ### Subsystems
+- [ ] **Public element-registration API / plugin seam** (review 3.5). Adding an
+  element today requires editing framework internals: a new class, a Jinja
+  ``Extension`` hard-registered in the ``Environment(extensions=[…])`` list
+  (``renderer.py``), an ``element_registry.py`` entry, and an ``__init__`` export.
+  There is **no public registration hook**, so a third party cannot ship a Wijjit
+  widget as a separate package without monkeypatching. For a framework pitched on
+  its component library this is the most strategically important API gap —
+  reviewer's #12 priority — but not urgent for 0.1.1.
 - [ ] **Converge InlineApp and full-app input handling.** ``InlineApp``
   (``inline/app.py``) reimplements a thin slice of the event loop's keyboard
   path and diverges from ``EventLoop`` (``core/event_loop.py``) in ways that
