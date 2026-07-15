@@ -51,6 +51,49 @@ class TestScreenBuffer:
                 assert cell.fg_color is None
                 assert cell.bg_color is None
 
+    def test_empty_cells_share_one_blank_instance(self):
+        """Empty positions reference a single shared blank cell.
+
+        Notes
+        -----
+        Ratchet for the review-2.5 paint optimization: a fresh buffer must fill
+        empty positions with references to one shared ``Cell`` rather than
+        allocating a distinct ``Cell(" ")`` per position (which was the dominant
+        per-frame cost). Painting one position must not disturb any other, since
+        the pipeline replaces cell slots and never mutates cells in place.
+        """
+        buffer = ScreenBuffer(10, 5)
+        blank = buffer.cells[0][0]
+        # Every empty position is the same object.
+        assert all(cell is blank for row in buffer.cells for cell in row)
+        # Buffers built independently share the same blank (module-level).
+        assert ScreenBuffer(3, 3).cells[0][0] is blank
+        # Painting one position leaves every other position untouched.
+        buffer.set_cell(4, 2, Cell("A", fg_color=(255, 0, 0)))
+        assert buffer.cells[2][4].char == "A"
+        assert all(
+            cell is blank
+            for y, row in enumerate(buffer.cells)
+            for x, cell in enumerate(row)
+            if (x, y) != (4, 2)
+        )
+
+    def test_clear_refills_with_shared_blank(self):
+        """``clear()`` refills every position with the shared blank.
+
+        Notes
+        -----
+        ``clear()`` fills with the same shared blank as construction (no
+        per-cell allocation) and marks the whole buffer dirty for a full redraw.
+        """
+        buffer = ScreenBuffer(6, 4)
+        blank = buffer.cells[0][0]
+        buffer.set_cell(1, 1, Cell("Z", bold=True))
+        buffer.clear()
+        assert all(cell is blank for row in buffer.cells for cell in row)
+        # A cleared buffer is marked fully dirty (full redraw on next paint).
+        assert buffer.dirty_regions
+
     def test_set_cell(self):
         """Test setting a cell.
 

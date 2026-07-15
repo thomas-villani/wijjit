@@ -8,6 +8,18 @@ from wcwidth import wcswidth
 
 from wijjit.terminal.cell import Cell, is_continuation
 
+# A single shared blank cell used to fill empty buffer positions. Cells are
+# treated as immutable throughout the pipeline - painting *replaces* a slot
+# (``row[x] = new_cell``), never mutates the cell in place - so every empty
+# position can safely reference this one object instead of allocating a fresh
+# ``Cell(" ")`` per position. That turned a width*height Cell allocation on
+# every frame into a handful of list builds (review 2.5: per-frame paint cost).
+# The one place that mutates cell fields (overlay dimming in
+# ``Renderer.composite_overlays``) copies each cell first, and skips cells whose
+# colors are None - which a blank cell's are - so the shared instance is never
+# reached.
+_BLANK_CELL = Cell(" ")
+
 # SGR signature of a fully-unstyled cell. Used by the diff renderer to know
 # when the terminal is back in its default state and no trailing reset is owed.
 _DEFAULT_STYLE: tuple[object, ...] = (None, None, False, False, False, False, False)
@@ -117,9 +129,10 @@ class ScreenBuffer:
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
-        self.cells: list[list[Cell]] = [
-            [Cell(" ") for _ in range(width)] for _ in range(height)
-        ]
+        # Fill with references to the one shared blank cell (see _BLANK_CELL).
+        # ``[_BLANK_CELL] * width`` is a row of references, not copies; each row
+        # is its own list so a paint into one row never touches another.
+        self.cells: list[list[Cell]] = [[_BLANK_CELL] * width for _ in range(height)]
         self.dirty_regions: set[tuple[int, int, int, int]] = set()
 
     def set_cell(self, x: int, y: int, cell: Cell) -> None:
@@ -373,12 +386,11 @@ class ScreenBuffer:
 
         Notes
         -----
-        Fills all cells with space characters and no styling. The entire
-        buffer is marked dirty.
+        Fills all cells with the shared blank (space, no styling) - the same
+        no-per-cell-allocation fill used at construction (see _BLANK_CELL) - and
+        marks the entire buffer dirty.
         """
-        self.cells = [
-            [Cell(" ") for _ in range(self.width)] for _ in range(self.height)
-        ]
+        self.cells = [[_BLANK_CELL] * self.width for _ in range(self.height)]
         self.mark_all_dirty()
 
     def to_text(self) -> str:
