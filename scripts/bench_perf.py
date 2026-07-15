@@ -11,10 +11,14 @@ scenarios and terminal sizes, and reports three things:
    does not flicker.
 3. **Import cost** - ``import wijjit`` in a cold subprocess.
 
-Note that the diff renderer is not *CPU*-cheaper than a full repaint - it has to
-compare every cell, so a steady-state frame costs slightly more than a blind
-redraw. What it buys is I/O: an idle frame writes nothing at all, and a frame
-with one changed widget writes a few dozen bytes instead of the whole screen.
+The biggest win is I/O: an idle frame writes nothing at all, and a frame with
+one changed widget writes a few dozen bytes instead of the whole screen. The
+steady-state render is now also CPU-cheaper than a full repaint - on the
+incremental path (the one a running app uses) the paint buffer starts as a copy
+of the previous frame, unchanged elements are skipped, and only real changes are
+diffed, so a localized edit does work proportional to *what changed*, not to the
+size of the view. The ``full`` column below is the worst case (first paint or a
+resize), which still paints and diffs the whole screen.
 
 Timings are machine- and load-dependent, so treat them as indicative. The byte
 counts are deterministic and are regression-tested in
@@ -224,6 +228,12 @@ def measure_timing(
     full_median, _ = _time_it(full, iterations, warmup)
 
     # Steady state, nothing changed: the diff finds no work but still compares.
+    # These steady-state renderers pass ``allow_incremental=True`` so they
+    # exercise the SAME path a running app uses (``app._render`` enables it
+    # whenever no overlay is up): the paint buffer starts as a copy of the
+    # previous frame, unchanged elements are skipped, and only real changes are
+    # diffed. The full-repaint measurement above deliberately does not - it is
+    # the worst case (first paint / resize), where every cell is painted fresh.
     idle_renderer = Renderer()
     idle_renderer.render_with_layout(
         template, context=context_for(0), width=width, height=height
@@ -231,7 +241,11 @@ def measure_timing(
 
     def diff_idle() -> Any:
         return idle_renderer.render_with_layout(
-            template, context=context_for(0), width=width, height=height
+            template,
+            context=context_for(0),
+            width=width,
+            height=height,
+            allow_incremental=True,
         )
 
     idle_median, _ = _time_it(diff_idle, iterations, warmup)
@@ -245,7 +259,11 @@ def measure_timing(
 
     def diff_change() -> Any:
         return change_renderer.render_with_layout(
-            template, context=context_for(next(tick)), width=width, height=height
+            template,
+            context=context_for(next(tick)),
+            width=width,
+            height=height,
+            allow_incremental=True,
         )
 
     change_median, change_p95 = _time_it(diff_change, iterations, warmup)
