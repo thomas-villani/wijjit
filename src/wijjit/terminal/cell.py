@@ -172,6 +172,14 @@ class Cell:
         3. fg_color - often differs for styled content
         4. bg_color - least likely to differ
         """
+        # Identity short-circuit. Empty buffer positions all reference one
+        # shared blank cell (see screen_buffer._BLANK_CELL), so in the diff
+        # hot path a blank column in both the old and new buffer is the *same*
+        # object - this returns True without touching any field. Cheap and
+        # universal (any reused cell instance benefits).
+        if self is other:
+            return True
+
         if not isinstance(other, Cell):
             return False
 
