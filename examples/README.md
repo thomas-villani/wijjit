@@ -80,9 +80,11 @@ Individual examples showcasing specific UI elements and components.
 Complete mini-applications and advanced usage patterns.
 
 **Complete Applications** (under [apps/](apps/)):
-- **apps/todo_app.py** - Full-featured todo list with add/delete/toggle/filter
+- **apps/todo_app.py** - Todo list with a RadioGroup filter, checkboxes, edit/delete dialogs, and GFM persistence
+- **apps/gcommit.py** - Interactive git commit builder in *inline* mode: stage files as checkboxes, type a message, preview or run the commit (stays in scrollback)
 - **apps/chatbot.py** - Conversational TUI: scrollable history + rule-based bot (has a tutorial)
 - **apps/spreadsheet.py** - Editable DataGrid with a live chart and .xlsx/CSV save (has a tutorial)
+- **apps/system_monitor.py** - Live CPU/memory gauges and history line charts (needs psutil)
 - **form_demo.py** - Registration form with comprehensive validation (email, age, required fields)
 - **data_entry_demo.py** - Business order entry form with multiple sections
 - **preferences_demo.py** - Settings/preferences editor with multiple categories
