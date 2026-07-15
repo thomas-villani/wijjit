@@ -426,6 +426,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **More elements opt in to the skip-unchanged fast path.** The skip-unchanged
+  paint optimization only helps elements that publish a `render_signature()`;
+  it previously shipped for `TextElement`, `TextInput`, and `Button`, so an
+  otherwise-static form still repainted its checkboxes, toggles, and sliders on
+  every keystroke. Signatures now ship for `Checkbox`, `CheckboxGroup`, `Radio`,
+  `RadioGroup`, `Toggle`, `Slider`, `ProgressBar`, `StatusIndicator`,
+  `StatusBar`, `Link`, `Sparkline`, `Gauge`, and `ColumnChart` - so an unchanged
+  widget is skipped while the one field being edited repaints. Each signature
+  captures exactly the instance state its `render_to` reads (content plus the
+  variant/layout inputs; focus/hover/checked/selected and CSS classes come from
+  the shared `_style_signature`), and unit tests assert every signature is
+  sensitive to each of those inputs. `Select`, `BarChart`, and `Table` stay on
+  the safe default (`None` -> always repaint): their paint couples to internal
+  scroll state that a signature cannot yet capture completely. Measured **~1.36x
+  (about 27% less per-render CPU)** on a static form where one field changes per
+  keystroke; screen output stays byte-for-byte identical (review 2.5).
 - **Skip re-painting unchanged elements.** With the per-frame allocation and
   full-screen diff costs already gone, the largest remaining per-keystroke cost
   was the paint itself: `render_to` (and its per-glyph `write_text` loop) ran for

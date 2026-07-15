@@ -7,7 +7,7 @@ linear or semi-circular gauges with threshold-based coloring.
 from __future__ import annotations
 
 from math import cos, pi, sin
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
@@ -426,6 +426,35 @@ class Gauge(Element):
             ctx.write_text(0, min_y, min_text, label_style)
             max_x = max(0, avail_width - len(max_text))
             ctx.write_text(max_x, min_y, max_text, label_style)
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the value and range (the normalized value/percentage is a pure
+        function of those), the gauge style and dimensions, the value/minmax/
+        tick toggles, the coloring inputs (mode, scale, thresholds), the label
+        and unit text, the border style, and the style-affecting state. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "gauge",
+            self.value,
+            self.min_value,
+            self.max_value,
+            self.style,
+            self.width,
+            self.height,
+            self.show_value,
+            self.show_minmax,
+            self.show_ticks,
+            self.color_mode,
+            self.color_scale,
+            tuple(self.thresholds or ()),
+            self.label,
+            self.unit,
+            self.border_style,
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the gauge using cell-based rendering.

@@ -7,7 +7,7 @@ that triggers actions when activated via keyboard or mouse.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import visible_length
@@ -91,6 +91,15 @@ class Link(Element):
             (width, height) - links are always single line
         """
         return (visible_length(self.text), 1)
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the link text plus the style-affecting state (``focused`` and
+        ``hovered`` are folded into :meth:`_style_signature`). See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return ("link", self.text, self._style_signature())
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the link element.

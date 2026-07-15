@@ -239,6 +239,15 @@ class Radio(Element):
 
         return False
 
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        The radio glyph and style follow from ``checked``/``focused`` (folded
+        into :meth:`_style_signature`); only the label is otherwise read. See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return ("radio", self.label, self._style_signature())
+
     def render_to(self, ctx: "PaintContext") -> None:
         """Render radio button using cell-based rendering.
 
@@ -579,6 +588,25 @@ class RadioGroup(Element):
                     start += text_len + 1  # +1 for the inter-option space
 
         return False
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the options, the selected and keyboard-highlighted indices
+        (both change the painted glyph/reverse-video), and the border/layout
+        inputs. See :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "radiogroup",
+            tuple((o["value"], o["label"]) for o in self.options),
+            self.selected_index,
+            self.highlighted_index,
+            self.orientation,
+            self.width,
+            self.border_style,
+            self.title,
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render radio group using cell-based rendering.

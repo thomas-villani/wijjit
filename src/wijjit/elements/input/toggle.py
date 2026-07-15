@@ -6,7 +6,7 @@ and dual label mode (labels on both sides showing On/Off states).
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import supports_unicode
@@ -170,6 +170,23 @@ class Toggle(Element):
             invoke_callback(self.on_action)
         if self.on_toggle:
             invoke_callback(self.on_toggle)
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the label mode and the three label strings; the knob
+        position, track color, and active-label choice all follow from
+        ``checked``/``focused`` (folded into :meth:`_style_signature`). See
+        :meth:`wijjit.elements.base.Element.render_signature`.
+        """
+        return (
+            "toggle",
+            self.label_mode,
+            self.label,
+            self.on_label,
+            self.off_label,
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render toggle switch to paint context.
