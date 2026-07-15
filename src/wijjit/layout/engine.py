@@ -43,6 +43,33 @@ JustifyContent = Literal[
 ]
 
 
+def _distribute_fill(total: int, count: int) -> list[int]:
+    """Split ``total`` into ``count`` near-equal parts, remainder to the front.
+
+    ``fill`` distribution used to be ``total // count`` for every child, which
+    discards the remainder, so ``count`` fill children under-filled their
+    container by up to ``count - 1`` cells. Spread the leftover onto the leading
+    children so every available cell is consumed - the same thing
+    ``HStack._distribute_space`` already does for justify gaps.
+
+    Parameters
+    ----------
+    total : int
+        Total space to distribute.
+    count : int
+        Number of fill children.
+
+    Returns
+    -------
+    list of int
+        Per-child sizes summing to ``total`` (empty when ``count <= 0``).
+    """
+    if count <= 0:
+        return []
+    base, remainder = divmod(total, count)
+    return [base + (1 if i < remainder else 0) for i in range(count)]
+
+
 @dataclass
 class SizeConstraints:
     """Size constraints for layout calculation.
@@ -545,11 +572,10 @@ class VStack(Container):
             for c in fixed_children
         )
 
-        # Distribute remaining height to fill children
+        # Distribute remaining height to fill children, spreading the integer
+        # remainder onto the leading fill children so they consume every cell.
         remaining_height = max(0, content_height - fixed_height)
-        fill_height_each = (
-            remaining_height // len(fill_children) if fill_children else 0
-        )
+        fill_heights = iter(_distribute_fill(remaining_height, len(fill_children)))
 
         # Calculate vertical alignment offset
         # If align_v is not "stretch", we need to position the group of children
@@ -580,7 +606,7 @@ class VStack(Container):
 
         for child in self.children:
             if child.height_spec.is_fill:
-                child_height = fill_height_each
+                child_height = next(fill_heights)
             elif child.height_spec.is_fixed:
                 child_height = child.height_spec.value
             elif child.height_spec.is_percentage:
@@ -734,11 +760,7 @@ class HStack(Container):
         list of int
             List of gap sizes
         """
-        if num_gaps <= 0:
-            return []
-        base_gap = total_space // num_gaps
-        remainder = total_space % num_gaps
-        return [base_gap + (1 if i < remainder else 0) for i in range(num_gaps)]
+        return _distribute_fill(total_space, num_gaps)
 
     def _get_child_width(
         self, child: LayoutNode, content_width: int, fill_width_each: int = 0
@@ -1191,12 +1213,16 @@ class HStack(Container):
             len(self.children) - 1
         )
         remaining_width = max(0, available_for_children - fixed_width)
-        fill_width_each = remaining_width // len(fill_children) if fill_children else 0
+        # Spread the integer remainder onto the leading fill children so they
+        # consume every cell (in wrap mode _get_child_width ignores the value
+        # and treats fill as auto, so the iterator is harmlessly drained).
+        fill_widths = iter(_distribute_fill(remaining_width, len(fill_children)))
 
         current_x = content_x
 
         for child in self.children:
-            child_width = self._get_child_width(child, content_width, fill_width_each)
+            fill_w = next(fill_widths) if child.width_spec.is_fill else 0
+            child_width = self._get_child_width(child, content_width, fill_w)
             child_height = self._get_child_height(child, content_height, content_height)
 
             # Apply vertical alignment

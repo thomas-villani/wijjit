@@ -316,6 +316,25 @@ class TestVStack:
         assert child1.bounds.height == 5
         assert child2.bounds.height == 15
 
+    def test_fill_remainder_consumes_every_row(self):
+        """Fill children absorb the integer remainder (review 2.12).
+
+        3 fill children in height 20 used to be 6+6+6=18, leaving 2 rows dead.
+        The remainder now lands on the leading children: 7+7+6=20.
+        """
+        children = [
+            ElementNode(MockElement(width=10, height=2), height="fill")
+            for _ in range(3)
+        ]
+        vstack = VStack(children=children, spacing=0)
+
+        vstack.calculate_constraints()
+        vstack.assign_bounds(0, 0, 20, 20)
+
+        heights = [c.bounds.height for c in children]
+        assert heights == [7, 7, 6]
+        assert sum(heights) == 20
+
 
 class TestHStack:
     """Tests for HStack container."""
@@ -415,6 +434,24 @@ class TestHStack:
         # Each child gets half the available width
         assert child1.bounds.width == 20
         assert child2.bounds.width == 20
+
+    def test_fill_remainder_consumes_every_column(self):
+        """Fill children absorb the integer remainder (review 2.12).
+
+        3 fill children in width 20 used to be 6+6+6=18, leaving 2 columns dead.
+        The remainder now lands on the leading children: 7+7+6=20.
+        """
+        children = [
+            ElementNode(MockElement(width=10, height=2), width="fill") for _ in range(3)
+        ]
+        hstack = HStack(children=children, spacing=0)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, 20, 10)
+
+        widths = [c.bounds.width for c in children]
+        assert widths == [7, 7, 6]
+        assert sum(widths) == 20
 
 
 class TestLayoutEngine:
