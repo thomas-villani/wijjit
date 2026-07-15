@@ -139,6 +139,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **A template `{% modal %}` / dialog vanished on the next re-render.** A
+  centered overlay declared in a template is rebuilt fresh (with `bounds=None`)
+  every render; the initial render centred it, but the per-render *update* path
+  only re-derived bounds for menus, so a modal or dialog lost its bounds and
+  silently stopped compositing on the first re-render - and almost any keystroke
+  or state change triggers one. The update path now re-centres a centered
+  overlay via a shared `OverlayManager.center_element`, so it stays put across
+  renders and re-centres on resize (review item 2.13).
+- **`{% confirmdialog %}` / `{% alertdialog %}` / `{% textinputdialog %}` leaked
+  one overlay per render.** The dialog classes never accepted or forwarded an
+  `id`, so the element's id was always `None` and the overlay de-dup (which
+  matches on id) failed - every render pushed a *new* duplicate overlay, growing
+  the stack unboundedly. The dialog constructors now take `id` and pass it
+  through, and the tags forward the (explicit or auto-generated) id, so a dialog
+  reconciles to a single stable overlay.
 - **Text style could bleed into the shell prompt after the app exited.**
   Teardown showed the cursor and left the alternate buffer but never reset SGR
   attributes, so an active colour/bold/reverse from the last frame - or, worse,

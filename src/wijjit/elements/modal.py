@@ -85,6 +85,7 @@ class ConfirmDialog(ModalElement):
         width: int | None = 50,
         height: int | None = None,
         border_style: str = "single",
+        id: str | None = None,
     ) -> None:
         # Auto-size if width/height not provided
         if width is None:
@@ -105,6 +106,7 @@ class ConfirmDialog(ModalElement):
             height = max(10, min(height, 30))
 
         super().__init__(
+            id=id,
             classes=classes,
             title=title,
             width=width,
@@ -217,6 +219,7 @@ class AlertDialog(ModalElement):
         width: int | None = 50,
         height: int | None = None,
         border_style: str = "single",
+        id: str | None = None,
     ) -> None:
         # Convert severity string to enum if needed
         if isinstance(severity, str):
@@ -242,6 +245,7 @@ class AlertDialog(ModalElement):
             height = max(10, min(height, 30))
 
         super().__init__(
+            id=id,
             classes=classes,
             title=title,
             width=width,
@@ -425,8 +429,10 @@ class TextInputDialog(ModalElement):
         height: int = 16,
         border_style: str = "single",
         input_width: int = 30,
+        id: str | None = None,
     ) -> None:
         super().__init__(
+            id=id,
             classes=classes,
             title=title,
             width=width,

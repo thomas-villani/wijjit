@@ -213,19 +213,8 @@ class OverlayManager:
         )
 
         # Auto-calculate bounds for centered overlays that don't have bounds
-        if element.bounds is None and hasattr(element, "centered") and element.centered:
-
-            term_size = get_terminal_size()
-
-            # Get element dimensions (width/height attributes)
-            elem_width = getattr(element, "width", 50)
-            elem_height = getattr(element, "height", 10)
-
-            # Center on screen
-            x = max(0, (term_size.columns - elem_width) // 2)
-            y = max(0, (term_size.lines - elem_height) // 2)
-
-            element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)
+        if element.bounds is None:
+            self.center_element(element)
 
         # Auto-position menus (dropdown and context menus)
         if element.bounds is None:
@@ -253,6 +242,43 @@ class OverlayManager:
             self.app.needs_render = True
 
         return overlay
+
+    def center_element(self, element: "Element") -> bool:
+        """Center a ``centered`` overlay element on the current terminal.
+
+        Computes bounds from the element's ``width``/``height`` attributes and
+        the live terminal size and assigns them to ``element.bounds``.
+
+        Parameters
+        ----------
+        element : Element
+            The overlay element to place.
+
+        Returns
+        -------
+        bool
+            ``True`` if the element opts into centering (``element.centered``)
+            and was placed, ``False`` otherwise (bounds left untouched).
+
+        Notes
+        -----
+        Shared by :meth:`add_overlay` (initial placement) and the per-render
+        template-overlay sync in ``Wijjit._process_template_overlays``. A
+        template rebuilds each overlay element on every render with
+        ``bounds=None``; without re-centering on the update path a centered
+        modal loses its bounds on the first re-render and silently drops out of
+        compositing (review item 2.13).
+        """
+        if not getattr(element, "centered", False):
+            return False
+
+        term_size = get_terminal_size()
+        elem_width = getattr(element, "width", 50)
+        elem_height = getattr(element, "height", 10)
+        x = max(0, (term_size.columns - elem_width) // 2)
+        y = max(0, (term_size.lines - elem_height) // 2)
+        element.bounds = Bounds(x=x, y=y, width=elem_width, height=elem_height)
+        return True
 
     def pop(self, overlay: Overlay | None = None) -> Overlay | None:
         """Remove an overlay from the stack.
