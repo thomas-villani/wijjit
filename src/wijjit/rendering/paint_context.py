@@ -6,6 +6,7 @@ environment (buffer, styles, bounds) that elements use for cell-based rendering.
 
 from typing import TYPE_CHECKING
 
+from wijjit.terminal.ansi import display_width
 from wijjit.terminal.cell import Cell
 
 if TYPE_CHECKING:
@@ -421,15 +422,13 @@ class PaintContext:
         """
         from dataclasses import replace
 
-        from wcwidth import wcswidth
-
         from wijjit.terminal.cell import CONTINUATION_CHAR
 
         # Translate to absolute coordinates
         abs_x = self.bounds.x + x
         abs_y = self.bounds.y + y
 
-        char_width = wcswidth(cell.char) if cell.char != CONTINUATION_CHAR else 1
+        char_width = display_width(cell.char) if cell.char != CONTINUATION_CHAR else 1
         if char_width is None or char_width < 2:
             if self._is_point_in_clip(abs_x, abs_y):
                 self.buffer.set_cell(abs_x, abs_y, cell)
@@ -478,8 +477,6 @@ class PaintContext:
         """
         from dataclasses import replace
 
-        from wcwidth import wcswidth
-
         from wijjit.terminal.cell import CONTINUATION_CHAR, is_continuation
 
         if not cells:
@@ -510,7 +507,7 @@ class PaintContext:
         if (
             last.char != CONTINUATION_CHAR
             and run_end < abs_x + len(cells)
-            and (wcswidth(last.char) or 0) >= 2
+            and (display_width(last.char) or 0) >= 2
         ):
             visible[-1] = replace(last, char=" ")
 

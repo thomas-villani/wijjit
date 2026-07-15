@@ -1,5 +1,7 @@
 """Tests for ANSI escape sequence utilities."""
 
+from wcwidth import wcswidth
+
 from wijjit.terminal.ansi import (
     ANSIColor,
     ANSICursor,
@@ -7,6 +9,7 @@ from wijjit.terminal.ansi import (
     ANSIStyle,
     clip_to_width,
     colorize,
+    display_width,
     strip_ansi,
     visible_length,
 )
@@ -190,6 +193,48 @@ class TestVisibleLength:
         """visible_length must not count private-mode CSI / OSC sequences."""
         assert visible_length("ab\x1b[?25h") == 2
         assert visible_length("\x1b]0;title\x07hi") == 2
+
+
+class TestDisplayWidth:
+    """display_width must be exactly equivalent to wcswidth.
+
+    It only adds a printable-ASCII fast path; any divergence from ``wcswidth``
+    for a real string would be a rendering-width bug, so these cases pin the
+    equivalence across the fast-path boundary (printable ASCII, ASCII control
+    chars, wide glyphs, NFD-decomposed combining marks, and mixtures).
+    """
+
+    CASES = [
+        "",
+        " ",
+        "Hello, World!",
+        "the quick brown fox jumps over",  # the profiled hot case
+        "~",  # 0x7e, last printable ASCII
+        "\x7f",  # DEL, first unprintable at the top boundary
+        "\x1f",  # unit separator, just below space
+        "a\tb",  # embedded tab (control)
+        "a\nb",  # embedded newline (control)
+        "abc\x00",  # NUL
+        "日本語",  # wide CJK (2 cols each)
+        "aあb",  # mixed narrow/wide
+        "café",  # NFD: 'e' + combining acute -> zero-width mark
+        "\U0001f600",  # emoji
+        "​",  # zero-width space
+    ]
+
+    def test_matches_wcswidth(self):
+        """Fast path returns identical results to wcswidth for every case."""
+        for s in self.CASES:
+            assert display_width(s) == wcswidth(s), repr(s)
+
+    def test_printable_ascii_is_len(self):
+        """Every printable-ASCII code point is exactly one column."""
+        printable = "".join(chr(o) for o in range(0x20, 0x7F))
+        assert display_width(printable) == len(printable) == wcswidth(printable)
+
+    def test_unprintable_returns_negative(self):
+        """A control character makes the result -1, matching wcswidth."""
+        assert display_width("a\x1bb") == -1
 
 
 class TestClipToWidth:
