@@ -1538,7 +1538,11 @@ class Wijjit:
                     # Should not be visible, remove it
                     self.overlay_manager.pop(existing_overlay)
                 else:
-                    # Still visible - update bounds if it's a menu
+                    # Still visible. The template rebuilds the element each
+                    # render with bounds=None, so its position must be
+                    # re-derived here or it drops out of compositing (review
+                    # 2.13). Menus reposition relative to their trigger;
+                    # centered overlays (modals/dialogs) re-centre.
                     if isinstance(element, (DropdownMenu, ContextMenu)):
                         element.bounds = self.overlay_manager._calculate_menu_position(
                             element
@@ -1546,6 +1550,8 @@ class Wijjit:
                         logger.debug(
                             f"Updated bounds for existing {type(element).__name__}: {element.bounds}"
                         )
+                    elif element.bounds is None:
+                        self.overlay_manager.center_element(element)
 
                     # If overlay traps focus, update focus manager with new element
                     if existing_overlay.trap_focus and element.focusable:

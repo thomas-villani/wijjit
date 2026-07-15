@@ -172,6 +172,7 @@ class ConfirmDialogExtension(Extension):
         # Create confirm dialog - dialogs are special overlay elements
         # that need direct instantiation to set up internal button references
         dialog = ConfirmDialog(
+            id=id,
             message=message,
             classes=classes,
             title=title,
@@ -340,6 +341,7 @@ class AlertDialogExtension(Extension):
 
         # Create alert dialog - dialogs are special overlay elements
         dialog = AlertDialog(
+            id=id,
             message=message,
             classes=classes,
             title=title,
@@ -514,6 +516,7 @@ class TextInputDialogExtension(Extension):
 
         # Create text input dialog - dialogs are special overlay elements
         dialog = TextInputDialog(
+            id=id,
             prompt=prompt,
             initial_value=str(initial_value),
             classes=classes,
