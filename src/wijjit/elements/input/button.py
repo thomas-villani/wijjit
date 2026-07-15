@@ -7,6 +7,7 @@ mouse activation, and customizable callbacks.
 
 from collections.abc import Callable
 from enum import Enum, auto
+from typing import Any
 
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import Element, ElementType, invoke_callback
@@ -266,6 +267,15 @@ class Button(Element):
             width = label_width + 4
 
         return (max(1, width), 1)  # Height is always 1 for buttons
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the label, visual style, and style-affecting state (focus/hover
+        drive the ``button``/``button:focus``/``button:hover`` selector). See
+        :meth:`Element.render_signature`.
+        """
+        return ("button", self.label, self.style, self._style_signature())
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render button using cell-based rendering (NEW API).

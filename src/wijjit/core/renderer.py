@@ -26,6 +26,7 @@ from wijjit.terminal.size import get_terminal_size
 
 if TYPE_CHECKING:
     from wijjit.core.overlay import OverlayManager
+    from wijjit.terminal.cell import Cell
 
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import Reconciler
@@ -112,6 +113,18 @@ from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 # Get logger for this module
 logger = get_logger(__name__)
+
+
+def _invalidate_paint_memo(element: "Element") -> None:
+    """Clear an element's skip-unchanged paint memo (review 2.5, option c).
+
+    Called when an element is culled from a frame (no bounds, scrolled/clipped
+    fully out of view): its previously-painted region is gone from the baseline,
+    so it must be repainted from scratch when it reappears rather than skipped.
+    """
+    element._paint_signature = None
+    element._paint_geometry = None
+    element._paint_coverage = None
 
 
 class WijjitEnvironment(Environment):
@@ -337,6 +350,19 @@ class Renderer:
         self.incremental_render = True
         self._spare_base_buffer: ScreenBuffer | None = None
         self._last_coverage: set[int] | None = None
+
+        # Skip re-painting unchanged elements (review 2.5, option c). On the
+        # incremental path, an element whose render_signature() and on-screen
+        # geometry match the previous frame is not re-painted - its cells are
+        # already correct in the copied-in baseline - and its previous painted
+        # region is re-recorded as coverage so the vacated-cell blanking spares
+        # it. Gated additionally on an unchanged theme epoch (_last_style_epoch);
+        # elements returning a None signature are always painted. _verify_skips
+        # is a debug switch that paints skippable elements anyway and asserts the
+        # blitted region is unchanged, proving signature completeness in tests.
+        self.skip_unchanged_elements = True
+        self._verify_skips = False
+        self._last_style_epoch: tuple[int, Any] | None = None
 
         # Diff renderer for efficient incremental updates
         self._diff_renderer = DiffRenderer()
@@ -1394,6 +1420,62 @@ class Renderer:
             height = layout_spec.height if layout_spec.height is not None else "auto"
             return ElementNode(element, width=width, height=height)
 
+    @staticmethod
+    def _rect_intersects_coverage(
+        cov: set[int], box: tuple[int, int, int, int], width: int
+    ) -> bool:
+        """Whether any cell of ``box`` is present in a packed-coverage set.
+
+        Used to keep the skip-unchanged fast path from skipping an element whose
+        region overlaps cells painted by the frame-border pass (which repaints
+        every frame, before the element loop). Coverage is packed ``y * width +
+        x``; ``width`` must match the buffer the coverage was recorded against.
+
+        Parameters
+        ----------
+        cov : set of int
+            Packed cell positions to test against.
+        box : tuple of int
+            ``(x, y, width, height)`` region.
+        width : int
+            Buffer width used to pack ``cov``.
+
+        Returns
+        -------
+        bool
+            True if any cell of the box is in ``cov``.
+        """
+        x, y, bw, bh = box
+        for ry in range(y, y + bh):
+            base = ry * width
+            for rx in range(x, x + bw):
+                if base + rx in cov:
+                    return True
+        return False
+
+    @staticmethod
+    def _snapshot_region(
+        buffer: "ScreenBuffer", box: tuple[int, int, int, int]
+    ) -> list["Cell | None"]:
+        """Copy the cells in a rectangular region, for skip-verify comparison.
+
+        Parameters
+        ----------
+        buffer : ScreenBuffer
+            Buffer to read from.
+        box : tuple of int
+            ``(x, y, width, height)`` region to snapshot.
+
+        Returns
+        -------
+        list
+            The cells (or ``None`` for out-of-bounds positions) in row-major
+            order. Cells are immutable, so identity/value comparison of two
+            snapshots detects any change.
+        """
+        x, y, w, h = box
+        return [buffer.get_cell(x + dx, y + dy) for dy in range(h) for dx in range(w)]
+
     def _compose_output_cells(
         self,
         elements: list[Element],
@@ -1457,6 +1539,21 @@ class Renderer:
             and self._last_displayed_buffer is prev
         )
 
+        # Skip-unchanged-elements gate (review 2.5, option c). Only on the
+        # incremental path (the copied-in baseline holds each unchanged element's
+        # cells) and only when the styling context is stable frame-to-frame - the
+        # per-element signatures capture an element's own inputs but not the
+        # active theme, so a theme/focus-color change must repaint everything.
+        # ``style_epoch`` bumps when ``set_theme`` swaps the active Theme object
+        # or the focus color changes.
+        memo = self.skip_unchanged_elements
+        style_epoch: tuple[int, Any] = (
+            id(self.theme_manager.get_theme()),
+            self.focus_color,
+        )
+        skip_enabled = incremental and memo and style_epoch == self._last_style_epoch
+        self._last_style_epoch = style_epoch
+
         # Acquire a paint buffer, reusing the retired base buffer from two frames
         # ago (pooled in _spare_base_buffer) when its size matches. That buffer
         # is neither the current base nor the displayed buffer, so painting into
@@ -1497,9 +1594,22 @@ class Renderer:
         if root is not None:
             self._render_frames_to_buffer(root, buffer, style_resolver)
 
+        # Snapshot the cells the frame-border pass just painted (review 2.5,
+        # option c). The border pass runs every frame unconditionally, before the
+        # element loop; a skipped element does not repaint over it. So an element
+        # whose region overlaps a border cell must NOT be skipped - the border
+        # would otherwise win and the element's content there would be lost (e.g.
+        # frame content that bleeds onto an ancestor frame's border). Only needed
+        # when skipping is possible this frame.
+        border_cov: set[int] = set()
+        if skip_enabled:
+            border_cov = buffer.peek_coverage()
+
         # Second pass: Render elements to the buffer
         for element in elements:
             if element.bounds is None:
+                if memo:
+                    _invalidate_paint_memo(element)
                 continue
 
             # Reset the painted-bounds cache; it is set below only if the
@@ -1516,6 +1626,11 @@ class Renderer:
             scroll_offset = 0
             clip_region = None
             skip_element = False
+            # An ancestor frame with overflow_x="visible" lets this element paint
+            # beyond its own bounds (and over the always-repainted frame borders),
+            # which breaks the disjoint-bounds assumption the skip-unchanged fast
+            # path relies on. Such elements are never skipped (see should_skip).
+            element_can_overflow = False
 
             if getattr(element, "parent_frame", None) is not None:
                 # Collect the ancestor frame chain, innermost first.
@@ -1524,6 +1639,11 @@ class Renderer:
                 while parent is not None:
                     frame_chain.append(parent)
                     parent = getattr(parent, "parent_frame", None)
+
+                element_can_overflow = any(
+                    getattr(f.style, "overflow_x", "clip") == "visible"
+                    for f in frame_chain
+                )
 
                 # Walk outermost -> innermost, accumulating the scroll contributed
                 # by frames *outer* than the one being processed (a frame's own
@@ -1600,6 +1720,8 @@ class Renderer:
                 scroll_offset = outer_scroll
 
             if skip_element:
+                if memo:
+                    _invalidate_paint_memo(element)
                 continue
 
             # Adjust element bounds for scroll offset
@@ -1615,9 +1737,73 @@ class Renderer:
                 clip_top = clip_region.y
                 clip_bottom = clip_region.y + clip_region.height
                 if adjusted_bounds.y + adjusted_bounds.height <= clip_top:
+                    if memo:
+                        _invalidate_paint_memo(element)
                     continue
                 if adjusted_bounds.y >= clip_bottom:
+                    if memo:
+                        _invalidate_paint_memo(element)
                     continue
+
+            # On-screen rect this element paints into: scroll-adjusted bounds
+            # clipped to the visible area. Computed up front so it can seed both
+            # the skip-unchanged decision and the hit-testing cache below.
+            if clip_region is not None:
+                screen_bounds = adjusted_bounds.intersect(clip_region)
+            else:
+                screen_bounds = adjusted_bounds
+
+            # === Skip-unchanged-elements fast path (review 2.5, option c) ===
+            # An element whose render signature and on-screen geometry match its
+            # last paint needs no repaint: its cells are already correct in the
+            # copied-in baseline. Re-record its previous painted region as
+            # coverage (so vacated-cell blanking spares it) and move on. A None
+            # signature always repaints. ``verify_skips`` paints anyway and
+            # asserts the region is unchanged, catching an incomplete signature.
+            cur_sig = element.render_signature() if memo else None
+            cur_geom: Any = None
+            if memo:
+                cur_geom = (
+                    adjusted_bounds.x,
+                    adjusted_bounds.y,
+                    adjusted_bounds.width,
+                    adjusted_bounds.height,
+                    (
+                        None
+                        if clip_region is None
+                        else (
+                            clip_region.x,
+                            clip_region.y,
+                            clip_region.width,
+                            clip_region.height,
+                        )
+                    ),
+                    scroll_offset,
+                )
+            should_skip = (
+                skip_enabled
+                and not element_can_overflow
+                and screen_bounds is not None
+                and cur_sig is not None
+                and cur_sig == element._paint_signature
+                and cur_geom == element._paint_geometry
+                and element._paint_coverage is not None
+            )
+            if (
+                should_skip
+                and border_cov
+                and self._rect_intersects_coverage(
+                    border_cov, element._paint_coverage, buffer.width
+                )
+            ):
+                # The border pass painted into this element's region; skipping
+                # would leave the border on top. Repaint instead.
+                should_skip = False
+            if should_skip and not self._verify_skips:
+                assert element._paint_coverage is not None  # guarded by should_skip
+                buffer.record_coverage_rect(*element._paint_coverage)
+                element._screen_bounds = screen_bounds
+                continue
 
             # Create paint context for this element with clip region
             ctx = PaintContext(
@@ -1627,16 +1813,53 @@ class Renderer:
                 clip_region=clip_region,
             )
 
+            # Verify mode: snapshot the region a skippable element would have
+            # blitted, then paint and assert the paint reproduced it exactly.
+            verify_box = (
+                element._paint_coverage
+                if (should_skip and self._verify_skips)
+                else None
+            )
+            before = (
+                self._snapshot_region(buffer, verify_box)
+                if verify_box is not None
+                else None
+            )
+
             # Render element using cell-based rendering
             element.render_to(ctx)
+
+            if verify_box is not None:
+                after = self._snapshot_region(buffer, verify_box)
+                if before != after:
+                    raise AssertionError(
+                        "skip-unchanged verify failed for "
+                        f"{type(element).__name__} id={element.id!r}: "
+                        "render_signature() reported unchanged but the paint "
+                        "differs from the baseline - the signature is missing a "
+                        "render input."
+                    )
 
             # Record the on-screen rect actually painted (scroll-adjusted and
             # clipped to the visible area) so mouse hit-testing matches where
             # the element visually appears, not its unscrolled logical bounds.
-            if clip_region is not None:
-                element._screen_bounds = adjusted_bounds.intersect(clip_region)
-            else:
-                element._screen_bounds = adjusted_bounds
+            element._screen_bounds = screen_bounds
+
+            # Refresh the skip-unchanged paint memo from this frame's paint. A
+            # None screen_bounds means the element was fully clipped horizontally
+            # and painted nothing visible - invalidate so it repaints next time.
+            if memo:
+                if screen_bounds is not None:
+                    element._paint_signature = cur_sig
+                    element._paint_geometry = cur_geom
+                    element._paint_coverage = (
+                        screen_bounds.x,
+                        screen_bounds.y,
+                        screen_bounds.width,
+                        screen_bounds.height,
+                    )
+                else:
+                    _invalidate_paint_memo(element)
 
         # Third pass: Render statusbar if present
         if statusbar is not None:
