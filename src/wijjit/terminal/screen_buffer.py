@@ -8,6 +8,25 @@ from wcwidth import wcswidth
 
 from wijjit.terminal.cell import Cell, is_continuation
 
+# SGR signature of a fully-unstyled cell. Used by the diff renderer to know
+# when the terminal is back in its default state and no trailing reset is owed.
+_DEFAULT_STYLE: tuple[object, ...] = (None, None, False, False, False, False, False)
+
+
+def _style_sig(cell: Cell) -> tuple[object, ...]:
+    """Return a cell's style signature (the same fields ``_render_row_optimized``
+    groups on): fg, bg, bold, italic, underline, reverse, dim.
+    """
+    return (
+        cell.fg_color,
+        cell.bg_color,
+        cell.bold,
+        cell.italic,
+        cell.underline,
+        cell.reverse,
+        cell.dim,
+    )
+
 
 def _cell_width(cell: Cell) -> int:
     """Return the terminal column width of ``cell``.
@@ -626,8 +645,42 @@ class DiffRenderer:
         if end_col is None:
             end_col = len(new_row)
 
-        commands = []
+        commands: list[str] = []
+        # current_pos: terminal column the cursor is parked at (None = unknown,
+        # a move is owed). current_style: SGR signature active on the terminal.
+        # It starts at _DEFAULT_STYLE because every prior row-diff and the
+        # full-render path leave the terminal reset, so the cursor arrives here
+        # in the default state. Both persist across the whole row scan, so a
+        # contiguous run of changed cells sharing one style emits the SGR prefix
+        # once instead of once per cell, and the style even carries across a
+        # cursor jump to the next run (a CUP move does not touch SGR state).
+        # This is the diff-path analogue of the grouping _render_row_optimized
+        # already does (review item 2.12).
         current_pos: int | None = None
+        current_style: tuple[object, ...] = _DEFAULT_STYLE
+
+        def emit_cell(cell: Cell, x: int) -> None:
+            nonlocal current_pos, current_style
+            if current_pos != x:
+                # Move cursor to position (1-indexed for ANSI). SGR is unaffected.
+                commands.append(f"\x1b[{row_num + 1};{x + 1}H")
+            sig = _style_sig(cell)
+            if sig != current_style:
+                if sig == _DEFAULT_STYLE:
+                    # Back to no style: a single reset clears the active run.
+                    commands.append("\x1b[0m")
+                else:
+                    # SGR params are additive, so clear a prior run before
+                    # applying the new one; skip the reset when the terminal is
+                    # already clean (start of row, or after a default run).
+                    if current_style != _DEFAULT_STYLE:
+                        commands.append("\x1b[0m")
+                    commands.append(cell.get_style_codes())
+                current_style = sig
+            commands.append(cell.char)
+            # Advance by the glyph's column width so a wide glyph accounts for
+            # the continuation column the terminal also advanced past.
+            current_pos = x + _cell_width(cell)
 
         for x in range(start_col, end_col):
             new_cell = new_row[x]
@@ -645,23 +698,16 @@ class DiffRenderer:
                 if new_cell != old_row[x] and current_pos != x + 1:
                     head_x = x - 1
                     if head_x >= 0 and not is_continuation(new_row[head_x]):
-                        if current_pos != head_x:
-                            commands.append(f"\x1b[{row_num + 1};{head_x + 1}H")
-                        commands.append(new_row[head_x].to_ansi())
-                        current_pos = head_x + _cell_width(new_row[head_x])
+                        emit_cell(new_row[head_x], head_x)
                 continue
 
             if new_cell != old_row[x]:
-                # Cell changed, need to update
-                if current_pos != x:
-                    # Move cursor to position (1-indexed for ANSI)
-                    commands.append(f"\x1b[{row_num + 1};{x + 1}H")
+                emit_cell(new_cell, x)
 
-                # Write new cell with styling
-                commands.append(new_cell.to_ansi())
-                # Advance by the glyph's column width so a wide glyph accounts
-                # for the continuation column the terminal also advanced past.
-                current_pos = x + _cell_width(new_cell)
+        # Clear a still-active run so its style does not bleed past the diff.
+        # A run that ended in the default state left the terminal clean already.
+        if current_style != _DEFAULT_STYLE:
+            commands.append("\x1b[0m")
 
         return commands
 

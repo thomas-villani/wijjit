@@ -558,6 +558,118 @@ class TestDiffRenderer:
         assert isinstance(output, str)
 
 
+class TestDiffRendererStyleGrouping:
+    """The diff path groups contiguous same-style runs (review item 2.12).
+
+    ``_render_row_diff`` used to emit ``cell.to_ansi()`` per changed cell, so a
+    run of N same-styled cells shipped the SGR prefix and a reset N times. It
+    now emits the prefix once per run and one trailing reset, matching what
+    ``_render_row_optimized`` (the full-render path) already did.
+    """
+
+    def test_same_style_run_emits_one_prefix_and_one_reset(self):
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        for x in range(10):
+            new.set_cell(x, 0, Cell(chr(65 + x), fg_color=(255, 0, 0), bold=True))
+
+        out = renderer.render_diff(old, new)
+
+        assert out == "\x1b[1;1H\x1b[1;38;2;255;0;0mABCDEFGHIJ\x1b[0m"
+        # One SGR prefix, one reset - not one of each per cell.
+        assert out.count("\x1b[1;38;2;255;0;0m") == 1
+        assert out.count("\x1b[0m") == 1
+
+    def test_grouping_beats_per_cell_bytes(self):
+        """The grouped run is dramatically smaller than per-cell to_ansi."""
+        renderer = DiffRenderer()
+        old = ScreenBuffer(40, 1)
+        new = ScreenBuffer(40, 1)
+        cells = [Cell(chr(65 + x), fg_color=(10, 200, 30)) for x in range(20)]
+        for x, cell in enumerate(cells):
+            new.set_cell(x, 0, cell)
+
+        out = renderer.render_diff(old, new)
+        per_cell = sum(len(c.to_ansi()) for c in cells)  # old lower bound
+
+        assert len(out) < per_cell // 2
+
+    def test_style_carries_across_a_cursor_jump(self):
+        """Two same-style runs separated by an unchanged gap keep the style.
+
+        A CUP move does not touch SGR state, so the second run must not re-emit
+        the style prefix.
+        """
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        for x in (0, 1, 2, 10, 11, 12):
+            new.set_cell(x, 0, Cell("Z", fg_color=(0, 0, 255)))
+
+        out = renderer.render_diff(old, new)
+
+        assert out.count("\x1b[38;2;0;0;255m") == 1  # style emitted once total
+        assert out.count("\x1b[0m") == 1  # single trailing reset
+        assert "\x1b[1;11H" in out  # cursor jumped to the second run
+
+    def test_style_change_within_run_resets_then_applies(self):
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        new.set_cell(0, 0, Cell("A", fg_color=(255, 0, 0)))
+        new.set_cell(1, 0, Cell("B", fg_color=(0, 255, 0)))
+
+        out = renderer.render_diff(old, new)
+
+        # Red applied, then reset before green (SGR params are additive).
+        assert out == "\x1b[1;1H\x1b[38;2;255;0;0mA\x1b[0m\x1b[38;2;0;255;0mB\x1b[0m"
+
+    def test_unstyled_run_emits_no_sgr(self):
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        for x in range(5):
+            new.set_cell(x, 0, Cell(chr(65 + x)))
+
+        out = renderer.render_diff(old, new)
+
+        assert out == "\x1b[1;1HABCDE"
+        assert "\x1b[0m" not in out  # nothing to clear, so no reset owed
+
+    def test_style_then_default_clears_once(self):
+        """A styled run followed by unstyled cells resets exactly once."""
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 1)
+        new = ScreenBuffer(20, 1)
+        new.set_cell(0, 0, Cell("A", fg_color=(255, 0, 0)))
+        new.set_cell(1, 0, Cell("B", fg_color=(255, 0, 0)))
+        new.set_cell(2, 0, Cell("C"))  # back to default
+        new.set_cell(3, 0, Cell("D"))
+
+        out = renderer.render_diff(old, new)
+
+        assert out == "\x1b[1;1H\x1b[38;2;255;0;0mAB\x1b[0mCD"
+
+    def test_reset_seeds_clean_between_rows(self):
+        """A styled run on one row does not leak style onto the next row.
+
+        Each ``_render_row_diff`` assumes the terminal is clean on entry; a
+        preceding styled row must therefore close with a reset.
+        """
+        renderer = DiffRenderer()
+        old = ScreenBuffer(20, 2)
+        new = ScreenBuffer(20, 2)
+        new.set_cell(0, 0, Cell("A", fg_color=(255, 0, 0)))
+        new.set_cell(0, 1, Cell("B"))  # unstyled, next row
+
+        out = renderer.render_diff(old, new)
+
+        # Row 0's red run is closed before row 1's plain 'B'.
+        assert "\x1b[38;2;255;0;0mA\x1b[0m" in out
+        assert out.rindex("\x1b[0m") < out.index("B")
+
+
 class TestDiffRendererWideChars:
     """Column-correct diff / full-render emission for wide (2-column) glyphs."""
 
