@@ -4,18 +4,19 @@ A fully-featured todo list application that saves/loads from GFM markdown.
 
 Features:
 - Add, edit, delete, and toggle todos
-- Filter by All / Active / Completed
+- Filter by All / Active / Completed with a real single-choice RadioGroup
 - Scrollable list for many items
 - Persistent storage in todo.md (GitHub Flavored Markdown)
-- Keyboard shortcuts for power users
+- A footer with the live status message and completion count
+- Keyboard shortcuts that stay out of the way while you type
 
 Controls:
-- Enter: Add new todo (when input focused)
-- Tab/Shift+Tab: Navigate between elements
-- Space: Toggle todo completion
-- e: Edit selected todo
-- d: Delete selected todo (with confirmation)
-- 1/2/3: Switch filter (All/Active/Completed)
+- Enter: Add the new todo (when the input is focused)
+- Tab/Shift+Tab: Move focus between the input, filter, list, and buttons
+- In the filter: Left/Right (or click) to switch All / Active / Done
+- In the list: Space to toggle the focused todo
+- e: Edit the focused todo (ignored while you're typing in the input)
+- d: Delete the focused todo, with confirmation (likewise ignored while typing)
 - Ctrl+Q: Quit
 """
 
@@ -27,11 +28,20 @@ import uuid
 from pathlib import Path
 
 from wijjit import Wijjit, render_template_string
+from wijjit.elements.base import ElementType
 from wijjit.elements.modal import ConfirmDialog, TextInputDialog
 from wijjit.layout.bounds import Bounds
 
 # File path for persistent storage
 TODO_FILE = Path("todo.md")
+
+# The filter control is a single-choice RadioGroup bound to state["filter"].
+# Each option's ``value`` is what lands in state; ``label`` is what the user sees.
+FILTER_OPTIONS = [
+    {"value": "all", "label": "All"},
+    {"value": "active", "label": "Active"},
+    {"value": "completed", "label": "Done"},
+]
 
 
 def parse_gfm_todos(content: str) -> list[dict]:
@@ -120,8 +130,8 @@ app = Wijjit(
     initial_state={
         "todos": load_todos(),
         "new_todo": "",
-        "filter": "all",  # "all", "active", "completed"
-        "message": "Ready. Tab to navigate, Space to toggle, e=edit, d=delete",
+        "filter": "all",  # "all", "active", "completed" (bound to the RadioGroup)
+        "message": "Ready. Tab to the list, then Space to toggle.",
     }
 )
 
@@ -165,51 +175,47 @@ def auto_save() -> None:
         app.state["message"] = f"Save failed: {e}"
 
 
+def text_input_focused() -> bool:
+    """Return True when a text-entry element currently has focus.
+
+    Used to make the bare-letter shortcuts (``e``/``d``) polite: they must not
+    fire while the user is typing a todo, otherwise words like "edit" or
+    "done" would trigger actions instead of being entered as text.
+
+    Returns
+    -------
+    bool
+        True if the focused element is a text input (TextInput/TextArea).
+    """
+    focused = app.focus_manager.get_focused_element()
+    return getattr(focused, "element_type", None) == ElementType.INPUT
+
+
 @app.view("main", default=True)
 def main_view():
     """Main view with todo list."""
-
-    def get_data():
-        """Compute fresh data on each render."""
-        filtered = get_filtered_todos()
-        done, total = get_stats()
-        current_filter = app.state.get("filter", "all")
-
-        # Build filter button indicators
-        all_indicator = ">" if current_filter == "all" else " "
-        active_indicator = ">" if current_filter == "active" else " "
-        completed_indicator = ">" if current_filter == "completed" else " "
-
-        return {
-            "filtered_todos": filtered,
-            "done": done,
-            "total": total,
-            "all_ind": all_indicator,
-            "active_ind": active_indicator,
-            "completed_ind": completed_indicator,
-        }
+    filtered = get_filtered_todos()
+    done, total = get_stats()
 
     return render_template_string(
         """
 {% frame border="rounded" title="Todo App" width=70 height=24 %}
   {% vstack spacing=1 padding=1 %}
 
-    {# Input row - Enter in textinput triggers add_todo action #}
+    {# Input row - Enter in the textinput triggers the add_todo action #}
     {% hstack spacing=1 %}
-      {% textinput id="new_todo" placeholder="What needs to be done?" width=50 action="add_todo" %}{% endtextinput %}
+      {% textinput id="new_todo" placeholder="What needs to be done?" width=52 action="add_todo" %}{% endtextinput %}
       {% button action="add_todo" %}Add{% endbutton %}
     {% endhstack %}
 
-    {# Filter buttons #}
-    {% hstack spacing=2 %}
-      {% button action="filter_all" %}{{ all_ind }}All{% endbutton %}
-      {% button action="filter_active" %}{{ active_ind }}Active{% endbutton %}
-      {% button action="filter_completed" %}{{ completed_ind }}Done{% endbutton %}
-      {% text %}{{ done }}/{{ total }} completed{% endtext %}
-    {% endhstack %}
+    {# Filter: a real single-choice control bound to state.filter. Tab to it,
+       then Left/Right (or click) to switch - no faked indicator strings. #}
+    {% radiogroup id="filter" orientation="horizontal" width=34 options=filter_options %}
+    {% endradiogroup %}
 
-    {# Scrollable todo list #}
-    {% frame border="single" height=12 scrollable=True show_scrollbar=True %}
+    {# Scrollable todo list. Scrollable frames need a fixed height (they own a
+       viewport), so this is sized rather than "fill". #}
+    {% frame border="single" height=10 scrollable=True show_scrollbar=True %}
       {% vstack spacing=0 %}
         {% if filtered_todos %}
           {% for todo in filtered_todos %}
@@ -221,18 +227,24 @@ def main_view():
       {% endvstack %}
     {% endframe %}
 
-    {# Footer #}
+    {# Footer: action button + completion count, then the live status message
+       on its own full-width line, then the key hints. #}
     {% hstack spacing=2 %}
       {% button action="clear_completed" %}Clear Done{% endbutton %}
-      {% text %}{{ state.message }}{% endtext %}
+      {% text %}{{ done }}/{{ total }} done{% endtext %}
     {% endhstack %}
 
-    {% text %}Keys: [Tab] Navigate | [Space] Toggle | [e] Edit | [d] Delete | [1/2/3] Filter{% endtext %}
+    {% text %}{{ state.message }}{% endtext %}
+
+    {% text %}Tab navigate | Space toggle | e edit | d delete | Ctrl+Q quit{% endtext %}
 
   {% endvstack %}
 {% endframe %}
         """,
-        **get_data(),
+        filtered_todos=filtered,
+        filter_options=FILTER_OPTIONS,
+        done=done,
+        total=total,
     )
 
 
@@ -257,27 +269,6 @@ def add_todo(event):
         auto_save()
 
 
-@app.on_action("filter_all")
-def filter_all(event):
-    """Show all todos."""
-    app.state["filter"] = "all"
-    app.state["message"] = "Showing all todos"
-
-
-@app.on_action("filter_active")
-def filter_active(event):
-    """Show active (uncompleted) todos."""
-    app.state["filter"] = "active"
-    app.state["message"] = "Showing active todos"
-
-
-@app.on_action("filter_completed")
-def filter_completed(event):
-    """Show completed todos."""
-    app.state["filter"] = "completed"
-    app.state["message"] = "Showing completed todos"
-
-
 @app.on_action("clear_completed")
 def clear_completed(event):
     """Remove all completed todos."""
@@ -294,24 +285,6 @@ def clear_completed(event):
 
 
 # --- Keyboard Shortcuts ---
-
-
-@app.on_key("1")
-def key_filter_all(event):
-    """Filter: All."""
-    filter_all(event)
-
-
-@app.on_key("2")
-def key_filter_active(event):
-    """Filter: Active."""
-    filter_active(event)
-
-
-@app.on_key("3")
-def key_filter_completed(event):
-    """Filter: Completed."""
-    filter_completed(event)
 
 
 def get_focused_todo_id() -> str | None:
@@ -353,10 +326,17 @@ def find_todo_by_id(todo_id: str) -> dict | None:
 
 @app.on_key("e")
 def edit_todo(event):
-    """Edit the focused todo."""
+    """Edit the focused todo.
+
+    Ignored while a text input is focused so typing an "e" in a todo does not
+    open the edit dialog.
+    """
+    if text_input_focused():
+        return
+
     todo_id = get_focused_todo_id()
     if not todo_id:
-        app.state["message"] = "Focus a todo to edit (use Tab)"
+        app.state["message"] = "Focus a todo in the list to edit (use Tab)"
         return
 
     todo = find_todo_by_id(todo_id)
@@ -409,10 +389,17 @@ def edit_todo(event):
 
 @app.on_key("d")
 def delete_todo(event):
-    """Delete the focused todo with confirmation."""
+    """Delete the focused todo with confirmation.
+
+    Ignored while a text input is focused so typing a "d" in a todo does not
+    open the delete dialog.
+    """
+    if text_input_focused():
+        return
+
     todo_id = get_focused_todo_id()
     if not todo_id:
-        app.state["message"] = "Focus a todo to delete (use Tab)"
+        app.state["message"] = "Focus a todo in the list to delete (use Tab)"
         return
 
     todo = find_todo_by_id(todo_id)
@@ -467,7 +454,7 @@ def delete_todo(event):
 
 
 def on_state_change(key: str, old_value, new_value):
-    """Handle state changes - sync checkbox toggles to todos list.
+    """Handle state changes - sync checkbox toggles to the todos list.
 
     Parameters
     ----------
@@ -489,14 +476,27 @@ def on_state_change(key: str, old_value, new_value):
             auto_save()
 
 
-# Register state change handler
+def on_filter_change(key: str, old_value, new_value):
+    """Update the status message when the filter RadioGroup changes.
+
+    The RadioGroup writes ``state["filter"]`` directly (two-way binding), so the
+    list re-filters on its own; this watcher just narrates the change.
+
+    Parameters
+    ----------
+    key : str
+        The state key that changed ("filter").
+    old_value : any
+        Previous filter value.
+    new_value : any
+        New filter value.
+    """
+    app.state["message"] = f"Showing {new_value} todos"
+
+
+# Register state change handlers
 app.state.on_change(on_state_change)
-
-
-@app.on_key("q")
-def quit_app(event):
-    """Quit the application."""
-    app.quit()
+app.state.watch("filter", on_filter_change)
 
 
 if __name__ == "__main__":
