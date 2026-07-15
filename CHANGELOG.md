@@ -131,6 +131,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **`SplitPanel` could compute negative panel sizes and held the app strongly.**
+  When `min_first + min_second` exceeded the usable space, `_calculate_sizes`
+  drove a pane negative (e.g. `(-2, 5)`); sizes now clamp into `[0, usable]` and
+  always sum to `usable`, and space too small for even the divider yields
+  `(0, 0, 0)`. The app reference used for state persistence is now a `weakref`
+  (matching `parent_frame`), so a panel no longer keeps the whole application
+  alive (review item 2.12).
 - **A render sampled the terminal size more than once, so a mid-frame resize
   could tear the frame.** Layout and overlay compositing each called
   `get_terminal_size()` independently (and the FPS counter a third time), so a
