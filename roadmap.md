@@ -199,12 +199,22 @@ handler was always correct).
   the per-frame coverage set now stores a packed ``y * width + x`` int per cell
   instead of an ``(x, y)`` tuple (no tuple alloc per glyph; ~21% faster on the
   isolated coverage add), and ``is_continuation`` tests ``not cell.char`` instead
-  of a string compare; both screen-identical. **Still open:** (c) skip
-  re-painting *unchanged elements* entirely (``write_text`` still runs for every
-  element each frame — the next-biggest lever is the paint itself: a per-element
-  render signature to blit an unchanged element's region from the previous
-  buffer); and template/reconcile/wiring memoization (a distant last by measured
-  cost).
+  of a string compare; both screen-identical. **(c) skip re-painting unchanged
+  elements** — the paint itself was the next-biggest lever (``render_to`` ran for
+  every element every frame). On the incremental path the buffer already starts
+  as a copy of the previous frame, so an unchanged element's cells are already
+  correct; each element now exposes a ``render_signature()`` and, when it plus
+  on-screen geometry match the previous frame, ``render_to`` is skipped and the
+  element's prior painted region is re-recorded as coverage. Guarded: ``None``
+  signature = always repaint; elements overlapping the always-repainted
+  frame-border pass or under an ``overflow_x="visible"`` frame are never skipped;
+  a ``verify_skips`` mode paints anyway and asserts byte-identity (run across
+  every example). Signatures ship for ``TextElement``/``TextInput``/``Button``;
+  measured **~14% less per-render CPU** on a static-heavy 40-row view, screen
+  output byte-identical (on-vs-off screen + emitted-ANSI equivalence tests).
+  **Still open:** signatures for the remaining element types (each is additive
+  and low-risk behind the same verify mode); static frame-border skip; and
+  template/reconcile/wiring memoization (a distant last by measured cost).
 - [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
   while its scroll content size counts *wrapped* lines, so long lines clip
   (``code_editor.py:478,839``).

@@ -268,6 +268,18 @@ class Element(ABC):
         # an element where it visually appears, not at its unscrolled logical
         # position. Set by the renderer each paint; do not sync from props.
         self._screen_bounds: Bounds | None = None
+        # Renderer-owned paint memo for the "skip unchanged elements" fast path
+        # (review 2.5, option c): the render signature, on-screen geometry, and
+        # painted-region box captured at this element's last actual paint. On the
+        # incremental path the renderer skips re-painting an element whose
+        # signature and geometry are unchanged, blitting nothing (its cells are
+        # already in the copied-in baseline) and re-recording _paint_coverage so
+        # the vacated-cell blanking spares it. Reset to None whenever the element
+        # is not painted (culled/clipped out) so it repaints when it reappears.
+        # Not template props - never synced during reconciliation.
+        self._paint_signature: Any = None
+        self._paint_geometry: Any = None
+        self._paint_coverage: tuple[int, int, int, int] | None = None
         self.element_type = ElementType.DISPLAY
         self.tab_index = tab_index
         self._parent_frame_ref: weakref.ref[Any] | None = (
@@ -492,6 +504,54 @@ class Element(ABC):
         ...     return (width, height)
         """
         return (1, 1)
+
+    def _style_signature(self) -> tuple[Any, ...]:
+        """State that feeds ``StyleResolver`` pseudo-classes, for the paint memo.
+
+        The style resolver applies ``:focus``/``:hover``/``:disabled``/
+        ``:checked``/``:selected`` from these flags plus the element's CSS
+        classes, regardless of the base selector. A :meth:`render_signature`
+        override includes this so a change in any styling input forces a repaint.
+
+        Returns
+        -------
+        tuple
+            ``(focused, hovered, disabled, checked, selected, frozenset(classes))``.
+        """
+        return (
+            self.focused,
+            self.hovered,
+            getattr(self, "disabled", False),
+            getattr(self, "checked", False),
+            getattr(self, "selected", False),
+            frozenset(self.classes),
+        )
+
+    def render_signature(self) -> Any:
+        """Hashable/comparable capture of everything :meth:`render_to` reads.
+
+        Used by the renderer's "skip unchanged elements" fast path (review 2.5,
+        option c). On the incremental paint path, an element whose signature and
+        on-screen geometry match the previous frame is not re-painted - its cells
+        are already correct in the copied-in baseline. Returning ``None`` (the
+        default) opts the element out: it is always repainted, the safe choice
+        for any element whose full set of render inputs is not captured here.
+
+        Overrides must include :meth:`_style_signature` plus every value the
+        element's ``render_to`` consults (content, cursor/scroll/selection,
+        style/variant, ...). The renderer compares geometry (bounds, clip,
+        scroll) and a global theme epoch separately, so those need not be
+        included. A signature that is too coarse (changes too often) is always
+        safe - it only skips less; a signature that misses a render input is a
+        correctness bug (stale paint), which the ``verify_skips`` render mode and
+        the on-vs-off equivalence tests exist to catch.
+
+        Returns
+        -------
+        object or None
+            A comparable signature, or ``None`` to always repaint.
+        """
+        return None
 
     def get_hardware_cursor_position(self) -> tuple[int, int] | None:
         """Absolute screen cell where the hardware terminal cursor should park.
@@ -1337,6 +1397,22 @@ class TextElement(Element):
             return self.html
         # No per-element setting: HTML parsing is off by default.
         return False
+
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures the displayed text (already wrapped for the current width),
+        alignment, HTML mode, and the style-affecting state. See
+        :meth:`Element.render_signature`.
+        """
+        text = self._wrapped_text if self._wrapped_text is not None else self.text
+        return (
+            "text",
+            text,
+            self.align,
+            self._is_html_enabled(),
+            self._style_signature(),
+        )
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the text element using cell-based rendering.

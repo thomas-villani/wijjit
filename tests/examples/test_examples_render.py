@@ -114,6 +114,52 @@ def test_example_loads_and_renders(rel_path: str) -> None:
     assert non_blank, f"{rel_path} rendered a blank screen"
 
 
+@pytest.mark.parametrize("rel_path", _all_example_ids())
+def test_example_skip_unchanged_verify(rel_path: str) -> None:
+    """Skip-unchanged signatures are complete across every driveable example.
+
+    Drives each example with ``verify_skips`` on: the renderer paints every
+    would-be-skipped element anyway and asserts the paint reproduces the
+    copied-in baseline exactly (see ``renderer._compose_output_cells``). A
+    missing render input in any element's ``render_signature`` surfaces as a
+    ``skip-unchanged verify failed`` error. Unrelated errors from feeding a demo
+    arbitrary input are ignored - only verify failures fail this test.
+    """
+    if rel_path in EXCLUDED:
+        pytest.skip(EXCLUDED[rel_path])
+    if rel_path in OPTIONAL_DEPS:
+        dep = OPTIONAL_DEPS[rel_path]
+        if importlib.util.find_spec(dep) is None:
+            pytest.skip(f"optional dependency '{dep}' not installed")
+    if rel_path in XFAIL:
+        pytest.xfail(XFAIL[rel_path])
+
+    app = load_example_app(EXAMPLES_DIR / rel_path)
+    with WijjitHarness(app, size=HARNESS_SIZE) as harness:
+        app.renderer._verify_skips = True
+        # A generic interaction script to exercise state/focus changes so the
+        # incremental path engages and elements become skip-eligible.
+        harness.tick(frames=2)
+        for _ in range(3):
+            harness.press("tab")
+            harness.tick()
+        harness.type("abc")
+        harness.tick(frames=2)
+        harness.press("down")
+        harness.press("up")
+        harness.tick(frames=2)
+
+        verify_failures = [
+            (message, exc)
+            for message, exc in harness.errors
+            if "skip-unchanged verify failed" in message
+            or "skip-unchanged verify failed" in str(exc)
+        ]
+        assert not verify_failures, "\n".join(
+            f"{message}: {exc!r}" for message, exc in verify_failures
+        )
+
+
 @pytest.mark.parametrize("rel_path", GOLDEN_EXAMPLES)
 def test_example_initial_screen_golden(rel_path: str, golden_update: bool) -> None:
     """The initial screen of curated demos matches its stored text snapshot."""

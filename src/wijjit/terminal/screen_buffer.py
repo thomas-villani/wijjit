@@ -183,6 +183,51 @@ class ScreenBuffer:
         self._damage_mode = False
         return cov
 
+    def peek_coverage(self) -> set[int]:
+        """Snapshot the cells painted so far this frame, without ending tracking.
+
+        Returns a copy so the caller can compare it against coverage recorded by
+        later writes (e.g. the incremental path snapshots the frame-border pass's
+        coverage before the element loop, to keep elements that overlap a border
+        from being skipped). Empty when tracking is not active.
+
+        Returns
+        -------
+        set of int
+            Positions painted since ``start_tracking``, packed ``y * width + x``.
+        """
+        return set(self._coverage) if self._coverage is not None else set()
+
+    def record_coverage_rect(self, x: int, y: int, width: int, height: int) -> None:
+        """Record a rectangular region as painted, without touching any cell.
+
+        Used by the incremental paint path when an unchanged element is skipped
+        (its cells are already correct in the copied-in baseline): the element's
+        previously-painted region must still be counted as coverage so the
+        vacated-cell blanking does not erase it. The rect is clipped to the
+        buffer and packed as ``y * width + x`` ints, matching :meth:`set_cell`.
+        A no-op when coverage tracking is not active.
+
+        Parameters
+        ----------
+        x, y : int
+            Top-left corner of the region.
+        width, height : int
+            Region size in cells.
+        """
+        cov = self._coverage
+        if cov is None:
+            return
+        w = self.width
+        x0 = max(0, x)
+        y0 = max(0, y)
+        x1 = min(w, x + width)
+        y1 = min(self.height, y + height)
+        for row in range(y0, y1):
+            base = row * w
+            for col in range(x0, x1):
+                cov.add(base + col)
+
     def reset(self) -> None:
         """Reset to a freshly-constructed state: all blank, no dirty regions.
 

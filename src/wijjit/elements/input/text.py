@@ -427,6 +427,26 @@ class TextInput(AutocompleteMixin, Element):
         # Update autocomplete suggestions after text changes
         self._handle_autocomplete_after_edit()
 
+    def render_signature(self) -> Any:
+        """Paint memo for the skip-unchanged fast path.
+
+        Captures value, placeholder, cursor position, masking, width, visual
+        style, and style-affecting state. The scroll offset and caret rendering
+        are derived deterministically from these, so they need not be listed
+        separately. See :meth:`Element.render_signature`.
+        """
+        return (
+            "textinput",
+            self.value,
+            self.placeholder,
+            self.cursor_pos,
+            self.password,
+            self.mask_char,
+            self.width,
+            self.style,
+            self._style_signature(),
+        )
+
     def render_to(self, ctx: PaintContext) -> None:
         """Render text input using cell-based rendering (NEW API).
 

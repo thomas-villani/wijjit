@@ -426,6 +426,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **Skip re-painting unchanged elements.** With the per-frame allocation and
+  full-screen diff costs already gone, the largest remaining per-keystroke cost
+  was the paint itself: `render_to` (and its per-glyph `write_text` loop) ran for
+  *every* element every frame, even the ones that did not change. On the
+  incremental path the paint buffer already starts as a copy of the previous
+  frame, so an unchanged element's cells are already correct - there is nothing
+  to repaint. Each element now exposes a `render_signature()` (value, cursor,
+  style-affecting state, ...); when it and the element's on-screen geometry match
+  the previous frame, the renderer skips `render_to` entirely and just re-records
+  the element's previous painted region as coverage (so vacated-cell blanking
+  still spares it). Correctness is guarded three ways: elements return `None`
+  (always repaint) unless they opt in with a complete signature; an element whose
+  region overlaps the always-repainted frame-border pass, or that sits under an
+  `overflow_x="visible"` frame, is never skipped; and a `verify_skips` render
+  mode paints would-be-skipped elements anyway and asserts the result is
+  byte-identical to the baseline (exercised across every bundled example). Gated
+  on the incremental path with a stable theme, behind a
+  `renderer.skip_unchanged_elements` off-switch, screen output byte-for-byte
+  identical to a full paint (pinned by on-vs-off screen + emitted-ANSI
+  equivalence tests). Signatures ship for `TextElement`, `TextInput`, and
+  `Button`; measured **~14% less per-render CPU** on a static-heavy 40-row view
+  where one input changes per keystroke (review 2.5).
 - **Cheaper damage-tracking bookkeeping on the paint path.** The per-frame
   coverage set (which records every painted cell so the incremental path can
   blank vacated content) now stores a packed `y * width + x` int per cell
