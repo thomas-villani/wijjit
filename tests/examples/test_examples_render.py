@@ -39,6 +39,7 @@ EXCLUDED: dict[str, str] = {
     "advanced/template_demo.py": "Renderer diagnostic, builds no Wijjit app",
     "basic/debug_keys.py": "raw blocking keyboard-input loop",
     "basic/inline_demo.py": "inline subsystem (render_inline), builds no app",
+    "apps/gcommit.py": "InlineApp git tool, reads git status and blocks on input",
     "basic/inline_input_demo.py": "InlineApp interactive demo, blocks on input",
     "basic/inline_progress_demo.py": "InlineApp animation loop, blocks",
     "basic/theme_config_demo.py": "interactive input() launcher, EOFErrors headless",
