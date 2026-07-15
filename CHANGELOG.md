@@ -131,6 +131,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **`fill` children under-filled their container by up to N-1 cells.** `VStack`
+  and `HStack` gave every fill child `remaining // count` and discarded the
+  integer remainder, so three fill children in a height of 20 took 6+6+6=18 and
+  left two rows dead at the bottom (same for columns). The remainder now spreads
+  onto the leading fill children (7+7+6=20) - the same distribution
+  `HStack._distribute_space` already used for justify gaps, now shared through
+  one `_distribute_fill` helper (review item 2.12).
 - **Diff renderer emitted a redundant SGR prefix and reset per changed cell.**
   `_render_row_diff` wrote `cell.to_ansi()` (style codes + char + `\x1b[0m`) for
   every changed cell, so a contiguous run of same-styled cells shipped the whole
