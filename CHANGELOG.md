@@ -426,6 +426,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **Incremental (damage-tracked) rendering.** The base render used to repaint
+  the whole view into a fresh buffer and diff the entire screen every frame, so
+  a one-character edit cost the same as a full redraw (the bulk of per-keystroke
+  CPU). The paint buffer now starts as a copy of the previous frame and the
+  buffer write paths change-detect, so the dirty set — and therefore the diff —
+  covers only the cells that actually changed; cells painted last frame but not
+  this one are blanked (vacated content). This is gated to the safe case (no
+  overlays this or last frame, unchanged size, diff rendering on) with a
+  full-repaint fallback and an `renderer.incremental_render` off-switch, and is
+  byte-for-byte identical on screen to the full-repaint path. Measured ~32% less
+  per-render CPU on a localized edit in a 40-row view (review 2.5).
 - **Faster per-frame paint: empty screen-buffer cells share one blank `Cell`.**
   `ScreenBuffer` used to allocate a distinct `Cell(" ")` for every position on
   every render (a fresh buffer is composed each frame), which profiling showed

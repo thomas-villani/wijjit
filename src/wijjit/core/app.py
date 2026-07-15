@@ -1222,6 +1222,13 @@ class Wijjit:
                 self.renderer.add_global("_wijjit_current_context", data)
                 self.renderer.add_global("_wijjit_focused_id", focused_id)
 
+                # The incremental (damage-tracked) base render is only safe when
+                # no overlays are active: overlays composite on top of the base
+                # buffer and make the displayed buffer diverge from it, which the
+                # incremental path's copied baseline and diff assume does not
+                # happen. When any overlay is present, fall back to a full repaint.
+                allow_incremental = not self.overlay_manager.overlays
+
                 # Render with layout (elements will be created with correct
                 # focus state) using the frame's single terminal-size sample.
                 if template_file:
@@ -1232,6 +1239,7 @@ class Wijjit:
                         width=term_size.columns,
                         height=term_size.lines,
                         overlay_manager=self.overlay_manager,
+                        allow_incremental=allow_incremental,
                     )
                 else:
                     # Inline template string
@@ -1241,6 +1249,7 @@ class Wijjit:
                         width=term_size.columns,
                         height=term_size.lines,
                         overlay_manager=self.overlay_manager,
+                        allow_incremental=allow_incremental,
                     )
 
                 # Store elements and update focus manager

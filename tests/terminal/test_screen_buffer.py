@@ -51,6 +51,69 @@ class TestScreenBuffer:
                 assert cell.fg_color is None
                 assert cell.bg_color is None
 
+    def test_reset_blanks_without_marking_dirty(self):
+        """``reset()`` reproduces a fresh buffer: all blank, no dirty regions.
+
+        Unlike ``clear()`` (which marks all dirty), ``reset()`` is used to reuse
+        a pooled buffer for a full repaint without the differ treating every
+        cell as changed.
+        """
+        buffer = ScreenBuffer(8, 4)
+        blank = buffer.cells[0][0]
+        buffer.set_cell(2, 1, Cell("Q", bold=True))
+        assert buffer.dirty_regions
+        buffer.reset()
+        assert not buffer.dirty_regions
+        assert all(cell is blank for row in buffer.cells for cell in row)
+
+    def test_copy_from_shares_references_and_clears_dirty(self):
+        """``copy_from`` makes each cell reference the source's, dirty cleared."""
+        src = ScreenBuffer(6, 3)
+        src.set_cell(1, 1, Cell("A", fg_color=(1, 2, 3)))
+        dst = ScreenBuffer(6, 3)
+        dst.set_cell(4, 2, Cell("Z"))  # pre-existing content + dirty
+        dst.copy_from(src)
+        assert not dst.dirty_regions
+        assert all(
+            dst.cells[y][x] is src.cells[y][x] for y in range(3) for x in range(6)
+        )
+
+    def test_damage_tracking_dirties_only_changed_cells(self):
+        """With a copied baseline, damage mode dirties only real changes.
+
+        This is the core of the incremental path: start a buffer from the
+        previous frame, and a bulk fill that rewrites identical content marks
+        nothing dirty, while a genuine change marks exactly its cell.
+        """
+        prev = ScreenBuffer(10, 3)
+        prev.fill_rect(0, 0, 10, 3, Cell("."))
+        cur = ScreenBuffer(10, 3)
+        cur.copy_from(prev)
+        cur.start_tracking(damage=True)
+        # Re-fill with identical content: no damage.
+        cur.fill_rect(0, 0, 10, 3, Cell("."))
+        assert not cur.dirty_regions
+        # One genuine change: exactly that cell is dirty.
+        cur.set_cell(4, 1, Cell("X"))
+        cov = cur.end_tracking()
+        assert (4, 1, 1, 1) in cur.dirty_regions
+        # Coverage recorded every touched cell (the fill + the set).
+        assert (4, 1) in cov and (0, 0) in cov and len(cov) == 30
+
+    def test_fast_path_unchanged_when_not_tracking(self):
+        """Bulk writes keep their unconditional behavior with tracking off.
+
+        A ``fill_rect`` over identical content still marks the whole region
+        dirty when not in damage mode - the standard full-repaint path is
+        byte-for-byte unchanged.
+        """
+        buffer = ScreenBuffer(10, 2)
+        buffer.fill_rect(0, 0, 10, 2, Cell("."))
+        buffer.dirty_regions.clear()
+        # Not tracking, not damage mode: re-fill marks the region dirty anyway.
+        buffer.fill_rect(0, 0, 10, 2, Cell("."))
+        assert buffer.dirty_regions
+
     def test_empty_cells_share_one_blank_instance(self):
         """Empty positions reference a single shared blank cell.
 
