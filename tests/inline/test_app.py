@@ -240,6 +240,105 @@ class TestInlineAppContextManager:
         assert app._running is False
 
 
+class TestInlineAppArrowFocusNavigation:
+    """Tests for arrow-key focus navigation between elements.
+
+    When the focused element does not consume an arrow key, the inline app
+    falls back to moving focus (Up/Left -> previous, Down/Right -> next),
+    mirroring the full event loop. A Checkbox is used as the focused element
+    because it returns ``False`` from ``handle_key`` for arrows.
+    """
+
+    def _make_app_with_two_checkboxes(self):
+        """Build an input-enabled app with two focusable checkboxes."""
+        from wijjit.core.focus import FocusManager
+        from wijjit.elements.input.checkbox import Checkbox
+
+        app = InlineApp("template", enable_input=True)
+        first = Checkbox(id="a")
+        second = Checkbox(id="b")
+        app._focus_manager = FocusManager()
+        app._focus_manager.set_elements([first, second])
+        return app, first, second
+
+    def _key(self, name):
+        """Return the canonical ``Keys`` constant for ``name``.
+
+        Using the real constants (rather than hand-built ``Key`` objects)
+        ensures value-equality with element ``handle_key`` comparisons, since
+        ``Key`` is a frozen dataclass that compares ``char``/``key_type`` too.
+        """
+        from wijjit.terminal.input import Keys
+
+        return {
+            "up": Keys.UP,
+            "down": Keys.DOWN,
+            "left": Keys.LEFT,
+            "right": Keys.RIGHT,
+            "space": Keys.SPACE,
+        }[name]
+
+    @pytest.mark.asyncio
+    async def test_down_arrow_moves_focus_to_next(self):
+        """Down arrow moves focus from the first element to the next."""
+        app, first, second = self._make_app_with_two_checkboxes()
+        app._focus_manager.focus_first()
+
+        await app._handle_input(self._key("down"))
+
+        assert app._focus_manager.get_focused_element() is second
+        assert app._needs_render is True
+
+    @pytest.mark.asyncio
+    async def test_up_arrow_moves_focus_to_previous(self):
+        """Up arrow moves focus from the second element to the previous."""
+        app, first, second = self._make_app_with_two_checkboxes()
+        app._focus_manager.focus_last()
+
+        await app._handle_input(self._key("up"))
+
+        assert app._focus_manager.get_focused_element() is first
+
+    @pytest.mark.asyncio
+    async def test_right_left_arrows_navigate_focus(self):
+        """Right/Left behave like Down/Up for focus movement."""
+        app, first, second = self._make_app_with_two_checkboxes()
+        app._focus_manager.focus_first()
+
+        await app._handle_input(self._key("right"))
+        assert app._focus_manager.get_focused_element() is second
+
+        await app._handle_input(self._key("left"))
+        assert app._focus_manager.get_focused_element() is first
+
+    @pytest.mark.asyncio
+    async def test_arrow_with_no_focus_enters_ring(self):
+        """An arrow key with nothing focused focuses the first/last element."""
+        app, first, second = self._make_app_with_two_checkboxes()
+        assert app._focus_manager.get_focused_element() is None
+
+        await app._handle_input(self._key("down"))
+        assert app._focus_manager.get_focused_element() is first
+
+        # Reset and try the other direction.
+        app._focus_manager.current_index = None
+        await app._handle_input(self._key("up"))
+        assert app._focus_manager.get_focused_element() is second
+
+    @pytest.mark.asyncio
+    async def test_consumed_key_does_not_move_focus(self):
+        """A key the element handles (Space) toggles it, not focus."""
+        app, first, second = self._make_app_with_two_checkboxes()
+        app._focus_manager.focus_first()
+
+        await app._handle_input(self._key("space"))
+
+        # Focus stays on the first element; its state is synced.
+        assert app._focus_manager.get_focused_element() is first
+        assert first.checked is True
+        assert app.state.get("a") is True
+
+
 class TestInlineAppRender:
     """Tests for InlineApp rendering."""
 

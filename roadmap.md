@@ -245,6 +245,36 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
 - [ ] Shell-pipe passthrough for subshell / other apps
 
 ### Subsystems
+- [ ] **Converge InlineApp and full-app input handling.** ``InlineApp``
+  (``inline/app.py``) reimplements a thin slice of the event loop's keyboard
+  path and diverges from ``EventLoop`` (``core/event_loop.py``) in ways that
+  make interactive inline apps (e.g. ``examples/apps/gcommit.py``) feel
+  second-class. Ultimately these two input paths should share a common core
+  rather than duplicate; the seam is worth a design pass. The known gaps, in
+  rough order of leverage:
+  - **Arrow-key focus navigation between elements** (cheap, high-value). Today
+    ``InlineApp._handle_input`` only forwards arrows to the *focused* element's
+    ``handle_key`` and does Tab/Shift+Tab focus movement; it lacks the event
+    loop's "element didn't consume the arrow -> ``focus_previous``/``focus_next``
+    on Up-Left / Down-Right" fallback (``event_loop.py`` ~L803-814 and the
+    focus-trap path ~L697). Result: on a column of checkboxes/buttons only Tab
+    moves focus. This is ~10 self-contained lines, no API change, and could be
+    pulled forward into a 0.1.x point release independent of the larger merge.
+  - **No action / handler dispatch.** ``InlineApp`` has no ``HandlerRegistry``,
+    so ``@app.on_action`` / ``@app.on_key`` / Enter-to-submit don't exist and a
+    RadioGroup's ``action`` is dropped. This is by design today (the inline
+    model is "fill a form, read ``state`` after Ctrl+Q") but is the main thing
+    separating an inline app from a real Wijjit app. Adding it changes the
+    constructor API and pulls in the event machinery.
+  - **Shallow, callback-bypassing state sync.** ``_sync_element_state`` guesses
+    among ``.value``/``.text``/``.checked`` and writes straight to
+    ``_state.data``, skipping ``on_change``/``watch`` callbacks; the full app
+    uses ``ElementWiringManager`` for real bidirectional binding.
+  - **No mouse** (``enable_mouse=False``; mouse events dropped), **no overlays /
+    Escape / dialogs / notifications**, and **no element identity across
+    renders** (the full app reconciles to preserve ephemeral focus/cursor
+    state; ``InlineApp`` rebuilds elements every frame and re-derives focus by
+    order via ``FocusManager.set_elements``).
 - [ ] **Vim mode** for ``TextArea`` and ``CodeEditor``.
 - [ ] **Spreadsheet formulas** in ``DataGrid`` (Excel-style ``=A1+B1``).
 - [ ] **CSV / Excel / JSON data sources** for ``Table`` / ``DataGrid``.

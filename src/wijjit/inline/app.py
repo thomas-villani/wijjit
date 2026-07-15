@@ -425,12 +425,73 @@ class InlineApp:
         # Route key to focused element
         if self._focus_manager is not None:
             focused = self._focus_manager.get_focused_element()
-            if focused is not None and hasattr(focused, "handle_key"):
+
+            # Nothing focused yet: an arrow key enters the focus ring, matching
+            # the full event loop (Down/Right -> first, Up/Left -> last).
+            if focused is None:
+                if self._arrow_focus_when_unfocused(input_event.name):
+                    self._needs_render = True
+                return
+
+            if hasattr(focused, "handle_key"):
                 handled = focused.handle_key(input_event)
                 if handled:
                     # Sync state from element if it has an id
                     self._sync_element_state(focused)
                     self._needs_render = True
+                    return
+
+            # The focused element did not consume the key. Fall back to
+            # arrow-key focus navigation between elements (Up/Left -> previous,
+            # Down/Right -> next), mirroring EventLoop._route_key_to_focused_element.
+            if self._arrow_focus_move(input_event.name):
+                self._needs_render = True
+
+    def _arrow_focus_when_unfocused(self, key_name: str) -> bool:
+        """Focus the first/last element when an arrow key arrives with no focus.
+
+        Parameters
+        ----------
+        key_name : str
+            Name of the pressed key.
+
+        Returns
+        -------
+        bool
+            True if focus changed (a re-render is needed).
+        """
+        if self._focus_manager is None:
+            return False
+        if key_name in ("down", "right"):
+            self._focus_manager.focus_first()
+            return True
+        if key_name in ("up", "left"):
+            self._focus_manager.focus_last()
+            return True
+        return False
+
+    def _arrow_focus_move(self, key_name: str) -> bool:
+        """Move focus between elements for an unconsumed arrow key.
+
+        Parameters
+        ----------
+        key_name : str
+            Name of the pressed key.
+
+        Returns
+        -------
+        bool
+            True if focus changed (a re-render is needed).
+        """
+        if self._focus_manager is None:
+            return False
+        if key_name in ("up", "left"):
+            self._focus_manager.focus_previous()
+            return True
+        if key_name in ("down", "right"):
+            self._focus_manager.focus_next()
+            return True
+        return False
 
     def _sync_element_state(self, element: Element) -> None:
         """Sync element value to app state.
