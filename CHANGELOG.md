@@ -131,6 +131,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **A render sampled the terminal size more than once, so a mid-frame resize
+  could tear the frame.** Layout and overlay compositing each called
+  `get_terminal_size()` independently (and the FPS counter a third time), so a
+  resize landing between them laid the base out at one size and composited
+  overlays at another. `_render` now samples once at the top and reuses that for
+  layout, overlay compositing, and the FPS overlay, keeping every frame
+  internally consistent (review item 2.12).
 - **`fill` children under-filled their container by up to N-1 cells.** `VStack`
   and `HStack` gave every fill child `remaining // count` and discarded the
   integer remainder, so three fill children in a height of 20 took 6+6+6=18 and

@@ -794,6 +794,49 @@ class TestOverlays:
         assert app.close_overlay() is None
 
 
+class TestSingleTerminalSizeSamplePerRender:
+    """One terminal-size sample per frame (review 2.12).
+
+    Layout and overlay compositing used to call ``get_terminal_size()``
+    independently, so a resize landing between them tore the frame. ``_render``
+    now samples once and reuses it for layout, overlay compositing, and the FPS
+    counter.
+    """
+
+    def test_render_samples_terminal_size_once(self, monkeypatch):
+        import wijjit.core.app as app_mod
+        from wijjit import Frame, render_template_string
+        from wijjit.testing import WijjitHarness
+
+        app = Wijjit()
+
+        @app.view("main", default=True)
+        def main_view():
+            return render_template_string(
+                "{% frame width=20 height=4 %}hi{% endframe %}"
+            )
+
+        with WijjitHarness(app, size=(50, 12)) as h:
+            # An open overlay forces the composite branch, the second historical
+            # sample site, to run in this render.
+            app.show_modal(Frame(width=10, height=3))
+            h.tick()
+
+            calls = {"n": 0}
+            real = app_mod.get_terminal_size
+
+            def counting():
+                calls["n"] += 1
+                return real()
+
+            monkeypatch.setattr(app_mod, "get_terminal_size", counting)
+            app._render()
+
+            assert (
+                calls["n"] == 1
+            ), f"expected one terminal-size sample per render, got {calls['n']}"
+
+
 class TestDebugStrictUndefined:
     """DEBUG enables strict template undefined checking (review 3.2)."""
 
