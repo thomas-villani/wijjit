@@ -126,6 +126,11 @@ class ScreenBuffer:
     True
     """
 
+    #: The shared blank cell (see module-level _BLANK_CELL). Exposed on the
+    #: instance so callers (e.g. the incremental renderer blanking a vacated
+    #: cell) can reference it without importing the module constant.
+    blank_cell: Cell = _BLANK_CELL
+
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
@@ -134,6 +139,76 @@ class ScreenBuffer:
         # is its own list so a paint into one row never touches another.
         self.cells: list[list[Cell]] = [[_BLANK_CELL] * width for _ in range(height)]
         self.dirty_regions: set[tuple[int, int, int, int]] = set()
+
+        # Damage-tracking support for incremental rendering (review 2.5).
+        # _coverage: when not None, every write path records the (x, y) it
+        # touches, so the renderer can blank cells that were painted last frame
+        # but not this one (vacated content). _damage_mode: when True, the bulk
+        # write paths (fill_rect, set_cells_*) change-detect per cell like
+        # set_cell does - only writing and dirtying cells that actually differ -
+        # instead of unconditionally overwriting a whole region. Both are off by
+        # default so the standard full-repaint path is byte-for-byte unchanged.
+        self._coverage: set[tuple[int, int]] | None = None
+        self._damage_mode: bool = False
+
+    def start_tracking(self, damage: bool) -> None:
+        """Begin recording paint coverage for one frame.
+
+        Parameters
+        ----------
+        damage : bool
+            When True, bulk writes also change-detect per cell (used on the
+            incremental paint path where the buffer starts as a copy of the
+            previous frame). When False, coverage is recorded but bulk writes
+            keep their unconditional fast path (used to capture coverage on the
+            full-repaint path without altering its output).
+        """
+        self._coverage = set()
+        self._damage_mode = damage
+
+    def end_tracking(self) -> set[tuple[int, int]]:
+        """Stop recording coverage and return the cells painted this frame.
+
+        Returns
+        -------
+        set of (int, int)
+            The (x, y) positions touched by any write since ``start_tracking``.
+        """
+        cov = self._coverage if self._coverage is not None else set()
+        self._coverage = None
+        self._damage_mode = False
+        return cov
+
+    def reset(self) -> None:
+        """Reset to a freshly-constructed state: all blank, no dirty regions.
+
+        Unlike :meth:`clear`, this does **not** mark the buffer dirty - it
+        reproduces exactly what ``__init__`` yields, so a pooled buffer can be
+        reused for a full repaint without the differ treating every cell as
+        changed.
+        """
+        blank = _BLANK_CELL
+        for row in self.cells:
+            row[:] = [blank] * self.width
+        self.dirty_regions.clear()
+        if self._coverage is not None:
+            self._coverage.clear()
+
+    def copy_from(self, other: "ScreenBuffer") -> None:
+        """Make this buffer's cells reference ``other``'s, row by row.
+
+        A shallow per-row copy: each row becomes a fresh list of references to
+        ``other``'s cell objects (cells are immutable and replaced wholesale, so
+        sharing references is safe). Used by the incremental paint path to start
+        a frame from the previous frame's content, so that ``set_cell``'s
+        change-detection then dirties only the cells that actually change.
+        Dirty regions and coverage are reset.
+        """
+        for y in range(self.height):
+            self.cells[y][:] = other.cells[y]
+        self.dirty_regions.clear()
+        if self._coverage is not None:
+            self._coverage.clear()
 
     def set_cell(self, x: int, y: int, cell: Cell) -> None:
         """Set a cell at the specified position and mark it dirty.
@@ -155,6 +230,9 @@ class ScreenBuffer:
         """
         if not (0 <= x < self.width and 0 <= y < self.height):
             return
+
+        if self._coverage is not None:
+            self._coverage.add((x, y))
 
         # Only mark dirty if cell actually changed
         if self.cells[y][x] != cell:
@@ -191,13 +269,27 @@ class ScreenBuffer:
         if start_x >= end_x:
             return
 
-        # Set cells directly without individual comparisons
         offset = start_x - x
         row = self.cells[y]
+
+        if self._coverage is not None:
+            cov = self._coverage
+            for i in range(start_x, end_x):
+                cov.add((i, y))
+
+        if self._damage_mode:
+            # Change-detect per cell so an incremental frame dirties only what
+            # actually differs from the copied-in previous content.
+            for i, cell in enumerate(cells[offset : end_x - x], start=start_x):
+                if row[i] != cell:
+                    row[i] = cell
+                    self.mark_dirty(i, y, 1, 1)
+            return
+
+        # Fast path: set cells directly without individual comparisons and
+        # mark the whole region dirty once.
         for i, cell in enumerate(cells[offset : end_x - x], start=start_x):
             row[i] = cell
-
-        # Mark entire region dirty once
         self.mark_dirty(start_x, y, end_x - start_x, 1)
 
     def set_cells_vertical(self, x: int, y: int, cells: list[Cell]) -> None:
@@ -230,12 +322,23 @@ class ScreenBuffer:
         if start_y >= end_y:
             return
 
-        # Set cells directly without individual comparisons
         offset = start_y - y
+
+        if self._coverage is not None:
+            cov = self._coverage
+            for i in range(start_y, end_y):
+                cov.add((x, i))
+
+        if self._damage_mode:
+            for i, cell in enumerate(cells[offset : end_y - y], start=start_y):
+                if self.cells[i][x] != cell:
+                    self.cells[i][x] = cell
+                    self.mark_dirty(x, i, 1, 1)
+            return
+
+        # Fast path: set cells directly without individual comparisons.
         for i, cell in enumerate(cells[offset : end_y - y], start=start_y):
             self.cells[i][x] = cell
-
-        # Mark entire region dirty once
         self.mark_dirty(x, start_y, 1, end_y - start_y)
 
     def fill_rect(self, x: int, y: int, width: int, height: int, cell: Cell) -> None:
@@ -271,13 +374,27 @@ class ScreenBuffer:
         if start_x >= end_x or start_y >= end_y:
             return
 
-        # Fill cells directly
+        if self._coverage is not None:
+            cov = self._coverage
+            for row_idx in range(start_y, end_y):
+                for col_idx in range(start_x, end_x):
+                    cov.add((col_idx, row_idx))
+
+        if self._damage_mode:
+            # Change-detect per cell (incremental frame).
+            for row_idx in range(start_y, end_y):
+                row = self.cells[row_idx]
+                for col_idx in range(start_x, end_x):
+                    if row[col_idx] != cell:
+                        row[col_idx] = cell
+                        self.mark_dirty(col_idx, row_idx, 1, 1)
+            return
+
+        # Fast path: fill cells directly and mark the whole region dirty once.
         for row_idx in range(start_y, end_y):
             row = self.cells[row_idx]
             for col_idx in range(start_x, end_x):
                 row[col_idx] = cell
-
-        # Mark entire region dirty once
         self.mark_dirty(start_x, start_y, end_x - start_x, end_y - start_y)
 
     def get_cell(self, x: int, y: int) -> Cell | None:

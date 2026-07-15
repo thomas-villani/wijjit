@@ -324,6 +324,19 @@ class Renderer:
         self._last_base_buffer: ScreenBuffer | None = None
         self._last_displayed_buffer: ScreenBuffer | None = None
 
+        # Incremental (damage-tracked) base rendering (review 2.5). On the fast
+        # path the paint buffer starts as a copy of the previous frame and the
+        # write paths dirty only the cells that actually change, so the diff
+        # scans changes rather than the whole screen. _spare_base_buffer is the
+        # retired base buffer from the prior frame, reused as this frame's paint
+        # target (pooled to avoid reallocation). _last_coverage is the set of
+        # cells painted last frame, used to blank vacated content. The path is
+        # only taken when it is provably safe (no overlays this or last frame,
+        # same size, not a forced full repaint) and can be disabled wholesale.
+        self.incremental_render = True
+        self._spare_base_buffer: ScreenBuffer | None = None
+        self._last_coverage: set[tuple[int, int]] | None = None
+
         # Diff renderer for efficient incremental updates
         self._diff_renderer = DiffRenderer()
 
@@ -504,6 +517,7 @@ class Renderer:
         height: int | None = None,
         overlay_manager: "OverlayManager | None" = None,
         template_name: str | None = None,
+        allow_incremental: bool = False,
     ) -> tuple[str, list[Element], "LayoutContext"]:
         """Render a template with layout engine support.
 
@@ -681,7 +695,12 @@ class Renderer:
         # Use full height for buffer, statusbar will render to last row
         logger.debug("Using cell-based rendering")
         output, base_buffer = self._compose_output_cells(
-            elements, width, height, layout_ctx.root, statusbar
+            elements,
+            width,
+            height,
+            layout_ctx.root,
+            statusbar,
+            allow_incremental=allow_incremental,
         )
 
         # Return layout context so caller can process overlays
@@ -1381,6 +1400,7 @@ class Renderer:
         height: int,
         root: "LayoutNode | None" = None,
         statusbar: Element | None = None,
+        allow_incremental: bool = False,
     ) -> tuple[str, "ScreenBuffer"]:
         """Compose final output using cell-based rendering.
 
@@ -1411,31 +1431,66 @@ class Renderer:
         and converts the buffer to ANSI output. Elements are rendered in
         z-order (first to last) using their render_to(ctx) method.
         """
-        # Create screen buffer
-        buffer = ScreenBuffer(width, height)
         style_resolver = StyleResolver(
             self.theme_manager.get_theme(), focus_color=self.focus_color
         )
 
-        # Transfer dirty regions from dirty manager to buffer for diff rendering optimization
-        # IMPORTANT: On first render, ALWAYS force full screen dirty regardless of what's
-        # in dirty_manager, because initial focus/hover setup may mark individual elements
-        # but we need to render the entire screen on first paint
-        if self.use_diff_rendering:
-            if self._last_displayed_buffer is None:
-                # First render: ALWAYS mark entire screen dirty, ignore dirty_manager
-                # This ensures full UI renders even if focus manager marked individual elements
-                buffer.mark_all_dirty()
-            elif self.dirty_manager.is_dirty():
-                if self.dirty_manager.is_full_screen_dirty():
-                    # Mark entire buffer as dirty
+        # === Buffer preparation: incremental (damage-tracked) vs full repaint ===
+        # The incremental path (review 2.5) starts the paint buffer as a copy of
+        # the previous frame and lets the write paths change-detect, so the diff
+        # scans only the cells that actually change instead of the whole screen.
+        # It is only safe when: it is enabled, diff rendering is on, we have a
+        # previous base buffer of the same size with recorded coverage, the
+        # caller allows it (no overlays this frame), and last frame had no
+        # overlay (so the displayed buffer IS the base buffer - the thing our
+        # copied baseline must match for the diff to be correct).
+        prev = self._last_base_buffer
+        incremental = (
+            allow_incremental
+            and self.incremental_render
+            and self.use_diff_rendering
+            and prev is not None
+            and self._last_coverage is not None
+            and prev.width == width
+            and prev.height == height
+            and self._last_displayed_buffer is prev
+        )
+
+        # Acquire a paint buffer, reusing the retired base buffer from two frames
+        # ago (pooled in _spare_base_buffer) when its size matches. That buffer
+        # is neither the current base nor the displayed buffer, so painting into
+        # it cannot corrupt the diff's "old" side.
+        buffer = self._spare_base_buffer
+        self._spare_base_buffer = None
+        if buffer is None or buffer.width != width or buffer.height != height:
+            buffer = ScreenBuffer(width, height)
+
+        if incremental:
+            # Baseline = previous frame; change-detection then dirties only real
+            # changes. prev is not None (guarded above).
+            assert prev is not None  # guaranteed by `incremental` above
+            buffer.copy_from(prev)
+            buffer.start_tracking(damage=True)
+        else:
+            # Full repaint: blank baseline + conservative dirty from the dirty
+            # manager (or whole screen on the first render), exactly as before.
+            buffer.reset()
+            if self.use_diff_rendering:
+                if self._last_displayed_buffer is None:
+                    # First render: mark the whole screen dirty regardless of
+                    # what the dirty manager holds (initial focus/hover setup may
+                    # have marked only individual elements).
                     buffer.mark_all_dirty()
-                else:
-                    # Transfer individual dirty regions
-                    for x, y, w, h in self.dirty_manager.get_merged_regions():
-                        buffer.mark_dirty(x, y, w, h)
-            # Note: If dirty_manager is empty, we don't mark anything dirty
-            # This allows diff rendering to output nothing (screen stays as-is), which is correct
+                elif self.dirty_manager.is_dirty():
+                    if self.dirty_manager.is_full_screen_dirty():
+                        buffer.mark_all_dirty()
+                    else:
+                        for x, y, w, h in self.dirty_manager.get_merged_regions():
+                            buffer.mark_dirty(x, y, w, h)
+                # Empty dirty manager -> nothing dirty -> diff emits nothing.
+            # Track coverage (without damage-detection) so the next frame can go
+            # incremental: it needs to know which cells this frame painted.
+            buffer.start_tracking(damage=False)
 
         # First pass: Render frame borders if we have a layout tree
         if root is not None:
@@ -1599,10 +1654,29 @@ class Renderer:
             if hasattr(statusbar, "render_to") and callable(statusbar.render_to):
                 statusbar.render_to(statusbar_ctx)
 
+        # Finish damage tracking. On the incremental path, blank any cell that
+        # was painted last frame but not this one (vacated content, e.g. a label
+        # that got shorter or a row that was removed) - the copied-in baseline
+        # still holds the stale glyph there, so set it back to blank. set_cell
+        # change-detects and dirties it, so the diff emits the erase. Coverage
+        # was ended first so these blanking writes are not themselves counted as
+        # painted content for the next frame's vacated calculation.
+        this_coverage = buffer.end_tracking()
+        if incremental and self._last_coverage:
+            blank = buffer.blank_cell
+            for x, y in self._last_coverage - this_coverage:
+                buffer.set_cell(x, y, blank)
+        self._last_coverage = this_coverage
+
         # Convert buffer to ANSI string for terminal output
         # IMPORTANT: Do this BEFORE storing buffer, so diff renderer compares
         # old buffer (or None) with new buffer, not new buffer with itself!
         output = self._buffer_to_ansi(buffer)
+
+        # Retire the previous base buffer into the single-slot pool so the next
+        # frame can paint into it instead of allocating. prev is neither the new
+        # base nor (once overlays composite) the displayed buffer.
+        self._spare_base_buffer = prev
 
         # Store base buffer for next render (after converting!)
         # Base buffer: The view without overlays (always preserved)
@@ -1854,6 +1928,11 @@ class Renderer:
         """
         self._last_base_buffer = None
         self._last_displayed_buffer = None
+        # Drop incremental state too: with no base to diff against, the next
+        # frame must be a full repaint, and last frame's coverage no longer
+        # corresponds to anything on screen.
+        self._last_coverage = None
+        self._spare_base_buffer = None
 
     def get_buffer_as_text(self) -> str:
         """Get the last rendered buffer as plain text (for testing).

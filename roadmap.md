@@ -173,17 +173,21 @@ handler was always correct).
   up a full-screen ``ScreenBuffer`` of ``Cell`` objects every frame (~1.28M
   ``Cell.__post_init__`` calls over 200 renders) plus a full-buffer diff (every
   state write marks the whole screen dirty, so the diff scans all rows).
-  **Landed:** empty buffer positions now share one blank ``Cell`` instead of
-  allocating one per position (``screen_buffer.py`` ``_BLANK_CELL``) — a
-  semantics-preserving ~17% cut in per-render CPU on that view, pinned by a
-  ratchet test. **Still open:** (a) reuse the ``ScreenBuffer`` across frames
-  (ping-pong the two retained base buffers instead of reallocating the row
-  lists — fiddly given the overlay/composite consumers of ``_last_base_buffer`` /
-  ``_last_displayed_buffer``); (b) only mark the changed element's region dirty
-  on a state write instead of the whole screen, so the diff scans locally;
-  (c) only repaint dirty elements rather than the whole element tree every frame
-  (higher risk — correctness). Template/reconcile/wiring memoization is a distant
-  fourth by measured cost.
+  **Landed (three steps):** (1) empty buffer positions share one blank ``Cell``
+  instead of allocating one per position (``_BLANK_CELL``); (2) ``Cell.__eq__``
+  identity short-circuit; (3) **incremental (damage-tracked) base rendering** —
+  the paint buffer starts as a copy of the previous frame (pooled, reused across
+  frames), the write paths change-detect so dirty regions reflect only real
+  changes, cells painted last frame but not this one are blanked (vacated
+  content), and the diff scans just the damage. Gated to the safe case (no
+  overlays this/last frame, stable size, diff rendering on) with a full-repaint
+  fallback and an ``incremental_render`` off-switch. Measured **~32% less
+  per-render CPU on a localized edit** in a 40-row view, screen output
+  byte-identical to the full-repaint path (pinned by an equivalence test +
+  emitted-bytes replay). **Still open:** (c) skip re-painting *unchanged
+  elements* entirely (``write_text`` still runs for every element each frame —
+  the diff is now cheap but the paint is not); and template/reconcile/wiring
+  memoization (a distant last by measured cost).
 - [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
   while its scroll content size counts *wrapped* lines, so long lines clip
   (``code_editor.py:478,839``).
