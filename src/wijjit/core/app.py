@@ -1176,6 +1176,13 @@ class Wijjit:
         view = self.views[self.current_view]
         self._initialize_view(view)
 
+        # Sample the terminal size ONCE for the whole frame. Layout and overlay
+        # compositing used to call get_terminal_size() independently, so a resize
+        # landing between the two calls laid the base out at one size and
+        # composited overlays at another - a torn frame. One read per render
+        # keeps the frame internally consistent (review item 2.12).
+        term_size = get_terminal_size()
+
         # A requested full repaint discards the renderer's cached on-screen
         # buffer so this render goes out as a complete redraw (screen clear +
         # every cell), overwriting any bytes written to the terminal out of
@@ -1215,8 +1222,8 @@ class Wijjit:
                 self.renderer.add_global("_wijjit_current_context", data)
                 self.renderer.add_global("_wijjit_focused_id", focused_id)
 
-                # Render with layout (elements will be created with correct focus state)
-                term_size = get_terminal_size()
+                # Render with layout (elements will be created with correct
+                # focus state) using the frame's single terminal-size sample.
                 if template_file:
                     # Load from file
                     output, elements, layout_ctx = self.renderer.render_with_layout(
@@ -1289,9 +1296,9 @@ class Wijjit:
                     f"Overlays changed: {len(prev_overlay_ids)} -> {len(current_overlay_ids)}"
                 )
 
-            # Composite overlays if any are active
+            # Composite overlays if any are active, at the same size the base
+            # was laid out with (sampled once at the top of this render).
             if self.overlay_manager.overlays:
-                term_size = get_terminal_size()
                 overlay_elements = self.overlay_manager.get_overlay_elements()
                 apply_dimming = self.overlay_manager.has_dimmed_overlay()
 
@@ -1310,7 +1317,7 @@ class Wijjit:
 
             # Add FPS display if enabled
             if self.config["SHOW_FPS"] and hasattr(self.event_loop, "current_fps"):
-                output = self._add_fps_overlay(output)
+                output = self._add_fps_overlay(output, term_size)
 
             # Add bounds visualization if enabled
             if self.config["SHOW_BOUNDS"]:
@@ -2168,13 +2175,16 @@ class Wijjit:
         """
         self.completers[name] = completer
 
-    def _add_fps_overlay(self, output: str) -> str:
+    def _add_fps_overlay(self, output: str, term_size: os.terminal_size) -> str:
         """Add FPS counter overlay to output.
 
         Parameters
         ----------
         output : str
             Current rendered output
+        term_size : os.terminal_size
+            The frame's terminal size, sampled once in ``_render`` so the FPS
+            counter is positioned against the same width as the rest of the frame
 
         Returns
         -------
@@ -2191,9 +2201,7 @@ class Wijjit:
         # Format FPS display
         fps_text = f"FPS: {fps:4.1f}"
 
-        # Position in top-right corner
-        # Use ANSI cursor positioning to overlay FPS counter
-        term_size = get_terminal_size()
+        # Position in top-right corner using the frame's terminal-size sample.
         column = term_size.columns - len(fps_text)
 
         # Create FPS overlay using ANSI positioning
