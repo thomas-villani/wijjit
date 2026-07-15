@@ -209,12 +209,34 @@ handler was always correct).
   signature = always repaint; elements overlapping the always-repainted
   frame-border pass or under an ``overflow_x="visible"`` frame are never skipped;
   a ``verify_skips`` mode paints anyway and asserts byte-identity (run across
-  every example). Signatures ship for ``TextElement``/``TextInput``/``Button``;
-  measured **~14% less per-render CPU** on a static-heavy 40-row view, screen
-  output byte-identical (on-vs-off screen + emitted-ANSI equivalence tests).
-  **Still open:** signatures for the remaining element types (each is additive
-  and low-risk behind the same verify mode); static frame-border skip; and
-  template/reconcile/wiring memoization (a distant last by measured cost).
+  every example). Signatures first shipped for ``TextElement``/``TextInput``/
+  ``Button``; measured **~14% less per-render CPU** on a static-heavy 40-row
+  view, screen output byte-identical (on-vs-off screen + emitted-ANSI
+  equivalence tests). **Follow-up landed:** signatures now also ship for
+  ``Checkbox``/``CheckboxGroup``/``Radio``/``RadioGroup``/``Toggle``/``Slider``/
+  ``ProgressBar``/``StatusIndicator``/``StatusBar``/``Link``/``Sparkline``/
+  ``Gauge``/``ColumnChart`` (sensitivity-unit-tested + verify-swept), measured
+  **~1.36x (~27% less CPU)** on a static form where one field changes per
+  keystroke; ``Select``/``BarChart``/``Table`` stay on the ``None`` default
+  (paint couples to internal scroll state). The benchmark
+  (``scripts/bench_perf.py``) was also fixed to measure the incremental path
+  (``allow_incremental=True``) the app actually uses, not a full repaint.
+  **Still open — dropped as measured near-zero:** static frame-border skip
+  (~3% of render) and a per-interned-cell width cache (the diff-emit width path
+  is ~3 calls/frame on the incremental path; the hot ``display_width`` calls are
+  in ``write_text`` measurement, which the ASCII fast path already covers).
+  **Still open — the real remaining lever, deferred:** *incremental multi-line
+  text repaint*. A run of consecutive plain-text lines collapses into a **single**
+  ``TextElement`` whose ``text`` is the newline-joined block, so a change to any
+  one line changes that element's signature and repaints the **whole** block
+  (write_text per line). In a text-heavy framed view that dominates per-keystroke
+  cost (~55-60% of render), though realistic forms/dashboards mostly avoid it
+  (the changing widget is a separate, skippable element, so the static text block
+  already skips). The fix is a line-level version of option (c) inside
+  ``TextElement`` — repaint only changed lines and re-record the unchanged lines'
+  coverage — but it touches the hottest paint path and needs the same flag +
+  verify-mode + byte-identity rigor, so it is its own carefully-guarded change.
+  Distant last: template/reconcile/wiring memoization (tiny by measured cost).
 - [ ] **CodeEditor soft-wrap scroll desync** — the editor renders *actual* lines
   while its scroll content size counts *wrapped* lines, so long lines clip
   (``code_editor.py:478,839``).
