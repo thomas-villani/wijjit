@@ -426,6 +426,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **Cheaper damage-tracking bookkeeping on the paint path.** The per-frame
+  coverage set (which records every painted cell so the incremental path can
+  blank vacated content) now stores a packed `y * width + x` int per cell
+  instead of an `(x, y)` tuple, removing a tuple allocation on every glyph write
+  (~1268 painted cells/frame on the profiled 40-row view); the renderer unpacks
+  it in the vacated-cell loop. The wide-glyph continuation test
+  (`is_continuation`, ~768k calls over 400 renders) drops its string compare for
+  `not cell.char` — exactly equivalent, since the continuation sentinel is the
+  only empty `char` in the pipeline. Both are byte-for-byte identical on screen
+  (review 2.5 follow-up).
 - **Interned cells on the paint hot path.** `PaintContext.write_text` /
   `fill_rect` allocated a fresh `Cell` for every glyph on every frame (~407k
   `Cell.__post_init__` calls over 400 renders on a 40-row view). A bounded

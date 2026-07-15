@@ -97,8 +97,9 @@ class TestScreenBuffer:
         cur.set_cell(4, 1, Cell("X"))
         cov = cur.end_tracking()
         assert (4, 1, 1, 1) in cur.dirty_regions
-        # Coverage recorded every touched cell (the fill + the set).
-        assert (4, 1) in cov and (0, 0) in cov and len(cov) == 30
+        # Coverage recorded every touched cell (the fill + the set), packed as
+        # ``y * width + x`` (width 10): (4, 1) -> 14, (0, 0) -> 0.
+        assert 14 in cov and 0 in cov and len(cov) == 30
 
     def test_fast_path_unchanged_when_not_tracking(self):
         """Bulk writes keep their unconditional behavior with tracking off.

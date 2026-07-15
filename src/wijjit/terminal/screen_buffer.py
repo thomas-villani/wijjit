@@ -140,14 +140,17 @@ class ScreenBuffer:
         self.dirty_regions: set[tuple[int, int, int, int]] = set()
 
         # Damage-tracking support for incremental rendering (review 2.5).
-        # _coverage: when not None, every write path records the (x, y) it
-        # touches, so the renderer can blank cells that were painted last frame
-        # but not this one (vacated content). _damage_mode: when True, the bulk
+        # _coverage: when not None, every write path records the cell it touches
+        # as a packed ``y * width + x`` int, so the renderer can blank cells that
+        # were painted last frame but not this one (vacated content). The packed
+        # int avoids a per-cell tuple allocation on the paint hot path (this set
+        # takes an add for every glyph written); the renderer unpacks with
+        # ``x = p % width; y = p // width``. _damage_mode: when True, the bulk
         # write paths (fill_rect, set_cells_*) change-detect per cell like
         # set_cell does - only writing and dirtying cells that actually differ -
         # instead of unconditionally overwriting a whole region. Both are off by
         # default so the standard full-repaint path is byte-for-byte unchanged.
-        self._coverage: set[tuple[int, int]] | None = None
+        self._coverage: set[int] | None = None
         self._damage_mode: bool = False
 
     def start_tracking(self, damage: bool) -> None:
@@ -165,13 +168,15 @@ class ScreenBuffer:
         self._coverage = set()
         self._damage_mode = damage
 
-    def end_tracking(self) -> set[tuple[int, int]]:
+    def end_tracking(self) -> set[int]:
         """Stop recording coverage and return the cells painted this frame.
 
         Returns
         -------
-        set of (int, int)
-            The (x, y) positions touched by any write since ``start_tracking``.
+        set of int
+            The positions touched by any write since ``start_tracking``, each
+            packed as ``y * width + x``. Unpack with ``x = p % width`` and
+            ``y = p // width``.
         """
         cov = self._coverage if self._coverage is not None else set()
         self._coverage = None
@@ -231,7 +236,7 @@ class ScreenBuffer:
             return
 
         if self._coverage is not None:
-            self._coverage.add((x, y))
+            self._coverage.add(y * self.width + x)
 
         # Only mark dirty if cell actually changed
         if self.cells[y][x] != cell:
@@ -273,8 +278,9 @@ class ScreenBuffer:
 
         if self._coverage is not None:
             cov = self._coverage
+            base = y * self.width
             for i in range(start_x, end_x):
-                cov.add((i, y))
+                cov.add(base + i)
 
         if self._damage_mode:
             # Change-detect per cell so an incremental frame dirties only what
@@ -325,8 +331,9 @@ class ScreenBuffer:
 
         if self._coverage is not None:
             cov = self._coverage
+            w = self.width
             for i in range(start_y, end_y):
-                cov.add((x, i))
+                cov.add(i * w + x)
 
         if self._damage_mode:
             for i, cell in enumerate(cells[offset : end_y - y], start=start_y):
@@ -375,9 +382,11 @@ class ScreenBuffer:
 
         if self._coverage is not None:
             cov = self._coverage
+            w = self.width
             for row_idx in range(start_y, end_y):
+                base = row_idx * w
                 for col_idx in range(start_x, end_x):
-                    cov.add((col_idx, row_idx))
+                    cov.add(base + col_idx)
 
         if self._damage_mode:
             # Change-detect per cell (incremental frame).

@@ -31,8 +31,15 @@ def is_continuation(cell: "Cell") -> bool:
     bool
         True if ``cell`` is a continuation cell (``char == CONTINUATION_CHAR``),
         i.e. the second column occupied by a preceding width-2 glyph.
+
+    Notes
+    -----
+    Tested as ``not cell.char``: ``CONTINUATION_CHAR`` is the empty string and
+    the empty string is the only falsy ``char`` in the pipeline (blank cells
+    carry ``" "``), so this is exactly equivalent to ``== CONTINUATION_CHAR``
+    while skipping the string compare on this hot path.
     """
-    return cell.char == CONTINUATION_CHAR
+    return not cell.char
 
 
 @dataclass(slots=True)

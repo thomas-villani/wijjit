@@ -195,7 +195,11 @@ handler was always correct).
   ``cell.intern_cell`` now shares one immutable cell per ``(char, style)`` (keyed
   positionally), cutting allocation churn and feeding the diff's identity
   short-circuit (unchanged glyph -> same object frame-over-frame). Measured
-  **~15% less per-render CPU** on top of (4). **Still open:** (c) skip
+  **~15% less per-render CPU** on top of (4). **(6) cheaper damage bookkeeping** —
+  the per-frame coverage set now stores a packed ``y * width + x`` int per cell
+  instead of an ``(x, y)`` tuple (no tuple alloc per glyph; ~21% faster on the
+  isolated coverage add), and ``is_continuation`` tests ``not cell.char`` instead
+  of a string compare; both screen-identical. **Still open:** (c) skip
   re-painting *unchanged elements* entirely (``write_text`` still runs for every
   element each frame — the next-biggest lever is the paint itself: a per-element
   render signature to blit an unchanged element's region from the previous
