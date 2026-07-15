@@ -1041,8 +1041,12 @@ class RadioGroupExtension(Extension):
             # Check if this element should be focused
             is_focused = focused_id and id and focused_id == id
 
-            # Calculate total height accounting for borders
-            total_height = len(options) + (2 if has_border(border_style) else 0)
+            # Calculate total height accounting for orientation and borders.
+            # Horizontal groups draw every option on a single line; only the
+            # vertical layout reserves one row per option (matching the
+            # element's get_intrinsic_size()).
+            content_height = 1 if orientation == "horizontal" else len(options)
+            total_height = content_height + (2 if has_border(border_style) else 0)
             total_width = width + (2 if has_border(border_style) else 0)
 
             # Create VNode for reconciliation
