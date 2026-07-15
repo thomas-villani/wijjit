@@ -140,7 +140,7 @@ class PaintContext:
         >>> ctx.write_text(0, 0, 'Very long text', style, clip=False)
         """
         from wijjit.terminal.ansi import iter_text_clusters, strip_ansi
-        from wijjit.terminal.cell import CONTINUATION_CHAR, Cell
+        from wijjit.terminal.cell import CONTINUATION_CHAR, intern_cell
 
         # Plain-text contract: strip whole ANSI sequences up front so that
         # unsupported pre-styled input degrades to clean text instead of the
@@ -148,8 +148,20 @@ class PaintContext:
         if "\x1b" in text:
             text = strip_ansi(text)
 
-        # Convert style to cell attributes
-        cell_attrs = style.to_cell_attrs()
+        # Convert style to cell attributes, flattened to a positional tuple so
+        # the per-glyph intern_cell() calls below key the LRU cache positionally
+        # - roughly an order of magnitude cheaper than the keyword form, which
+        # dominated once interning replaced fresh allocation.
+        ca = style.to_cell_attrs()
+        attrs = (
+            ca["fg_color"],
+            ca["bg_color"],
+            ca["bold"],
+            ca["italic"],
+            ca["underline"],
+            ca["reverse"],
+            ca["dim"],
+        )
 
         # Translate to absolute coordinates
         abs_x = self.bounds.x + x
@@ -182,7 +194,7 @@ class PaintContext:
                 if cwidth == 1:
                     if head_in_clip:
                         self.buffer.set_cell(
-                            head_x, abs_y, Cell(char=cluster, **cell_attrs)
+                            head_x, abs_y, intern_cell(cluster, *attrs)
                         )
                     col += 1
                     continue
@@ -195,35 +207,31 @@ class PaintContext:
                 if not tail_in_budget:
                     # Only one column of budget left: never write half a glyph.
                     if head_in_clip:
-                        self.buffer.set_cell(
-                            head_x, abs_y, Cell(char=" ", **cell_attrs)
-                        )
+                        self.buffer.set_cell(head_x, abs_y, intern_cell(" ", *attrs))
                     col += 2
                     continue
 
                 if head_in_clip and tail_in_clip:
+                    self.buffer.set_cell(head_x, abs_y, intern_cell(cluster, *attrs))
                     self.buffer.set_cell(
-                        head_x, abs_y, Cell(char=cluster, **cell_attrs)
-                    )
-                    self.buffer.set_cell(
-                        tail_x, abs_y, Cell(char=CONTINUATION_CHAR, **cell_attrs)
+                        tail_x, abs_y, intern_cell(CONTINUATION_CHAR, *attrs)
                     )
                 elif head_in_clip:
                     # Only the head column is inside the clip region.
-                    self.buffer.set_cell(head_x, abs_y, Cell(char=" ", **cell_attrs))
+                    self.buffer.set_cell(head_x, abs_y, intern_cell(" ", *attrs))
                 elif tail_in_clip:
                     # Only the tail column is inside the clip region.
-                    self.buffer.set_cell(tail_x, abs_y, Cell(char=" ", **cell_attrs))
+                    self.buffer.set_cell(tail_x, abs_y, intern_cell(" ", *attrs))
                 col += 2
         else:
             # No clipping - write all clusters, head + continuation for wide glyphs
             col = 0
             for cluster, cwidth in iter_text_clusters(text):
                 head_x = abs_x + col
-                self.buffer.set_cell(head_x, abs_y, Cell(char=cluster, **cell_attrs))
+                self.buffer.set_cell(head_x, abs_y, intern_cell(cluster, *attrs))
                 if cwidth == 2:
                     self.buffer.set_cell(
-                        head_x + 1, abs_y, Cell(char=CONTINUATION_CHAR, **cell_attrs)
+                        head_x + 1, abs_y, intern_cell(CONTINUATION_CHAR, *attrs)
                     )
                 col += cwidth
 
@@ -330,10 +338,24 @@ class PaintContext:
 
         >>> ctx.fill_rect(2, 2, 5, 3, '#', style)
         """
-        from wijjit.terminal.cell import Cell
+        from wijjit.terminal.cell import intern_cell
 
         # Convert style to cell attributes
-        cell_attrs = style.to_cell_attrs()
+        ca = style.to_cell_attrs()
+
+        # Every position in the rect gets the same (char, style) cell, so build
+        # it once (interned, positional key) and reuse the one shared object for
+        # the whole fill.
+        cell = intern_cell(
+            char,
+            ca["fg_color"],
+            ca["bg_color"],
+            ca["bold"],
+            ca["italic"],
+            ca["underline"],
+            ca["reverse"],
+            ca["dim"],
+        )
 
         # Translate to absolute coordinates
         abs_x = self.bounds.x + x
@@ -362,7 +384,6 @@ class PaintContext:
                 if col_abs_x < clip_x_start or col_abs_x >= clip_x_end:
                     continue
 
-                cell = Cell(char=char, **cell_attrs)
                 self.buffer.set_cell(col_abs_x, row_abs_y, cell)
 
     def _is_point_in_clip(self, abs_x: int, abs_y: int) -> bool:

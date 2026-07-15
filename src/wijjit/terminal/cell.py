@@ -5,6 +5,7 @@ which enables efficient diff rendering, styling, and dirty region tracking.
 """
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from wijjit.terminal.ansi import is_no_color
@@ -316,6 +317,67 @@ class Cell:
             reverse=self.reverse,
             dim=self.dim,
         )
+
+
+@lru_cache(maxsize=1 << 15)
+def intern_cell(
+    char: str,
+    fg_color: tuple[int, int, int] | None = None,
+    bg_color: tuple[int, int, int] | None = None,
+    bold: bool = False,
+    italic: bool = False,
+    underline: bool = False,
+    reverse: bool = False,
+    dim: bool = False,
+) -> Cell:
+    """Return a shared, immutable ``Cell`` for a ``(char, style)`` combination.
+
+    The cell-painting hot path (``PaintContext.write_text`` / ``write_cell``)
+    used to allocate a fresh ``Cell`` for every glyph on every frame, which
+    profiling showed dominated per-render cost once the buffer-allocation and
+    diff costs were removed (~407k ``Cell.__post_init__`` calls over 400 renders
+    on a 40-row view). Interning collapses repeated ``(char, style)`` pairs onto
+    one object, so re-painting the same text costs a cache lookup instead of an
+    allocation.
+
+    It also speeds the diff: because an unchanged glyph resolves to the *same*
+    object frame-over-frame, ``Cell.__eq__``'s identity short-circuit
+    (``self is other``) settles it without comparing any field - the biggest win
+    on the full-repaint path, where the old and new buffers are painted
+    independently rather than copied.
+
+    Sharing is safe for exactly the reason the shared blank cell is (see
+    ``screen_buffer._BLANK_CELL``): cells are treated as immutable - painting
+    replaces a buffer slot, never mutates a cell in place - and the one site
+    that does mutate (overlay dimming in ``Renderer.composite_overlays``) copies
+    first. The cache is bounded (LRU) so an app that paints an unbounded variety
+    of styled glyphs (e.g. a truecolor image as text) cannot grow it without
+    limit; eviction only turns a later hit back into an allocation.
+
+    Parameters
+    ----------
+    char : str
+        The glyph (or continuation/empty string) for the cell.
+    fg_color, bg_color : tuple of (int, int, int) or None, optional
+        Foreground / background RGB, or None for the terminal default.
+    bold, italic, underline, reverse, dim : bool, optional
+        Text attributes.
+
+    Returns
+    -------
+    Cell
+        A shared cell; callers must not mutate it (copy first if needed).
+    """
+    return Cell(
+        char,
+        fg_color=fg_color,
+        bg_color=bg_color,
+        bold=bold,
+        italic=italic,
+        underline=underline,
+        reverse=reverse,
+        dim=dim,
+    )
 
 
 class CellPool:

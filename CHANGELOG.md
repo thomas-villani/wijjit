@@ -426,6 +426,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv build` / packaging.
 
 ### Changed
+- **Interned cells on the paint hot path.** `PaintContext.write_text` /
+  `fill_rect` allocated a fresh `Cell` for every glyph on every frame (~407k
+  `Cell.__post_init__` calls over 400 renders on a 40-row view). A bounded
+  (LRU) `wijjit.terminal.cell.intern_cell` now shares one immutable `Cell` per
+  `(char, style)`, so re-painting the same text is a cache lookup instead of an
+  allocation - safe for exactly the reason the shared blank cell is (cells are
+  never mutated in place). It also speeds the diff: an unchanged glyph resolves
+  to the *same* object frame-over-frame, so `Cell.__eq__`'s identity
+  short-circuit settles it without comparing fields (the biggest gain on the
+  full-repaint path). The cache is keyed positionally (roughly an order of
+  magnitude cheaper than a keyword key). Measured ~15% less per-render CPU on
+  top of the width fast path below (review 2.5).
 - **Faster text-width measurement: printable-ASCII fast path (`display_width`).**
   With the per-frame allocation and full-screen diff costs removed by the two
   changes below, profiling a 40-row Latin-text view showed the single largest
