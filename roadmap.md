@@ -546,6 +546,38 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
     renders** (the full app reconciles to preserve ephemeral focus/cursor
     state; ``InlineApp`` rebuilds elements every frame and re-derives focus by
     order via ``FocusManager.set_elements``).
+- [ ] **``wijjit form`` — pipe-composable TUI forms.** Wrap a bash script or CLI
+  command in a throwaway TUI that collects input and composes in a pipeline:
+  ``git diff | wijjit form commit.wij.j2 | git commit -F -``. The form renders on
+  the controlling terminal; the *data* goes to stdout (JSON by default, or a
+  Jinja ``--output`` string over the same bound-state dict). Piped stdin is
+  exposed as a template context variable, so forms compose in both directions.
+  **The wedge:** ``gum``/``fzf`` do one widget per invocation and let the shell
+  compose them — they structurally cannot do one form with several fields you Tab
+  between. Wijjit can, because the form is a template, which also makes it
+  lintable (``wijjit validate``), headlessly driveable (``wijjit render --keys``),
+  and harness-testable. Flags (``--input NAME``, ``--textarea NAME``, ...) are a
+  ten-second on-ramp defined as **sugar that desugars into a template**, with
+  ``--print-template`` to graduate flags → file; they stay shallow on purpose, so
+  there is exactly one form model. **Enabler already exists:** the
+  ``TerminalBackend`` seam (``terminal/backend.py``) — a ``TtyBackend`` writing to
+  ``/dev/tty`` / ``CONOUT$`` is required because stdout belongs to the pipe (and
+  stdin often does too, so ``get_size`` must use the tty fd, not stdout). The one
+  unknown needing a spike first is ``create_input_handler`` over ``/dev/tty``
+  (prompt_toolkit's ``Vt100Input`` takes a file object; the Windows console path
+  is less clear). Defaults to the full app + alternate screen (the form is
+  transient *input*, not output; ``InlineApp``'s gaps above — no action dispatch,
+  no arrow focus nav, no reconcile — are exactly what a form trips); ``--inline``
+  rides on the convergence item above. Known sharp edge: pipes don't propagate
+  cancellation, so ``| git commit -F -`` runs even on Esc — cancel emits nothing
+  and exits 1 (for ``pipefail``), and command substitution is the documented
+  idiom. Exits 3 with no controlling tty; ``--non-interactive`` makes the same
+  script work in CI. Field validation is deliberately **out of scope** — it should
+  be a framework-wide element feature (``required=``/``pattern=``) this consumes,
+  not a CLI-only dialect. Acceptance test: rewrite ``examples/apps/gcommit.py``
+  (already this exact app, hand-written on ``InlineApp``) as a template plus a
+  two-line shell function. MVP = the TtyBackend spike + ``wijjit form TEMPLATE``
+  → JSON + ``--output``/stdin context.
 - [ ] **Vim mode** for ``TextArea`` and ``CodeEditor``.
 - [ ] **Spreadsheet formulas** in ``DataGrid`` (Excel-style ``=A1+B1``).
 - [ ] **CSV / Excel / JSON data sources** for ``Table`` / ``DataGrid``.
