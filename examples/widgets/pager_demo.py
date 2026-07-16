@@ -171,7 +171,7 @@ Part of the Wijjit component library alongside:
 - And many more...
 
 Developer: Tom Villani
-Framework: Wijjit - "Flask for the Console"
+Framework: Wijjit - Wijjit Is Just Jinja In Terminal
 
 Press Home to go back to the first page,
 or press 'q' to quit this demo.

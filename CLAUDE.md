@@ -7,15 +7,26 @@ automatically.
 ## Project Overview
 
 **Wijjit** is a declarative TUI (Terminal User Interface) framework for Python
-that brings web development patterns to terminal applications. The tagline is
-"Flask for the Console" - it uses Jinja2 templates for UI definition and
-provides a Flask-like API with view decorators and reactive state management.
+that brings web development patterns to terminal applications. It uses Jinja2
+templates for UI definition and provides a Flask-like API with view decorators
+and reactive state management.
+
+**Positioning (see `roadmap.md` review 3.6).** The tagline is the recursive
+acronym **"Wijjit Is Just Jinja In Terminal"**, and the pitch leads with what the
+template architecture buys: the UI is a static artifact tooling can read, so it
+is *lintable* (`wijjit validate`), *headlessly driveable* (`wijjit render`, the
+harness), and *byte-diffed* (an idle frame writes 0 bytes). That combination is
+also what makes Wijjit easy for LLMs to write, test, and understand. "Flask for
+the Console" is kept only as an **on-ramp for web developers** describing the
+*ergonomics* (`@app.view`, `render_template_string`, `@app.on_action`) - it is
+not an architecture claim, since the live-view + vdom + reconciler design is the
+React model. Do not reintroduce it as one.
 
 **Target Use Case**: Build rich, interactive CLI tools using familiar web
 patterns instead of procedural positioning code.
 
 **Status**: At the `0.1.0` release (version sourced from `wijjit.__version__`).
-Core framework is complete and stable; ~3000 tests pass. See `RELEASE_PLAN.md`
+Core framework is complete and stable; ~3600 tests pass. See `RELEASE_PLAN.md`
 for the remaining (publish-side) release steps.
 
 ## Environment & Tooling
@@ -346,8 +357,8 @@ defaults; `tests/core/test_config.py` covers it.
 
 ## Examples
 
-`examples/` has 72 runnable demos, organized into `basic/` (15), `widgets/`
-(30), `advanced/` (22), `styling/` (2), `apps/` (3). Run with
+`examples/` has 74 runnable demos, organized into `basic/` (15), `widgets/`
+(30), `advanced/` (22), `styling/` (2), `apps/` (5). Run with
 `python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
 behavioral bugs deferred to 0.1.1, tracked with root causes in `roadmap.md`
 (the single post-0.1.0 backlog).

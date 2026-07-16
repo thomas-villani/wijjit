@@ -24,7 +24,7 @@ release is gated only on the external publish steps in `RELEASE_PLAN.md` Part 1.
 
 ## 0.1.0 (current release target)
 
-The framework is feature-complete for a credible first release: ~3000 tests
+The framework is feature-complete for a credible first release: ~3600 tests
 passing, ruff clean, `mypy --strict` clean, Sphinx docs build with zero
 warnings. The remaining 0.1.0 work is a tight set of quality-of-life fixes
 that would otherwise embarrass the first public release.
@@ -114,13 +114,20 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
   the clip-region sweep, review 2.1/2.11), plus ``ansi_string_to_cells``
   pre-rendered content (Rich tables), which still maps one code point per
   cell. Tracked from the 0.1.0 code review (Theme A, CRITICALs #2/#3/#5).
-- [ ] **Reposition the tagline** (review 3.6, docs-only). "Flask for the Console"
-  is a good on-ramp but a misleading *architectural* claim — the live-view +
-  vdom + reconciler design is the React model, and the Flask-shaped parts
-  (``@app.view``, ``render_template_string``, ``@app.on_action``) are thin.
-  Consider leading with what is genuinely defensible and Textual can't match: a
-  **lintable, headlessly-driveable, byte-diffed** template TUI toolkit. Keep
-  "Flask for the Console" as the on-ramp, not the architecture claim.
+- [x] **Reposition the tagline** (review 3.6). Landed 2026-07-16. The tagline is
+  now the recursive acronym "Wijjit Is Just Jinja In Terminal", and the pitch
+  leads with what the template architecture buys — a UI that is a static artifact
+  tooling can read, hence *lintable* / *headlessly driveable* / *byte-diffed*,
+  and easy for LLMs to write and test. "Flask for the Console" is retained only
+  as a web-dev on-ramp describing ergonomics, and was dropped from the metadata
+  surfaces (``pyproject`` description, ``__init__`` docstring, Sphinx texinfo,
+  demo UI strings). The pass also corrected the claims it audited: the "no plugin
+  system" limitation (false since review 3.5), example counts (72 → 74, ``apps/``
+  3 → 5), test count (~3,000 → ~3,600), and render timings that were ~2x
+  pessimistic. ``docs/user_guide/performance.rst`` still carried the pre-2.5
+  "the diff renderer is not cheaper in CPU" claim and an FPS column, both now
+  gone. The README's headline byte figures are pinned by
+  ``test_readme_headline_bytes``.
 
 ## 0.1.1 — deferred from the 0.1.0 example pass
 

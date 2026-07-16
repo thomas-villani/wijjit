@@ -139,7 +139,8 @@ man_pages = [
 # -- Options for Texinfo output ----------------------------------------------
 texinfo_documents = [
     (master_doc, 'wijjit', 'Wijjit Documentation',
-     author, 'wijjit', 'Flask for the Console - A declarative TUI framework for Python.',
+     author, 'wijjit', 'A declarative TUI framework for Python - lintable, '
+     'testable, byte-diffed Jinja templates in your terminal.',
      'Miscellaneous'),
 ]
 

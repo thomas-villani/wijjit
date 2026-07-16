@@ -9,28 +9,35 @@ The headline number
 -------------------
 
 On a 200x60 terminal, a full repaint of a dashboard (a table, two charts, and a
-button row) writes **15,949 bytes**. Advancing the sparkline by one tick writes
-**39 bytes**. An idle frame -- one where nothing changed -- writes **nothing at
+button row) writes **15,980 bytes**. Advancing the sparkline by one tick writes
+**37 bytes**. An idle frame -- one where nothing changed -- writes **nothing at
 all**.
 
-That is a ~400x reduction in terminal traffic for a typical update, and it is why
+That is a ~430x reduction in terminal traffic for a typical update, and it is why
 a Wijjit app does not flicker and stays responsive over SSH or a slow serial
 link.
 
-What the diff renderer does and does not buy you
-------------------------------------------------
+What the diff renderer buys you
+-------------------------------
 
-It is worth being precise, because the usual intuition is wrong.
-
-The diff renderer is **not** cheaper in CPU than a blind full repaint. It has to
-compare every cell in the buffer against the previously displayed one, so a
-steady-state frame costs slightly *more* CPU than simply redrawing everything.
-
-What it buys is **I/O and stability**: an unchanged screen produces no output,
+The primary win is **I/O and stability**: an unchanged screen produces no output,
 and a small change produces a small write. Terminal writes are the expensive,
-latency-bound part of a TUI, and they are what causes visible flicker. Trading a
-little CPU for a large reduction in bytes is the right trade for a terminal
-application, and it is the trade Wijjit makes.
+latency-bound part of a TUI, and they are what causes visible flicker. Lead with
+the bytes -- they are deterministic and regression-tested, while timings move
+with your CPU and system load.
+
+The incremental path is **also cheaper in CPU** than a full repaint. This is
+worth stating explicitly because it was not always true, and older advice said
+the opposite. The path a running app actually uses starts each frame from a copy
+of the previous one, skips elements whose content and position did not change
+(via ``render_signature()``), and diffs only what moved -- so a localized edit
+does work proportional to *what changed* rather than to the size of the view.
+Steady state is roughly 2x cheaper than a full repaint on a form of independent
+widgets. The gain is smaller on the dashboard below, whose ``Table`` has no skip
+signature yet and so repaints wholesale.
+
+A full repaint -- the worst case, on first paint or a terminal resize -- still
+touches every cell.
 
 Separately, the virtual-DOM reconciler exists to preserve *state* -- cursor
 position, scroll offset, selection -- across re-renders, and to avoid rebuilding
@@ -84,16 +91,16 @@ Terminal I/O per frame
      - 453x
    * - dashboard (table + charts)
      - 80x24
-     - 3,696 B
+     - 3,676 B
      - 0 B
-     - 39 B
-     - 95x
+     - 37 B
+     - 99x
    * - dashboard (table + charts)
      - 200x60
-     - 15,949 B
+     - 15,980 B
      - 0 B
-     - 39 B
-     - 409x
+     - 37 B
+     - 432x
 
 Render latency
 ~~~~~~~~~~~~~~
@@ -102,53 +109,57 @@ Render latency
 changed -- the cost of an animation tick or a keystroke echo.
 
 Unlike the byte counts, these vary by tens of percent between runs on the same
-machine, so they are rounded. Do not read precision into them.
+machine, so they are rounded. Do not read precision into them, and prefer the
+byte figures above when comparing.
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 12 18 18 22
+   :widths: 34 14 26 26
 
    * - Scenario
      - Size
      - Full repaint
      - Steady state
-     - Implied frame rate
    * - hello world
      - 80x24
      - ~2 ms
-     - ~2.5 ms
-     - ~400 fps
+     - ~1.5 ms
    * - hello world
      - 200x60
-     - ~13 ms
-     - ~15 ms
-     - ~70 fps
+     - ~6 ms
+     - ~3 ms
    * - login form
      - 80x24
-     - ~3 ms
+     - ~2.5 ms
+     - ~2 ms
+   * - login form
+     - 200x60
+     - ~6 ms
      - ~3.5 ms
-     - ~300 fps
    * - dashboard (table + charts)
      - 80x24
      - ~7 ms
-     - ~8 ms
-     - ~130 fps
+     - ~6.5 ms
    * - dashboard (table + charts)
      - 120x40
-     - ~10 ms
-     - ~14 ms
-     - ~75 fps
+     - ~7.5 ms
+     - ~7 ms
    * - dashboard (table + charts)
      - 200x60
-     - ~20 ms
-     - ~25 ms
-     - ~40 fps
+     - ~10 ms
+     - ~6.5 ms
 
 Measured on Windows 11, Python 3.13, wijjit 0.1.0.
 
-For context: terminal applications are typically driven by human input, and the
-practical ceiling on useful frame rate is the terminal emulator's own refresh
-rate. A dashboard that re-renders in under 20 ms at 200x60 will feel immediate.
+Steady state beats a full repaint in every row, which is the skip-unchanged path
+doing its job. The margin is widest where the changed widget is small relative to
+the view (hello world at 200x60) and narrowest on the dashboard, whose ``Table``
+still repaints wholesale.
+
+For context: terminal applications are driven by human input, so what matters is
+that a frame lands well inside a keystroke's worth of time -- not a frame-rate
+number. A dashboard that re-renders in ~10 ms at 200x60 feels immediate, and the
+bytes it writes are what determine whether that holds over SSH.
 
 Startup cost
 ------------

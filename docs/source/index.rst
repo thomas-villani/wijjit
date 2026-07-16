@@ -1,7 +1,19 @@
 Wijjit Documentation
 ====================
 
-Wijjit helps you build rich terminal user interfaces using the same mindset as Flask + Jinja. Views are declared with decorators, layouts use expressive template tags, and the runtime takes care of state, focus, mouse, and rendering.
+Wijjit helps you build rich terminal user interfaces from Jinja2 templates. Views are declared with decorators, layouts use expressive template tags, and the runtime takes care of state, focus, mouse, and rendering.
+
+Because the UI is a **template** rather than a tree of widget classes, it stays a static artifact your tools can read — lint it, dump its DOM, or drive it with scripted keys, all without a terminal:
+
+.. code-block:: bash
+
+   wijjit validate app.py --json                  # structured findings + exit code
+   wijjit tree app.py --json                      # the DOM, without running the app
+   wijjit render app.py --keys "tab,type:alice"   # the rendered screen, no TTY
+
+Your UI is text, and so is everything the tooling hands back — which is what makes a Wijjit app easy to write, test, and understand, whether the author is a person or an LLM.
+
+Coming from web dev? Wijjit is "Flask for the console" on the surface — ``@app.view``, Jinja2 templates, ``@app.on_action``, reactive state — with a virtual-DOM reconciler underneath.
 
 .. image:: https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/charts.svg
    :alt: Wijjit charts demo: sparklines, gauges, bar/column/line charts and a heatmap rendered in the terminal
@@ -17,18 +29,20 @@ The Python terminal-UI space already has excellent tools. Wijjit is deliberately
 * `Textual <https://github.com/Textualize/textual>`_ is a full app framework built around object-oriented widgets composed in Python and styled with a CSS-like language. It is powerful and deep.
 * **Wijjit** takes the *web* mental model instead of the widget-tree one: you write **Jinja2 templates** for layout and **Flask-style decorators** (``@app.view``, ``@app.on_action``, ``@app.on_key``) for behavior, backed by reactive ``State``.
 
-If you think in templates and request handlers rather than widget classes, Wijjit will feel like home.
+The template is the point. A UI expressed as text — rather than as classes, a ``compose()`` generator, and a stylesheet — is one an external tool can read without executing it. That is what buys the static linter, the JSON DOM dump, and the one-command headless render. If you think in templates and request handlers rather than widget classes, Wijjit will feel like home.
 
 Why Wijjit
 ----------
 
 * **Web-style ergonomics** – register routes with ``@app.view`` and bind to state just like Flask or FastAPI.
 * **Jinja-first layout system** – compose frames, stacks, inputs, and display widgets with template tags instead of manual cursor math.
+* **Lintable before it runs** – ``wijjit validate`` statically catches unknown tags, undefined variables, bad attributes, and a missing loop ``key=`` — a bug that would otherwise only show up when a user reorders a list. See :doc:`user_guide/testing_apps`.
 * **Reactive state** – ``State`` tracks mutations, schedules renders, and keeps elements in sync automatically.
 * **Full interaction model** – keyboard, mouse, focus traversal, overlays, dialogs, and notifications are provided out of the box.
-* **Cheap updates** – a virtual-DOM reconciler diffs re-renders into a cell buffer, so a changed widget writes a few dozen bytes instead of repainting the screen. See :doc:`user_guide/performance`.
+* **Cheap updates** – a virtual-DOM reconciler diffs re-renders into a cell buffer, so a changed widget writes a few dozen bytes instead of repainting the screen. An idle frame writes nothing at all. See :doc:`user_guide/performance`.
 * **Built to be tested** – a headless harness drives real apps without a TTY, plus a ``wijjit`` CLI to validate templates and dump the render tree.
-* **Production features** – 72 runnable examples and roughly 3,000 tests across Linux, macOS, and Windows on Python 3.11–3.13.
+* **Batteries included** – 36 elements: six chart types, an image viewer, a code editor with autocomplete, and an editable data grid, with no plugins required.
+* **Production features** – 74 runnable examples and roughly 3,600 tests across Linux, macOS, and Windows on Python 3.11–3.13.
 
 Quick Example
 -------------

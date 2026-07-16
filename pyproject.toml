@@ -1,7 +1,7 @@
 [project]
 name = "wijjit"
 dynamic = ["version"]
-description = "A declarative TUI framework for Python - Flask for the Console"
+description = "A declarative TUI framework for Python - lintable, testable, byte-diffed Jinja templates in your terminal"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
