@@ -55,10 +55,22 @@ class TemplateError(WijjitError):
     """
 
 
+class PluginRegistrationError(WijjitError, ValueError):
+    """Raised when a third-party element plugin cannot be registered.
+
+    Covers an ``element_cls`` that is not an :class:`~wijjit.elements.base.Element`
+    subclass, and type-name / tag-name collisions with a built-in or another
+    plugin (unless ``override=True`` is passed to
+    :func:`~wijjit.plugins.register_element`). Inherits :class:`ValueError` so
+    existing ``except ValueError`` handlers around registration keep working.
+    """
+
+
 __all__ = [
     "WijjitError",
     "StateKeyError",
     "ConfigError",
     "KeyBindingError",
     "TemplateError",
+    "PluginRegistrationError",
 ]

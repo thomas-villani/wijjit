@@ -469,14 +469,28 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
 - [ ] Shell-pipe passthrough for subshell / other apps
 
 ### Subsystems
-- [ ] **Public element-registration API / plugin seam** (review 3.5). Adding an
-  element today requires editing framework internals: a new class, a Jinja
-  ``Extension`` hard-registered in the ``Environment(extensions=[…])`` list
-  (``renderer.py``), an ``element_registry.py`` entry, and an ``__init__`` export.
-  There is **no public registration hook**, so a third party cannot ship a Wijjit
-  widget as a separate package without monkeypatching. For a framework pitched on
-  its component library this is the most strategically important API gap —
-  reviewer's #12 priority — but not urgent for 0.1.1.
+- [x] **Public element-registration API / plugin seam** (review 3.5). **Landed
+  2026-07-16.** A process-global plugin registry (``src/wijjit/plugins.py``) is
+  drained at construction by every ``ElementRegistry`` and ``Renderer`` (so the
+  app renderer *and* the devtools validator see plugins for free), sidestepping
+  the fact that both registries are built privately per-Renderer. Public surface:
+  top-level ``wijjit.register_element(type_name, cls, *, tag=, aliases=,
+  extension=, override=)``, a ``@wijjit.element(...)`` decorator, and a
+  ``Wijjit.register_element(...)`` instance method that live-patches an
+  already-built app (via Jinja's public ``env.add_extension``). The DX win is
+  ``wijjit.tags.plugin_ext.make_element_extension``, which generates the leaf
+  ``{% tag %}`` from the existing ``layout.py`` helpers so an author writes only
+  an ``Element`` subclass + one ``register_element`` call. Auto-discovery via a
+  ``wijjit.plugins`` entry-point group (``pytest11`` precedent; a broken plugin is
+  logged, never fatal). ``PluginRegistrationError`` on non-``Element`` / builtin /
+  cross-plugin collisions (``override=True`` to shadow); a module reload refreshes
+  rather than colliding. Built-in extensions hoisted to a ``BUILTIN_EXTENSIONS``
+  constant feeding a new ``builtin_tag_names()``; ``builtin_type_names()`` gives
+  the built-in collision set without recursion. **Scope:** leaf elements only;
+  custom *containers* (layout-tree-builder + validator ``CONTAINER_TYPES``
+  integration) are the deferred follow-up. Tests in ``tests/plugins/``; demo
+  ``examples/advanced/plugin_element.py``; ``docs/NEW-ELEMENTS.md`` "Shipping an
+  element as a plugin".
 - [ ] **Converge InlineApp and full-app input handling.** ``InlineApp``
   (``inline/app.py``) reimplements a thin slice of the event loop's keyboard
   path and diverges from ``EventLoop`` (``core/event_loop.py``) in ways that

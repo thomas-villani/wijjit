@@ -91,9 +91,19 @@ from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 from wijjit.exceptions import (
     ConfigError,
     KeyBindingError,
+    PluginRegistrationError,
     StateKeyError,
     TemplateError,
     WijjitError,
+)
+
+# Plugin seam: register third-party elements (and their template tags) without
+# editing framework internals. See ``wijjit.plugins`` / ``docs/NEW-ELEMENTS.md``.
+from wijjit.plugins import (
+    ElementPlugin,
+    element,
+    ensure_plugins_loaded,
+    register_element,
 )
 
 # Autocomplete (headline feature - re-exported for `from wijjit import ...`).
@@ -162,6 +172,10 @@ __all__ = [
     "Renderer",
     "FocusManager",
     "ViewConfig",
+    # Plugin seam (third-party elements)
+    "register_element",
+    "element",
+    "ElementPlugin",
     # Templating (Flask-style view rendering)
     "RenderedView",
     "render_template_string",
@@ -276,6 +290,13 @@ __all__ = [
     "ConfigError",
     "KeyBindingError",
     "TemplateError",
+    "PluginRegistrationError",
     # Helpers
     "load_filesystem_tree",
 ]
+
+# Discover entry-point plugins now that the package is importable, so
+# ``import wijjit`` alone is enough for an installed plugin to take effect. The
+# ElementRegistry / Renderer also trigger this defensively; the internal flag
+# makes repeat calls cheap.
+ensure_plugins_loaded()

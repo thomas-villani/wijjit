@@ -2190,6 +2190,66 @@ class Wijjit:
         """
         self.completers[name] = completer
 
+    def register_element(
+        self,
+        type_name,
+        element_cls,
+        *,
+        tag=None,
+        aliases=(),
+        extension=None,
+        override=False,
+    ):
+        """Register a third-party element on this app, including a live one.
+
+        This is the imperative escape hatch for the normal
+        :func:`wijjit.register_element` seam. It records the plugin in the
+        process-global registry *and* live-patches this app's already-built
+        renderer (its element registry and Jinja environment), so an element can
+        be added after ``Wijjit(...)`` has constructed the renderer - which the
+        module-level function alone cannot do, since each renderer only drains
+        the global registry at construction.
+
+        For a plugin shipped as a separate package, prefer the module-level
+        :func:`wijjit.register_element` (or the ``wijjit.plugins`` entry point);
+        use this method for dynamic, in-process registration.
+
+        Parameters
+        ----------
+        type_name : str
+            The VNode type string for the element.
+        element_cls : type
+            The :class:`~wijjit.elements.base.Element` subclass to instantiate.
+        tag : str, optional
+            Template tag name to synthesize (see
+            :func:`wijjit.plugins.register_element`).
+        aliases : sequence of str, optional
+            Extra type-name aliases.
+        extension : type, optional
+            A hand-written Jinja ``Extension`` class to use instead of a
+            synthesized one.
+        override : bool, optional
+            Allow shadowing a built-in / existing registration.
+        """
+        from wijjit.plugins import register_element as _register_element
+
+        _register_element(
+            type_name,
+            element_cls,
+            tag=tag,
+            aliases=aliases,
+            extension=extension,
+            override=override,
+        )
+        # Live-patch this app's existing renderer so the new element is usable
+        # without rebuilding it. The module-level call above updated the global
+        # registry; mirror it into the live element registry and Jinja env.
+        registry = self.renderer._reconciler.registry
+        registry.register(type_name, element_cls)
+        for alias in aliases:
+            registry.register(alias, element_cls)
+        self.renderer._install_plugin_extensions()
+
     def _add_fps_overlay(self, output: str, term_size: os.terminal_size) -> str:
         """Add FPS counter overlay to output.
 

@@ -19,6 +19,7 @@ from jinja2 import (
     TemplateNotFound,
     Undefined,
 )
+from jinja2.ext import Extension
 
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.dirty import DirtyRegionManager
@@ -113,6 +114,82 @@ from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 # Get logger for this module
 logger = get_logger(__name__)
+
+
+# The built-in Jinja tag extensions, in registration order. Hoisted to a module
+# constant so it is the single source of truth for both the Environment's
+# ``extensions=`` list and :func:`builtin_tag_names` (used by the plugin seam to
+# detect a plugin tag colliding with a built-in one).
+BUILTIN_EXTENSIONS: tuple[type[Extension], ...] = (
+    FrameExtension,
+    VStackExtension,
+    HStackExtension,
+    GridExtension,
+    ColspanExtension,
+    RowspanExtension,
+    SplitPanelExtension,
+    TextInputExtension,
+    ButtonExtension,
+    CheckboxExtension,
+    RadioExtension,
+    CheckboxGroupExtension,
+    RadioGroupExtension,
+    SelectExtension,
+    SelectItemExtension,
+    TableExtension,
+    TreeExtension,
+    TreeItemExtension,
+    ProgressBarExtension,
+    SpinnerExtension,
+    StatusBarExtension,
+    TextExtension,
+    ListViewExtension,
+    LogViewExtension,
+    TextAreaExtension,
+    CodeEditorExtension,
+    ModalExtension,
+    ConfirmDialogExtension,
+    AlertDialogExtension,
+    TextInputDialogExtension,
+    MenuItemExtension,
+    DropdownExtension,
+    ContextMenuExtension,
+    TabExtension,
+    TabbedPanelExtension,
+    # Pager (linear pagination)
+    PageExtension,
+    PagerExtension,
+    # Link and unified content view
+    LinkExtension,
+    ContentViewExtension,
+    # Chart extensions
+    SparklineExtension,
+    BarChartExtension,
+    ColumnChartExtension,
+    LineChartExtension,
+    GaugeExtension,
+    HeatMapExtension,
+    # Image view
+    ImageViewExtension,
+    # New input elements
+    SliderExtension,
+    ToggleExtension,
+    DataGridExtension,
+    # Status indicator
+    StatusIndicatorExtension,
+)
+
+
+def builtin_tag_names() -> frozenset[str]:
+    """Return the set of Jinja tag names owned by built-in extensions.
+
+    Used by :mod:`wijjit.plugins` for tag-collision checks without constructing a
+    Renderer (which would itself drain the plugin registry).
+    """
+    names: set[str] = set()
+    for ext in BUILTIN_EXTENSIONS:
+        names.update(getattr(ext, "tags", ()) or ())
+    return frozenset(names)
 
 
 def _invalidate_paint_memo(element: "Element") -> None:
@@ -221,6 +298,12 @@ class Renderer:
         *,
         strict_undefined: bool = False,
     ) -> None:
+        # Discover entry-point element plugins before the env / registry are
+        # built so both pick them up (idempotent, cheap after the first call).
+        from wijjit.plugins import ensure_plugins_loaded
+
+        ensure_plugins_loaded()
+
         # Store template_dir for introspection
         self.template_dir = template_dir
         self.strict_undefined = strict_undefined
@@ -252,64 +335,7 @@ class Renderer:
             undefined=StrictUndefined if strict_undefined else Undefined,
             trim_blocks=True,
             lstrip_blocks=True,
-            extensions=[
-                FrameExtension,
-                VStackExtension,
-                HStackExtension,
-                GridExtension,
-                ColspanExtension,
-                RowspanExtension,
-                SplitPanelExtension,
-                TextInputExtension,
-                ButtonExtension,
-                CheckboxExtension,
-                RadioExtension,
-                CheckboxGroupExtension,
-                RadioGroupExtension,
-                SelectExtension,
-                SelectItemExtension,
-                TableExtension,
-                TreeExtension,
-                TreeItemExtension,
-                ProgressBarExtension,
-                SpinnerExtension,
-                StatusBarExtension,
-                TextExtension,
-                ListViewExtension,
-                LogViewExtension,
-                TextAreaExtension,
-                CodeEditorExtension,
-                ModalExtension,
-                ConfirmDialogExtension,
-                AlertDialogExtension,
-                TextInputDialogExtension,
-                MenuItemExtension,
-                DropdownExtension,
-                ContextMenuExtension,
-                TabExtension,
-                TabbedPanelExtension,
-                # Pager (linear pagination)
-                PageExtension,
-                PagerExtension,
-                # Link and unified content view
-                LinkExtension,
-                ContentViewExtension,
-                # Chart extensions
-                SparklineExtension,
-                BarChartExtension,
-                ColumnChartExtension,
-                LineChartExtension,
-                GaugeExtension,
-                HeatMapExtension,
-                # Image view
-                ImageViewExtension,
-                # New input elements
-                SliderExtension,
-                ToggleExtension,
-                DataGridExtension,
-                # Status indicator
-                StatusIndicatorExtension,
-            ],
+            extensions=list(BUILTIN_EXTENSIONS),
         )
 
         # Cache for string templates
@@ -385,6 +411,25 @@ class Renderer:
                 "auto": "auto",
             }
         )
+
+        # Install third-party plugin tag extensions into this env. Runs after
+        # the env exists and before any template compiles, so the new tags are
+        # honored by the parser. The app renderer and the devtools validator's
+        # renderer both reach this, so both see plugin tags for free.
+        self._install_plugin_extensions()
+
+    def _install_plugin_extensions(self) -> None:
+        """Add each registered plugin tag extension to this Jinja environment.
+
+        Idempotent: jinja2 keys ``env.extensions`` by each extension's
+        ``identifier`` (its fully-qualified class name), so re-installing the
+        same class is skipped.
+        """
+        from wijjit.plugins import plugin_extensions
+
+        for ext_cls in plugin_extensions():
+            if ext_cls.identifier not in self.env.extensions:
+                self.env.add_extension(ext_cls)
 
     def _setup_filters(self) -> None:
         """Set up custom Jinja2 filters for terminal rendering."""

@@ -67,6 +67,16 @@ wijjit = "wijjit.cli:main"
 [project.entry-points.pytest11]
 wijjit = "wijjit.testing.pytest_plugin"
 
+# Third-party element plugins: a package ships a custom Wijjit element + tag by
+# declaring an entry point under the ``wijjit.plugins`` group whose value is an
+# importable module that calls ``wijjit.register_element(...)`` at import time.
+# Wijjit imports each such module once on startup (see
+# ``wijjit.plugins.ensure_plugins_loaded``). Wijjit itself declares none; the
+# group is documented here for plugin authors. Example (in a plugin's pyproject):
+#
+#   [project.entry-points."wijjit.plugins"]
+#   sparkgauge = "wijjit_sparkgauge"
+
 [project.optional-dependencies]
 dev = [
     "black>=25.9.0",
