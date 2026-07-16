@@ -94,6 +94,7 @@ class Reconciler:
     """Reconciles old and new VNode trees, producing a patched Element tree.
 
     The Reconciler implements a React-style diffing algorithm that:
+
     1. Compares old and new VNode trees
     2. Identifies what changed (creates, deletes, updates)
     3. Patches existing Elements in place where possible
