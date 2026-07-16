@@ -969,7 +969,7 @@ class Select(ScrollableElement):
 
         # Add scroll position
         if self.scroll_manager:
-            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+            state["scroll_position"] = self.scroll_manager.state.scroll_position
 
         # Add multi-select state
         if self.multiple:
@@ -991,8 +991,8 @@ class Select(ScrollableElement):
             self.highlighted_index = min(state["highlighted_index"], max_index)
 
         # Restore scroll position
-        if "_scroll_position" in state and self.scroll_manager:
-            self.scroll_manager.scroll_to(state["_scroll_position"])
+        if "scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["scroll_position"])
 
         # Restore multi-select state
         if "selected_values" in state and self.multiple:

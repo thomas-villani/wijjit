@@ -33,8 +33,12 @@ LAYOUT_META = frozenset(
 )
 
 
-# Ephemeral props that should NOT be synced from template during reconciliation.
-# These represent transient UI state that should persist across re-renders.
+# Ephemeral props: transient UI state (cursor/scroll/selection/focus) that
+# persists across re-renders. These are NOT force-synced from the template on
+# every render - a live edit that moves the cursor must survive the next
+# re-render. The reconciler preserves them via
+# ``Element.get_ephemeral_state``/``restore_ephemeral_state`` rather than
+# treating a template prop as authoritative.
 EPHEMERAL_PROPS = frozenset(
     {
         # Cursor state
@@ -54,6 +58,23 @@ EPHEMERAL_PROPS = frozenset(
         "hovered",
     }
 )
+
+
+# The subset of ``EPHEMERAL_PROPS`` that MAY be driven declaratively from
+# template/state context ("controlled" props). The reconciler applies a
+# controlled prop only when its bound value *changes* between renders (see
+# ``Reconciler._diff_controlled_ephemeral``): "bound value changed -> state
+# wins; otherwise preserve the live value". That changed-only rule is what makes
+# it safe - typing moves the live cursor without changing the bound prop, so the
+# cursor is not yanked back on the next render (the React controlled-input
+# footgun). The applied value flows through the element's own
+# ``restore_ephemeral_state``, reusing its clamping / scroll-manager mapping.
+#
+# ``focused`` and ``hovered`` are deliberately excluded: focus is coordinated
+# globally by the ``FocusManager`` (a per-element ``focused`` write would not
+# blur siblings or update the focus index - use ``focus_element_by_id`` /
+# ``bind_focus_key`` instead), and ``hovered`` is mouse-driven.
+CONTROLLABLE_EPHEMERAL_PROPS = EPHEMERAL_PROPS - frozenset({"focused", "hovered"})
 
 
 @dataclass(frozen=True)

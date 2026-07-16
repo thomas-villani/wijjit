@@ -162,9 +162,12 @@ preserves cursor/scroll/selection state across renders.
 
 - **app.py** - Main `Wijjit` application class. Flask-like API: view
   decorators, `on_action`/`on_key` handlers, state, navigation, config.
-- **vdom.py** - `VNode` (immutable element description) and `EPHEMERAL_PROPS`
-  (transient props like cursor/scroll/selection/focus that are NOT synced from
-  the template during reconciliation, so they survive re-renders).
+- **vdom.py** - `VNode` (immutable element description), `EPHEMERAL_PROPS`
+  (transient props like cursor/scroll/selection/focus that survive re-renders -
+  not force-synced from the template every frame), and
+  `CONTROLLABLE_EPHEMERAL_PROPS` (the subset - all but focus/hover - that a
+  template MAY drive declaratively: a bound value change wins, an unchanged
+  binding preserves the live value; see the reconciler).
 - **reconciler.py** - The diffing/patching algorithm (`DiffType`,
   `DiffResult`, `Reconciler`). Compares VNode trees and patches the element tree.
 - **element_registry.py** - `ElementRegistry` maps VNode type names to element
@@ -329,7 +332,11 @@ defaults; `tests/core/test_config.py` covers it.
   and `get_intrinsic_size()`.
 - **Reconciliation**: template re-renders are diffed; transient state listed in
   `EPHEMERAL_PROPS` (cursor/scroll/selection/focus/hover/highlight) is preserved
-  and must not be synced from props.
+  across re-renders. It is not blindly synced from props, but the
+  `CONTROLLABLE_EPHEMERAL_PROPS` subset (all but focus/hover) can be driven
+  declaratively - a controllable ephemeral prop whose bound value *changed* this
+  render is applied over the preserved snapshot ("state wins, else preserve"),
+  routed through the element's `restore_ephemeral_state`.
 - **Async by default**: the loop is async internally; `app.run()` calls
   `asyncio.run(app.run_async())`. Both sync and async handlers/views are supported.
 - **No Unicode/emoji in implementation code** (fine in tests/docs/test data).

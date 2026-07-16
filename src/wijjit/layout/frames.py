@@ -2109,13 +2109,14 @@ class Frame(ScrollableElement):
         """
         state: dict[str, Any] = {}
 
-        # Add vertical scroll position
+        # Add vertical scroll position. Keys match the EPHEMERAL_PROPS
+        # vocabulary so a template-driven ``scroll_position=`` can override them.
         if self.scroll_manager:
-            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+            state["scroll_position"] = self.scroll_manager.state.scroll_position
 
         # Add horizontal scroll position
         if self.scroll_manager_x:
-            state["_scroll_x_position"] = self.scroll_manager_x.state.scroll_position
+            state["scroll_x_position"] = self.scroll_manager_x.state.scroll_position
 
         return state
 
@@ -2128,9 +2129,9 @@ class Frame(ScrollableElement):
             State from get_ephemeral_state()
         """
         # Restore vertical scroll position
-        if "_scroll_position" in state and self.scroll_manager:
-            self.scroll_manager.scroll_to(state["_scroll_position"])
+        if "scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["scroll_position"])
 
         # Restore horizontal scroll position
-        if "_scroll_x_position" in state and self.scroll_manager_x:
-            self.scroll_manager_x.scroll_to(state["_scroll_x_position"])
+        if "scroll_x_position" in state and self.scroll_manager_x:
+            self.scroll_manager_x.scroll_to(state["scroll_x_position"])

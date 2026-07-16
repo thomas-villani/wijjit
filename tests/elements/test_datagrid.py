@@ -590,8 +590,8 @@ class TestDataGridEphemeralState:
 
         assert state["cursor_row"] == 2
         assert state["cursor_col"] == 3
-        # _scroll_position_x should be present
-        assert "_scroll_position_x" in state
+        # horizontal scroll position should be present
+        assert "scroll_x_position" in state
 
     def test_restore_ephemeral_state(self):
         """Test restoring ephemeral state."""
@@ -600,8 +600,8 @@ class TestDataGridEphemeralState:
         state = {
             "cursor_row": 1,
             "cursor_col": 1,
-            "_scroll_position": 0,
-            "_scroll_position_x": 0,
+            "scroll_position": 0,
+            "scroll_x_position": 0,
         }
         grid.restore_ephemeral_state(state)
 

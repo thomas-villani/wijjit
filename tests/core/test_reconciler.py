@@ -167,8 +167,8 @@ class TestReconcilerDiff:
         assert result is not None
         assert not [r for r in wijjit_caplog.records if r.levelno >= logging.WARNING]
 
-    def test_diff_skips_ephemeral_props(self):
-        """Diff should skip ephemeral props like cursor_pos."""
+    def test_diff_keeps_ephemeral_out_of_prop_changes(self):
+        """Ephemeral props never flow through the ordinary prop-change path."""
         reconciler = Reconciler(MockRegistry())
         old = VNode.create(
             "TextInput", key="inp", props={"value": "hello", "cursor_pos": 0}
@@ -179,9 +179,45 @@ class TestReconcilerDiff:
 
         diff = reconciler._diff(old, new)
 
-        # cursor_pos change should be ignored (ephemeral)
-        assert diff.diff_type == DiffType.NONE
+        # cursor_pos is never an ordinary prop change (it is not setattr-synced
+        # blindly); it is routed through the controlled-ephemeral path instead.
         assert "cursor_pos" not in diff.prop_changes
+
+    def test_diff_reports_changed_ephemeral_as_controlled(self):
+        """A changed controllable ephemeral prop drives the element (review 2.6).
+
+        "State wins, else preserve": a *changed* cursor_pos is a deliberate
+        reposition and surfaces as a controlled-ephemeral change (making the diff
+        an UPDATE), applied over the preserved snapshot by ``_update_element``.
+        """
+        reconciler = Reconciler(MockRegistry())
+        old = VNode.create(
+            "TextInput", key="inp", props={"value": "hello", "cursor_pos": 0}
+        )
+        new = VNode.create(
+            "TextInput", key="inp", props={"value": "hello", "cursor_pos": 5}
+        )
+
+        diff = reconciler._diff(old, new)
+
+        assert diff.diff_type == DiffType.UPDATE
+        assert diff.controlled_ephemeral == {"cursor_pos": (0, 5)}
+        assert "cursor_pos" not in diff.prop_changes
+
+    def test_diff_ignores_unchanged_ephemeral(self):
+        """An unchanged ephemeral binding is not a change (preserve the live value)."""
+        reconciler = Reconciler(MockRegistry())
+        old = VNode.create(
+            "TextInput", key="inp", props={"value": "hello", "cursor_pos": 5}
+        )
+        new = VNode.create(
+            "TextInput", key="inp", props={"value": "hello", "cursor_pos": 5}
+        )
+
+        diff = reconciler._diff(old, new)
+
+        assert diff.diff_type == DiffType.NONE
+        assert diff.controlled_ephemeral == {}
 
 
 class TestReconcilerDiffChildren:

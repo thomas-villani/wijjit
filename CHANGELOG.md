@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Declarative ("controlled") ephemeral props.** Ephemeral UI state -
+  `cursor_pos`, `scroll_position`/`scroll_x_position`, `highlighted_index`,
+  and the selection/cursor keys - can now be driven from template/state context,
+  not just preserved. A template like `{% textinput cursor_pos=cur %}` or
+  `{% listview scroll_position=sp %}` was previously ignored outright; it now
+  repositions the element when the bound value **changes** between renders
+  ("state wins, else preserve"). The changed-only rule keeps it safe: a live
+  edit that moves the cursor or scroll without changing the bound value is still
+  preserved, so the caret does not snap back on every keystroke. The value flows
+  through each element's existing `restore_ephemeral_state`, reusing its
+  clamping and scroll-manager mapping. `focused`/`hovered` stay out of scope on
+  purpose (focus is the `FocusManager`'s job - use `focus_element_by_id` /
+  `bind_focus_key`; hover is mouse-driven). Resolves review 2.6.
 - **`WijjitHarness.resize(width, height)`** for driving a terminal resize
   through the running loop in tests. It changes the size the app's backend
   reports and pumps a frame, so the event loop's resize-detection path runs
