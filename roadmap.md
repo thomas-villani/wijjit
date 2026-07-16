@@ -450,6 +450,24 @@ release-blocking — pull forward opportunistically.
 - [ ] **Config/API:** invalid ``WIJJIT_LOG_LEVEL`` silently → INFO; CLI
   ``--context`` / ``context=`` silently ignored in ``.py`` app mode for
   ``validate`` / ``tree``.
+- [ ] **Devtools / linter polish** (found while verifying the claims in review
+  3.6; these are now the tooling the README *leads* with, so the bar is higher
+  than the severity suggests):
+
+  - **Duplicate findings inside loops.** One bad attribute in a ``{% for %}``
+    over N items reports N times — the check runs per unrolled VNode, and the
+    findings are never deduped. Verified: a single ``colour=`` typo in a
+    2-iteration loop emits two identical ``unknown-attribute`` warnings. Dedupe
+    on (code, element type, attribute) before rendering the report.
+  - **No line numbers on VNode-derived findings.** ``unknown-attribute`` and
+    ``unknown-element-type`` come from the VNode tree, which has lost source
+    positions, so they print as ``file: WARNING[...]`` while AST-derived findings
+    (e.g. ``unkeyed-loop-element``) correctly print ``file:4: WARNING[...]``.
+    That gap is the main thing blocking a useful editor/LSP integration.
+  - **``--context`` with inline JSON raises a raw traceback.** The flag takes a
+    *path*; passing ``--context '{"rows":[1,2]}'`` dies in ``_load_context`` with
+    an unhandled exception instead of a message saying it wants a file. Easy
+    mistake to make, and an ugly failure for the LLM-facing entry point.
 - [ ] **Lower-priority semver/API notes** (from the 0.1.0 release audit — "fix
   opportunistically, else document"): make params after the first keyword-only on
   ``Wijjit.__init__`` / ``WijjitHarness.__init__``; unify the state-init kwarg name
