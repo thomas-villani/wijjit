@@ -25,6 +25,12 @@ Adding a new element requires:
 
 Categories: `display`, `input`, `layout`
 
+> **In-tree vs. plugin.** The steps above add an element *inside* the Wijjit
+> source tree. To ship an element as a **separate pip-installable package** with
+> no edits to Wijjit, skip straight to
+> [Shipping an element as a plugin](#shipping-an-element-as-a-plugin) - you write
+> only the `Element` subclass and one `register_element(...)` call.
+
 ## Step 1: Create the Element Class
 
 ### Basic Structure
@@ -255,16 +261,18 @@ __all__ = [
 
 ### In `renderer.py`
 
-Register the template extension:
+Register the template extension by adding the class to the module-level
+`BUILTIN_EXTENSIONS` tuple (this is the single source of truth for both the
+Jinja environment's `extensions=` list and `builtin_tag_names()`):
 
 ```python
 from wijjit.tags.display import MyElementExtension
 
-# In Renderer.__init__, add to extensions list:
-extensions=[
+# Add to the BUILTIN_EXTENSIONS tuple near the top of renderer.py:
+BUILTIN_EXTENSIONS = (
     # ... existing extensions
     MyElementExtension,
-]
+)
 ```
 
 ## How Layout Specs Work
@@ -353,6 +361,104 @@ class TestMyElementRendering:
         output = render_element(elem, width=30, height=10)
         assert len(output) > 0
 ```
+
+## Shipping an element as a plugin
+
+A third party can ship a Wijjit widget as its own package - no fork, no
+monkeypatching. You provide two things: an `Element` subclass and a single
+`register_element(...)` call. Wijjit generates the `{% tag %}` for you and wires
+the element into both the reconciler's element registry and the Jinja
+environment (the app's *and* the `wijjit validate` devtools renderer).
+
+**Scope:** the generated tag builds a *leaf* element (self-closing / simple
+body). Custom *containers* that lay out children are a deferred follow-up.
+
+### Minimal plugin (~15 lines)
+
+```python
+# wijjit_sparkgauge/__init__.py
+from wijjit import Element, register_element
+
+
+class SparkGauge(Element):
+    def __init__(self, id=None, value=0, width="auto", height=1):
+        super().__init__(id=id)
+        self.value = int(value)
+        self.width_spec = width
+        self.height_spec = height
+
+    def get_intrinsic_size(self):
+        return (12, 1)
+
+    def render_to(self, ctx):
+        style = ctx.style_resolver.resolve_style(self, "sparkgauge")
+        blocks = "#" * max(0, min(10, self.value // 10))
+        ctx.write_text(0, 0, f"[{blocks:<10}]", style)
+
+
+register_element("SparkGauge", SparkGauge, tag="sparkgauge")
+```
+
+Any Wijjit app that imports this package can now write:
+
+```jinja
+{% sparkgauge id="g" value=state.pct %}{% endsparkgauge %}
+```
+
+Every template attribute you pass is forwarded as a prop and then filtered to
+your `__init__` signature, so you never write a per-attribute spec - just accept
+the kwargs your element needs.
+
+### Decorator form
+
+```python
+from wijjit import Element, element
+
+
+@element("SparkGauge", tag="sparkgauge", aliases=("Gauge2",))
+class SparkGauge(Element):
+    ...
+```
+
+### Auto-discovery on install
+
+Declare an entry point under the `wijjit.plugins` group in your package's
+`pyproject.toml`; Wijjit imports the module once on startup, running its
+top-level `register_element(...)`:
+
+```toml
+[project.entry-points."wijjit.plugins"]
+sparkgauge = "wijjit_sparkgauge"
+```
+
+With that, merely installing your package makes `{% sparkgauge %}` available - no
+explicit import needed in the app. A plugin that fails to import is logged and
+skipped; it never breaks the host app or other plugins.
+
+### Registering on a live app
+
+To add an element to an already-constructed app (after `Wijjit(...)`), use the
+instance method, which also live-patches the running renderer:
+
+```python
+app.register_element("SparkGauge", SparkGauge, tag="sparkgauge")
+```
+
+### Collisions and `override`
+
+`register_element` raises `PluginRegistrationError` if the `type_name`/alias
+collides with a built-in element or another plugin, or if the `tag` collides
+with a built-in or another plugin's tag. Pass `override=True` to deliberately
+shadow (advanced). Re-registering the identical `(type_name, class)` is a
+harmless no-op.
+
+### API reference
+
+- `wijjit.register_element(type_name, element_cls, *, tag=None, aliases=(), extension=None, override=False)`
+- `wijjit.element(type_name=None, *, tag=None, aliases=(), override=False)` - decorator
+- `Wijjit.register_element(...)` - instance method (also patches the live renderer)
+- Internals live in `src/wijjit/plugins.py`; the tag factory is
+  `src/wijjit/tags/plugin_ext.py`. See `tests/plugins/` for worked examples.
 
 ## Example: ImageView Implementation
 

@@ -42,8 +42,13 @@ class ElementRegistry:
     """
 
     def __init__(self) -> None:
+        # Discover entry-point plugins before draining them (idempotent).
+        from wijjit.plugins import ensure_plugins_loaded
+
+        ensure_plugins_loaded()
         self._factories: dict[str, type] = {}
         self._register_defaults()
+        self._apply_plugins()
 
     def _register_defaults(self) -> None:
         """Register all built-in element types."""
@@ -147,6 +152,29 @@ class ElementRegistry:
             "Text": TextElement,  # Alias
             "Container": Container,
         }
+
+    def _apply_plugins(self) -> None:
+        """Fold third-party element plugins into the factory map.
+
+        Drains the process-global plugin registry (populated by
+        :func:`wijjit.plugins.register_element` and entry-point discovery) so
+        every fresh registry - the app's and the devtools validator's - resolves
+        plugin type names. A plugin is only allowed to shadow a built-in name
+        when it was registered with ``override=True``.
+        """
+        from wijjit.plugins import registered_plugins
+
+        for plugin in registered_plugins():
+            for name in plugin.names():
+                if name in self._factories and not plugin.override_builtin:
+                    logger.debug(
+                        "Plugin %r would shadow built-in type %r; skipping "
+                        "(register with override=True to force)",
+                        plugin.type_name,
+                        name,
+                    )
+                    continue
+                self._factories[name] = plugin.element_cls
 
     def register(self, type_name: str, factory: type) -> None:
         """Register a custom element type.
@@ -315,3 +343,18 @@ class ElementRegistry:
             Sorted list of registered type names
         """
         return sorted(self._factories.keys())
+
+
+def builtin_type_names() -> frozenset[str]:
+    """Return the set of built-in VNode type names (no plugins applied).
+
+    Used by :mod:`wijjit.plugins` for collision checks. Bypasses
+    :meth:`ElementRegistry.__init__` - and therefore plugin discovery / drain -
+    by constructing a bare instance and running only ``_register_defaults``, so
+    it yields exactly the framework-owned names and cannot recurse into the
+    plugin machinery it is being called from.
+    """
+    registry = object.__new__(ElementRegistry)
+    registry._factories = {}
+    registry._register_defaults()
+    return frozenset(registry._factories)
