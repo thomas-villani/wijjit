@@ -18,6 +18,7 @@ plan/
 review/
 
 docs/build
+docs/_build
 docs/source/api/
 docs/sphinx-build-current.txt
 
