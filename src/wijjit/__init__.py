@@ -1,7 +1,13 @@
-"""Wijjit - Flask for Terminal Applications.
+"""Wijjit - Wijjit Is Just Jinja In Terminal.
 
-A declarative TUI framework using Jinja2 templates for building
-terminal user interfaces with familiar web development patterns.
+A declarative TUI framework that builds terminal user interfaces from Jinja2
+templates, using familiar web development patterns: view decorators, reactive
+state, and template tags instead of procedural positioning code.
+
+Because the UI is a template rather than a tree of widget classes, it stays a
+static artifact tooling can read: see :mod:`wijjit.devtools` to lint a template
+or dump its VNode tree without running it, and :mod:`wijjit.testing` to drive a
+real app headlessly.
 """
 
 __version__ = "0.1.0"

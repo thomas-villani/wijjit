@@ -4,7 +4,8 @@ Drives the real ``Renderer.render_with_layout`` pipeline (template parse ->
 VNode -> reconcile -> layout -> paint -> ANSI) across a few representative
 scenarios and terminal sizes, and reports three things:
 
-1. **Render latency** - wall-clock per frame, and the frame rate it implies.
+1. **Render latency** - wall-clock per frame. Reported for context only; lead
+   with the byte counts, which are deterministic.
 2. **Terminal I/O** - bytes emitted for a full repaint, for an idle frame, and
    for a frame in which one small thing changed. This is the number that
    matters most: it is what makes a Wijjit app feel instant over SSH and why it
@@ -160,11 +161,6 @@ class Timing:
     diff_idle_ms: float
     diff_change_ms: float
     diff_change_p95_ms: float
-
-    @property
-    def fps(self) -> float:
-        """Frames per second implied by the steady-state median."""
-        return 1000.0 / self.diff_change_ms if self.diff_change_ms else float("inf")
 
 
 @dataclass
@@ -364,13 +360,13 @@ def report_text(
 
     lines.append("Render latency (median per frame)")
     lines.append(
-        f"  {'scenario':<28} {'size':>8} {'full':>10} {'idle':>10} {'change':>10} {'p95':>10} {'fps':>7}"
+        f"  {'scenario':<28} {'size':>8} {'full':>10} {'idle':>10} {'change':>10} {'p95':>10}"
     )
     for t in timings:
         size = f"{t.width}x{t.height}"
         lines.append(
             f"  {t.scenario:<28} {size:>8} {t.full_ms:>9.2f}m {t.diff_idle_ms:>9.2f}m "
-            f"{t.diff_change_ms:>9.2f}m {t.diff_change_p95_ms:>9.2f}m {t.fps:>7.0f}"
+            f"{t.diff_change_ms:>9.2f}m {t.diff_change_p95_ms:>9.2f}m"
         )
     lines.append("")
 
@@ -397,14 +393,12 @@ def report_markdown(
     lines: list[str] = []
     lines.append("### Render latency")
     lines.append("")
-    lines.append(
-        "| Scenario | Size | Full repaint | Steady state | p95 | Implied FPS |"
-    )
-    lines.append("| --- | --- | --- | --- | --- | --- |")
+    lines.append("| Scenario | Size | Full repaint | Steady state | p95 |")
+    lines.append("| --- | --- | --- | --- | --- |")
     for t in timings:
         lines.append(
             f"| {t.scenario} | {t.width}x{t.height} | {t.full_ms:.1f} ms | "
-            f"{t.diff_change_ms:.1f} ms | {t.diff_change_p95_ms:.1f} ms | {t.fps:.0f} |"
+            f"{t.diff_change_ms:.1f} ms | {t.diff_change_p95_ms:.1f} ms |"
         )
     lines.append("")
     lines.append("### Terminal I/O per frame")
@@ -461,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "machine": _machine(),
-                    "timings": [asdict(t) | {"fps": round(t.fps, 1)} for t in timings],
+                    "timings": [asdict(t) for t in timings],
                     "bytes": [
                         asdict(c)
                         | {"ratio": round(c.ratio, 1) if c.ratio is not None else None}

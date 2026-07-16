@@ -193,7 +193,7 @@ This tabbed panel element provides:
 - Border style options
 
 Developer: Tom Villani
-Framework: Wijjit - "Flask for the Console"
+Framework: Wijjit - Wijjit Is Just Jinja In Terminal
 
 Built with Python and lots of coffee!
 

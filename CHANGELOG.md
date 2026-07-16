@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Public plugin seam for third-party elements.** A widget can now ship as its
+  own pip-installable package without forking Wijjit or monkeypatching its
+  internals. `wijjit.register_element(...)` (and the `@element` decorator, plus
+  `Wijjit.register_element` for an already-constructed app) couples a VNode type
+  name with an optional Jinja tag and aliases; `make_element_extension` builds
+  the leaf-tag extension in about fifteen lines. Discovery mirrors the `pytest11`
+  precedent: a package declares an entry point under the `wijjit.plugins` group
+  and its module is imported once at startup, so registration happens at import
+  time. Because `ElementRegistry` and the Jinja `Environment` are built *per*
+  `Renderer`, registrations live in a process-global registry that every new
+  registry drains at construction - which means the devtools validator sees
+  third-party elements too, and `wijjit validate` lints them like built-ins.
+  Collisions against built-in type *or* tag names raise `PluginRegistrationError`
+  unless `override=True`; a module reload that produces a fresh class object is
+  treated as an idempotent refresh rather than a collision, and a plugin that
+  fails to import is logged and skipped rather than taking the app down.
+  Introspection via `registered_plugins()`, `builtin_tag_names()`, and
+  `builtin_type_names()`. **Scope: leaf elements only** (self-closing or
+  simple-body); custom *containers* need layout-tree-builder and validator
+  integration and are deferred. See `examples/advanced/plugin_element.py` and
+  `docs/NEW-ELEMENTS.md`. Resolves review 3.5.
 - **Declarative ("controlled") ephemeral props.** Ephemeral UI state -
   `cursor_pos`, `scroll_position`/`scroll_x_position`, `highlighted_index`,
   and the selection/cursor keys - can now be driven from template/state context,
