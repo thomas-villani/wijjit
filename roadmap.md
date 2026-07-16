@@ -271,16 +271,26 @@ those same fields.
   Part (3) of this family — positional ids doubling as *state keys*, silent data
   loss — was fixed in 0.1.0 via first-class ``key=`` (see review 1.1 / CHANGELOG);
   (1) and (2) remain.
-- [ ] **Declarative control of ephemeral props** (review 2.6, generalizes Group
-  E). ``EPHEMERAL_PROPS`` (cursor/scroll/selection/highlight/focus) is filtered
-  out in *both* directions — ``_diff_props`` never turns a changed ephemeral prop
-  into a prop_change, and ``apply_props`` skips it. So there is no declarative way
-  to say "scroll this log to the bottom", "put the cursor at 0", or "select all"
-  from ``state`` / template context; a template setting ``cursor_pos={{ … }}`` is
-  silently ignored. The only escape hatch is imperative mutation of the live
-  element inside a handler (awkward, undocumented). The reactive story stops at
-  *value*; UI-position state is imperative-only. Same reconciler design pass as
-  Group E: a "bound prop lets state win, else preserve" rule.
+- [x] **Declarative control of ephemeral props** (review 2.6). **Landed** as the
+  "bound prop lets state win, else preserve" rule. A new
+  ``CONTROLLABLE_EPHEMERAL_PROPS`` (``EPHEMERAL_PROPS`` minus ``focused``/
+  ``hovered``) plus ``Reconciler._diff_controlled_ephemeral`` reports a
+  controllable ephemeral prop **only when its bound value changed** between
+  renders; ``_update_element`` applies it over the preserved
+  ``get_ephemeral_state`` snapshot, so it flows through each element's existing
+  ``restore_ephemeral_state`` (reusing its clamping / scroll-manager mapping).
+  Now ``{% textinput cursor_pos=cur %}`` / ``{% listview scroll_position=sp %}``
+  / ``highlighted_index=`` work; a live cursor/scroll move survives a re-render
+  whose binding did not change (no controlled-input caret snap-back). Also
+  normalized the underscore scroll keys (``_scroll_position`` →
+  ``scroll_position``) across TextArea/Tree/Select/DataGrid/Frame so every
+  element speaks the ``EPHEMERAL_PROPS`` vocabulary. **Deliberately out of
+  scope:** ``focused`` (needs ``FocusManager`` coordination — use
+  ``focus_element_by_id`` / ``bind_focus_key``) and Group E (Tree expand-all,
+  which additionally needs the tree tag to call ``set_prop("id")`` and the
+  ``expanded=`` binding plumbing — a self-contained follow-up that can build on
+  this). LogView's auto-tail still overrides a stale controlled ``scroll_position``
+  by design (a tailing log should not be yanked by a stale binding).
 
 ### Frozen view-``data`` snapshot (DX trap) — RESOLVED 0.1.0
 

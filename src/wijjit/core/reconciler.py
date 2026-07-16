@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from wijjit.core.vdom import EPHEMERAL_PROPS, VNode
+from wijjit.core.vdom import CONTROLLABLE_EPHEMERAL_PROPS, EPHEMERAL_PROPS, VNode
 from wijjit.logging_config import get_logger
 
 if TYPE_CHECKING:
@@ -65,9 +65,15 @@ class DiffResult:
     new_vnode : VNode or None
         New VNode (None for DELETE)
     prop_changes : dict
-        Map of prop_name -> (old_value, new_value) for changed props
+        Map of prop_name -> (old_value, new_value) for changed props.
+        Excludes ephemeral props (those are handled separately).
     children_diffs : list
         List of DiffResults for children
+    controlled_ephemeral : dict
+        Map of ephemeral prop_name -> (old_value, new_value) for controllable
+        ephemeral props whose bound value changed this render. Applied over the
+        preserved ephemeral snapshot so a changed binding wins ("state wins,
+        else preserve"). See :meth:`Reconciler._diff_controlled_ephemeral`.
 
     Attributes
     ----------
@@ -80,6 +86,7 @@ class DiffResult:
     new_vnode: VNode | None
     prop_changes: dict[str, tuple[Any, Any]] = field(default_factory=dict)
     children_diffs: list[DiffResult] = field(default_factory=list)
+    controlled_ephemeral: dict[str, tuple[Any, Any]] = field(default_factory=dict)
     element: Element | None = field(default=None, repr=False)
 
 
@@ -91,7 +98,11 @@ class Reconciler:
     2. Identifies what changed (creates, deletes, updates)
     3. Patches existing Elements in place where possible
     4. Creates new Elements only when necessary
-    5. Preserves ephemeral state (cursor, scroll, selection)
+    5. Preserves ephemeral state (cursor, scroll, selection) across re-renders,
+       while letting a template *deliberately* drive it: a controllable
+       ephemeral prop whose bound value changed this render is applied over the
+       preserved snapshot ("state wins, else preserve"). See
+       :meth:`_diff_controlled_ephemeral`.
 
     Parameters
     ----------
@@ -206,10 +217,22 @@ class Reconciler:
 
         # Case 5: Same type - diff props and children
         prop_changes = self._diff_props(old.props, new.props)
+        controlled_ephemeral = self._diff_controlled_ephemeral(old.props, new.props)
         children_diffs = self._diff_children(old.children, new.children)
 
-        if prop_changes or any(d.diff_type != DiffType.NONE for d in children_diffs):
-            return DiffResult(DiffType.UPDATE, old, new, prop_changes, children_diffs)
+        if (
+            prop_changes
+            or controlled_ephemeral
+            or any(d.diff_type != DiffType.NONE for d in children_diffs)
+        ):
+            return DiffResult(
+                DiffType.UPDATE,
+                old,
+                new,
+                prop_changes,
+                children_diffs,
+                controlled_ephemeral=controlled_ephemeral,
+            )
 
         return DiffResult(DiffType.NONE, old, new, {}, children_diffs)
 
@@ -253,6 +276,52 @@ class Reconciler:
                 changes[key] = (old_dict[key], None)
 
         return changes
+
+    def _diff_controlled_ephemeral(
+        self,
+        old_props: tuple[tuple[str, Any], ...],
+        new_props: tuple[tuple[str, Any], ...],
+    ) -> dict[str, tuple[Any, Any]]:
+        """Diff controllable ephemeral props ("state wins, else preserve").
+
+        A controllable ephemeral prop (cursor/scroll/selection/highlight - see
+        :data:`~wijjit.core.vdom.CONTROLLABLE_EPHEMERAL_PROPS`) is applied to the
+        element only when its bound value *changed* between renders. That
+        changed-only rule is deliberate: a live edit moves the element's cursor
+        or scroll without changing the template's bound value, so an unchanged
+        binding must NOT overwrite it (that would be the React controlled-input
+        footgun - the caret snapping back on every keystroke). Only a genuine
+        change to the bound value expresses author intent to reposition.
+
+        Unlike :meth:`_diff_props`, a *removed* ephemeral prop is not reported:
+        dropping a ``cursor_pos=`` binding from a template means "stop
+        controlling it", not "reset it to None".
+
+        Parameters
+        ----------
+        old_props : tuple
+            Old props as tuple of (key, value) pairs.
+        new_props : tuple
+            New props as tuple of (key, value) pairs.
+
+        Returns
+        -------
+        dict
+            Map of ephemeral prop_name -> (old_value, new_value) for controllable
+            ephemeral props present in ``new_props`` whose value changed.
+        """
+        old_dict = dict(old_props)
+        new_dict = dict(new_props)
+        controlled: dict[str, tuple[Any, Any]] = {}
+
+        for key, new_val in new_dict.items():
+            if key not in CONTROLLABLE_EPHEMERAL_PROPS:
+                continue
+            old_val = old_dict.get(key)
+            if old_val != new_val:
+                controlled[key] = (old_val, new_val)
+
+        return controlled
 
     def _diff_children(
         self,
@@ -515,7 +584,15 @@ class Reconciler:
             if hasattr(element, "on_update"):
                 element.on_update(diff.prop_changes)
 
-        # Restore ephemeral state
+        # Controlled ephemeral props: a bound value that changed this render
+        # wins over the preserved snapshot ("state wins, else preserve").
+        # Overriding the saved snapshot routes the value through the element's
+        # own restore_ephemeral_state, reusing its clamping / scroll-manager
+        # mapping instead of a raw setattr that would bypass both.
+        for name, (_old_val, new_val) in diff.controlled_ephemeral.items():
+            ephemeral_state[name] = new_val
+
+        # Restore ephemeral state (preserved keys, plus any controlled overrides)
         if ephemeral_state and hasattr(element, "restore_ephemeral_state"):
             element.restore_ephemeral_state(ephemeral_state)
 

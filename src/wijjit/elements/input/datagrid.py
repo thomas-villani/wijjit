@@ -1983,9 +1983,9 @@ class DataGrid(ScrollableElement):
             "cursor_col": self.cursor_col,
         }
         if self.scroll_manager:
-            state["_scroll_position"] = self.scroll_manager.state.scroll_position
+            state["scroll_position"] = self.scroll_manager.state.scroll_position
         if self.scroll_manager_x:
-            state["_scroll_position_x"] = self.scroll_manager_x.state.scroll_position
+            state["scroll_x_position"] = self.scroll_manager_x.state.scroll_position
         if self.editing:
             state["editing"] = self.editing
             state["edit_value"] = self.edit_value
@@ -2007,10 +2007,10 @@ class DataGrid(ScrollableElement):
         if "cursor_col" in state:
             max_col = len(self.columns) - 1 if self.columns else 0
             self.cursor_col = min(state["cursor_col"], max_col)
-        if "_scroll_position" in state and self.scroll_manager:
-            self.scroll_manager.scroll_to(state["_scroll_position"])
-        if "_scroll_position_x" in state and self.scroll_manager_x:
-            self.scroll_manager_x.scroll_to(state["_scroll_position_x"])
+        if "scroll_position" in state and self.scroll_manager:
+            self.scroll_manager.scroll_to(state["scroll_position"])
+        if "scroll_x_position" in state and self.scroll_manager_x:
+            self.scroll_manager_x.scroll_to(state["scroll_x_position"])
         if state.get("editing"):
             self.editing = True
             self.edit_value = state.get("edit_value", "")
