@@ -343,13 +343,46 @@ ImageView
 
     * ``src`` - Image source: file path, bytes, or PIL ``Image``
     * ``width`` / ``height`` - Size spec: int, ``"auto"``, ``"fill"``, or ``"50%"`` (default: ``"auto"``)
-    * ``braille`` - Use braille mode for black-and-white rendering (default: ``False``)
+    * ``mode`` - Render mode: ``"color"``, ``"quadrant"``, or ``"braille"`` (default: ``"color"``)
+    * ``threshold`` - Braille binarization cutoff: ``0``-``255``, or ``"auto"`` for Otsu's method (default: ``"auto"``)
     * ``invert`` - Invert the threshold in braille mode (default: ``False``)
     * ``background`` - Background RGB tuple for transparent pixels (default: ``(0, 0, 0)``)
+
+    The three modes trade colour against spatial detail:
+
+    .. list-table::
+       :header-rows: 1
+       :widths: 18 18 18 46
+
+       * - Mode
+         - Subpixels
+         - Colour
+         - Notes
+       * - ``"color"``
+         - 1x2
+         - full
+         - Half-blocks (U+2580). The safe default.
+       * - ``"quadrant"``
+         - 2x2
+         - full
+         - Quadrant blocks (U+2596-U+259F). Two colours per cell, full cell coverage. Usually the best choice for photographs.
+       * - ``"braille"``
+         - 2x4
+         - none
+         - Braille dots (U+2800-U+28FF). Highest subpixel resolution, but monochrome, and the dots only partially cover each cell. Best for line art and high-contrast graphics.
+
+    .. note::
+
+       Denser full-coverage character sets exist - sextants (2x3, Unicode 13) and
+       octants (2x4, Unicode 16) - but they are missing from common terminal fonts,
+       including Cascadia Mono, the Windows Terminal default. Wijjit deliberately
+       sticks to character sets that render everywhere.
 
     .. code-block:: jinja
 
        {% imageview id="logo" src="assets/logo.png" width=40 %}{% endimageview %}
+       {% imageview src="photo.jpg" width=40 mode="quadrant" %}{% endimageview %}
+       {% imageview src="diagram.png" mode="braille" threshold=140 %}{% endimageview %}
 
 Data Visualization
 ------------------

@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`ImageView` quadrant render mode, and a settable braille threshold.**
+  `ImageView` now takes `mode="color"|"quadrant"|"braille"` in place of the
+  `braille=True` boolean (**breaking**, see below). The new `"quadrant"` mode
+  draws each cell as a quadrant block (U+2596-U+259F) over a 2x2 subpixel grid,
+  splitting the cell at its own mean luminance into a bright and a dark group
+  and painting them as foreground and background - a two-colour block-truncation
+  code. It doubles horizontal detail over half-block mode while keeping full
+  colour and full cell coverage, which generally reads better than braille on
+  photographs; braille still wins on line art. Braille mode's binarisation
+  cutoff is no longer forced to Otsu's method: `threshold=0..255` sets it
+  explicitly and `threshold="auto"` (the default) keeps the existing behaviour.
+  Denser full-coverage charsets were evaluated and deliberately rejected -
+  sextants (2x3, Unicode 13) and octants (2x4, Unicode 16) are absent from
+  common terminal fonts including Cascadia Mono, the Windows Terminal default.
 - **Public plugin seam for third-party elements.** A widget can now ship as its
   own pip-installable package without forking Wijjit or monkeypatching its
   internals. `wijjit.register_element(...)` (and the `@element` decorator, plus
@@ -165,6 +179,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (text / ansi / html / markdown / rich) in display elements.
 - Ctrl+Z suspend/resume (SIGTSTP) on Unix.
 - Flask-style configuration system (`app.config`).
+
+### Changed
+- **BREAKING: `ImageView`'s `braille=True` boolean is replaced by `mode=`.**
+  Use `mode="braille"` instead of `braille=True`, in both the Python API and
+  the `{% imageview %}` tag; `braille=` is no longer accepted. A boolean does
+  not extend to a third mode, and since `0.1.0` has not been published there
+  are no external users to carry an alias for. `invert=` is unchanged and still
+  applies only to braille mode.
 
 ### Removed
 - **~126 lines of dead code in `TextArea`.** `_render_cursor_in_line` and

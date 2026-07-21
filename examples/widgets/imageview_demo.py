@@ -1,8 +1,8 @@
 """ImageView demo showcasing image rendering in the terminal.
 
 This example demonstrates:
-- Displaying images using colored half-block characters
-- Braille mode for black and white rendering
+- The three render modes: color (half-block), quadrant, and braille
+- Setting an explicit braille threshold instead of automatic Otsu
 - Different sizing options (fixed width/height, auto, fill)
 - Aspect ratio preservation
 """
@@ -15,27 +15,26 @@ from wijjit import Wijjit, render_template_string
 # regardless of the current working directory.
 IMAGE_PATH = str(Path(__file__).parent.parent / "assets" / "test-image.png")
 
-# Create app with initial state
-app = Wijjit(
-    initial_state={
-        "braille_mode": False,
-    }
-)
+app = Wijjit()
 
 TEMPLATE = """{% frame title="ImageView Demo" border="double" width=80 height=40 %}
-Renders images as ANSI colored characters in the terminal
-Toggle braille mode for B&W rendering | Press 'q' to quit
+Renders images as ANSI colored characters in the terminal | Press 'q' to quit
 {% hstack %}
-{% imageview src=image width=30 %}{% endimageview %}
-{% imageview src=image width=30 braille=True %}{% endimageview %}
+{% imageview src=image width=24 %}{% endimageview %}
+{% imageview src=image width=24 mode="quadrant" %}{% endimageview %}
+{% imageview src=image width=24 mode="braille" %}{% endimageview %}
 {% endhstack %}
+     color                   quadrant                braille
 {% hstack %}
-{% imageview src=image height=8 %}{% endimageview %}
-{% imageview src=image height=8 braille=True invert=True %}{% endimageview %}
+{% imageview src=image height=8 mode="braille" threshold=60 %}{% endimageview %}
+{% imageview src=image height=8 mode="braille" threshold=160 %}{% endimageview %}
+{% imageview src=image height=8 mode="braille" invert=True %}{% endimageview %}
 {% endhstack %}
+  threshold=60            threshold=160           inverted (auto)
 
-Color mode uses half-block chars for 2x vertical resolution
-Braille mode uses 2x4 pixel patterns for higher detail B&W
+Color mode uses half-blocks: 1x2 subpixels, full color
+Quadrant mode uses 2x2 subpixels, still full color and full cell coverage
+Braille mode uses 2x4 subpixels but is monochrome; threshold defaults to Otsu
 
 {% button id="quit_btn" action="quit" %}Quit (q){% endbutton %}
 {% endframe %}"""
