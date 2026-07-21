@@ -2479,15 +2479,17 @@ class ImageViewExtension(Extension):
     Syntax::
 
         {% imageview src="path/to/image.png" width=40 %}{% endimageview %}
-        {% imageview src=state.image_data height=20 braille=True %}{% endimageview %}
+        {% imageview src=state.image_data height=20 mode="quadrant" %}{% endimageview %}
         {% imageview src="photo.jpg" width="50%" height="fill" %}{% endimageview %}
-        {% imageview src="logo.png" braille=True invert=True %}{% endimageview %}
+        {% imageview src="logo.png" mode="braille" threshold=90 %}{% endimageview %}
+        {% imageview src="logo.png" mode="braille" invert=True %}{% endimageview %}
 
     Parameters:
         src: Image source (file path, bytes, or PIL Image)
         width: Display width (int, "auto", "fill", or "50%")
         height: Display height (int, "auto", "fill", or "50%")
-        braille: Use braille mode for B&W rendering (default: False)
+        mode: "color" (half-block), "quadrant", or "braille" (default: "color")
+        threshold: Braille binarization cutoff, 0-255 or "auto" (default: "auto")
         invert: Invert threshold in braille mode (default: False)
         background: Background RGB tuple for transparency (default: (0,0,0))
     """
@@ -2526,7 +2528,8 @@ class ImageViewExtension(Extension):
         src: Any = None,
         width: int | str = "auto",
         height: int | str = "auto",
-        braille: bool = False,
+        mode: str = "color",
+        threshold: int | str = "auto",
         invert: bool = False,
         background: tuple[int, int, int] | None = None,
         bind: bool | str = True,
@@ -2546,8 +2549,10 @@ class ImageViewExtension(Extension):
             Width spec: int, "auto", "fill", or "50%" (default: "auto")
         height : int or str
             Height spec: int, "auto", "fill", or "50%" (default: "auto")
-        braille : bool
-            Use braille mode for B&W rendering (default: False)
+        mode : str
+            Rendering mode: "color", "quadrant", or "braille" (default: "color")
+        threshold : int or str
+            Braille binarization cutoff: 0-255, or "auto" (default: "auto")
         invert : bool
             Invert the threshold in braille mode (default: False)
         background : tuple, optional
@@ -2572,7 +2577,6 @@ class ImageViewExtension(Extension):
         width_spec = width
         height_spec = height
 
-        braille = bool(braille)
         invert = bool(invert)
         if background is None:
             background = (0, 0, 0)
@@ -2593,7 +2597,8 @@ class ImageViewExtension(Extension):
         # Build VNode
         vnode = VNodeBuilder("ImageView", key=id)
         vnode.set_prop("src", src)
-        vnode.set_prop("braille", braille)
+        vnode.set_prop("mode", mode)
+        vnode.set_prop("threshold", threshold)
         vnode.set_prop("invert", invert)
         vnode.set_prop("background", background)
         vnode.set_prop("bind", bind)

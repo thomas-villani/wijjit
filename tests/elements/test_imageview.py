@@ -27,7 +27,8 @@ class TestImageViewInitialization:
         """Test ImageView with default parameters."""
         iv = ImageView()
         assert iv.src is None
-        assert iv.braille is False
+        assert iv.mode == "color"
+        assert iv.threshold == "auto"
         assert iv.background == (0, 0, 0)
         assert iv.focusable is False
         assert iv.width_spec is None
@@ -40,14 +41,16 @@ class TestImageViewInitialization:
             src="test.png",
             width=40,
             height=20,
-            braille=True,
+            mode="braille",
+            threshold=90,
             background=(255, 255, 255),
         )
         assert iv.id == "test"
         assert iv.src == "test.png"
         assert iv.width_spec == 40
         assert iv.height_spec == 20
-        assert iv.braille is True
+        assert iv.mode == "braille"
+        assert iv.threshold == 90
         assert iv.background == (255, 255, 255)
 
     def test_string_sizing_specs(self):
@@ -178,13 +181,11 @@ class TestImageViewPlaceholder:
 class TestImageViewBrailleMode:
     """Test braille mode functionality."""
 
-    def test_braille_mode_flag(self):
-        """Test braille mode flag."""
-        iv_color = ImageView(braille=False)
-        iv_braille = ImageView(braille=True)
-
-        assert iv_color.braille is False
-        assert iv_braille.braille is True
+    def test_mode_selection(self):
+        """Test selecting each render mode."""
+        assert ImageView(mode="color").mode == "color"
+        assert ImageView(mode="quadrant").mode == "quadrant"
+        assert ImageView(mode="braille").mode == "braille"
 
     def test_braille_dots_constant(self):
         """Test braille dots mapping constant."""
@@ -326,7 +327,7 @@ class TestImageViewWithPIL:
         # Create simple test image
         img = Image.new("RGB", (20, 40), (255, 255, 255))
 
-        iv = ImageView(src=img, width=5, braille=True)
+        iv = ImageView(src=img, width=5, mode="braille")
         iv.set_bounds(Bounds(0, 0, 10, 10))
         output = render_element(iv, width=10, height=10)
 
@@ -354,3 +355,179 @@ class TestImageViewErrorHandling:
         iv = ImageView(src=None)
         loaded = iv._load_image()
         assert loaded is None
+
+
+class TestImageViewModeValidation:
+    """Test validation of the mode and threshold props."""
+
+    def test_invalid_mode_raises(self):
+        """Test an unknown mode is rejected at construction."""
+        with pytest.raises(ValueError, match="Invalid ImageView mode"):
+            ImageView(mode="sextant")
+
+    def test_all_declared_modes_are_constructible(self):
+        """Test every mode in MODES can actually be constructed."""
+        for mode in ImageView.MODES:
+            assert ImageView(mode=mode).mode == mode
+
+    def test_threshold_auto_default(self):
+        """Test threshold defaults to automatic Otsu."""
+        assert ImageView().threshold == "auto"
+
+    def test_threshold_is_clamped(self):
+        """Test out-of-range thresholds clamp to 0-255."""
+        assert ImageView(threshold=-20).threshold == 0
+        assert ImageView(threshold=900).threshold == 255
+
+    def test_invalid_threshold_raises(self):
+        """Test a non-numeric, non-auto threshold is rejected."""
+        with pytest.raises(ValueError, match="Invalid ImageView threshold"):
+            ImageView(threshold="otsu")
+
+
+class TestImageViewQuadrantMode:
+    """Test quadrant mode rendering."""
+
+    def test_quadrant_chars_table(self):
+        """Test the quadrant table covers all 16 subpixel patterns uniquely."""
+        assert len(ImageView.QUADRANT_CHARS) == 16
+        assert len(set(ImageView.QUADRANT_CHARS)) == 16
+        # Row-major bitmask: bit0=TL, bit1=TR, bit2=BL, bit3=BR.
+        assert ImageView.QUADRANT_CHARS[0] == " "
+        assert ImageView.QUADRANT_CHARS[0b0011] == "▀"  # top row -> upper half
+        assert ImageView.QUADRANT_CHARS[0b1100] == "▄"  # bottom row -> lower half
+        assert ImageView.QUADRANT_CHARS[0b0101] == "▌"  # left col -> left half
+        assert ImageView.QUADRANT_CHARS[0b1010] == "▐"  # right col -> right half
+        assert ImageView.QUADRANT_CHARS[0b1111] == "█"  # all -> full block
+
+    @pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not installed")
+    def test_quadrant_render_is_full_coverage_and_colored(self):
+        """Test quadrant cells keep color, unlike monochrome braille."""
+        from PIL import Image
+
+        # Left half red, right half blue - a vertical edge inside every cell.
+        img = Image.new("RGB", (8, 8), (255, 0, 0))
+        for y in range(8):
+            for x in range(4, 8):
+                img.putpixel((x, y), (0, 0, 255))
+
+        iv = ImageView(src=img, mode="quadrant")
+        cells = iv._render_quadrant_mode(4, 4)
+
+        assert len(cells) == 4
+        assert all(len(row) == 4 for row in cells)
+        # Every cell carries both a foreground and a background color.
+        for row in cells:
+            for char, fg, bg in row:
+                assert char in ImageView.QUADRANT_CHARS
+                assert bg is not None
+                assert fg is not None
+        # The red/blue split must survive somewhere in the output.
+        colors = {c for row in cells for _, fg, bg in row for c in (fg, bg)}
+        assert any(c[0] > c[2] for c in colors), "expected a red-dominant color"
+        assert any(c[2] > c[0] for c in colors), "expected a blue-dominant color"
+
+    @pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not installed")
+    def test_flat_image_renders_solid(self):
+        """Test a flat cell paints solid rather than emitting a split pattern."""
+        from PIL import Image
+
+        img = Image.new("RGB", (8, 8), (120, 120, 120))
+        cells = ImageView(src=img, mode="quadrant")._render_quadrant_mode(4, 4)
+
+        for row in cells:
+            for char, _fg, bg in row:
+                assert char == " "
+                assert bg == (120, 120, 120)
+
+
+class TestImageViewThresholdBehavior:
+    """Test that an explicit braille threshold actually changes the output."""
+
+    @pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not installed")
+    def test_threshold_changes_dot_count(self):
+        """Test a high threshold yields fewer dots than a low one."""
+        from PIL import Image
+
+        # Vertical luminance ramp so the cutoff position matters.
+        img = Image.new("RGB", (16, 32))
+        for y in range(32):
+            v = int(y * 255 / 31)
+            for x in range(16):
+                img.putpixel((x, y), (v, v, v))
+
+        def dot_count(threshold):
+            iv = ImageView(src=img, mode="braille", threshold=threshold)
+            cells = iv._render_braille_mode(8, 8)
+            return sum(
+                bin(ord(char) - ImageView.BRAILLE_BASE).count("1")
+                for row in cells
+                for char, _fg, _bg in row
+            )
+
+        assert dot_count(40) > dot_count(200)
+
+    @pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not installed")
+    def test_auto_threshold_matches_otsu(self):
+        """Test "auto" resolves to the Otsu threshold."""
+        from PIL import Image
+
+        img = Image.new("RGB", (16, 16), (10, 10, 10))
+        for y in range(8):
+            for x in range(16):
+                img.putpixel((x, y), (240, 240, 240))
+
+        iv = ImageView(src=img, mode="braille")
+        gray = img.convert("L")
+        assert iv._resolve_threshold(gray) == iv._otsu_threshold(gray)
+
+
+class TestImageViewModeGeometry:
+    """Test each mode reports the subpixel grid its aspect math depends on."""
+
+    def test_subpixel_grids(self):
+        """Test the subpixel grid per mode."""
+        assert ImageView(mode="color")._subpixel_grid() == (1, 2)
+        assert ImageView(mode="quadrant")._subpixel_grid() == (2, 2)
+        assert ImageView(mode="braille")._subpixel_grid() == (2, 4)
+
+    def test_aspect_ratio_is_mode_independent(self):
+        """Test aspect ratio does not depend on the subpixel grid.
+
+        Each mode resamples the whole source onto its own grid, so the subpixel
+        count cancels out and only the 2:1 character cell shape matters. Making
+        this grid-dependent stretched quadrant images to double height.
+        """
+        for mode in ImageView.MODES:
+            iv = ImageView(mode=mode)
+            assert iv._aspect_ratio(100, 100) == 2.0
+            assert iv._aspect_ratio(200, 100) == 4.0
+            assert iv._aspect_ratio(100, 200) == 1.0
+
+    @pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not installed")
+    def test_natural_size_preserves_aspect_across_modes(self):
+        """Test unconstrained sizing gives the same shape in every mode."""
+        from PIL import Image
+
+        img = Image.new("RGB", (128, 128))
+        shapes = {}
+        for mode in ImageView.MODES:
+            width, height = ImageView(src=img, mode=mode).get_intrinsic_size()
+            shapes[mode] = width / height
+
+        assert set(shapes.values()) == {2.0}, shapes
+
+    @pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not installed")
+    def test_width_constrained_height_matches_across_modes(self):
+        """Test a fixed width yields the same height in every mode."""
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100))
+        heights = {
+            mode: ImageView(src=img, mode=mode, width=40)._calculate_dimensions(80, 80)[
+                1
+            ]
+            for mode in ImageView.MODES
+        }
+        assert len(set(heights.values())) == 1, heights
+        assert heights["quadrant"] == 20

@@ -38,15 +38,30 @@ class ImageView(Element):
     """Element for displaying images in the terminal.
 
     Converts images to ANSI-colored characters for terminal display.
-    Supports two rendering modes:
+    Supports three rendering modes, selected with ``mode``:
 
-    - Color mode (default): Uses half-block characters (U+2580) with
+    - ``"color"`` (default): Uses half-block characters (U+2580) with
       foreground (upper pixel) and background (lower pixel) colors,
       achieving 2x vertical resolution.
 
-    - Braille mode: Converts image to black/white using Otsu's threshold,
+    - ``"quadrant"``: Uses quadrant block characters (U+2596-U+259F) for a
+      2x2 subpixel grid per cell. Each cell is split into a bright and a dark
+      group at the cell's own mean luminance and drawn with two colors, so it
+      keeps full color while doubling horizontal detail over ``"color"``.
+
+    - ``"braille"``: Converts the image to black/white using ``threshold``,
       then renders using braille characters (U+2800-U+28FF) for 2x4
       pixel resolution per character.
+
+    Notes
+    -----
+    Braille resolves 2x4 subpixels but its dots only cover part of each cell,
+    so fine detail is monochrome and visually diluted. ``"quadrant"`` resolves
+    fewer subpixels but fills the cell completely and keeps color, which reads
+    better for photographs; ``"braille"`` suits line art and high-contrast
+    graphics. Denser full-coverage charsets exist (sextants at 2x3, octants at
+    2x4) but are absent from common terminal fonts - including Cascadia Mono,
+    the Windows Terminal default - so they are deliberately not offered here.
 
     Parameters
     ----------
@@ -60,8 +75,11 @@ class ImageView(Element):
     height : int or str, optional
         Display height. If "auto" or None, calculate from width and aspect ratio.
         If "fill", expand to available space.
-    braille : bool, optional
-        If True, use braille mode for B&W rendering (default: False)
+    mode : str, optional
+        Rendering mode: "color", "quadrant", or "braille" (default: "color")
+    threshold : int or str, optional
+        Binarization cutoff for braille mode: an integer 0-255, or "auto" to
+        compute Otsu's threshold from the image (default: "auto")
     invert : bool, optional
         If True, invert the threshold in braille mode so dark pixels become
         dots instead of light pixels (default: False)
@@ -69,6 +87,12 @@ class ImageView(Element):
         Background RGB color for transparency compositing (default: (0, 0, 0))
     classes : str or list of str, optional
         CSS class names for styling
+
+    Raises
+    ------
+    ValueError
+        If ``mode`` is not one of the supported modes, or ``threshold`` is
+        neither "auto" nor an integer.
 
     Attributes
     ----------
@@ -78,16 +102,42 @@ class ImageView(Element):
         Width specification
     height_spec : int or str or None
         Height specification
-    braille : bool
-        Whether to use braille rendering mode
+    mode : str
+        Active rendering mode
+    threshold : int or str
+        Braille binarization cutoff, or "auto"
     invert : bool
         Whether to invert the braille threshold
     background : tuple
         Background color for transparency
     """
 
+    #: Supported values for ``mode``.
+    MODES = ("color", "quadrant", "braille")
+
     # Half-block character for color mode (upper half filled)
     HALF_BLOCK = "\u2580"
+
+    # Quadrant block characters indexed by a row-major bitmask:
+    # bit0=top-left, bit1=top-right, bit2=bottom-left, bit3=bottom-right.
+    QUADRANT_CHARS = (
+        " ",
+        "\u2598",
+        "\u259d",
+        "\u2580",
+        "\u2596",
+        "\u258c",
+        "\u259e",
+        "\u259b",
+        "\u2597",
+        "\u259a",
+        "\u2590",
+        "\u259c",
+        "\u2584",
+        "\u2599",
+        "\u259f",
+        "\u2588",
+    )
 
     # Braille base character (empty braille pattern)
     BRAILLE_BASE = 0x2800
@@ -112,7 +162,8 @@ class ImageView(Element):
         src: ImageSource = None,
         width: int | str | None = None,
         height: int | str | None = None,
-        braille: bool = False,
+        mode: str = "color",
+        threshold: int | str = "auto",
         invert: bool = False,
         background: tuple[int, int, int] = (0, 0, 0),
         bind: bool | str = True,
@@ -121,11 +172,18 @@ class ImageView(Element):
         self.element_type = ElementType.DISPLAY
         self.focusable = False
 
+        if mode not in self.MODES:
+            raise ValueError(
+                f"Invalid ImageView mode {mode!r}. Expected one of: "
+                + ", ".join(repr(m) for m in self.MODES)
+            )
+
         # Image properties
         self.src = src
         self.width_spec = width
         self.height_spec = height
-        self.braille = braille
+        self.mode = mode
+        self.threshold = self._validate_threshold(threshold)
         self.invert = invert
         self.background = background
 
@@ -135,13 +193,58 @@ class ImageView(Element):
         # Cache
         self._cached_image: Any = None  # PIL.Image.Image
         self._cached_render: list[list[tuple[str, tuple, tuple | None]]] | None = None
-        self._last_render_size: tuple[int, int] | None = None
+        self._last_render_size: tuple[Any, ...] | None = None
 
         if not PIL_AVAILABLE and src is not None:
             logger.warning(
                 "PIL/Pillow not installed. ImageView will show placeholder. "
                 "Install with: pip install Pillow"
             )
+
+    @staticmethod
+    def _validate_threshold(threshold: int | str) -> int | str:
+        """Normalize and validate the braille binarization threshold.
+
+        Parameters
+        ----------
+        threshold : int or str
+            An integer 0-255, or "auto" for Otsu's method.
+
+        Returns
+        -------
+        int or str
+            "auto", or the threshold clamped to 0-255.
+
+        Raises
+        ------
+        ValueError
+            If threshold is neither "auto" nor an integer.
+        """
+        if threshold == "auto":
+            return "auto"
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+            raise ValueError(
+                f"Invalid ImageView threshold {threshold!r}. "
+                'Expected an integer 0-255 or "auto".'
+            )
+        return max(0, min(255, int(threshold)))
+
+    def _resolve_threshold(self, gray: Any) -> int:
+        """Resolve the effective braille threshold for a grayscale image.
+
+        Parameters
+        ----------
+        gray : PIL.Image.Image
+            Grayscale ("L" mode) image.
+
+        Returns
+        -------
+        int
+            Threshold value 0-255.
+        """
+        if self.threshold == "auto":
+            return self._otsu_threshold(gray)
+        return int(self.threshold)
 
     def _load_image(self) -> Any:
         """Load image from source with error handling.
@@ -228,18 +331,7 @@ class ImageView(Element):
 
         img_width, img_height = img.size
 
-        # Calculate aspect ratio accounting for terminal character proportions
-        # Terminal chars are ~2:1 (twice as tall as wide)
-        # Half-block gives 2 pixels vertically per row
-        # Braille gives 4 pixels vertically, 2 horizontally per char
-        if self.braille:
-            # Braille: 2 pixels wide, 4 pixels tall per char
-            # Effective aspect = (img_width / 2) / (img_height / 4) = img_width * 2 / img_height
-            aspect_ratio = (img_width / 2) / (img_height / 4)
-        else:
-            # Half-block: 1 pixel wide, 2 pixels tall per char
-            # Effective aspect = img_width / (img_height / 2) = img_width * 2 / img_height
-            aspect_ratio = img_width / (img_height / 2)
+        aspect_ratio = self._aspect_ratio(img_width, img_height)
 
         # Parse width/height specs
         width = self._parse_size_spec(self.width_spec, available_width)
@@ -264,6 +356,60 @@ class ImageView(Element):
 
         # Ensure minimum dimensions
         return (max(1, width), max(1, height))
+
+    def _subpixel_grid(self) -> tuple[int, int]:
+        """Get the subpixel grid each character cell resolves, for the mode.
+
+        Returns
+        -------
+        tuple of (int, int)
+            (columns, rows) of subpixels sampled per character cell.
+        """
+        if self.mode == "braille":
+            return (2, 4)
+        if self.mode == "quadrant":
+            return (2, 2)
+        return (1, 2)
+
+    def _natural_cell_pixels(self) -> tuple[int, int]:
+        """Get the source pixels a cell consumes when sizing at natural scale.
+
+        This is not the same as :meth:`_subpixel_grid`. Quadrant mode samples a
+        2x2 subpixel grid, but those subpixels are not square on screen - a cell
+        is twice as tall as it is wide - so at natural scale a quadrant cell
+        covers a 2x4 pixel region and resamples it down. Using the sampling grid
+        here instead would stretch quadrant images to double height.
+
+        Returns
+        -------
+        tuple of (int, int)
+            (columns, rows) of source pixels per character cell.
+        """
+        if self.mode == "color":
+            return (1, 2)
+        return (2, 4)
+
+    def _aspect_ratio(self, img_width: int, img_height: int) -> float:
+        """Get the undistorted cell aspect ratio for an image.
+
+        This is deliberately independent of the render mode. Every mode
+        resamples the whole source onto its own subpixel grid, so the subpixel
+        count cancels out; all that remains is the shape of a character cell,
+        which is roughly twice as tall as it is wide.
+
+        Parameters
+        ----------
+        img_width : int
+            Source image width in pixels.
+        img_height : int
+            Source image height in pixels.
+
+        Returns
+        -------
+        float
+            Width-to-height ratio in character cells.
+        """
+        return 2.0 * img_width / img_height
 
     def _otsu_threshold(self, img: Any) -> int:
         """Calculate Otsu's threshold for binarization.
@@ -333,16 +479,9 @@ class ImageView(Element):
         list of list of tuple
             2D grid of (char, fg_color, bg_color) tuples
         """
-        img = self._load_image()
+        img = self._prepare_rgb()
         if img is None:
             return []
-
-        # Convert to RGBA for transparency handling
-        img = img.convert("RGBA")
-
-        # Composite over background
-        bg = Image.new("RGBA", img.size, (*self.background, 255))
-        img = Image.alpha_composite(bg, img).convert("RGB")
 
         # Choose resampling method
         try:
@@ -362,6 +501,127 @@ class ImageView(Element):
                 top = px[x, 2 * y]  # Upper pixel -> fg
                 bottom = px[x, 2 * y + 1]  # Lower pixel -> bg
                 row_cells.append((self.HALF_BLOCK, top, bottom))
+            cells.append(row_cells)
+
+        return cells
+
+    def _prepare_rgb(self) -> Any:
+        """Load the image as RGB, compositing transparency over ``background``.
+
+        Returns
+        -------
+        PIL.Image.Image or None
+            RGB image, or None if the source could not be loaded.
+        """
+        img = self._load_image()
+        if img is None:
+            return None
+        img = img.convert("RGBA")
+        bg = Image.new("RGBA", img.size, (*self.background, 255))
+        return Image.alpha_composite(bg, img).convert("RGB")
+
+    @staticmethod
+    def _luminance(rgb: tuple[int, int, int]) -> float:
+        """Get the Rec. 709 relative luminance of an RGB triple.
+
+        Parameters
+        ----------
+        rgb : tuple of (int, int, int)
+            Pixel color.
+
+        Returns
+        -------
+        float
+            Luminance in the range 0-255.
+        """
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+    @staticmethod
+    def _mean_rgb(pixels: list[tuple[int, int, int]]) -> tuple[int, int, int]:
+        """Get the component-wise mean of a list of RGB triples.
+
+        Parameters
+        ----------
+        pixels : list of tuple
+            Pixel colors; must be non-empty.
+
+        Returns
+        -------
+        tuple of (int, int, int)
+            Mean color.
+        """
+        n = len(pixels)
+        return (
+            sum(p[0] for p in pixels) // n,
+            sum(p[1] for p in pixels) // n,
+            sum(p[2] for p in pixels) // n,
+        )
+
+    def _render_quadrant_mode(
+        self, cols: int, rows: int
+    ) -> list[list[tuple[str, tuple, tuple]]]:
+        """Render the image using quadrant blocks (2x2 subpixels per cell).
+
+        Each cell samples a 2x2 pixel block and splits it at its own mean
+        luminance. The brighter subpixels become the character's set quadrants
+        drawn in their mean color; the darker ones become the background. This
+        is a two-color block-truncation code, so the cell stays fully covered
+        and in color while resolving twice the horizontal detail of half-block
+        mode.
+
+        Parameters
+        ----------
+        cols : int
+            Number of character columns
+        rows : int
+            Number of terminal rows
+
+        Returns
+        -------
+        list of list of tuple
+            2D grid of (char, fg_color, bg_color) tuples
+        """
+        img = self._prepare_rgb()
+        if img is None:
+            return []
+
+        try:
+            resample = Image.Resampling.BOX
+        except AttributeError:
+            resample = Image.BOX  # type: ignore
+
+        down = img.resize((cols * 2, rows * 2), resample)
+        px = down.load()
+
+        cells = []
+        for y in range(rows):
+            row_cells = []
+            for x in range(cols):
+                # Row-major order matches the QUADRANT_CHARS bitmask.
+                quad = [
+                    px[x * 2, y * 2],
+                    px[x * 2 + 1, y * 2],
+                    px[x * 2, y * 2 + 1],
+                    px[x * 2 + 1, y * 2 + 1],
+                ]
+                lums = [self._luminance(p) for p in quad]
+                pivot = sum(lums) / 4
+
+                hi = [p for p, lu in zip(quad, lums, strict=True) if lu > pivot]
+                lo = [p for p, lu in zip(quad, lums, strict=True) if lu <= pivot]
+
+                if not hi:
+                    # Flat cell: nothing above the mean, so paint it solid.
+                    row_cells.append((" ", (0, 0, 0), self._mean_rgb(lo)))
+                    continue
+
+                mask = 0
+                for i, lu in enumerate(lums):
+                    if lu > pivot:
+                        mask |= 1 << i
+
+                bg = self._mean_rgb(lo) if lo else self._mean_rgb(hi)
+                row_cells.append((self.QUADRANT_CHARS[mask], self._mean_rgb(hi), bg))
             cells.append(row_cells)
 
         return cells
@@ -390,8 +650,8 @@ class ImageView(Element):
         # Convert to grayscale
         gray = img.convert("L")
 
-        # Apply Otsu's threshold
-        threshold = self._otsu_threshold(gray)
+        # Resolve the binarization cutoff (Otsu, or a caller-supplied value)
+        threshold = self._resolve_threshold(gray)
 
         # Choose resampling method
         try:
@@ -481,15 +741,7 @@ class ImageView(Element):
             return (10, 5)  # Default placeholder size
 
         img_width, img_height = img.size
-
-        # Calculate aspect ratio for terminal chars
-        # Terminal chars are ~2:1 (twice as tall as wide)
-        if self.braille:
-            # Braille: 2 pixels wide, 4 pixels tall per char
-            aspect_ratio = (img_width / 2) / (img_height / 4)
-        else:
-            # Half-block: 1 pixel wide, 2 pixels tall per char
-            aspect_ratio = img_width / (img_height / 2)
+        aspect_ratio = self._aspect_ratio(img_width, img_height)
 
         # Check if width or height is specified
         width_specified = self.width_spec is not None and isinstance(
@@ -513,12 +765,9 @@ class ImageView(Element):
             width = max(1, int(height * aspect_ratio))
         else:
             # Neither specified - use natural size
-            if self.braille:
-                width = img_width // 2
-                height = img_height // 4
-            else:
-                width = img_width
-                height = img_height // 2
+            cell_w, cell_h = self._natural_cell_pixels()
+            width = img_width // cell_w
+            height = img_height // cell_h
 
         # Limit to reasonable defaults
         width = min(width, 80)
@@ -551,13 +800,15 @@ class ImageView(Element):
         height = min(height, ctx.bounds.height)
 
         # Check cache
-        render_size = (width, height, self.braille, self.invert)
+        render_size = (width, height, self.mode, self.threshold, self.invert)
         if self._cached_render is not None and self._last_render_size == render_size:
             cells = self._cached_render
         else:
             # Render image to cells
-            if self.braille:
+            if self.mode == "braille":
                 cells = self._render_braille_mode(width, height)
+            elif self.mode == "quadrant":
+                cells = self._render_quadrant_mode(width, height)
             else:
                 cells = self._render_color_mode(width, height)
             self._cached_render = cells
