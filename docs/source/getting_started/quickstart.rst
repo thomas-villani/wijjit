@@ -11,20 +11,16 @@ Let's start with the simplest possible Wijjit app:
 .. code-block:: python
 
     from wijjit import Wijjit, render_template_string
-    from wijjit.core.events import EventType, HandlerScope
 
     app = Wijjit()
 
-    def setup_handlers():
-        def on_quit(event):
-            if event.key == "q":
-                app.quit()
-
-        app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
-
-    @app.view("main", default=True, on_enter=setup_handlers)
+    @app.view("main", default=True)
     def main_view():
-        return render_template_string("Hello, World! Press 'q' to quit.")
+        return render_template_string("{% text %}Hello, World! Press 'q' to quit.{% endtext %}")
+
+    @app.on_key("q")
+    def quit_app(event):
+        app.quit()
 
     if __name__ == "__main__":
         app.run()
@@ -37,6 +33,10 @@ Save this as ``hello.py`` and run it:
 
 You should see "Hello, World!" displayed in your terminal. Press ``q`` to quit.
 
+Everything Wijjit draws is produced by a template tag, so even a line of plain
+text goes inside one -- here the ``{% text %}`` tag. In the next section you'll
+wrap it in a ``{% frame %}`` instead.
+
 Understanding the Code
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -46,7 +46,7 @@ Let's break down what's happening:
 2. **Create app**: ``app = Wijjit()`` creates a new Wijjit application
 3. **Define view**: ``@app.view("main", default=True)`` decorates a function that defines the main view
 4. **Return template**: The view function returns ``render_template_string(...)`` with the template source containing the UI
-5. **Setup handlers**: The ``on_enter`` hook (passed to ``@app.view(...)``) sets up keyboard handlers when the view is entered
+5. **Handle a key**: ``@app.on_key("q")`` registers a handler that quits when ``q`` is pressed
 6. **Run app**: ``app.run()`` starts the event loop
 
 Adding a Frame
@@ -57,18 +57,10 @@ Let's add a border around our text using a frame:
 .. code-block:: python
 
     from wijjit import Wijjit, render_template_string
-    from wijjit.core.events import EventType, HandlerScope
 
     app = Wijjit()
 
-    def setup_handlers():
-        def on_quit(event):
-            if event.key == "q":
-                app.quit()
-
-        app.on(EventType.KEY, on_quit, scope=HandlerScope.VIEW, view_name="main")
-
-    @app.view("main", default=True, on_enter=setup_handlers)
+    @app.view("main", default=True)
     def main_view():
         return render_template_string("""
     {% frame title="Welcome" border="rounded" width=50 height=10 %}
@@ -79,6 +71,10 @@ Let's add a border around our text using a frame:
       Press 'q' to quit.
     {% endframe %}
             """)
+
+    @app.on_key("q")
+    def quit_app(event):
+        app.quit()
 
     if __name__ == "__main__":
         app.run()

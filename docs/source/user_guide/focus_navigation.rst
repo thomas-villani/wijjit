@@ -14,7 +14,7 @@ How focus is determined
 Built-in navigation
 -------------------
 
-Wijjit registers global Tab/Shift+Tab handlers (see ``Wijjit._handle_tab_key`` in ``src/wijjit/core/app.py``):
+Wijjit registers global Tab/Shift+Tab handlers so keyboard traversal works out of the box:
 
 * ``Tab`` → ``FocusManager.focus_next()``
 * ``Shift+Tab`` → ``focus_previous()``

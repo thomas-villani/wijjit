@@ -151,7 +151,7 @@ Environment variables with the ``WIJJIT_`` prefix are automatically loaded:
 
 .. code-block:: python
 
-   # These are automatically loaded in Wijjit.__init__()
+   # WIJJIT_* variables are read automatically when the app is created
    app = Wijjit()
    # app.config['DEBUG'] is now True
    # app.config['ENABLE_MOUSE'] is now False
@@ -786,7 +786,7 @@ In CI you typically want colorless, deterministic output. Wijjit honors the
 
 .. code-block:: python
 
-   # NO_COLOR and WIJJIT_* vars are picked up in Wijjit.__init__()
+   # NO_COLOR and WIJJIT_* vars are read when the app is created
    app = Wijjit()  # Colors disabled, debug logging enabled
 
 For driving an app without a real TTY in tests, use the headless harness
@@ -983,5 +983,3 @@ See Also
 * :doc:`../getting_started/quickstart` - Getting started with Wijjit
 * :doc:`styling` - Theming and styling guide
 * :doc:`state_management` - State management guide
-* ``src/wijjit/config.py`` - Configuration source code
-* ``claude-config-next-steps.md`` - Roadmap for future config features

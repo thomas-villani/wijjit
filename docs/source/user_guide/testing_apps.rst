@@ -140,9 +140,9 @@ screen or tree) rather than a bare ``False``:
 * ``assert_text(text)`` -- assert ``text`` is visible; the failure message
   includes the full screen.
 * ``assert_no_errors()`` -- assert the app reported no render, action, or
-  background-task errors while the harness drove it. The harness tees
-  ``app._handle_error``, so a template that raises mid-render is caught here even
-  if the screen still looks plausible.
+  background-task errors while the harness drove it. It catches errors the app
+  logged and kept running through, so a template that raises mid-render is caught
+  here even if the screen still looks plausible.
 * ``assert_tree_contains(type=..., key=..., props=...)`` -- assert a matching
   VNode exists in the tree (match by type, reconciliation key/id, and/or a
   subset of props).

@@ -12,7 +12,7 @@ State fundamentals
 * **Any key name** – including ones that share a name with a ``State`` method (``items``, ``keys``, ``get``, ``data``…). Templates resolve ``{{ state.items }}`` to your value; in Python, reach those keys with ``state["items"]``. See :ref:`method-named-keys`.
 * **Change detection** – ``__setitem__`` and ``__setattr__`` compare the new value to the previous one; callbacks fire only when a value actually changed.
 * **Watchers** – arbitrary functions can subscribe to all changes (``state.on_change``) or to a specific key (``state.watch("username", callback)``).
-* **Async support** – callbacks may be ``async def``; Wijjit tracks ``_pending_tasks`` so the event loop can await them without leaking coroutines.
+* **Async support** – callbacks may be ``async def``; Wijjit tracks the resulting tasks so the event loop can await them without leaking coroutines.
 
 .. _in-place-mutation:
 
@@ -47,7 +47,7 @@ The one escape hatch, if you have already mutated in place, is to assign **the s
     app.state["todos"].append(x)
     app.state["todos"] = app.state["todos"]   # fires (and logs a warning)
 
-``State`` cannot prove the container is unchanged, so it fires rather than risk a missed repaint. It warns, because building the new container first is better. Prefer the immutable form.
+Assigning the same object back always fires a change (and logs a warning nudging you toward the build-first pattern). Reach for it only to recover from an in-place mutation you cannot easily undo; prefer the immutable form.
 
 Common mutation patterns
 ------------------------
@@ -162,9 +162,9 @@ Long-running operations should not block the event loop. Typical pattern:
         finally:
             app.state.loading = False
 
-``State`` runs watchers on the event-loop thread, whether they are sync or async, and whichever thread performed the write: a write from a background thread is marshalled back onto the loop before callbacks fire. So it is safe to do ``state[key] = value`` from a worker thread, and safe to set ``RUN_SYNC_IN_EXECUTOR = True`` (with an optional ``EXECUTOR_MAX_WORKERS``) to run heavy synchronous handlers off the main loop and have them update state afterward.
+``State`` always runs watchers on the app's event-loop thread, whether the watcher is sync or async and no matter which thread performed the write. If you assign from a background thread, the callbacks are handed to the loop rather than run on the worker. So it is safe to do ``state[key] = value`` from a worker thread, and safe to set ``RUN_SYNC_IN_EXECUTOR = True`` (with an optional ``EXECUTOR_MAX_WORKERS``) to run heavy synchronous handlers off the main loop and have them update state afterward.
 
-Two caveats. Marshalling means a watcher fired from a worker thread runs **slightly later** than the assignment, not inline with it - so do not assume the UI has repainted by the time ``state[key] = value`` returns. And a ``State`` used with no running event loop (bare, or in a sync-only script) simply invokes callbacks inline on the calling thread; there is nowhere to marshal to.
+Two caveats. Because a write from a worker thread hands its callbacks to the loop, they run **slightly later** than the assignment rather than inline with it - so do not assume the UI has repainted by the time ``state[key] = value`` returns. And a ``State`` used with no running event loop (bare, or in a sync-only script) simply invokes callbacks inline on the calling thread, since there is no loop to hand them to.
 
 A plain assignment fires async watchers but does not wait for them (they run as
 background tasks). When you need the callbacks to finish before continuing, use

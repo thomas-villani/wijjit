@@ -77,8 +77,8 @@ Platform notes
 Debugging
 ---------
 
-* Set ``WIJJIT_DEBUG_MOUSE=1`` (environment variable) to log mouse events (feature landing soon). Meanwhile, add ``logger.debug`` inside custom ``handle_mouse`` implementations.
-* Use ``app.mouse_router._find_element_at(x, y)`` in a REPL to confirm hit testing results.
+* To see what events arrive, add a ``logger.debug`` call inside a custom ``handle_mouse`` implementation and inspect the event's ``x``, ``y``, ``button``, and ``type``.
+* To confirm which element sits under a given point, drive the app with the headless harness (``wijjit.testing.WijjitHarness``) and ``click(x, y)`` there, then assert on what changed - the harness routes clicks through the same hit testing as a real terminal.
 * For hover-related performance issues, limit expensive work in ``render_to`` when ``self.hovered`` toggles.
 
 Remember that keyboard accessibility should remain intact even when mouse interactions are rich. Pair mouse handlers with equivalent key handlers to keep your TUI inclusive.
