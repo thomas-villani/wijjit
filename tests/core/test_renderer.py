@@ -647,3 +647,57 @@ class TestRootFrameAutoScroll:
         # Frame is scrollable but doesn't need scroll (content fits)
         assert layout_ctx.root.frame.style.scrollable is True
         assert layout_ctx.root.frame._needs_scroll is False
+
+
+class TestBareTopLevelText:
+    """Bare top-level text (no layout/element tags) is wrapped in an implicit
+    Text element so it paints through the cell buffer instead of being dropped.
+    """
+
+    def test_bare_text_wraps_in_implicit_text_vnode(self):
+        from wijjit.core.vdom import IMPLICIT_TEXT_ROOT_KEY
+
+        renderer = Renderer()
+        _output, elements, layout_ctx = renderer.render_with_layout(
+            "Hello, World!", width=40, height=6
+        )
+
+        # A Text VNode was synthesised as the root and produced an element.
+        assert layout_ctx.vnode_root is not None
+        assert layout_ctx.vnode_root.type == "Text"
+        assert layout_ctx.vnode_root.key == IMPLICIT_TEXT_ROOT_KEY
+        assert elements  # the text is a real, positioned element now
+
+    def test_bare_text_renders_identically_to_explicit_text_tag(self):
+        renderer_a = Renderer()
+        bare, _, _ = renderer_a.render_with_layout("Just some text", width=30, height=4)
+        renderer_b = Renderer()
+        explicit, _, _ = renderer_b.render_with_layout(
+            "{% text %}Just some text{% endtext %}", width=30, height=4
+        )
+        assert bare == explicit
+
+    def test_whitespace_only_output_produces_no_tree(self):
+        renderer = Renderer()
+        _output, elements, layout_ctx = renderer.render_with_layout(
+            "   \n   ", width=20, height=3
+        )
+        # Nothing visible: no implicit element is synthesised.
+        assert layout_ctx.vnode_root is None
+        assert elements == []
+
+    def test_state_driven_bare_text_updates_across_renders(self):
+        from wijjit import Wijjit, render_template_string
+        from wijjit.testing import WijjitHarness
+
+        app = Wijjit(initial_state={"n": 0})
+
+        @app.view("main", default=True)
+        def main_view():
+            return render_template_string("Count: {{ state.n }}")
+
+        with WijjitHarness(app, size=(30, 3)) as h:
+            h.assert_text("Count: 0")
+            app.state["n"] = 5
+            h.tick()
+            h.assert_text("Count: 5")

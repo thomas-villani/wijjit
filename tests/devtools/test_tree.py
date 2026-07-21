@@ -59,9 +59,21 @@ def test_vnode_to_dict_round_trips_structure(tmp_path: Path):
     assert d["children"][0]["children"][0]["key"] == "ok"
 
 
-def test_non_layout_template_has_no_tree(tmp_path: Path):
+def test_bare_text_template_wraps_in_implicit_text(tmp_path: Path):
+    # A template with no layout tags but bare top-level text is wrapped in an
+    # implicit Text element so it actually paints; the tree reflects that.
     f = tmp_path / "plain.wij"
     f.write_text("just text", encoding="utf-8")
+    root, rendered = build_vnode_tree(f)
+    assert root is not None
+    assert root.type == "Text"
+    assert root.props_dict()["text"] == "just text"
+
+
+def test_empty_template_has_no_tree(tmp_path: Path):
+    # A template that renders nothing produces no tree at all.
+    f = tmp_path / "empty.wij"
+    f.write_text("   \n  ", encoding="utf-8")
     root, rendered = build_vnode_tree(f)
     assert root is None
     assert render_tree_text(root) == "<no layout tree>"

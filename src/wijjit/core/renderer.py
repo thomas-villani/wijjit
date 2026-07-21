@@ -665,9 +665,26 @@ class Renderer:
         # Check if we have a VNode tree (layout tags were used)
         # Use vnode_root since it's the canonical source for VNode-based rendering
         if layout_ctx.vnode_root is None:
-            # No layout tags used, return the already-rendered output
-            # This avoids double-rendering templates without layout tags
-            return rendered_output, [], layout_ctx
+            # The template produced no layout/element tags. If it produced bare
+            # top-level text, wrap it in an implicit Text element so it actually
+            # paints - otherwise the text would bypass the cell buffer, diff
+            # renderer, and reconciler and never appear on the rendered screen
+            # (e.g. a view that returns render_template_string("Hello")). This is
+            # equivalent to the author writing {% text %}...{% endtext %}.
+            stripped_output = rendered_output.strip()
+            if not stripped_output:
+                # Genuinely empty output - nothing to paint. Return as-is.
+                return rendered_output, [], layout_ctx
+
+            from wijjit.core.vdom import IMPLICIT_TEXT_ROOT_KEY, VNodeBuilder
+
+            implicit_text = VNodeBuilder("Text", key=IMPLICIT_TEXT_ROOT_KEY)
+            implicit_text.set_prop("id", IMPLICIT_TEXT_ROOT_KEY)
+            implicit_text.set_prop("text", stripped_output)
+            implicit_text.set_prop("wrap", True)
+            implicit_text.set_layout(width="auto", height="auto")
+            layout_ctx.add_vnode(implicit_text)
+            # Fall through to the normal reconcile -> layout -> paint pipeline.
 
         # === Virtual DOM Reconciliation ===
         # Freeze the VNode tree built during template rendering

@@ -44,7 +44,7 @@ from jinja2 import nodes
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import KNOWN_CONTAINER_TYPES
 from wijjit.core.renderer import Renderer
-from wijjit.core.vdom import EPHEMERAL_PROPS, LAYOUT_META
+from wijjit.core.vdom import EPHEMERAL_PROPS, IMPLICIT_TEXT_ROOT_KEY, LAYOUT_META
 from wijjit.devtools._render import render_with
 from wijjit.devtools.tree import walk_vnodes
 
@@ -409,12 +409,16 @@ def validate_template(
         report.rendered = outcome.rendered
 
     # 4. Tree checks (element types + attributes).
-    if outcome.root is None:
+    # A template with no Wijjit tags either renders nothing (root is None) or is
+    # bare top-level text that the renderer wraps in an implicit Text element.
+    # Both mean "no explicit layout tags" - report it as info either way.
+    if outcome.root is None or outcome.root.key == IMPLICIT_TEXT_ROOT_KEY:
         report.findings.append(
             Finding(
                 "info",
                 "no-layout-tags",
-                "Template uses no Wijjit layout tags; renders as plain text.",
+                "Template uses no Wijjit layout tags; its bare text renders in "
+                "an implicit text element.",
             )
         )
         return report
