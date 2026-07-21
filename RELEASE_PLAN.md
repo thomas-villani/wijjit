@@ -29,8 +29,8 @@ final CHANGELOG date. See Part 1.
       `2026-06-28`); keep an empty `[Unreleased]` stub.
 
 ### 1b - Docs hosting (GitHub Pages)
-- [ ] Enable Pages in repo settings (Source: GitHub Actions). **[user action]**
-- [ ] Verify the published site builds and loads before the URL ships in PyPI
+- [x] Enable Pages in repo settings (Source: GitHub Actions). **[user action]**
+- [x] Verify the published site builds and loads before the URL ships in PyPI
       metadata.
       (The `.github/workflows/docs.yml` build->upload->deploy workflow is in
       place and the `Documentation` project URL already points at the Pages site.)
@@ -42,7 +42,7 @@ final CHANGELOG date. See Part 1.
       clean venv before any publish.)
 
 ### 1d - Community health & polish
-- [ ] Document the `pyperclip` Linux behavior (system clipboard needs xclip/xsel;
+- [x] Document the `pyperclip` Linux behavior (system clipboard needs xclip/xsel;
       otherwise falls back to an internal clipboard) in README/docs.
 
 ### 1e - Trusted Publishing external setup (one-time) **[user actions]**
