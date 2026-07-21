@@ -551,7 +551,38 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
   ``git diff | wijjit form commit.wij.j2 | git commit -F -``. The form renders on
   the controlling terminal; the *data* goes to stdout (JSON by default, or a
   Jinja ``--output`` string over the same bound-state dict). Piped stdin is
-  exposed as a template context variable, so forms compose in both directions.
+  exposed as a template context variable, so forms compose in both directions —
+  the canonical shape being ``producer_json | wijjit form t.wij.j2 --stdin-json
+  | consumer_json`` (with ``jq`` reshaping between stages). ``--stdin-json``
+  *merges* rather than replaces, so each stage enriches the object and upstream
+  keys flow through. Unlocks setup/config wizards in bash scripts, long-form
+  input/review, review-and-approve and dry-run -> review -> submit gates, and
+  multi-select + options. The review gate gets its own verb — ``terraform plan
+  -json | wijjit approve && terraform apply`` — since it is the one case with no
+  fields at all (the whole output is the exit code); it echoes stdin on approve
+  (only when stdout is not a TTY) and emits nothing + exits 1 on deny, renders
+  arbitrary stdin via the existing ``content_type`` machinery (``--as
+  diff|json|markdown``, through ``Pager``/``ContentView``, which also sidesteps
+  the ``CodeEditor`` soft-wrap bug), and is implemented as a **built-in
+  template** so ``--print-template`` graduates it like any other — the shorthand
+  verbs must not become a second form model. Note ``producer | wijjit approve |
+  consumer`` does *not* gate (consumer runs on empty stdin); ``&&`` is the safe
+  idiom.
+  **Headline use case — agents.** A console agent writes the form spec, wijjit
+  renders it, the user fills it in, and the JSON goes straight to the consuming
+  command — all from bash, needing no harness support beyond "can run a shell
+  command". It is the artifact-first pitch's conclusion (the form is a file the
+  *model* writes) and the agent can lint its own UI first:
+  ``wijjit validate /tmp/f.wij.j2 && wijjit form /tmp/f.wij.j2 | consumer``.
+  This also lets a **secret bypass the model's context window** — but that is a
+  property of the *plumbing*, not the form, and needs a real mechanism:
+  ``password=true`` (which exists) only masks the display, and ``wijjit form``
+  cannot tell ``| curl`` (safe) from a bare agent-captured invocation (leaks) —
+  both are just a pipe at the fd level. So a ``secret=true`` field must be
+  *routed* away from stdout entirely, to ``--secret-fd N`` / ``--secret-file``,
+  with stdout's JSON carrying ``null`` and an exit-2 refusal when no sink is
+  given. Do not make the out-of-context claim before that mechanism ships; the
+  failure mode is a silently leaked credential.
   **The wedge:** ``gum``/``fzf`` do one widget per invocation and let the shell
   compose them — they structurally cannot do one form with several fields you Tab
   between. Wijjit can, because the form is a template, which also makes it
