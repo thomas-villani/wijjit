@@ -76,6 +76,11 @@ EPHEMERAL_PROPS = frozenset(
 # ``bind_focus_key`` instead), and ``hovered`` is mouse-driven.
 CONTROLLABLE_EPHEMERAL_PROPS = EPHEMERAL_PROPS - frozenset({"focused", "hovered"})
 
+# Key/id of the implicit ``Text`` element that the renderer wraps around a
+# template's bare top-level text when it uses no layout/element tags. Shared so
+# the renderer can build it and tooling (e.g. the validator) can recognise it.
+IMPLICIT_TEXT_ROOT_KEY = "_implicit_text_root"
+
 
 @dataclass(frozen=True)
 class VNode:

@@ -1208,7 +1208,22 @@ class Wijjit:
             # Check if template has layout tags (only for inline templates).
             # File-based templates are always rendered with layout engine.
             has_layout = bool(template_file) or self._has_layout_tags(template)
-            logger.debug(f"View has layout tags: {has_layout}")
+
+            # A plain template (no Wijjit tags) may still emit visible text -
+            # bare text like "Hello", or plain Jinja like "{{ state.name }}".
+            # That text must go through the layout pipeline too, so it paints
+            # into the cell buffer (wrapped in an implicit Text element) instead
+            # of being written raw and bypassing the buffer/diff/reconcile
+            # machinery (which leaves it invisible to the headless harness and
+            # unable to update cleanly). Only genuinely empty output keeps the
+            # cheap raw-string fast path. Render once here and reuse the result.
+            plain_output: str | None = None
+            if not has_layout:
+                plain_output = self.renderer.render_string(template, context=data)
+                if plain_output.strip():
+                    has_layout = True
+
+            logger.debug(f"View rendered through layout engine: {has_layout}")
 
             if has_layout:
                 # Get the currently focused element ID (if any) from FocusManager
@@ -1283,8 +1298,14 @@ class Wijjit:
                 # Wire up element callbacks for actions and state binding
                 self._wire_element_callbacks(self.positioned_elements)
             else:
-                # Use simple string rendering for non-layout templates
-                output = self.renderer.render_string(template, context=data)
+                # Non-layout template with empty/whitespace-only output: nothing
+                # to paint, so use the cheap raw-string path. Reuse the render
+                # captured above rather than rendering the template again.
+                output = (
+                    plain_output
+                    if plain_output is not None
+                    else self.renderer.render_string(template, context=data)
+                )
                 # Note: positioned_elements may have been set by the view for manual
                 # element positioning. Don't clear it - preserve what the view set.
                 # Wire up element callbacks if elements were positioned
