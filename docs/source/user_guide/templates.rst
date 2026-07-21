@@ -26,13 +26,6 @@ context is recomputed each frame and stays live. Pass changing values as context
 **keyword arguments** rather than interpolating them into the template *source*
 string (an f-string), which would defeat the compiled-template cache.
 
-.. note::
-
-   The legacy ``return {"template": ..., "data": {...}}`` dict (with ``on_enter`` /
-   ``on_exit`` keys) is still accepted for backward compatibility, but
-   :func:`~wijjit.render_template_string` / :func:`~wijjit.render_template` with
-   hooks declared on the ``@app.view`` decorator are the recommended shape.
-
 The Jinja environment preloads extensions from :mod:`wijjit.tags` so you can describe layouts declaratively.
 
 Layout primitives

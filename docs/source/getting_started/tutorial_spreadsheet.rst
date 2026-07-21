@@ -199,13 +199,8 @@ Step 4 - reading the grid's live edits
 ``state["sheet"]`` into the grid at render time, and each committed cell edit is
 written back to ``state["sheet"]``. So a handler can simply read state.
 
-(Wijjit 0.1.0 wrote back nothing here - the grid, like ``slider`` and
-``toggle``, advertised ``bind=True`` but had no write path, so edits lived only
-on the element. If you are reading older code, that is what the
-``get_element_by_id`` dance below was working around.)
-
-Reading the live element still works, and is what you want for an unbound grid
-(``bind=False``):
+If instead you run the grid unbound (``bind=False``), read the committed edits
+straight off the element with ``get_element_by_id``:
 
 .. code-block:: python
 

@@ -7,7 +7,7 @@ Mental model
 ------------
 
 1. **Template tags** (``{% vstack %}``, ``{% frame %}``, etc.) emit layout nodes backed by objects in :mod:`wijjit.layout.engine`.
-2. Nodes form a tree rooted at either a stack or frame. Each node specifies width/height behaviour (fixed pixels, percentages, ``fill``, ``auto``) plus alignment hints.
+2. Nodes form a tree rooted at either a stack or frame. Each node specifies width/height behaviour (a fixed number of character cells, percentages, ``fill``, ``auto``) plus alignment hints.
 3. On render the engine performs:
 
    * **Constraint pass** – bottom-up traversal calling ``calculate_constraints`` on each node to derive minimal and preferred sizes.
@@ -73,8 +73,7 @@ Grid
 
     .. note::
 
-       ``column_gap`` is canonical (matching ``{% hstack %}``); ``col_gap`` still
-       works as a deprecated alias.
+       Use ``column_gap`` for the horizontal gap, matching ``{% hstack %}``.
 
 Frames
 ------
@@ -149,7 +148,7 @@ Responsive techniques
 Debugging layouts
 -----------------
 
-* A ``WIJJIT_DEBUG_LAYOUT`` environment variable to print layout trees is planned but not yet implemented.
+* Dump the rendered element tree without running the app: ``wijjit tree app.py`` (add ``--json`` for a machine-readable form). It is the quickest way to see how your template nested and which node ended up where.
 * Temporarily set ``border="double"`` and ``title`` attributes to visualize container boundaries.
 * Log bounds: each element exposes ``element.bounds`` after a render; printing them inside handlers can reveal unexpected sizes.
 

@@ -22,35 +22,34 @@ What the diff renderer buys you
 
 The primary win is **I/O and stability**: an unchanged screen produces no output,
 and a small change produces a small write. Terminal writes are the expensive,
-latency-bound part of a TUI, and they are what causes visible flicker. Lead with
-the bytes -- they are deterministic and regression-tested, while timings move
-with your CPU and system load.
+latency-bound part of a TUI, and they are what causes visible flicker. The byte
+counts below are the figure to trust when comparing -- they are deterministic,
+while timings vary with your CPU and system load.
 
-The incremental path is **also cheaper in CPU** than a full repaint. This is
-worth stating explicitly because it was not always true, and older advice said
-the opposite. The path a running app actually uses starts each frame from a copy
-of the previous one, skips elements whose content and position did not change
-(via ``render_signature()``), and diffs only what moved -- so a localized edit
-does work proportional to *what changed* rather than to the size of the view.
-Steady state is roughly 2x cheaper than a full repaint on a form of independent
-widgets. The gain is smaller on the dashboard below, whose ``Table`` has no skip
-signature yet and so repaints wholesale.
+The incremental path is **also cheaper in CPU** than a full repaint. Each frame
+starts from a copy of the previous one, skips elements whose content and position
+did not change, and diffs only what moved -- so a localized edit does work
+proportional to *what changed* rather than to the size of the view. In steady
+state that is roughly 2x cheaper than a full repaint on a form of independent
+widgets. The gain is smaller on the dashboard below, whose ``Table`` repaints
+wholesale rather than skipping unchanged rows.
 
 A full repaint -- the worst case, on first paint or a terminal resize -- still
 touches every cell.
 
-Separately, the virtual-DOM reconciler exists to preserve *state* -- cursor
-position, scroll offset, selection -- across re-renders, and to avoid rebuilding
-element objects on every frame. That is a correctness and ergonomics win rather
-than a throughput one.
+The virtual-DOM reconciler also preserves *state* -- cursor position, scroll
+offset, selection -- across re-renders, and reuses element objects instead of
+rebuilding them every frame. So the things you expect to persist while the UI
+updates around them simply do.
 
 Measured results
 ----------------
 
-Run ``uv run python scripts/bench_perf.py`` to reproduce these on your own
+These come from a benchmark script in the source repository
+(``scripts/bench_perf.py``), which you can run to reproduce them on your own
 machine. Timings depend on your CPU and system load; treat them as indicative.
-The byte counts are deterministic and are regression-tested in
-``tests/core/test_diff_render_bytes.py``.
+The byte counts are deterministic and are covered by the project's test suite, so
+they do not drift between releases.
 
 Terminal I/O per frame
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -151,10 +150,10 @@ byte figures above when comparing.
 
 Measured on Windows 11, Python 3.13, wijjit 0.1.0.
 
-Steady state beats a full repaint in every row, which is the skip-unchanged path
-doing its job. The margin is widest where the changed widget is small relative to
-the view (hello world at 200x60) and narrowest on the dashboard, whose ``Table``
-still repaints wholesale.
+Steady state beats a full repaint in every row, because unchanged elements are
+skipped rather than redrawn. The margin is widest where the changed widget is
+small relative to the view (hello world at 200x60) and narrowest on the
+dashboard, whose ``Table`` repaints wholesale.
 
 For context: terminal applications are driven by human input, so what matters is
 that a frame lands well inside a keystroke's worth of time -- not a frame-rate

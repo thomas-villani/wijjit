@@ -72,7 +72,7 @@ Handler scopes & lifetimes
     Active only while the named view is visible. When navigation occurs, Wijjit automatically unregisters view-scoped handlers and re-registers those belonging to the new view. To get this scope, pass ``scope=HandlerScope.VIEW`` (and a ``view_name``) to ``app.on(...)``. Note that ``@app.on_key`` always registers at ``HandlerScope.GLOBAL``, and ``@app.on_action`` does not use ``HandlerScope`` at all – its handlers are stored in a separate action-handler map.
 
 ``HandlerScope.ELEMENT``
-    Used internally by the element wiring manager. Custom elements may register element-scoped handlers to capture focus, mouse, or change events belonging to a specific widget id.
+    Tied to a specific widget id. Wijjit uses this scope to route a widget's own focus, mouse, and change events; custom elements can register element-scoped handlers to capture events for their id.
 
 Priorities default to ``0``; higher values run earlier. For example, Wijjit registers Tab/Shift+Tab navigation with priority ``100`` so it executes before user code can intercept the key.
 
@@ -173,13 +173,11 @@ These boolean inputs share one callback vocabulary — ``on_change`` = *the valu
 changed*, ``on_action`` = *the user activated the control*:
 
 * ``on_change(old, new)`` – Checked state changed (``old``/``new`` are booleans).
-  Fires on user interaction, programmatic assignment, and reconciler prop-sync
-  alike, because ``checked`` is a firing property on all three widgets:
-  ``checkbox.checked = True`` triggers ``on_change`` the same as a click.
+  Fires whenever the value changes, whether the user clicked or you set it in
+  code: ``checkbox.checked = True`` triggers ``on_change`` the same as a click.
   (``CheckboxGroup`` passes selection lists: ``on_change(old_values, new_values)``.)
 * ``on_action()`` – The control was toggled/activated (no arguments). On
-  ``Toggle`` this is the canonical activation hook; ``on_toggle()`` remains as a
-  deprecated alias and is still fired for back-compat.
+  ``Toggle`` this is the activation hook to use.
 
 Example:
 
@@ -204,9 +202,8 @@ Mark a handler ``async def`` to perform network calls or I/O. Wijjit awaits the 
 Error handling & debugging
 --------------------------
 
-* Exceptions inside handlers bubble to ``Wijjit._handle_error`` where they are logged with stack traces and the app keeps running unless the error is fatal.
+* An exception inside a handler is caught and logged with a full stack trace, and the app keeps running unless the error is fatal - a bad handler will not take down your whole UI.
 * Use ``logger = get_logger(__name__)`` and log inside handlers to confirm they fire in the expected order.
-* ``HandlerRegistry.list_handlers()`` (inspect the source) can aid debugging by listing registered callbacks and scopes.
 
 Best practices
 --------------
