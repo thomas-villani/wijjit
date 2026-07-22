@@ -19,6 +19,12 @@ from datetime import datetime
 
 from wijjit import Wijjit, render_template_string
 
+# Seeded so this demo renders the same screen every run: the README/gallery
+# screenshots and the example golden tests both drive it headlessly, and an
+# unseeded generator would rewrite them with fresh data on every capture. The
+# refresh action keeps advancing the generator, so re-rolling still varies.
+random.seed(20260721)
+
 # Create app with dashboard state
 app = Wijjit(
     initial_state={
