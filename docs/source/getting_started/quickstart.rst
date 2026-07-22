@@ -16,7 +16,7 @@ Let's start with the simplest possible Wijjit app:
 
     @app.view("main", default=True)
     def main_view():
-        return render_template_string("{% text %}Hello, World! Press 'q' to quit.{% endtext %}")
+        return render_template_string("Hello, World! Press 'q' to quit.")
 
     @app.on_key("q")
     def quit_app(event):
@@ -33,9 +33,11 @@ Save this as ``hello.py`` and run it:
 
 You should see "Hello, World!" displayed in your terminal. Press ``q`` to quit.
 
-Everything Wijjit draws is produced by a template tag, so even a line of plain
-text goes inside one -- here the ``{% text %}`` tag. In the next section you'll
-wrap it in a ``{% frame %}`` instead.
+A template that is nothing but text needs no tags -- Wijjit wraps it in a text
+element for you, so it renders exactly as if you had written
+``{% text %}...{% endtext %}``. Reach for the explicit tag when you want to
+control the line -- ``align``, ``wrap``, or a ``class`` to style it; the next
+section wraps this one in a ``{% frame %}`` instead.
 
 Understanding the Code
 ~~~~~~~~~~~~~~~~~~~~~~
