@@ -16,6 +16,12 @@ import random
 
 from wijjit import Wijjit, render_template_string
 
+# Seeded so this demo renders the same screen every run: the README/gallery
+# screenshots and the example golden tests both drive it headlessly, and an
+# unseeded generator would rewrite them with fresh data on every capture. The
+# refresh action keeps advancing the generator, so re-rolling still varies.
+random.seed(20260721)
+
 app = Wijjit()
 
 # Initialize state with sample data
@@ -42,8 +48,12 @@ app.state.update(
             ("Jul", 190),
             ("Aug", 210),
         ],
-        # Line chart data - Trends
-        "trend_data": [random.randint(50, 150) + i * 5 for i in range(20)],
+        # Line chart data - Trends (multi-series: each series is colored from
+        # the default categorical palette, with a legend)
+        "trend_data": {
+            "Requests": [random.randint(50, 150) + i * 5 for i in range(20)],
+            "Errors": [random.randint(5, 45) for _ in range(20)],
+        },
         # Gauge values
         "cpu_usage": 65,
         "memory_usage": 78,
@@ -74,8 +84,8 @@ def main_view():
 
       {% frame title="Gauges" border="single" width=38 height=10 %}
         {% vstack spacing=0 %}
-          {% gauge id="cpu_gauge" value=state.cpu_usage max_value=100 width=35 label="CPU" unit="%" color="threshold" %}{% endgauge %}
-          {% gauge id="mem_gauge" value=state.memory_usage max_value=100 width=35 label="Memory" unit="%" color="gradient" color_scale="heat" %}{% endgauge %}
+          {% gauge id="cpu_gauge" value=state.cpu_usage max_value=100 width=35 label="CPU" unit="%" color_mode="threshold" %}{% endgauge %}
+          {% gauge id="mem_gauge" value=state.memory_usage max_value=100 width=35 label="Memory" unit="%" color_mode="gradient" color_scale="heat" %}{% endgauge %}
           {% gauge id="disk_gauge" value=state.disk_usage max_value=100 width=35 label="Disk" unit="%" %}{% endgauge %}
         {% endvstack %}
       {% endframe %}
@@ -85,27 +95,27 @@ def main_view():
     {% hstack spacing=2 %}
       {% frame title="Sales by Category (Bar)" border="single" width=38 height=10 %}
         {% barchart id="sales_bar" data=state.sales_data width=34 height=6
-           show_labels=true show_values=true color="gradient" color_scale="green" %}
+           show_labels=true show_values=true color_mode="gradient" color_scale="green" %}
         {% endbarchart %}
       {% endframe %}
 
       {% frame title="Monthly Revenue (Column)" border="single" width=38 height=10 %}
         {% columnchart id="monthly_col" data=state.monthly_data width=34 height=6
-           column_width=2 spacing=1 show_axis=true color="threshold" %}
+           column_width=2 spacing=1 show_axis=true color_mode="threshold" %}
         {% endcolumnchart %}
       {% endframe %}
     {% endhstack %}
 
     {# Row 3: Line Chart and HeatMap #}
     {% hstack spacing=2 %}
-      {% frame title="Trend (Line Chart)" border="single" width=38 height=10 %}
-        {% linechart id="trend_line" data=state.trend_data width=34 height=6
+      {% frame title="Trend (Line Chart)" border="single" width=38 height=13 %}
+        {% linechart id="trend_line" data=state.trend_data width=34 height=9
            style="line" show_axis=true show_labels=false %}
         {% endlinechart %}
       {% endframe %}
 
-      {% frame title="Activity HeatMap" border="single" width=38 height=10 %}
-        {% heatmap id="activity_heat" data=state.activity_grid width=34 height=6
+      {% frame title="Activity HeatMap" border="single" width=38 height=13 %}
+        {% heatmap id="activity_heat" data=state.activity_grid width=34 height=9
            cell_width=2 color_scale="heat" show_legend=true %}
         {% endheatmap %}
       {% endframe %}
@@ -125,7 +135,10 @@ def main_view():
 def refresh_data(event):
     """Refresh all chart data with new random values."""
     app.state["cpu_history"] = [random.randint(20, 80) for _ in range(30)]
-    app.state["trend_data"] = [random.randint(50, 150) + i * 5 for i in range(20)]
+    app.state["trend_data"] = {
+        "Requests": [random.randint(50, 150) + i * 5 for i in range(20)],
+        "Errors": [random.randint(5, 45) for _ in range(20)],
+    }
     app.state["cpu_usage"] = random.randint(30, 95)
     app.state["memory_usage"] = random.randint(40, 90)
     app.state["disk_usage"] = random.randint(20, 70)

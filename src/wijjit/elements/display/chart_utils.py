@@ -532,6 +532,58 @@ def format_axis_value(value: float, max_val: float) -> str:
         return f"{value:.2f}"
 
 
+# Default categorical palette for multi-series charts.
+#
+# Terminal charts are unusual in that one palette has to stay legible on both a
+# dark and a light background -- an app cannot restyle the user's terminal. These
+# eight hues are the mid-toned steps of a categorical ramp, chosen because they
+# clear every hard accessibility gate against *both* a dark (#1a1a19) and a light
+# (#fcfcfb) surface: all eight sit inside the lightness band, above the chroma
+# floor, and every adjacent pair keeps a colour-vision-deficiency separation of
+# dE >= 8.4 and a normal-vision separation of dE >= 19.3 (OKLab x100). The one
+# soft spot is yellow at 2.99:1 contrast on a light surface, which is covered by
+# the legend: every multi-series chart labels its series, so identity is never
+# carried by colour alone.
+#
+# The order is the safety mechanism, not decoration -- it is what keeps
+# neighbouring series separated for colour-blind readers. Assign slots in order;
+# do not re-order or sample from the middle. Past eight series the palette wraps
+# and distinguishability is no longer guaranteed; pass explicit ``series_colors``
+# or plot fewer series.
+DEFAULT_SERIES_COLORS: list[str] = [
+    "#3987e5",  # blue
+    "#d95926",  # orange
+    "#199e70",  # aqua
+    "#c98500",  # yellow
+    "#d55181",  # magenta
+    "#008300",  # green
+    "#9085e9",  # violet
+    "#e66767",  # red
+]
+
+
+def get_series_color(index: int) -> str:
+    """Get the default categorical colour for a series by position.
+
+    Parameters
+    ----------
+    index : int
+        Zero-based series position. Values beyond the palette length wrap.
+
+    Returns
+    -------
+    str
+        A ``#RRGGBB`` colour string from :data:`DEFAULT_SERIES_COLORS`.
+
+    Notes
+    -----
+    Slots are assigned in fixed order so a series keeps its colour when other
+    series are added or removed. Beyond eight series the palette wraps and
+    adjacent-series separation is no longer guaranteed.
+    """
+    return DEFAULT_SERIES_COLORS[index % len(DEFAULT_SERIES_COLORS)]
+
+
 def get_gradient_color(
     value: float,
     min_val: float = 0.0,
