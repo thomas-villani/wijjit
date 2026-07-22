@@ -398,6 +398,7 @@ class LineChartExtension(Extension):
         show_points: bool = False,
         show_legend: bool = True,
         color: str | None = None,
+        series_colors: dict[str, str] | None = None,
         border: str | None = None,
         border_style: str = "single",
         bind: bool | str = True,
@@ -435,6 +436,9 @@ class LineChartExtension(Extension):
         vnode.set_prop("show_points", bool(show_points))
         vnode.set_prop("show_legend", bool(show_legend))
         vnode.set_prop("color", color)
+        # Normalize to a dict: the prop is applied to the element by setattr, and
+        # a None would shadow the element's own {} default.
+        vnode.set_prop("series_colors", series_colors or {})
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("bind", bind)
         # set_layout auto-syncs width/height to props

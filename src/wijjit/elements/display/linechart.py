@@ -10,11 +10,13 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
+    BRAILLE_BASE,
     BrailleCanvas,
     begin_chart_border,
     calculate_axis_ticks,
     extract_values,
     format_axis_value,
+    get_series_color,
 )
 from wijjit.styling.style import Style, parse_color
 
@@ -58,7 +60,11 @@ class LineChart(Element):
         Accepts a named color, ``#RRGGBB`` hex, or ``rgb(r, g, b)`` (default:
         None, use the theme color).
     series_colors : dict, optional
-        Colors per series for multi-series (default: None)
+        Per-series color overrides, keyed by series name, for multi-series data
+        (default: None). Values take the same forms as ``color``. Any series not
+        named here falls back to the next slot of the built-in categorical
+        palette, so a multi-series chart is legible without configuration; pass
+        ``color`` instead to force every series to a single color.
     border_style : str, optional
         Border style drawn within the chart's dimensions: "single",
         "double", "rounded", "heavy", "ascii", or "none" (default: "single").
@@ -302,6 +308,43 @@ class LineChart(Element):
                         if 0 <= px < pixel_width and 0 <= py < pixel_height:
                             canvas.set_pixel(px, py)
 
+    def _resolve_series_styles(self, base: Style) -> list[Style]:
+        """Resolve the per-series line styles, in series order.
+
+        Parameters
+        ----------
+        base : Style
+            The chart's resolved ``linechart.line`` style, with any explicit
+            ``color`` override already merged in.
+
+        Returns
+        -------
+        list of Style
+            One style per series, aligned with ``self.series`` insertion order.
+
+        Notes
+        -----
+        Precedence per series: an entry in ``series_colors`` wins; otherwise a
+        multi-series chart takes the next slot of the default categorical
+        palette. An explicit ``color`` on the chart suppresses the palette, so
+        ``color`` still means "draw every series this color". A single-series
+        chart never takes a palette slot, so its appearance is unchanged.
+        """
+        styles: list[Style] = []
+        multi = len(self.series) > 1
+        overrides = self.series_colors or {}
+        for index, name in enumerate(self.series):
+            spec = overrides.get(name)
+            if spec is None and multi and not self.color:
+                spec = get_series_color(index)
+            style = base
+            if spec:
+                rgb = parse_color(spec)
+                if rgb is not None:
+                    style = base.merge(Style(fg_color=rgb))
+            styles.append(style)
+        return styles
+
     def render_to(self, ctx: PaintContext) -> None:
         """Render the line chart using cell-based rendering.
 
@@ -350,9 +393,13 @@ class LineChart(Element):
 
         use_unicode = supports_unicode()
 
-        # Calculate chart area
+        # Calculate chart area. The x-axis line occupies a row of its own
+        # whenever it is drawn; with labels enabled the labels are painted over
+        # that same row, which is why one row covers both. Reserving it only for
+        # labels put the axis at avail_height -- off the bottom edge, and on top
+        # of the legend row when a multi-series legend was present.
         chart_left = self.axis_width if self.show_axis else 0
-        chart_bottom = 1 if self.show_labels else 0
+        chart_bottom = 1 if (self.show_labels or self.show_axis) else 0
         legend_height = 1 if self.show_legend and len(self.series) > 1 else 0
         chart_height = avail_height - chart_bottom - legend_height
         chart_width = avail_width - chart_left
@@ -372,10 +419,20 @@ class LineChart(Element):
         # Create braille canvas for chart area
         canvas = BrailleCanvas(chart_width, chart_height)
 
-        # Render each series
+        # Render each series. Every series is drawn into the shared canvas --
+        # that is what produces the glyphs, so where two lines share a cell the
+        # dots still merge and neither line breaks. When there is more than one
+        # series each is *also* drawn into a private canvas, used purely as a
+        # mask to decide which series owns (and therefore colors) each cell.
+        series_styles = self._resolve_series_styles(line_style)
         fill = self.style == "area"
+        series_masks: list[list[str]] = []
         for _series_name, values in self.series.items():
             self._render_series(canvas, values, min_val, max_val, fill)
+            if len(self.series) > 1:
+                mask = BrailleCanvas(chart_width, chart_height)
+                self._render_series(mask, values, min_val, max_val, fill)
+                series_masks.append(mask.to_lines())
 
         # Render y-axis
         if self.show_axis:
@@ -431,8 +488,34 @@ class LineChart(Element):
         # Write braille canvas to buffer
         lines = canvas.to_lines()
 
-        for y, line in enumerate(lines):
-            ctx.write_text(chart_left, y, line, line_style)
+        if not series_masks:
+            for y, line in enumerate(lines):
+                ctx.write_text(chart_left, y, line, line_style)
+        else:
+            # Multi-series: color each cell with its owning series (the last one
+            # drawn there wins, painter's-algorithm style) and emit contiguous
+            # same-styled cells as a single run rather than cell by cell.
+            blank = chr(BRAILLE_BASE)
+            for y, line in enumerate(lines):
+                run_start = 0
+                run_style: Style | None = None
+                for x, _char in enumerate(line):
+                    cell_style = line_style
+                    for index in range(len(series_masks) - 1, -1, -1):
+                        if series_masks[index][y][x] != blank:
+                            cell_style = series_styles[index]
+                            break
+                    if run_style is None:
+                        run_start, run_style = x, cell_style
+                    elif cell_style is not run_style:
+                        ctx.write_text(
+                            chart_left + run_start, y, line[run_start:x], run_style
+                        )
+                        run_start, run_style = x, cell_style
+                if run_style is not None:
+                    ctx.write_text(
+                        chart_left + run_start, y, line[run_start:], run_style
+                    )
 
         # Render x-axis labels
         if self.show_labels and self.labels:
@@ -455,18 +538,27 @@ class LineChart(Element):
                     display_label = label[:4]
                     ctx.write_text(label_x, label_y, display_label, label_style)
 
-        # Render legend for multi-series
+        # Render legend for multi-series. Each marker is drawn in its series'
+        # own color while the name stays in the legend text style -- the marker
+        # carries identity, so the series are distinguishable without relying on
+        # color alone.
         if self.show_legend and len(self.series) > 1:
             legend_y = avail_height - 1
             legend_x = chart_left
-            legend_parts = []
+            legend_end = chart_left + chart_width
+            marker = "\u2500" if use_unicode else "-"
 
-            for series_name in self.series.keys():
-                marker = "\u2500" if use_unicode else "-"
-                legend_parts.append(f"{marker} {series_name}")
+            for index, series_name in enumerate(self.series):
+                # Marker plus a space, then the name; entries separated by two
+                # spaces. Stop as soon as the next entry cannot fit.
+                label = f" {series_name}"
+                if legend_x + len(marker) + len(label) > legend_end:
+                    remaining = legend_end - legend_x
+                    if remaining >= 3:
+                        ctx.write_text(legend_x, legend_y, "...", legend_style)
+                    break
 
-            legend_text = "  ".join(legend_parts)
-            if len(legend_text) > chart_width:
-                legend_text = legend_text[: chart_width - 3] + "..."
-
-            ctx.write_text(legend_x, legend_y, legend_text, legend_style)
+                ctx.write_text(legend_x, legend_y, marker, series_styles[index])
+                legend_x += len(marker)
+                ctx.write_text(legend_x, legend_y, label, legend_style)
+                legend_x += len(label) + 2
