@@ -98,7 +98,14 @@ wijjit tree myform.wij.j2 --json           # dump the VNode "DOM" tree
 wijjit render examples/.../demo.py --keys "tab,enter"   # ports python -m wijjit.testing
 wijjit run examples/.../demo.py         # launch a .py app in this terminal
 wijjit test -k login tests/             # pytest passthrough
+wijjit llm-help > WIJJIT.md             # paste-able LLM briefing (Markdown)
 ```
+
+`llm-help` prints one self-contained briefing: curated prose plus a **generated**
+tag/attribute reference introspected from the live Jinja environment, so the
+part most likely to drift cannot. It lives in `src/wijjit/devtools/llm_help.py`;
+`tests/testing/test_llm_help.py` asserts the reference matches the registered
+tags and that the guide's example app passes `wijjit validate` and runs.
 
 The validator lives in `src/wijjit/devtools/` (`validate.py` -> `ValidationReport`
 of `Finding`s; `tree.py` -> `build_vnode_tree`/`render_tree_text`/`vnode_to_dict`;
@@ -240,7 +247,7 @@ preserves cursor/scroll/selection state across renders.
 
 - **bounds.py** - Sizing: fixed (`50`), `"fill"`, `"auto"`, `"50%"`.
 - **frames.py** - Frame rendering, border styles (single/double/rounded/heavy/
-  ascii), titles, padding, scrollbars, `BORDER_CHARS`.
+  ascii), titles, padding, scrollbars, `BORDER_CHARS_UNICODE`.
 - **engine.py** - Layout tree: `VStack`, `HStack`, `FrameNode`, `ElementNode`,
   `SplitPanelNode`. HStack flexbox: `justify`, `wrap`, `gap`/`row_gap`/`column_gap`.
 - **splitpanel.py** - Resizable split panels (drag/keyboard resize, collapse,
@@ -391,5 +398,11 @@ behavioral bugs deferred to 0.1.1, tracked with root causes in `roadmap.md`
 
 - New element: `docs/NEW-ELEMENTS.md`.
 - Docs structure: `docs/DOCUMENTATION_PLAN.md`.
+- Image assets: all generated from real headless renders, never screen-captured.
+  `scripts/make_screenshots.py` (README + `examples/GALLERY.md` SVGs),
+  `scripts/make_demo_gif.py` (animated GIFs), `scripts/make_social_card.py`
+  (`docs/assets/social-card.png`, GitHub's 1280x640 social preview -- upload it
+  by hand under Settings -> General -> Social preview; there is no REST API for
+  it). The last two share the ANSI-to-pixels rasterizer in `scripts/_termshot.py`.
 - Outstanding bugs/backlog: `roadmap.md` (the single post-0.1.0 backlog).
   `RELEASE_PLAN.md` is the publish runbook.

@@ -23,6 +23,7 @@ terminal:
 wijjit validate app.py --json                  # structured findings + exit code
 wijjit tree app.py --json                      # the DOM, without running the app
 wijjit render app.py --keys "tab,type:alice"   # the rendered screen, no TTY
+wijjit llm-help > WIJJIT.md                    # brief an LLM on the whole API
 ```
 
 Your UI is text, and so is everything the tooling hands back. That is what makes
@@ -182,6 +183,18 @@ That login form renders like this (the password field masks input with `password
 
 ## Screenshots
 
+Adding a task, tabbing through the list, and checking it off. This GIF was
+recorded **without a terminal** — the frames come from the same headless harness
+the tests use, one capture per keystroke, rasterized with Pillow
+([`scripts/make_demo_gif.py`](scripts/make_demo_gif.py)). No asciinema, no
+ffmpeg, and the recording is byte-reproducible.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/todo.gif"
+       alt="Animated demo of the Wijjit todo app: typing a new task, adding it, navigating with Tab, and checking it off"
+       width="700">
+</p>
+
 <table>
   <tr>
     <td width="50%">
@@ -197,9 +210,15 @@ That login form renders like this (the password field masks input with `password
   </tr>
 </table>
 
+**[See the full gallery ->](examples/GALLERY.md)** — 20 more screens covering
+charts, split panels, tables, trees, dialogs, image rendering and theming, each
+with the command to reproduce it.
+
 All screenshots are generated headlessly and reproducibly by
-[`scripts/make_screenshots.py`](scripts/make_screenshots.py). Run any of the
-74 bundled examples yourself with `python examples/<dir>/<name>.py`.
+[`scripts/make_screenshots.py`](scripts/make_screenshots.py) — no terminal
+recording involved, and re-running it only changes an image when the example or
+the framework did. Run any of the 74 bundled examples yourself with
+`wijjit run examples/<dir>/<name>.py`.
 
 ## Core Concepts
 
@@ -515,6 +534,11 @@ wijjit render examples/advanced/login_form.py \
 wijjit run examples/advanced/login_form.py
 wijjit test -k login tests/
 wijjit --version
+
+# Brief an LLM: one paste-able Markdown doc, with the tag/attribute reference
+# introspected from your installed version so it cannot go stale
+wijjit llm-help > WIJJIT.md
+wijjit llm-help --tags-only
 ```
 
 `python -m wijjit <command>` works as well.
