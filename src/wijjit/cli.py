@@ -9,6 +9,7 @@ Wijjit apps::
     wijjit render examples/spinner.py --tick 5   # headless render
     wijjit run examples/login.py                 # launch an app in this terminal
     wijjit test -k login tests/                  # pass through to pytest
+    wijjit llm-help > WIJJIT.md                  # paste-able LLM briefing
 
 ``validate`` and ``tree`` auto-detect their input: a ``.py`` file is loaded as a
 full app, anything else is treated as a raw template. Template files are
@@ -38,6 +39,14 @@ def _load_context(path: Path | None) -> dict[str, Any] | None:
     if not isinstance(data, dict):
         raise ValueError(f"Context file {path} must contain a JSON object.")
     return data
+
+
+def _cmd_llm_help(args: argparse.Namespace) -> int:
+    """Print the paste-able LLM briefing for this installation."""
+    from wijjit.devtools import build_tag_reference, render_llm_help
+
+    print(build_tag_reference() if args.tags_only else render_llm_help())
+    return 0
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
@@ -174,7 +183,10 @@ def _build_parser() -> argparse.ArgumentParser:
     pr.add_argument(
         "--keys",
         default="",
-        help="Comma-separated input script (keys, type:TEXT, click:X,Y, tick:N).",
+        help=(
+            "Comma-separated input script (keys, type:TEXT, click:X,Y, "
+            "tick:N, settle:N)."
+        ),
     )
     pr.add_argument(
         "--tick",
@@ -195,6 +207,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     prun.add_argument("file", type=Path, help="Path to a Wijjit .py app.")
     prun.set_defaults(func=_cmd_run)
+
+    pllm = sub.add_parser(
+        "llm-help",
+        help="Print a paste-able Wijjit briefing for an LLM (Markdown).",
+        description=(
+            "Print a single self-contained Markdown briefing that teaches an "
+            "LLM to write correct Wijjit apps. The tag reference is "
+            "introspected from this installation, so it cannot go stale. "
+            "Pipe it into an agent's context: wijjit llm-help > WIJJIT.md"
+        ),
+    )
+    pllm.add_argument(
+        "--tags-only",
+        action="store_true",
+        help="Print just the generated tag/attribute reference.",
+    )
+    pllm.set_defaults(func=_cmd_llm_help)
 
     # ``test`` forwards everything after it to pytest. The subparser exists so
     # ``--help`` lists it, but the real interception happens in ``main`` before
