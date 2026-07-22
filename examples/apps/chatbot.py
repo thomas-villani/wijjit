@@ -111,7 +111,7 @@ app = Wijjit(
         # lines and tails the bottom as new ones arrive.
         "history": [WELCOME],
         "chat_input": "",
-        "status": "Tab to the message box, type, and press Enter",
+        "status": "Type a message and press Enter.",
     }
 )
 
@@ -145,7 +145,7 @@ def main_view():
 
     {# Input row - Enter in the textinput fires the "send" action #}
     {% hstack spacing=1 %}
-      {% textinput id="chat_input" placeholder="Type your message..." width="fill" action="send" %}{% endtextinput %}
+      {% textinput id="chat_input" placeholder="Type your message..." width="fill" action="send" autofocus=True %}{% endtextinput %}
       {% button action="send" %}Send{% endbutton %}
       {% button action="clear" %}Clear{% endbutton %}
     {% endhstack %}

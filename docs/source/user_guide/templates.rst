@@ -44,13 +44,54 @@ To introduce whitespace between sections, use an empty ``{% vstack height=1 %}{%
 
 Every layout tag contributes nodes to the ``LayoutContext`` so the layout engine can compute bounds before painting.
 
+.. _universal-attributes:
+
+Attributes every element accepts
+--------------------------------
+
+These are handled by the framework rather than by any individual element, so
+they work on every tag and are never listed in the per-tag attributes below:
+
+``id``
+    Stable identity. Drives state binding, focus, and reconciliation. Always set
+    one on anything stateful (see :ref:`bind-attribute`).
+
+``class`` (or ``classes``)
+    Space-separated CSS class names for styling. Spelled ``class`` in templates
+    because ``classes`` is the Python-side name - both are accepted.
+
+``key``
+    Overrides the reconciliation identity. Give repeated elements inside a
+    ``{% for %}`` a stable unique ``key`` (or ``id``), or their transient state -
+    cursor, scroll, selection - migrates to the wrong row when the list reorders.
+
+``tabindex`` (or ``tab_index``)
+    Tab-order override. Lower values come first; elements without one follow in
+    document order. ``-1`` keeps the element focusable by click or programmatic
+    focus while removing it from Tab traversal *and* from ``autofocus``.
+
+``autofocus``
+    Take focus when nothing else has it - on the first render, and again if the
+    focused element disappears. A freshly started app otherwise has nothing
+    focused, so keystrokes go nowhere until the user presses Tab. Use it once per
+    view, on the field the user should start in. See :ref:`autofocus-attribute`
+    for the exact rule.
+
+``bind``
+    State binding: ``True`` (default), ``False``, or a state key name. See
+    :ref:`bind-attribute`.
+
+Layout attributes (``width``, ``height``, ``margin``, ``padding``, ``align_h``,
+``align_v``, …) are likewise accepted broadly and documented under
+:doc:`layout_system`.
+
 Form & input tags
 -----------------
 
-All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``state`` by ``id`` when ``bind=True`` (default). ``bind`` also accepts a **state key name**, which decouples the id from storage - see :ref:`bind-attribute`.
+All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``state`` by ``id`` when ``bind=True`` (default). ``bind`` also accepts a **state key name**, which decouples the id from storage - see :ref:`bind-attribute`. Every tag below also accepts the universal attributes above, including ``autofocus`` to choose which field the app starts in.
 
 ``{% textinput %}…{% endtextinput %}``
-    Single-line input (:class:`wijjit.elements.input.text.TextInput`). Attributes: ``id``, ``placeholder``, ``width``, ``max_length``, ``action`` (triggered on Enter), ``bind``. Example: ``{% textinput id="username" placeholder="handle" width=24 %}{% endtextinput %}``.
+    Single-line input (:class:`wijjit.elements.input.text.TextInput`). Attributes: ``id``, ``placeholder``, ``width``, ``max_length``, ``password`` (mask typed characters), ``action`` (triggered on Enter), ``bind``. Example: ``{% textinput id="username" placeholder="handle" width=24 autofocus=True %}{% endtextinput %}``.
 
 ``{% textarea %}…{% endtextarea %}``
     Multi-line editor (supports scrolling, custom borders). Attributes: ``id``, ``height``, ``width``, ``placeholder``, ``bind``.

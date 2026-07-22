@@ -108,7 +108,7 @@ finishes -- the headless equivalent of "wait for it".
 
 ```bash
 wijjit run examples/apps/chatbot.py
-wijjit render examples/apps/chatbot.py --size 84x30 --keys "tab,tab,type:help,enter,settle:400" --ansi
+wijjit render examples/apps/chatbot.py --size 84x30 --keys "type:help,enter,settle:400" --ansi
 ```
 
 ---
@@ -297,7 +297,7 @@ key run, which is exactly how its regression test drives it.
 
 ```bash
 wijjit run examples/advanced/login_form.py
-wijjit render examples/advanced/login_form.py --size 60x18 --keys "tab,type:admin,tab,type:hunter2" --ansi
+wijjit render examples/advanced/login_form.py --size 60x18 --keys "type:admin,tab,type:hunter2" --ansi
 ```
 
 ### Dialogs

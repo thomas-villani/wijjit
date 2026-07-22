@@ -273,6 +273,10 @@ Try the workflow: ``Tab`` into the grid, edit a quarter figure, press Enter to
 commit, then click **Update Chart** to see the bar change, or **Save** to write
 the file. Relaunch and your edits are still there.
 
+(That first ``Tab`` is needed because this app starts with nothing focused. Add
+``autofocus=True`` to the ``datagrid`` tag to have it hold focus from the first
+frame - see :ref:`autofocus-attribute`.)
+
 Where to next
 -------------
 

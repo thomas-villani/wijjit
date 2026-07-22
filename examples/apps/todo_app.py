@@ -131,7 +131,7 @@ app = Wijjit(
         "todos": load_todos(),
         "new_todo": "",
         "filter": "all",  # "all", "active", "completed" (bound to the RadioGroup)
-        "message": "Ready. Tab to the list, then Space to toggle.",
+        "message": "Ready. Type a task and press Enter; Tab to the list to toggle.",
     }
 )
 
@@ -204,7 +204,7 @@ def main_view():
 
     {# Input row - Enter in the textinput triggers the add_todo action #}
     {% hstack spacing=1 %}
-      {% textinput id="new_todo" placeholder="What needs to be done?" width=52 action="add_todo" %}{% endtextinput %}
+      {% textinput id="new_todo" placeholder="What needs to be done?" width=52 action="add_todo" autofocus=True %}{% endtextinput %}
       {% button action="add_todo" %}Add{% endbutton %}
     {% endhstack %}
 

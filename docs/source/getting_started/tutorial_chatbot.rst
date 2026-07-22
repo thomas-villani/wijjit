@@ -80,7 +80,7 @@ the ``LogView`` widget consumes.
         initial_state={
             "history": [WELCOME],
             "chat_input": "",
-            "status": "Tab to the message box, type, and press Enter",
+            "status": "Type a message and press Enter.",
         }
     )
 
@@ -112,7 +112,7 @@ colored as if they were log levels.
         {% endlogview %}
 
         {% hstack spacing=1 %}
-          {% textinput id="chat_input" placeholder="Type your message..." width="fill" action="send" %}{% endtextinput %}
+          {% textinput id="chat_input" placeholder="Type your message..." width="fill" action="send" autofocus=True %}{% endtextinput %}
           {% button action="send" %}Send{% endbutton %}
           {% button action="clear" %}Clear{% endbutton %}
         {% endhstack %}
@@ -198,7 +198,8 @@ Step 4 - run it
 
     uv run python examples/apps/chatbot.py
 
-Press ``Tab`` to reach the message box, type something, and press Enter. The bot
+Type something and press Enter - the message box is marked ``autofocus=True``,
+so it holds focus from the first frame. The bot
 "types" its reply word by word, and the history tails to the bottom on its own.
 Scroll up with the arrow keys to read earlier messages - auto-scroll pauses until
 you scroll back to the bottom. Quit with ``Ctrl+Q``.

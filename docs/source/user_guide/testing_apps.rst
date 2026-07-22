@@ -61,6 +61,18 @@ manager so setup and teardown are automatic:
 Every input method returns the harness, so calls chain:
 ``h.press("tab").type("Ada").press("enter")``.
 
+.. note::
+
+   The leading ``press("tab")`` is needed because this template does not mark
+   any field ``autofocus=True``, so the app starts with nothing focused. If you
+   add ``autofocus`` to the input, drop that Tab - otherwise it moves focus
+   *past* the input and the test types into the button.
+
+   Counting Tab presses from an assumed starting point is brittle in general:
+   the app object is usually shared across tests, and focus survives between
+   them. Prefer ``app.focus_element_by_id("name")`` inside the harness block
+   when a test needs a specific element focused.
+
 Driving input
 -------------
 
@@ -128,7 +140,9 @@ Inspecting the result
 * ``tree()`` -- the last rendered :class:`~wijjit.core.vdom.VNode` tree (the
   "DOM"), or ``None`` for a plain-text template.
 * ``state`` -- the app's reactive :class:`~wijjit.core.state.State`.
-* ``focused`` -- the currently focused element, if any.
+* ``focused`` -- the currently focused element, if any. Non-``None`` on the very
+  first frame when some element declares ``autofocus``; otherwise ``None`` until
+  the first Tab.
 * ``running`` -- whether the event loop is still running (``False`` after quit).
 
 Assertions
@@ -235,7 +249,7 @@ For quick, interactive iteration on a visual bug -- or to hand an LLM a way to
 
     # via the wijjit CLI
     wijjit render examples/advanced/login_form.py \
-        --size 100x30 --keys "tab,type:admin,tab,type:secret,enter" --ansi
+        --size 100x30 --keys "type:admin,tab,type:secret,enter" --ansi
 
     # equivalent module entry point
     python -m wijjit.testing examples/widgets/spinner_demo.py --tick 5

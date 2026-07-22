@@ -409,6 +409,13 @@ Every template attribute you pass is forwarded as a prop and then filtered to
 your `__init__` signature, so you never write a per-attribute spec - just accept
 the kwargs your element needs.
 
+The one exception is `FRAMEWORK_ONLY_PROPS` (`wijjit/core/vdom.py`), currently
+just `autofocus`. Those live on the base `Element` and are applied by `setattr`
+*after* construction rather than being filtered to your signature - precisely
+because filtering would drop them on the render that creates the element. You
+get them for free: a custom element that sets `self.focusable = True` supports
+`autofocus=True` in templates with no constructor parameter and no extra code.
+
 ### Decorator form
 
 ```python

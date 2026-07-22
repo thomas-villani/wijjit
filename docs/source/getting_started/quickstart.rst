@@ -104,7 +104,7 @@ Let's create an interactive app with a text input and button:
 
         {% vstack spacing=0 %}
           Your name:
-          {% textinput id="name" placeholder="Enter your name" width=30 %}{% endtextinput %}
+          {% textinput id="name" placeholder="Enter your name" width=30 autofocus=True %}{% endtextinput %}
         {% endvstack %}
 
         {% hstack spacing=2 %}
@@ -138,6 +138,9 @@ Key Concepts Demonstrated
 3. **State Binding**: The ``textinput`` with ``id="name"`` automatically binds to ``app.state['name']``
 4. **Actions**: Buttons trigger actions that are handled by ``@app.on_action()`` decorators
 5. **Reactivity**: Changing ``app.state['greeting']`` automatically re-renders the UI
+6. **Initial focus**: ``autofocus=True`` puts the cursor in the name field on
+   start. Without it an app begins with nothing focused and the user must press
+   Tab before typing does anything - see :ref:`autofocus-attribute`
 
 Login Form Example
 ------------------
@@ -163,7 +166,7 @@ Here's a complete login form with validation:
 
         {% vstack spacing=0 %}
           Username:
-          {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
+          {% textinput id="username" placeholder="Enter username" width=30 autofocus=True %}{% endtextinput %}
         {% endvstack %}
 
         {% vstack spacing=0 %}
@@ -219,7 +222,8 @@ Features Shown
 * Error messages
 * Multiple buttons with different actions
 * Clearing form data
-* Focus navigation (press Tab to move between fields)
+* Initial focus via ``autofocus=True`` on the username field, then Tab/Shift+Tab
+  to move between fields
 * Enter key in password field triggers login action
 
 Common Patterns

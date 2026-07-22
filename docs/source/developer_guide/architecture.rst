@@ -157,6 +157,25 @@ Elements preserve transient UI state across re-renders using the ephemeral state
 
 These props are excluded from template-to-element syncing during reconciliation.
 
+**Framework-only props** (defined in ``wijjit.core.vdom.FRAMEWORK_ONLY_PROPS``):
+
+A separate, smaller category: props that live on the base
+:class:`wijjit.elements.base.Element` but are deliberately *not* threaded through
+every element constructor. Currently just ``autofocus``.
+
+These need special handling because the registry filters creation props to the
+element's ``__init__`` signature (``ElementRegistry._filter_props_for_factory``),
+so a prop no constructor accepts would be silently dropped on the render that
+*creates* the element - which, for ``autofocus``, is exactly the render that
+matters. ``Reconciler._apply_framework_props`` therefore applies them by
+``setattr`` immediately after construction. Updates on an existing element flow
+through ``_apply_prop_changes`` as normal, since the attribute exists by then.
+
+Contrast ``tab_index``, which predates this and *is* an explicit parameter on
+each focusable element's ``__init__``. Prefer ``FRAMEWORK_ONLY_PROPS`` for new
+framework props: it is one edit rather than one per element, and cannot be
+half-applied across the element set.
+
 **Implementation:**
 
 Elements implement two methods to participate in ephemeral state preservation:
@@ -209,7 +228,7 @@ Event system
 * **Handler registry** – :class:`HandlerRegistry`` stores ``Handler`` objects tagged with ``HandlerScope`` (GLOBAL / VIEW / ELEMENT), optional view/element ids, and priority. ``dispatch`` looks up matching handlers, runs sync callbacks, and awaits async ones.
 * **Convenience decorators** – ``@app.on_action``, ``@app.on_key`` wrap ``HandlerRegistry.register``. Internally they set ``scope=VIEW`` by default so handlers automatically clear during navigation.
 * **Mouse routing** – :class:`wijjit.core.mouse_router.MouseEventRouter` performs hit-testing (overlays first, then base layout), updates :class:`wijjit.core.hover.HoverManager`, and forwards events to elements with ``handle_mouse`` methods.
-* **Focus management** – :class:`wijjit.core.focus.FocusManager`` tracks focusable elements, handles Tab/Shift+Tab, and marks dirty regions when focus changes. Overlays can trap focus and restore the previous state upon closing.
+* **Focus management** – :class:`wijjit.core.focus.FocusManager`` tracks focusable elements, handles Tab/Shift+Tab, and marks dirty regions when focus changes. Focus starts *unset* by design (focusing element 0 unconditionally would make the first Tab appear to skip it); an element may claim it declaratively with ``autofocus=True``, which ``set_elements`` applies whenever focus would otherwise be ``None``. Overlays can trap focus and restore the previous state upon closing.
 
 State & wiring
 --------------

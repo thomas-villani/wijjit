@@ -11,6 +11,7 @@ From the repo root::
     uv run python scripts/make_screenshots.py            # both sets
     uv run python scripts/make_screenshots.py --readme   # hero shots only
     uv run python scripts/make_screenshots.py --gallery  # gallery only
+    uv run python scripts/make_screenshots.py --only todo,login   # named shots
 
 Writes ``docs/assets/screenshots/<slug>.svg`` for every entry in ``SHOTS`` (the
 hero shots the README and docs embed) and
@@ -32,7 +33,9 @@ meaningless diff.
 Two shots are inherently live and *will* produce a diff on every run:
 ``dashboard`` and ``system_monitor`` both display a wall-clock timestamp (and
 the latter, real machine metrics). That is what those demos are for; just don't
-regenerate them casually, and don't mistake their churn for a real change.
+regenerate them casually, and don't mistake their churn for a real change. Use
+``--only`` when fixing an unrelated screenshot so their noise stays out of the
+diff.
 """
 
 from __future__ import annotations
@@ -72,7 +75,7 @@ SHOTS: list[tuple[str, str, tuple[int, int], str, int, str]] = [
         "login",
         "examples/advanced/login_form.py",
         (60, 18),
-        "tab,type:admin,tab,type:hunter2",
+        "type:admin,tab,type:hunter2",
         0,
         "wijjit - login_form.py",
     ),
@@ -107,14 +110,14 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
         0,
         "wijjit - spreadsheet.py",
     ),
-    # Two tabs reach the input (the log takes focus first). The bot streams its
-    # reply from a background task, so "settle" pumps event-loop frames until
-    # that finishes -- without it the capture catches the bot mid-sentence.
+    # The input is autofocus, so no leading tab. The bot streams its reply from
+    # a background task, so "settle" pumps event-loop frames until that
+    # finishes -- without it the capture catches the bot mid-sentence.
     (
         "chatbot",
         "examples/apps/chatbot.py",
         (84, 30),
-        "tab,tab,type:help,enter,settle:400",
+        "type:help,enter,settle:400",
         0,
         "wijjit - chatbot.py",
     ),
@@ -297,11 +300,25 @@ def to_svg(ansi: str, dst: Path, title: str) -> None:
 
 
 def render_set(
-    shots: list[tuple[str, str, tuple[int, int], str, int, str]], out_dir: Path
+    shots: list[tuple[str, str, tuple[int, int], str, int, str]],
+    out_dir: Path,
+    only: set[str] | None = None,
 ) -> None:
-    """Render every shot in ``shots`` into ``out_dir``."""
+    """Render every shot in ``shots`` into ``out_dir``.
+
+    Parameters
+    ----------
+    shots : list of tuple
+        Shot definitions, as in :data:`SHOTS` / :data:`GALLERY`.
+    out_dir : Path
+        Directory to write the SVGs into.
+    only : set of str, optional
+        When given, render just these slugs and skip the rest.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     for slug, path, size, keys, tick, title in shots:
+        if only is not None and slug not in only:
+            continue
         ansi = capture_ansi(path, size, keys, tick)
         dst = out_dir / f"{slug}.svg"
         to_svg(ansi, dst, title)
@@ -309,7 +326,22 @@ def render_set(
 
 
 def main() -> int:
-    flags = set(sys.argv[1:])
+    argv = sys.argv[1:]
+
+    # --only SLUG[,SLUG...] renders a subset. This exists because two shots
+    # (dashboard, system_monitor) are inherently live and rewrite themselves on
+    # every run; without a filter, fixing one unrelated screenshot drags their
+    # churn into the diff and hides the change you actually made.
+    only: set[str] | None = None
+    if "--only" in argv:
+        idx = argv.index("--only")
+        if idx + 1 >= len(argv):
+            print("--only needs a comma-separated list of slugs", file=sys.stderr)
+            return 2
+        only = {s.strip() for s in argv[idx + 1].split(",") if s.strip()}
+        del argv[idx : idx + 2]
+
+    flags = set(argv)
     unknown = flags - {"--readme", "--gallery"}
     if unknown:
         print(f"unknown option(s): {', '.join(sorted(unknown))}", file=sys.stderr)
@@ -319,10 +351,19 @@ def main() -> int:
     want_readme = "--readme" in flags or not flags
     want_gallery = "--gallery" in flags or not flags
 
+    if only is not None:
+        known = {s[0] for s in SHOTS} | {s[0] for s in GALLERY}
+        unknown_slugs = only - known
+        if unknown_slugs:
+            print(
+                f"unknown slug(s): {', '.join(sorted(unknown_slugs))}", file=sys.stderr
+            )
+            return 2
+
     if want_readme:
-        render_set(SHOTS, OUT)
+        render_set(SHOTS, OUT, only)
     if want_gallery:
-        render_set(GALLERY, GALLERY_OUT)
+        render_set(GALLERY, GALLERY_OUT, only)
     return 0
 
 

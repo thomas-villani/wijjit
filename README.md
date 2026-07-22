@@ -154,7 +154,7 @@ def login_view():
 
     {% vstack spacing=0 %}
       Username:
-      {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
+      {% textinput id="username" placeholder="Enter username" width=30 autofocus=True %}{% endtextinput %}
     {% endvstack %}
 
     {% vstack spacing=0 %}
@@ -545,7 +545,7 @@ wijjit tree myform.wij.j2 --context ctx.json --size 100x30
 # Render an app headlessly with scripted input
 wijjit render examples/widgets/spinner_demo.py --tick 5
 wijjit render examples/advanced/login_form.py \
-    --size 100x30 --keys "tab,type:admin,tab,type:secret,enter" --ansi
+    --size 100x30 --keys "type:admin,tab,type:secret,enter" --ansi
 
 # Launch a .py app interactively, or run your tests
 wijjit run examples/advanced/login_form.py

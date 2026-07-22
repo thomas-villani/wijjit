@@ -192,6 +192,7 @@ Special behaviors:
 * ``bind=False`` lets you manage the value manually (useful for derived or formatted inputs), and ``bind="some_key"`` binds to that state key instead of the id - so two widgets can share one key, and an id need not colonize one. See :ref:`bind-attribute`.
 * ``action`` on inputs triggers when Enter is pressed.
 * With ``bind=True`` the ``id`` *is* the state key (except for ``radio``/``radiogroup``, which key off the group ``name``). Wijjit auto-generates ids, but naming them yourself keeps focus/state debugging easier.
+* ``autofocus=True`` puts the cursor in this element when the app starts. Without it nothing is focused and the user must press Tab before typing does anything - see :ref:`autofocus-attribute`. Use it on one element per view.
 
 Display widgets
 ---------------
