@@ -444,6 +444,58 @@ class WijjitHarness:
         self._pump()
         return self
 
+    def settle(self, frames: int = 50) -> WijjitHarness:
+        """Pump event-loop frames so pending async work can make progress.
+
+        Use this when an app does something in the background that is not
+        driven by input -- a task streaming text into ``state``, an async view
+        resolving, a queued handler finishing. Each frame yields to the asyncio
+        loop, so awaited work (including ``asyncio.sleep``) advances.
+
+        This differs from the neighbouring methods:
+
+        - :meth:`tick` advances *animation* frames (spinners, progress) and does
+          not wait for background tasks.
+        - :meth:`wait_for` pumps until a condition holds and raises if it never
+          does. Prefer it when you can name the condition -- the assertion is
+          clearer and the wait stops as soon as it is satisfied.
+
+        ``settle`` is the unconditional form, for when there is no clean
+        predicate to wait on (capturing a screenshot, say) and you just want the
+        app to quiesce.
+
+        Parameters
+        ----------
+        frames : int, optional
+            Number of event-loop frames to pump (default: 50).
+
+        Returns
+        -------
+        WijjitHarness
+            ``self``, for chaining.
+
+        Examples
+        --------
+        >>> h.press("enter")       # fires a task that streams a reply
+        >>> h.settle(200)          # let it finish
+        >>> h.assert_text("done")
+        """
+        self._run(self._settle_async(max(1, frames)))
+        return self
+
+    async def _settle_async(self, frames: int) -> None:
+        event_loop = self.app.event_loop
+        for _ in range(frames):
+            # Mark a render pending so each iteration runs a full frame rather
+            # than short-circuiting on an idle loop -- that is what lets awaited
+            # work (including real ``asyncio.sleep``) actually progress.
+            self.app.needs_render = True
+            await event_loop._process_frame_async()
+            # Give tasks scheduled by this frame a chance to run.
+            await asyncio.sleep(0)
+            if not event_loop.running:
+                break
+
     def resize(self, width: int, height: int) -> WijjitHarness:
         """Resize the virtual terminal and drive the resulting re-layout.
 

@@ -114,3 +114,49 @@ def test_validate_with_context_file(tmp_path, capsys):
     out = capsys.readouterr().out
     assert code == 0
     assert "undefined-variable" not in out
+
+
+def test_settle_step_lets_background_work_finish(tmp_path, capsys):
+    """``settle:N`` pumps event-loop frames so async tasks can complete.
+
+    ``tick`` only advances animation frames, so an app that streams text from a
+    background task was captured mid-update. ``settle`` runs full frames, which
+    lets awaited work (including ``asyncio.sleep``) progress.
+    """
+    app_file = tmp_path / "streaming.py"
+    app_file.write_text(
+        """
+import asyncio
+
+from wijjit import Wijjit, render_template_string
+
+app = Wijjit(initial_state={"text": "start"})
+
+
+@app.view("main", default=True)
+def main_view():
+    return render_template_string(
+        '{% frame width=30 height=5 %}{% text %}{{ state.text }}'
+        '{% endtext %}{% endframe %}'
+    )
+
+
+@app.on_key("g")
+def go(event):
+    async def stream():
+        for word in ("one", "two", "done"):
+            await asyncio.sleep(0.01)
+            app.state["text"] = word
+
+    asyncio.ensure_future(stream())
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["render", str(app_file), "--size", "40x8", "--keys", "g"]) == 0
+    assert "done" not in capsys.readouterr().out
+
+    assert (
+        main(["render", str(app_file), "--size", "40x8", "--keys", "g,settle:200"]) == 0
+    )
+    assert "done" in capsys.readouterr().out

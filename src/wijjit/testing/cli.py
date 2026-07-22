@@ -14,7 +14,9 @@ The ``--keys`` script is a comma-separated list of steps, each one of:
 * a named key (``tab``, ``enter``, ``up``, ``ctrl+q``, ...) or single char,
 * ``type:TEXT`` to type a literal string,
 * ``click:X,Y`` to left-click a cell,
-* ``tick`` / ``tick:N`` to advance animation frames.
+* ``tick`` / ``tick:N`` to advance animation frames,
+* ``settle`` / ``settle:N`` to pump N event-loop frames so background async
+  work (a streaming reply, an async view) can finish before capture.
 """
 
 from __future__ import annotations
@@ -85,6 +87,10 @@ def _apply_step(harness: WijjitHarness, step: str) -> None:
         harness.tick()
     elif step.startswith("tick:"):
         harness.tick(int(step[len("tick:") :]))
+    elif step == "settle":
+        harness.settle()
+    elif step.startswith("settle:"):
+        harness.settle(int(step[len("settle:") :]))
     else:
         harness.press(step)
 
@@ -109,7 +115,7 @@ def run_render(
         Terminal ``(cols, rows)`` to render at.
     keys : str, optional
         Comma-separated input script (keys, ``type:TEXT``, ``click:X,Y``,
-        ``tick:N``).
+        ``tick:N``, ``settle:N``).
     tick : int, optional
         Animation frames to advance after the key script.
     ansi : bool, optional
