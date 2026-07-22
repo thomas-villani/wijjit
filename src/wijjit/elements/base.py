@@ -202,6 +202,10 @@ class Element(ABC):
         Whether this element can receive focus
     focused : bool
         Whether this element currently has focus
+    autofocus : bool
+        Whether this element should receive focus when nothing else is focused
+        (i.e. on the first render, or after the focused element disappears).
+        Set declaratively from a template as ``autofocus=True``.
     hovered : bool
         Whether the mouse is currently over this element
     bounds : Bounds or None
@@ -260,6 +264,12 @@ class Element(ABC):
         self.focusable = False
         self.focused = False
         self.hovered = False
+        # Declarative initial focus. Set from the template as ``autofocus=True``
+        # and applied by FocusManager whenever focus would otherwise be unset;
+        # see FocusManager.set_elements for the exact rule. Not a constructor
+        # parameter - the reconciler applies it post-construction (see
+        # FRAMEWORK_ONLY_PROPS in core/vdom.py).
+        self.autofocus = False
         self.bounds: Bounds | None = None
         # On-screen rect actually painted last frame: ``bounds`` shifted by any
         # scrollable-ancestor scroll offset and intersected with the visible

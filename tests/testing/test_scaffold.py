@@ -89,7 +89,10 @@ def test_generated_app_runs_and_adds_a_task(tmp_path, layout):
     app = load_example_app(str(app_path(tmp_path, layout)))
 
     with WijjitHarness(app, size=(60, 22)) as harness:
-        assert app.focus_element_by_id("entry")
+        # No Tab first: the generated template marks the input autofocus, so
+        # typing must work the instant the app starts. That is the whole point
+        # of the scaffold -- a starter app that ignores your first keystrokes
+        # is a bad first impression.
         harness.type("buy milk")
         harness.press("enter")
 
@@ -113,8 +116,9 @@ def test_generated_frame_is_not_accidentally_scrollable(tmp_path, layout):
     with WijjitHarness(app, size=(60, 22)) as harness:
         # A scrollbar is the visible symptom of the overflow.
         assert "█" not in harness.screen()
-        # And the input, not the frame, is the first thing Tab reaches.
-        harness.press("tab")
+        # And the input, not the frame, holds focus. An overflowing frame is
+        # focusable and sorts ahead of its own children, so it would swallow
+        # the autofocus the input asked for.
         focused = app.focus_manager.get_focused_element()
         assert getattr(focused, "id", None) == "entry"
 

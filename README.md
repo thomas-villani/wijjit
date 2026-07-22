@@ -64,7 +64,8 @@ will feel like home.
 - **Flask-like API**: View decorators, routing, and state management that feels like web development
 - **Rich Component Library**: 36 elements — forms, tables, trees, six chart types, a code editor with autocomplete, an editable data grid, an image viewer, dialogs, and more
 - **Reactive State Management**: State changes automatically trigger re-renders
-- **Automatic Focus Navigation**: Tab/Shift+Tab navigation between interactive elements
+- **Automatic Focus Navigation**: Tab/Shift+Tab between interactive elements, with
+  `autofocus=True` to pick the field the app starts in
 - **Modal Dialogs**: Built-in confirm, alert, and input dialogs
 - **Layout System**: Flexible frames with stacks (vertical/horizontal), split panels, scrolling, and flexbox-style sizing
 - **Mouse Support**: Click buttons, scroll content, and interact with elements

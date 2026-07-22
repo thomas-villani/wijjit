@@ -11,7 +11,12 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from wijjit.core.vdom import CONTROLLABLE_EPHEMERAL_PROPS, EPHEMERAL_PROPS, VNode
+from wijjit.core.vdom import (
+    CONTROLLABLE_EPHEMERAL_PROPS,
+    EPHEMERAL_PROPS,
+    FRAMEWORK_ONLY_PROPS,
+    VNode,
+)
 from wijjit.logging_config import get_logger
 
 if TYPE_CHECKING:
@@ -466,6 +471,7 @@ class Reconciler:
 
         # Create element via registry
         element = self.registry.create_element(vnode)
+        self._apply_framework_props(element, vnode)
 
         # Cache by key if available
         if vnode.key:
@@ -611,6 +617,33 @@ class Reconciler:
 
         diff.element = element
         return element
+
+    def _apply_framework_props(self, element: Element, vnode: VNode) -> None:
+        """Apply framework props the factory signature would have dropped.
+
+        The registry filters creation props to the element constructor's
+        signature, so a prop that lives on the base :class:`Element` but is not
+        a constructor parameter never reaches a newly created element. For
+        ``autofocus`` that is exactly the wrong render to miss.
+
+        Parameters
+        ----------
+        element : Element
+            The freshly constructed element.
+        vnode : VNode
+            The VNode it was built from.
+
+        Notes
+        -----
+        Only names in :data:`~wijjit.core.vdom.FRAMEWORK_ONLY_PROPS` are
+        applied here. Updates to these props on an existing element flow
+        through :meth:`_apply_prop_changes` as usual, since the attribute
+        exists by then.
+        """
+        props = vnode.props_dict()
+        for name in FRAMEWORK_ONLY_PROPS:
+            if name in props:
+                setattr(element, name, props[name])
 
     def _apply_prop_changes(
         self,

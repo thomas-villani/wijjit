@@ -76,6 +76,19 @@ EPHEMERAL_PROPS = frozenset(
 # ``bind_focus_key`` instead), and ``hovered`` is mouse-driven.
 CONTROLLABLE_EPHEMERAL_PROPS = EPHEMERAL_PROPS - frozenset({"focused", "hovered"})
 
+# Framework props that live on the base ``Element`` but are deliberately not
+# threaded through every element constructor. The registry filters creation
+# props to the factory signature, so these would be dropped on the render that
+# creates an element - which for ``autofocus`` is precisely the render that
+# matters. The reconciler applies them by ``setattr`` immediately after
+# construction instead (see ``Reconciler._apply_framework_props``), and the
+# validator treats them as known attributes on every element.
+#
+# ``tab_index`` is NOT here: it predates this and is an explicit parameter on
+# each focusable element's ``__init__``. Prefer this list for new framework
+# props - it is one edit rather than one per element, and cannot be half-done.
+FRAMEWORK_ONLY_PROPS = frozenset({"autofocus"})
+
 # Key/id of the implicit ``Text`` element that the renderer wraps around a
 # template's bare top-level text when it uses no layout/element tags. Shared so
 # the renderer can build it and tooling (e.g. the validator) can recognise it.

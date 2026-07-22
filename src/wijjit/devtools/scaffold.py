@@ -119,7 +119,7 @@ app = Wijjit(
     initial_state={
         "entry": "",
         "tasks": [],
-        "status": "Press Tab to focus the input, then type.",
+        "status": "Type a task and press Enter.",
     }
 )
 
@@ -132,7 +132,7 @@ TEMPLATE = """
 
     {% hstack spacing=1 %}
       {% textinput id="entry" placeholder="New task" width="fill"
-         action="add" %}
+         action="add" autofocus=True %}
       {% endtextinput %}
       {% button id="add_btn" action="add" %}Add{% endbutton %}
     {% endhstack %}
@@ -182,7 +182,7 @@ def add_task(event):
 def clear_tasks(event):
     """Clear every task. Ctrl+Q is reserved for quitting."""
     app.state["tasks"] = []
-    app.state["status"] = "Cleared. Press Tab to focus the input, then type."
+    app.state["status"] = "Cleared. Type a task and press Enter."
 
 
 if __name__ == "__main__":
@@ -200,10 +200,11 @@ Inspect it without a terminal -- these need no TTY, so they work in CI and in
 an agent's shell::
 
     wijjit validate __MODULE__.py --render
-    wijjit render __MODULE__.py --keys "tab,type:buy milk,enter"
+    wijjit render __MODULE__.py --keys "type:buy milk,enter"
     wijjit tree __MODULE__.py
 
-Tab and Shift+Tab move between the input and the button. Ctrl+Q quits.
+The input takes focus on start (autofocus). Tab and Shift+Tab move
+between the input and the button. Ctrl+Q quits.
 """
 
 '''
@@ -239,7 +240,7 @@ from wijjit import Wijjit, render_template
 INITIAL_STATE = {
     "entry": "",
     "tasks": [],
-    "status": "Press Tab to focus the input, then type.",
+    "status": "Type a task and press Enter.",
 }
 
 app = Wijjit(initial_state=copy.deepcopy(INITIAL_STATE))
@@ -269,7 +270,7 @@ PROJECT_TEMPLATE = """\
 
     {% hstack spacing=1 %}
       {% textinput id="entry" placeholder="New task" width="fill"
-         action="add" %}
+         action="add" autofocus=True %}
       {% endtextinput %}
       {% button id="add_btn" action="add" %}Add{% endbutton %}
     {% endhstack %}
@@ -376,8 +377,9 @@ A terminal app built with [Wijjit](https://github.com/thomas-villani/wijjit).
 uv run wijjit run app.py
 ```
 
-Tab and Shift+Tab move between the input and the button. Press `c` (with the
-input unfocused) to clear the list. Ctrl+Q quits.
+The input takes focus on start (`autofocus=True` in the template), so you can
+type straight away. Tab and Shift+Tab move between the input and the button.
+Press `c` (with the input unfocused) to clear the list. Ctrl+Q quits.
 
 ## Test it
 
@@ -395,7 +397,7 @@ The UI is a template, which means tooling can read it without running the app:
 ```bash
 uv run wijjit validate app.py --render   # lint it, and show the screen
 uv run wijjit tree app.py                # dump the element tree
-uv run wijjit render app.py --keys "tab,type:buy milk,enter"
+uv run wijjit render app.py --keys "type:buy milk,enter"
 ```
 
 ## Layout
