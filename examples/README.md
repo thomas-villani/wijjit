@@ -2,6 +2,9 @@
 
 This directory contains comprehensive examples demonstrating all aspects of the Wijjit TUI framework.
 
+> **Want to see them first?** [GALLERY.md](GALLERY.md) has screenshots of 20 of
+> these demos, each with the command that reproduces it.
+
 ## Organization
 
 Examples are organized into five categories:
