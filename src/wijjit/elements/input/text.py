@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from wijjit.autocomplete.mixin import AutocompleteMixin
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.elements.input.undo import EditSnapshot, UndoHistory
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.terminal.ansi import (
@@ -3283,7 +3283,7 @@ class TextArea(Element):
 
         # Get border characters
         assert self.border_style is not None
-        chars = BORDER_CHARS[self.border_style]
+        chars = BORDER_CHARS_UNICODE[self.border_style]
         border_attrs = border_style.to_cell_attrs()
 
         # Calculate dimensions

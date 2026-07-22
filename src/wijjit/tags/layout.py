@@ -1072,7 +1072,6 @@ class FrameExtension(Extension):
         height: int | str = "auto",
         title: str | None = None,
         border: str | None = None,
-        border_style: str = "single",
         margin: int | str | tuple[int, ...] = 0,
         padding: int | str | tuple[int, ...] | None = None,
         align_h: str = "stretch",
@@ -1100,12 +1099,8 @@ class FrameExtension(Extension):
         title : str, optional
             Frame title
         border : str, optional
-            Border style: "single", "double", or "rounded". This is the
-            canonical attribute name (matching the dialog tags). When given,
-            it takes precedence over ``border_style``.
-        border_style : str
-            Deprecated alias for ``border``, retained for backward
-            compatibility. Use ``border`` in new templates.
+            Border style: "none", "single", "double", "rounded", "heavy" or
+            "ascii" (default: "single"). Matches the dialog tags.
         margin : int or tuple, optional
             Margin around frame (default: 0)
         padding : int or tuple, optional
@@ -1169,11 +1164,9 @@ class FrameExtension(Extension):
         else:
             margin_parsed = cast(int, margin)
 
-        # Parse border style. "border" is the canonical attribute name (and
-        # matches the dialog tags); "border_style" is kept as a backward-
-        # compatible alias. An explicit "border" wins when both are supplied.
-        if border is not None:
-            border_style = border
+        # "border" is the frame tag's only border attribute, matching the
+        # dialog tags.
+        border_style = border if border is not None else "single"
         border_map = {
             "none": BorderStyle.NONE,
             "single": BorderStyle.SINGLE,
@@ -1324,7 +1317,6 @@ class GridExtension(Extension):
         cols: int = 2,
         row_gap: int = 0,
         column_gap: int = 0,
-        col_gap: int | None = None,
         width: int | str = "fill",
         height: int | str = "auto",
         padding: int | str | tuple[int, ...] = 0,
@@ -1349,8 +1341,6 @@ class GridExtension(Extension):
         column_gap : int
             Horizontal gap between columns (default: 0). Matches HStack's
             ``column_gap``.
-        col_gap : int, optional
-            Deprecated alias for ``column_gap``.
         width : int or str
             Width specification (default: "fill")
         height : int or str
@@ -1378,10 +1368,6 @@ class GridExtension(Extension):
         # Parse attributes
         width_parsed = parse_size_attr(width)
         height_parsed = parse_size_attr(height)
-        # "col_gap" is a deprecated alias for the canonical "column_gap"
-        # (matching HStack, which already spells the full word).
-        if col_gap is not None:
-            column_gap = col_gap
         rows_int = safe_int(rows, default=2, name="rows")
         cols_int = safe_int(cols, default=2, name="cols")
         row_gap_int = safe_int(row_gap, default=0, name="row_gap")

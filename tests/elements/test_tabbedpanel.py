@@ -526,7 +526,7 @@ class TestTabbedPanelWideChars:
 
     def test_cjk_tab_label_uses_continuation_cells(self):
         """A CJK label renders head+continuation cells, border stays aligned."""
-        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 
         width, height = 30, 6
         panel = TabbedPanel(width=width, height=height, border_style="single")
@@ -548,7 +548,7 @@ class TestTabbedPanelWideChars:
 
         # The right border must remain at the final column (not shifted or
         # overwritten by a half-rendered wide glyph).
-        tr = BORDER_CHARS[BorderStyle.SINGLE]["tr"]
+        tr = BORDER_CHARS_UNICODE[BorderStyle.SINGLE]["tr"]
         assert row[width - 1].char == tr
 
 

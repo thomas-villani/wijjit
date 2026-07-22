@@ -1264,7 +1264,7 @@ class Tree(ScrollableElement):
         border_style : Style
             Border style
         """
-        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
         from wijjit.terminal.cell import Cell
 
         # Get border characters
@@ -1274,7 +1274,7 @@ class Tree(ScrollableElement):
             "rounded": BorderStyle.ROUNDED,
         }
         style = border_map.get(self.border_style, BorderStyle.SINGLE)
-        chars = BORDER_CHARS[style]
+        chars = BORDER_CHARS_UNICODE[style]
 
         # Ensure borders don't inherit background from content cells
         # If border style doesn't have explicit bg, use None to clear

@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType, invoke_callback
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 from wijjit.terminal.ansi import (
     supports_unicode,
 )
@@ -572,7 +572,9 @@ class CheckboxGroup(Element):
         # Determine if we have borders
         has_border = self.border_style is not None
         chars = (
-            BORDER_CHARS[self.border_style] if self.border_style is not None else None
+            BORDER_CHARS_UNICODE[self.border_style]
+            if self.border_style is not None
+            else None
         )
 
         # Resolve border style

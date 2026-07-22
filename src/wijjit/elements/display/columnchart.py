@@ -58,7 +58,7 @@ class ColumnChart(Element):
         Width reserved for y-axis (default: 6)
     show_grid : bool, optional
         Show horizontal grid lines (default: False)
-    color : str, optional
+    color_mode : str, optional
         Color mode: "default", "gradient", "threshold" (default: "default")
     color_scale : str, optional
         Color scale for gradient mode (default: "green")
@@ -94,7 +94,7 @@ class ColumnChart(Element):
 
     Gradient coloring:
 
-    >>> chart = ColumnChart(data=[10, 50, 90], color="gradient")
+    >>> chart = ColumnChart(data=[10, 50, 90], color_mode="gradient")
     """
 
     def __init__(
@@ -111,7 +111,6 @@ class ColumnChart(Element):
         axis_width: int = 6,
         show_grid: bool = False,
         color_mode: Literal["default", "gradient", "threshold"] = "default",
-        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         border_style: str = "single",
         bind: bool | str = True,
@@ -133,8 +132,7 @@ class ColumnChart(Element):
         self.show_axis = show_axis
         self.axis_width = axis_width
         self.show_grid = show_grid
-        # ``color`` is a deprecated alias for the ``color_mode`` enum.
-        self.color_mode = color if color is not None else color_mode
+        self.color_mode = color_mode
         self.color_scale = color_scale
         self.border_style = border_style
 
@@ -209,15 +207,6 @@ class ColumnChart(Element):
         elif self.color_mode == "threshold":
             return get_threshold_color(normalized)
         return None
-
-    @property
-    def color(self) -> str:
-        """Deprecated alias for :attr:`color_mode`."""
-        return self.color_mode
-
-    @color.setter
-    def color(self, value: str) -> None:
-        self.color_mode = value  # type: ignore[assignment]
 
     def render_signature(self) -> Any:
         """Paint memo for the skip-unchanged fast path.

@@ -68,14 +68,18 @@ class TestProgressBarMaxValue:
         assert p.max_value == 50
         assert abs(p.get_percentage() - 50.0) < 0.01
 
-    def test_max_alias_constructor(self):
-        p = ProgressBar(value=25, max=200)
-        assert p.max_value == 200
-        assert p.max == 200
+    def test_max_alias_is_gone(self):
+        # ``max`` shadowed the builtin and duplicated ``max_value``; the alias
+        # was removed before 1.0. The {% progressbar max=100 %} template
+        # spelling is unaffected -- the tag maps it to ``max_value``, the same
+        # way {% slider max=100 %} maps to Slider.max_val.
+        import pytest
 
-    def test_alias_assignment_both_directions(self):
+        with pytest.raises(TypeError):
+            ProgressBar(value=25, max=200)
+        assert not hasattr(ProgressBar(), "max")
+
+    def test_max_value_assignment(self):
         p = ProgressBar()
-        p.max = 10
-        assert p.max_value == 10
         p.max_value = 20
-        assert p.max == 20
+        assert p.max_value == 20

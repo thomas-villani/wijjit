@@ -61,7 +61,7 @@ class BarChart(ScrollableElement):
         Width reserved for labels (default: auto)
     value_width : int, optional
         Width reserved for values (default: 6)
-    color : str, optional
+    color_mode : str, optional
         Color mode: "default", "gradient", "threshold" (default: "default")
     color_scale : str, optional
         Color scale for gradient mode (default: "green")
@@ -103,7 +103,7 @@ class BarChart(ScrollableElement):
 
     Gradient coloring:
 
-    >>> barchart = BarChart(data=[10, 50, 90], color="gradient")
+    >>> barchart = BarChart(data=[10, 50, 90], color_mode="gradient")
     """
 
     def __init__(
@@ -119,7 +119,6 @@ class BarChart(ScrollableElement):
         label_width: int | None = None,
         value_width: int = 6,
         color_mode: Literal["default", "gradient", "threshold"] = "default",
-        color: Literal["default", "gradient", "threshold"] | None = None,
         color_scale: str = "green",
         show_scrollbar: bool = True,
         border_style: str = "single",
@@ -141,8 +140,7 @@ class BarChart(ScrollableElement):
         self.show_labels = show_labels
         self.show_values = show_values
         self.value_width = value_width
-        # ``color`` is a deprecated alias for the ``color_mode`` enum.
-        self.color_mode = color if color is not None else color_mode
+        self.color_mode = color_mode
         self.color_scale = color_scale
         self.show_scrollbar = show_scrollbar
         self.border_style = border_style
@@ -399,15 +397,6 @@ class BarChart(ScrollableElement):
         elif self.color_mode == "threshold":
             return get_threshold_color(normalized)
         return None
-
-    @property
-    def color(self) -> str:
-        """Deprecated alias for :attr:`color_mode`."""
-        return self.color_mode
-
-    @color.setter
-    def color(self, value: str) -> None:
-        self.color_mode = value  # type: ignore[assignment]
 
     def render_to(self, ctx: PaintContext) -> None:
         """Render the bar chart using cell-based rendering.

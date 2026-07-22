@@ -640,7 +640,7 @@ class ProgressBarExtension(Extension):
         # Build VNode
         vnode = VNodeBuilder("ProgressBar", key=id)
         vnode.set_prop("value", value)
-        vnode.set_prop("max", max_val)
+        vnode.set_prop("max_value", max_val)
         vnode.set_prop("style", style)
         vnode.set_prop("bar_style", bar_style)
         if color:

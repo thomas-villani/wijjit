@@ -109,16 +109,12 @@ def test_radio_select_fires_once_and_deselects_sibling():
     assert a.checked is False
 
 
-def test_toggle_on_action_and_on_toggle_alias_both_fire():
-    """Toggle activation fires the canonical on_action and the deprecated
-    on_toggle alias."""
+def test_toggle_activation_fires_on_action():
+    """Toggle activation fires on_action, matching Checkbox and Radio."""
     toggle = Toggle(checked=False)
     on_action = Mock()
-    on_toggle = Mock()
     toggle.on_action = on_action
-    toggle.on_toggle = on_toggle
 
     toggle.toggle()
 
     on_action.assert_called_once()
-    on_toggle.assert_called_once()

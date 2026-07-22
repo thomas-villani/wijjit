@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any, Literal
 
 from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 from wijjit.layout.scroll import ScrollManager
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.terminal.ansi import ANSIStyle, clip_to_width, visible_length
@@ -774,7 +774,7 @@ class Select(ScrollableElement):
             )
 
             # Get border characters for the style
-            border_chars = BORDER_CHARS[self.border_style]
+            border_chars = BORDER_CHARS_UNICODE[self.border_style]
 
             # Draw border around the entire select element
             ctx.draw_border(

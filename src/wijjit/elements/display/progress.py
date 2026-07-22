@@ -52,7 +52,7 @@ class ProgressBar(Element):
         Element identifier
     value : float, optional
         Current progress value (default: 0)
-    max : float, optional
+    max_value : float, optional
         Maximum progress value (default: 100)
     width : int, optional
         Display width in columns (default: 40)
@@ -75,7 +75,7 @@ class ProgressBar(Element):
     ----------
     value : float
         Current progress value
-    max : float
+    max_value : float
         Maximum progress value
     width : int
         Display width
@@ -99,7 +99,6 @@ class ProgressBar(Element):
         classes: str | list[str] | set[str] | None = None,
         value: float = 0,
         max_value: float = 100,
-        max: float | None = None,
         width: int = 40,
         style: Literal["filled", "percentage", "gradient", "custom"] = "filled",
         bar_style: Literal[
@@ -126,8 +125,7 @@ class ProgressBar(Element):
 
         # Progress properties
         self.value = float(value)
-        # ``max`` is a deprecated alias for ``max_value``; honor it when given.
-        self._max_value = float(max if max is not None else max_value)
+        self._max_value = float(max_value)
         self.width = width
         self.style = style
         self.bar_style = bar_style
@@ -164,15 +162,6 @@ class ProgressBar(Element):
 
     @max_value.setter
     def max_value(self, value: float) -> None:
-        self._max_value = float(value)
-
-    @property
-    def max(self) -> float:
-        """Deprecated alias for :attr:`max_value`."""
-        return self._max_value
-
-    @max.setter
-    def max(self, value: float) -> None:
         self._max_value = float(value)
 
     def set_progress(self, value: float) -> None:

@@ -56,11 +56,11 @@ class TestToggle:
         toggle.toggle()
         callback.assert_called_once_with(True, False)
 
-    def test_on_toggle_callback(self):
-        """Test on_toggle callback is called when toggled."""
+    def test_on_action_callback(self):
+        """Test on_action callback is called when toggled."""
         toggle = Toggle()
         callback = Mock()
-        toggle.on_toggle = callback
+        toggle.on_action = callback
 
         toggle.toggle()
         callback.assert_called_once()

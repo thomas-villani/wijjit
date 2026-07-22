@@ -1522,12 +1522,12 @@ class TestGrid:
         Verifies
         --------
         - row_gap adds vertical space between rows
-        - col_gap adds horizontal space between columns
+        - column_gap adds horizontal space between columns
         """
         from wijjit.layout.engine import Grid
 
         children = [ElementNode(MockElement(width=10, height=3)) for _ in range(4)]
-        grid = Grid(rows=2, cols=2, row_gap=2, col_gap=3, children=children)
+        grid = Grid(rows=2, cols=2, row_gap=2, column_gap=3, children=children)
 
         constraints = grid.calculate_constraints()
 

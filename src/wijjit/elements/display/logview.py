@@ -775,7 +775,7 @@ class LogView(ScrollableElement):
         list of str
             Lines with border added
         """
-        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 
         # Get border characters
         border_map = {
@@ -784,7 +784,7 @@ class LogView(ScrollableElement):
             "rounded": BorderStyle.ROUNDED,
         }
         style = border_map.get(self.border_style, BorderStyle.SINGLE)
-        chars = BORDER_CHARS[style]
+        chars = BORDER_CHARS_UNICODE[style]
 
         # Choose border color based on focus
         if self.focused:
@@ -908,7 +908,7 @@ class LogView(ScrollableElement):
         content_width : int
             Content area width
         """
-        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
         from wijjit.terminal.cell import Cell
 
         # Get border characters
@@ -918,7 +918,7 @@ class LogView(ScrollableElement):
             "rounded": BorderStyle.ROUNDED,
         }
         style = border_map.get(self.border_style, BorderStyle.SINGLE)
-        chars = BORDER_CHARS[style]
+        chars = BORDER_CHARS_UNICODE[style]
         border_attrs = border_style.to_cell_attrs()
 
         # Calculate total width (content + borders + optional scrollbar)

@@ -16,7 +16,7 @@ from wijjit.elements.base import (
     delegate_frame_scroll,
     invoke_callback,
 )
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle, Frame
 from wijjit.logging_config import get_logger
 from wijjit.styling.style import Style
 from wijjit.terminal.ansi import clip_to_width, visible_length
@@ -928,7 +928,7 @@ class TabbedPanel(Container):
         )
 
         # Get border characters
-        chars = BORDER_CHARS[self.border_style]
+        chars = BORDER_CHARS_UNICODE[self.border_style]
         border_attrs = border_style.to_cell_attrs()
         tab_attrs = tab_style.to_cell_attrs()
         active_tab_attrs = active_tab_style.to_cell_attrs()

@@ -151,9 +151,6 @@ BORDER_CHARS_ASCII = {
     },
 }
 
-# Legacy alias for backward compatibility (deprecated)
-BORDER_CHARS = BORDER_CHARS_UNICODE
-
 
 def get_border_chars(style: BorderStyle) -> dict[str, str]:
     """Get border characters for a style, respecting Unicode support config.
@@ -658,13 +655,19 @@ class Frame(ScrollableElement):
             self.scroll_manager_x.scroll_to(position)
 
     def render(self) -> str:
-        """Render the frame as a string (DEPRECATED).
+        """Render the frame to a plain string.
 
-        .. deprecated:: 0.1.0
+        Notes
+        -----
+        This is the standalone string path, for drawing a frame without the
+        app's render pipeline -- writing straight to a
+        :class:`~wijjit.terminal.screen.ScreenManager`, or inspecting a frame in
+        a test or REPL. ``examples/advanced/scroll_demo.py`` uses it that way.
 
-            Use ``render_to(ctx)`` for cell-based rendering instead.
-            This method is kept for backwards compatibility with tests
-            and debugging purposes.
+        Inside a Wijjit app, frames are painted by ``render_to(ctx)`` instead:
+        that is the cell-based path, and the only one that participates in
+        clipping, diff rendering, and wide-character handling. Prefer it for
+        anything that draws into a :class:`~wijjit.rendering.paint_context.PaintContext`.
 
         Returns
         -------

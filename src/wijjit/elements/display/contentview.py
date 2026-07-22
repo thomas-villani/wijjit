@@ -705,7 +705,7 @@ class ContentView(ScrollableElement):
         content_width : int
             Content area width
         """
-        from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
         from wijjit.terminal.cell import get_pooled_cell
 
         # Get border characters
@@ -715,7 +715,7 @@ class ContentView(ScrollableElement):
             "rounded": BorderStyle.ROUNDED,
         }
         style = border_map.get(self.border_style, BorderStyle.SINGLE)
-        chars = BORDER_CHARS[style]
+        chars = BORDER_CHARS_UNICODE[style]
         border_attrs = border_style.to_cell_attrs()
 
         # Calculate total width

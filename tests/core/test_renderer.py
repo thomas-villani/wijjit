@@ -575,24 +575,17 @@ class TestRootFrameAutoScroll:
             == BorderStyle.NONE
         )
 
-    def test_frame_border_style_alias_still_works(self):
-        """``border_style`` is retained as a backward-compatible alias for ``border``."""
+    def test_frame_border_style_alias_is_gone(self):
+        """``border_style`` was the frame tag's deprecated alias for ``border``.
+
+        It was dropped before 1.0 so the frame and dialog tags agree on one
+        spelling; the abandoned attribute no longer sets the border.
+        """
         from wijjit.layout.frames import BorderStyle
 
         assert (
             self._root_frame_border('{% frame border_style="double" %}x{% endframe %}')
-            == BorderStyle.DOUBLE
-        )
-
-    def test_frame_border_takes_precedence_over_border_style(self):
-        """When both are given, the canonical ``border`` wins."""
-        from wijjit.layout.frames import BorderStyle
-
-        assert (
-            self._root_frame_border(
-                '{% frame border="double" border_style="single" %}x{% endframe %}'
-            )
-            == BorderStyle.DOUBLE
+            == BorderStyle.SINGLE
         )
 
     def test_frame_in_vstack_is_root_frame(self):

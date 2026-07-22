@@ -41,7 +41,6 @@ def render_template(app: Wijjit, template: str, width: int = 80, height: int = 2
         context=data,
         width=width,
         height=height,
-        overlay_manager=app.overlay_manager,
     )
 
     # Process template-declared overlays (mimic app._render behavior)

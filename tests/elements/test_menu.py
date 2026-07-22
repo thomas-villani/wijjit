@@ -493,9 +493,9 @@ class TestMenuElement:
         )
 
         # Should contain horizontal line characters
-        from wijjit.layout.frames import BORDER_CHARS
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE
 
-        chars = BORDER_CHARS[BorderStyle.SINGLE]
+        chars = BORDER_CHARS_UNICODE[BorderStyle.SINGLE]
         assert chars["h"] in output
 
     def test_render_focused_border(self):
@@ -563,9 +563,9 @@ class TestMenuElement:
             menu, width=menu.bounds.width, height=menu.bounds.height
         )
 
-        from wijjit.layout.frames import BORDER_CHARS
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE
 
-        chars = BORDER_CHARS[BorderStyle.DOUBLE]
+        chars = BORDER_CHARS_UNICODE[BorderStyle.DOUBLE]
         # Should contain double border characters
         assert chars["tl"] in output or chars["h"] in output
 
@@ -578,9 +578,9 @@ class TestMenuElement:
             menu, width=menu.bounds.width, height=menu.bounds.height
         )
 
-        from wijjit.layout.frames import BORDER_CHARS
+        from wijjit.layout.frames import BORDER_CHARS_UNICODE
 
-        chars = BORDER_CHARS[BorderStyle.ROUNDED]
+        chars = BORDER_CHARS_UNICODE[BorderStyle.ROUNDED]
         # Should contain rounded border characters
         assert chars["tl"] in output or chars["h"] in output
 

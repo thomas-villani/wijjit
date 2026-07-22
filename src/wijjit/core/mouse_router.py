@@ -375,23 +375,6 @@ class MouseEventRouter:
                         if handled:
                             self.app.needs_render = True
 
-    async def _route_to_element(
-        self, event: TerminalMouseEvent, target_element: Element | None
-    ) -> None:
-        """Route event to target element (deprecated).
-
-        This method is deprecated in favor of _route_to_element_async().
-        Kept for backwards compatibility.
-
-        Parameters
-        ----------
-        event : TerminalMouseEvent
-            The mouse event
-        target_element : Element or None
-            Element under mouse cursor
-        """
-        await self._route_to_element_async(event, target_element)
-
     @staticmethod
     def _hit_bounds(elem: Element) -> Bounds | None:
         """Return the rect to hit-test ``elem`` against.
