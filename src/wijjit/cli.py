@@ -3,6 +3,7 @@
 Developer- and LLM-friendly tooling for inspecting, validating, and driving
 Wijjit apps::
 
+    wijjit new tasks                             # generate a runnable starter app
     wijjit validate app.wij.j2 --render          # lint a template, show a snapshot
     wijjit validate examples/login.py            # lint a full example app
     wijjit tree app.wij.j2 --json                # dump the VNode "DOM" tree
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from wijjit import __version__
+from wijjit.devtools.scaffold import LAYOUTS as SCAFFOLD_LAYOUTS
 from wijjit.testing.cli import _parse_size, run_render
 
 
@@ -46,6 +48,34 @@ def _cmd_llm_help(args: argparse.Namespace) -> int:
     from wijjit.devtools import build_tag_reference, render_llm_help
 
     print(build_tag_reference() if args.tags_only else render_llm_help())
+    return 0
+
+
+def _cmd_new(args: argparse.Namespace) -> int:
+    """Generate a starter app and print what to run next."""
+    from wijjit.devtools.scaffold import ScaffoldError, create, next_steps
+
+    try:
+        written = create(
+            args.name,
+            directory=args.directory,
+            layout=args.template,
+            force=args.force,
+        )
+    except ScaffoldError as exc:
+        print(f"{exc}", file=sys.stderr)
+        return 1
+
+    root = Path.cwd() if args.directory is None else Path(args.directory)
+    for path in written:
+        try:
+            shown = path.relative_to(root)
+        except ValueError:  # generated outside the cwd; show it in full
+            shown = path
+        print(f"created {shown}")
+    print("\nNext:")
+    for step in next_steps(args.name, args.template):
+        print(f"  {step}")
     return 0
 
 
@@ -136,6 +166,30 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show the installed Wijjit version and exit.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
+
+    pnew = sub.add_parser(
+        "new",
+        help="Generate a runnable starter app.",
+        description=(
+            "Generate a starter Wijjit app. The default is a single runnable "
+            "file; --template project adds a file-based template, headless "
+            "harness tests, and packaging metadata."
+        ),
+    )
+    pnew.add_argument("name", help="Project name, e.g. 'tasks' or 'my-app'.")
+    pnew.add_argument(
+        "--template",
+        choices=SCAFFOLD_LAYOUTS,
+        default="single",
+        help="Layout to generate (default: single).",
+    )
+    pnew.add_argument(
+        "--directory",
+        type=Path,
+        help="Directory to generate into (default: the current directory).",
+    )
+    pnew.add_argument("--force", action="store_true", help="Overwrite existing files.")
+    pnew.set_defaults(func=_cmd_new)
 
     pv = sub.add_parser(
         "validate", help="Parse a template or app for errors; optionally render."

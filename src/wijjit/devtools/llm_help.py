@@ -171,6 +171,14 @@ Two consequences worth holding on to:
    app -- which is why you can lint and drive a Wijjit app headlessly (see
    "Check your work").
 
+## Starting from a scaffold
+
+`wijjit new NAME` writes a runnable starter app -- one file by default, or
+`--template project` for a version with the template in `templates/`, headless
+harness tests, and packaging metadata. Prefer it to writing a file from scratch:
+the generated app is linted and driven in Wijjit's own test suite, so it is
+known-good starting shape.
+
 ## A complete app
 
 ```python
@@ -281,6 +289,7 @@ Do not guess whether a template is right -- the toolchain answers statically,
 with no terminal involved:
 
 ```bash
+wijjit new app --template project # a known-good starting point
 wijjit validate app.py            # unknown tags, undefined vars, bad attributes
 wijjit validate app.py --json     # same, machine-readable, non-zero exit on error
 wijjit tree app.py --json         # the VNode "DOM" the template produces
