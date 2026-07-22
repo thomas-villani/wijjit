@@ -89,7 +89,7 @@ def main() -> None:
                    width=34
                    label="CPU Usage"
                    unit="%"
-                   color="threshold" %}{% endgauge %}
+                   color_mode="threshold" %}{% endgauge %}
           Current: {{ "%.1f"|format(state.cpu_usage) }}%
         {% endvstack %}
       {% endframe %}
@@ -102,7 +102,7 @@ def main() -> None:
                    width=34
                    label="Memory Usage"
                    unit="%"
-                   color="gradient"
+                   color_mode="gradient"
                    color_scale="heat" %}{% endgauge %}
           Current: {{ "%.1f"|format(state.memory_usage) }}%
         {% endvstack %}
