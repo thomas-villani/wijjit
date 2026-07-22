@@ -1,11 +1,18 @@
-"""ANSI string to Cell conversion utilities (temporary migration bridge).
+"""ANSI string to Cell conversion utilities.
 
-This module provides utilities to convert between ANSI escape sequence strings
-and cell-based representations. This is a temporary bridge during the migration
-from ANSI string-based rendering to cell-based rendering.
+This module converts between ANSI escape sequence strings and the cell-based
+representation the screen buffer works in. It was written as a migration bridge
+while elements moved to cell rendering, but it outlived that job: it is the
+supported path for content that arrives *already* rendered as ANSI, which the
+framework cannot produce cell-by-cell itself. :func:`ansi_string_to_cells` backs
+the ``content_type="ansi"`` attribute (Rich-rendered tables, syntax-highlighted
+output, captured process output) and is used by ContentView, Table, and the
+content renderers.
 
-NOTE: This module will be DEPRECATED and removed once all elements are migrated
-to cell-based rendering.
+Known gap: :func:`ansi_string_to_cells` maps one code point per cell, so
+pre-rendered ANSI containing double-width characters (CJK, emoji) is not
+column-correct the way the wcwidth-aware :class:`~wijjit.rendering.paint_context.PaintContext`
+write APIs are.
 """
 
 import re

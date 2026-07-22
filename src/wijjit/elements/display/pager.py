@@ -17,7 +17,7 @@ from wijjit.elements.base import (
     delegate_frame_scroll,
     invoke_callback,
 )
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle, Frame, FrameStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle, Frame, FrameStyle
 from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import clip_to_width
 from wijjit.terminal.input import Key, Keys
@@ -642,7 +642,7 @@ class Pager(Container):
 
         # Get border characters
         if self.border_style != BorderStyle.NONE:
-            chars = BORDER_CHARS[self.border_style]
+            chars = BORDER_CHARS_UNICODE[self.border_style]
             # note: this unused?
             # border_attrs = border_style.to_cell_attrs()
 

@@ -64,7 +64,7 @@ def render_view(
 
     # Render with layout engine
     output, elements, layout_ctx = app.renderer.render_with_layout(
-        view.template, context, width, height, overlay_manager=app.overlay_manager
+        view.template, context, width, height
     )
 
     # Process template-declared overlays (mimic app._render behavior)

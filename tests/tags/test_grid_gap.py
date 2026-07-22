@@ -37,9 +37,12 @@ def test_column_gap_canonical():
     assert "col_gap" not in props  # the abbreviated prop name is gone
 
 
-def test_col_gap_alias():
+def test_col_gap_alias_is_gone():
+    # The abbreviated alias was dropped before 1.0; the grid tag now spells the
+    # gap the same way HStack does. An unknown attribute is forwarded as a prop
+    # so the validator can flag it, rather than silently setting the gap.
     props = _grid_props("{% grid rows=2 cols=2 col_gap=4 %}{% endgrid %}")
-    assert props["column_gap"] == 4
+    assert props["column_gap"] == 0
 
 
 def test_column_gap_default_zero():

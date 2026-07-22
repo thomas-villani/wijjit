@@ -251,7 +251,7 @@ class TestOutputComposition:
         """
         renderer = Renderer()
         template = """
-        {% frame width=20 height=5 border_style="single" %}
+        {% frame width=20 height=5 border="single" %}
             Content
         {% endframe %}
         """

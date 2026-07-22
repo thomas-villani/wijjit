@@ -1253,7 +1253,6 @@ class Wijjit:
                         context=data,
                         width=term_size.columns,
                         height=term_size.lines,
-                        overlay_manager=self.overlay_manager,
                         allow_incremental=allow_incremental,
                     )
                 else:
@@ -1263,7 +1262,6 @@ class Wijjit:
                         context=data,
                         width=term_size.columns,
                         height=term_size.lines,
-                        overlay_manager=self.overlay_manager,
                         allow_incremental=allow_incremental,
                     )
 
@@ -1338,7 +1336,6 @@ class Wijjit:
                     term_size.columns,
                     term_size.lines,
                     apply_dimming=apply_dimming,
-                    overlay_manager=self.overlay_manager,
                     force_full_redraw=overlays_changed,
                 )
             # Note: When overlays are dismissed (overlays_changed=True but no overlays present),

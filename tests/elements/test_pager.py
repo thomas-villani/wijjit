@@ -580,7 +580,7 @@ class TestPagerMixedContentLayout:
     """
 
     TEMPLATE = """
-    {% frame title="Mixed" border_style="single" %}
+    {% frame title="Mixed" border="single" %}
       {% pager id="pg" width=70 height=16 %}
         {% page title="Form" %}
 INTRO_LINE_ONE

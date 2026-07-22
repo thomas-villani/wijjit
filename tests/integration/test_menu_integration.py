@@ -49,7 +49,6 @@ def render_template(app: Wijjit, template: str, width: int = 80, height: int = 2
         context=data,
         width=width,
         height=height,
-        overlay_manager=app.overlay_manager,
     )
 
     app._sync_template_overlays(layout_ctx)

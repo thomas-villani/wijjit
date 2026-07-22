@@ -1223,14 +1223,14 @@ class TestTextAreaDynamicSizing:
     """
 
     TEMPLATE = """
-    {% frame title="Outer" border_style="double" width="fill" height="fill" %}
+    {% frame title="Outer" border="double" width="fill" height="fill" %}
       {% vstack spacing=1 %}
         {% hstack spacing=2 width=fill height=fill %}
-          {% frame border_style="rounded" title="Log" width=fill height=fill %}
+          {% frame border="rounded" title="Log" width=fill height=fill %}
             {% textarea id="ta" border_style="none" width=fill height=fill %}aaa
 bbb{% endtextarea %}
           {% endframe %}
-          {% frame border_style="single" title="Side" width=30 height=fill %}side{% endframe %}
+          {% frame border="single" title="Side" width=30 height=fill %}side{% endframe %}
         {% endhstack %}
         BOTTOM_MARKER
       {% endvstack %}

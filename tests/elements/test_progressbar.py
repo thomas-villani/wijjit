@@ -29,7 +29,7 @@ class TestProgressBar:
         """
         pb = ProgressBar()
         assert pb.value == 0
-        assert pb.max == 100
+        assert pb.max_value == 100
         assert pb.width == 40
         assert pb.style == "filled"
         assert pb.color is None
@@ -50,7 +50,7 @@ class TestProgressBar:
         pb = ProgressBar(
             id="test",
             value=50,
-            max=200,
+            max_value=200,
             width=60,
             style="gradient",
             color="cyan",
@@ -58,7 +58,7 @@ class TestProgressBar:
         )
         assert pb.id == "test"
         assert pb.value == 50
-        assert pb.max == 200
+        assert pb.max_value == 200
         assert pb.width == 60
         assert pb.style == "gradient"
         assert pb.color == "cyan"
@@ -75,16 +75,16 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=25, max=100)
+        pb = ProgressBar(value=25, max_value=100)
         assert pb.get_percentage() == 25.0
 
-        pb = ProgressBar(value=50, max=200)
+        pb = ProgressBar(value=50, max_value=200)
         assert pb.get_percentage() == 25.0
 
-        pb = ProgressBar(value=0, max=100)
+        pb = ProgressBar(value=0, max_value=100)
         assert pb.get_percentage() == 0.0
 
-        pb = ProgressBar(value=100, max=100)
+        pb = ProgressBar(value=100, max_value=100)
         assert pb.get_percentage() == 100.0
 
     def test_get_percentage_edge_cases(self):
@@ -99,15 +99,15 @@ class TestProgressBar:
         None
         """
         # Zero max
-        pb = ProgressBar(value=50, max=0)
+        pb = ProgressBar(value=50, max_value=0)
         assert pb.get_percentage() == 0.0
 
         # Value exceeds max (should clamp to 100%)
-        pb = ProgressBar(value=150, max=100)
+        pb = ProgressBar(value=150, max_value=100)
         assert pb.get_percentage() == 100.0
 
         # Negative value (should clamp to 0%)
-        pb = ProgressBar(value=-10, max=100)
+        pb = ProgressBar(value=-10, max_value=100)
         assert pb.get_percentage() == 0.0
 
     def test_set_progress(self):
@@ -141,7 +141,7 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=50, max=100, width=40, style="filled")
+        pb = ProgressBar(value=50, max_value=100, width=40, style="filled")
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 40, 1))
         output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
@@ -166,7 +166,7 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=75, max=100, width=40, style="percentage")
+        pb = ProgressBar(value=75, max_value=100, width=40, style="percentage")
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 40, 1))
         output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
@@ -190,7 +190,7 @@ class TestProgressBar:
         None
         """
         # Low percentage (red)
-        pb_low = ProgressBar(value=20, max=100, width=40, style="gradient")
+        pb_low = ProgressBar(value=20, max_value=100, width=40, style="gradient")
         if not pb_low.bounds:
             pb_low.set_bounds(Bounds(0, 0, 40, 1))
         output_low = render_element(
@@ -199,7 +199,7 @@ class TestProgressBar:
         assert len(strip_ansi(output_low)) > 0
 
         # Medium percentage (yellow)
-        pb_med = ProgressBar(value=50, max=100, width=40, style="gradient")
+        pb_med = ProgressBar(value=50, max_value=100, width=40, style="gradient")
         if not pb_med.bounds:
             pb_med.set_bounds(Bounds(0, 0, 40, 1))
         output_med = render_element(
@@ -208,7 +208,7 @@ class TestProgressBar:
         assert len(strip_ansi(output_med)) > 0
 
         # High percentage (green)
-        pb_high = ProgressBar(value=90, max=100, width=40, style="gradient")
+        pb_high = ProgressBar(value=90, max_value=100, width=40, style="gradient")
         if not pb_high.bounds:
             pb_high.set_bounds(Bounds(0, 0, 40, 1))
         output_high = render_element(
@@ -234,7 +234,7 @@ class TestProgressBar:
         """
         pb = ProgressBar(
             value=50,
-            max=100,
+            max_value=100,
             width=40,
             style="custom",
             fill_char="=",
@@ -262,7 +262,9 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=50, max=100, width=40, style="filled", color="green")
+        pb = ProgressBar(
+            value=50, max_value=100, width=40, style="filled", color="green"
+        )
         if not pb.bounds:
             pb.bounds = Bounds(0, 0, 40, 1)
         output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
@@ -287,7 +289,7 @@ class TestProgressBar:
         None
         """
         pb = ProgressBar(
-            value=50, max=100, width=40, style="filled", show_percentage=False
+            value=50, max_value=100, width=40, style="filled", show_percentage=False
         )
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 40, 1))
@@ -310,7 +312,7 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=0, max=100, width=40, style="filled")
+        pb = ProgressBar(value=0, max_value=100, width=40, style="filled")
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 40, 1))
         output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
@@ -330,7 +332,7 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=100, max=100, width=40, style="filled")
+        pb = ProgressBar(value=100, max_value=100, width=40, style="filled")
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 40, 1))
         output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
@@ -351,7 +353,7 @@ class TestProgressBar:
         -------
         None
         """
-        pb = ProgressBar(value=50, max=100, width=10, style="filled")
+        pb = ProgressBar(value=50, max_value=100, width=10, style="filled")
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 10, 1))
         output = render_element(pb, width=pb.bounds.width, height=pb.bounds.height)
@@ -620,7 +622,7 @@ class TestBarStyles:
         None
         """
         pb = ProgressBar(
-            value=50, max=100, width=20, bar_style="equals", show_percentage=False
+            value=50, max_value=100, width=20, bar_style="equals", show_percentage=False
         )
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 20, 1))
@@ -641,7 +643,7 @@ class TestBarStyles:
         None
         """
         pb = ProgressBar(
-            value=50, max=100, width=20, bar_style="arrow", show_percentage=False
+            value=50, max_value=100, width=20, bar_style="arrow", show_percentage=False
         )
         if not pb.bounds:
             pb.set_bounds(Bounds(0, 0, 20, 1))

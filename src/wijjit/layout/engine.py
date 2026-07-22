@@ -1470,7 +1470,7 @@ class Grid(Container):
         Child nodes (may include GridSpanWrapper for spans)
     row_gap : int, optional
         Vertical gap between rows (default: 0)
-    col_gap : int, optional
+    column_gap : int, optional
         Horizontal gap between columns (default: 0)
     width : int, str, or Size, optional
         Width specification (default: "fill")
@@ -1495,7 +1495,7 @@ class Grid(Container):
         Number of grid columns
     row_gap : int
         Gap between rows
-    col_gap : int
+    column_gap : int
         Gap between columns
 
     Raises
@@ -1510,7 +1510,7 @@ class Grid(Container):
         cols: int,
         children: list[LayoutNode] | None = None,
         row_gap: int = 0,
-        col_gap: int = 0,
+        column_gap: int = 0,
         width: int | str | Size = "fill",
         height: int | str | Size = "auto",
         padding: int | tuple[int, int, int, int] = 0,
@@ -1525,7 +1525,7 @@ class Grid(Container):
         self.rows = rows
         self.cols = cols
         self.row_gap = row_gap
-        self.col_gap = col_gap
+        self.column_gap = column_gap
 
         # Internal tracking (initialized in validate_and_place_children)
         self._cell_map: list[list[GridCell | None]] = []
@@ -1714,7 +1714,7 @@ class Grid(Container):
                     # Calculate current spanned width
                     spanned_cols = list(range(cell.col, cell.col + cell.colspan))
                     current_width = sum(self._col_widths[c] for c in spanned_cols)
-                    current_width += self.col_gap * (cell.colspan - 1)
+                    current_width += self.column_gap * (cell.colspan - 1)
 
                     # If child needs more width, distribute evenly
                     if child.constraints.preferred_width > current_width:
@@ -1741,7 +1741,7 @@ class Grid(Container):
                                 self._row_heights[r] += 1
 
         # Calculate total size
-        total_width = sum(self._col_widths) + self.col_gap * (self.cols - 1)
+        total_width = sum(self._col_widths) + self.column_gap * (self.cols - 1)
         total_height = sum(self._row_heights) + self.row_gap * (self.rows - 1)
 
         # Add padding and margins
@@ -1807,7 +1807,7 @@ class Grid(Container):
         current_x = content_x
         for c in range(self.cols):
             col_x_positions[c] = current_x
-            current_x += self._col_widths[c] + self.col_gap
+            current_x += self._col_widths[c] + self.column_gap
 
         # Assign bounds to each child based on its cell position and span
         for child, cell in self._children_placed:
@@ -1818,7 +1818,7 @@ class Grid(Container):
             cell_width = sum(
                 self._col_widths[c] for c in range(cell.col, cell.col + cell.colspan)
             )
-            cell_width += self.col_gap * (cell.colspan - 1)
+            cell_width += self.column_gap * (cell.colspan - 1)
 
             # Calculate spanned height (sum of rows + gaps)
             cell_height = sum(

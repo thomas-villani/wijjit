@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 from wijjit.layout.scroll import (
     ScrollManager,
     render_horizontal_scrollbar,
@@ -1427,7 +1427,7 @@ class DataGrid(ScrollableElement):
         ctx : PaintContext
             Paint context with buffer, style resolver, and bounds
         """
-        border_chars = BORDER_CHARS[self.border_style]
+        border_chars = BORDER_CHARS_UNICODE[self.border_style]
 
         # Style resolution
         _base_style = ctx.style_resolver.resolve_style(self, "datagrid")

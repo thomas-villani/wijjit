@@ -24,7 +24,6 @@ def render_template(app: Wijjit, template: str, width: int = 80, height: int = 2
         context=data,
         width=width,
         height=height,
-        overlay_manager=app.overlay_manager,
     )
 
     # Process template-declared overlays (mimic app._render behavior)
@@ -242,7 +241,6 @@ class TestRendererOverlayIntegration:
             context=data,
             width=80,
             height=24,
-            overlay_manager=app.overlay_manager,
         )
 
         # Process template-declared overlays (this is now done by app, not renderer)
@@ -254,11 +252,12 @@ class TestRendererOverlayIntegration:
         assert len(app.overlay_manager.overlays) == 1
         assert app.overlay_manager.overlays[0].element.id == "test_modal"
 
-    def test_renderer_without_overlay_manager_doesnt_crash(self):
-        """Test that Renderer works without overlay_manager parameter.
+    def test_renderer_renders_overlays_standalone(self):
+        """A bare Renderer handles an overlay template with no app attached.
 
-        Verifies backward compatibility - render_with_layout should work
-        when overlay_manager is not provided (for non-app usage).
+        ``render_with_layout`` used to take an ``overlay_manager`` it never
+        read; the parameter was dropped before 1.0. Overlay elements are still
+        collected here and composited by the caller.
         """
         renderer = Renderer()
 
@@ -272,7 +271,7 @@ class TestRendererOverlayIntegration:
 
         # Should not crash when overlay_manager is None
         output, elements, _ = renderer.render_with_layout(
-            template, context={}, width=80, height=24, overlay_manager=None
+            template, context={}, width=80, height=24
         )
 
         # Output should still be valid

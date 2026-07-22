@@ -26,7 +26,6 @@ from wijjit.layout.dirty import DirtyRegionManager
 from wijjit.terminal.size import get_terminal_size
 
 if TYPE_CHECKING:
-    from wijjit.core.overlay import OverlayManager
     from wijjit.terminal.cell import Cell
 
 from wijjit.core.element_registry import ElementRegistry
@@ -41,7 +40,7 @@ from wijjit.layout.engine import (
     LayoutEngine,
     LayoutNode,
 )
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 from wijjit.logging_config import get_logger
 from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
@@ -587,7 +586,6 @@ class Renderer:
         context: dict[str, Any] | None = None,
         width: int | None = None,
         height: int | None = None,
-        overlay_manager: "OverlayManager | None" = None,
         template_name: str | None = None,
         allow_incremental: bool = False,
     ) -> tuple[str, list[Element], "LayoutContext"]:
@@ -609,8 +607,6 @@ class Renderer:
             Available width (default: terminal width)
         height : int, optional
             Available height (default: terminal height)
-        overlay_manager : OverlayManager, optional
-            Overlay manager (deprecated, no longer used - overlays handled by caller)
         template_name : str, optional
             Name of template file to load from template_dir (use this OR template_string)
 
@@ -895,9 +891,7 @@ class Renderer:
                 rows=props.get("rows", 2),
                 cols=props.get("cols", 2),
                 row_gap=props.get("row_gap", 0),
-                # The grid tag emits the canonical "column_gap"; fall back to the
-                # legacy "col_gap" prop name for safety.
-                col_gap=props.get("column_gap", props.get("col_gap", 0)),
+                column_gap=props.get("column_gap", 0),
                 width=layout_spec.width or "fill",
                 height=layout_spec.height or "auto",
                 padding=layout_spec.padding or 0,
@@ -2072,8 +2066,8 @@ class Renderer:
                 border_style = style_resolver.resolve_style_by_class(f"{prefix}.border")
 
             # Get border characters
-            border_chars = BORDER_CHARS.get(
-                style.border_style, BORDER_CHARS[BorderStyle.SINGLE]
+            border_chars = BORDER_CHARS_UNICODE.get(
+                style.border_style, BORDER_CHARS_UNICODE[BorderStyle.SINGLE]
             )
 
             # Create paint context for frame with adjusted bounds and clip region
@@ -2257,7 +2251,6 @@ class Renderer:
         height: int,
         apply_dimming: bool = False,
         dim_factor: float = 0.6,
-        overlay_manager: "OverlayManager | None" = None,
         force_full_redraw: bool = False,
     ) -> str:
         """Composite overlay elements on cell buffer.
@@ -2381,7 +2374,6 @@ class Renderer:
         height: int,
         apply_dimming: bool = False,
         dim_factor: float = 0.6,
-        overlay_manager: "OverlayManager | None" = None,
         force_full_redraw: bool = False,
     ) -> str:
         """Composite overlay elements on top of base output.
@@ -2427,7 +2419,6 @@ class Renderer:
                 height,
                 apply_dimming,
                 dim_factor,
-                overlay_manager,
                 force_full_redraw,
             )
 

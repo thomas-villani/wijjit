@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from wijjit.elements.base import ElementType, OverlayElement, invoke_callback
 from wijjit.layout.bounds import Bounds
-from wijjit.layout.frames import BORDER_CHARS, BorderStyle
+from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
 from wijjit.terminal.ansi import ANSIStyle, clip_to_width, visible_length
 from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseEvent, MouseEventType
@@ -386,7 +386,7 @@ class MenuElement(OverlayElement):
         border_style = ctx.style_resolver.resolve_style(self, border_style_class)
 
         # Get border characters for the style
-        border_chars = BORDER_CHARS[self.border_style]
+        border_chars = BORDER_CHARS_UNICODE[self.border_style]
 
         # Draw border around menu
         ctx.draw_border(
@@ -404,7 +404,7 @@ class MenuElement(OverlayElement):
             if item.divider:
                 # Render divider using border horizontal character
                 divider_style = ctx.style_resolver.resolve_style(self, "menu.divider")
-                chars = BORDER_CHARS[self.border_style]
+                chars = BORDER_CHARS_UNICODE[self.border_style]
                 divider_line = chars["h"] * self.width
                 ctx.write_text(1, row, divider_line, divider_style)
             else:
