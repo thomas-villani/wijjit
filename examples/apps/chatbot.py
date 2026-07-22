@@ -121,7 +121,12 @@ def main_view():
     """Render the chat window with a self-scrolling conversation log."""
     return render_template_string(
         """
-{% frame border="rounded" title="Wijjit Chatbot" width=72 height=24 %}
+{# height=26 is the height this content actually needs: the 15-row log, the
+   input row, the status line, vstack spacing and padding, and the border. At
+   24 the content overflowed by two rows, so the frame became scrollable --
+   which drew a scrollbar and, because scrollable containers are focusable, put
+   the frame itself first in the tab order, ahead of the log. #}
+{% frame border="rounded" title="Wijjit Chatbot" width=72 height=26 %}
   {% vstack spacing=1 padding=1 %}
 
     {# A LogView tails the newest line automatically (auto_scroll) and wraps
