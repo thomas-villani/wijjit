@@ -101,7 +101,7 @@ Add the main view below the app definition:
         {{ state.status }}
 
         {% hstack spacing=1 %}
-          {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" %}
+          {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" autofocus=True %}
           {% endtextinput %}
           {% button action="clear_done" %}Clear Done{% endbutton %}
         {% endhstack %}
@@ -233,7 +233,9 @@ Add a manual save shortcut (handy before quitting) and start the app:
 
 Save the file, run ``python todo_app.py``, and exercise the workflow:
 
-* Type a task, press Enter → task appears and persists.
+* Type a task, press Enter → task appears and persists. (The input is
+  ``autofocus=True``, so it has the cursor from the first frame; without that an
+  app starts with nothing focused.)
 * Press the checkbox or hit the toggle button → status updates.
 * Switch filters using the filter buttons.
 * Quit with ``Ctrl+C`` and restart → todos rehydrate from disk.
@@ -304,7 +306,7 @@ If you prefer a single block to copy, here is the finished script:
         {{ state.status }}
 
         {% hstack spacing=1 %}
-          {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" %}
+          {% textinput id="new_todo" placeholder="Add a task and press Enter" width="fill" action="add_todo" autofocus=True %}
           {% endtextinput %}
           {% button action="clear_done" %}Clear Done{% endbutton %}
         {% endhstack %}

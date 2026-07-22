@@ -60,7 +60,7 @@ CLIPS: dict[str, dict[str, Any]] = {
         "size": (74, 26),
         "steps": [
             ("", 1400),  # opening screen
-            ("tab", 400),  # focus the input
+            # No leading tab: the input is autofocus, so typing starts at once.
             ("type:Ship wijjit 0.1.0", 60),  # typewriter
             ("", 500),
             ("enter", 1000),  # the item is added to the list

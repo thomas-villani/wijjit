@@ -119,7 +119,9 @@ button-bearing dialogs).
 * ``dimmed_background`` – render a dimmed layer behind the overlay.
 * ``on_close`` – callback invoked after the overlay is dismissed.
 
-When ``trap_focus=True``, keyboard navigation (Tab/Shift+Tab) continues to work within the modal, cycling through its focusable elements. Focus is automatically restored to the previously focused element when the modal closes. See :doc:`focus_navigation` for details.
+When ``trap_focus=True``, keyboard navigation (Tab/Shift+Tab) continues to work within the modal, cycling through its focusable elements. Focus is automatically restored to the previously focused element when the modal closes.
+
+A trapping overlay always takes focus somewhere, defaulting to its first focusable element. Mark an element inside the dialog ``autofocus=True`` to choose a different one - useful for putting the cursor straight into a ``TextInputDialog``-style prompt, or on the safe button of a destructive confirmation. See :doc:`focus_navigation` for details.
 
 Templated dialogs
 -----------------

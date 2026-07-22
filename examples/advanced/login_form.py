@@ -29,7 +29,7 @@ def login_view():
 {% frame title="Login" border="single" width=50 height=15 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.status }}
-    Username: {% textinput id="username" placeholder="Enter username" width=30 %}{% endtextinput %}
+    Username: {% textinput id="username" placeholder="Enter username" width=30 autofocus=True %}{% endtextinput %}
     Password: {% textinput id="password" placeholder="Enter password" width=30 password=True action="login" %}{% endtextinput %}
 
     {% hstack spacing=2 %}

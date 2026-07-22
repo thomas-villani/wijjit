@@ -138,7 +138,9 @@ Enable ``enable_input=True`` to accept keyboard input:
 Features when input is enabled:
 
 * **Tab / Shift+Tab** - Navigate between focusable elements
-* **Typing** - Input goes to the focused element
+* **Typing** - Input goes to the focused element. Nothing is focused until the
+  first Tab unless an element declares ``autofocus=True`` - mark the first field
+  to let users type straight away (see :ref:`autofocus-attribute`)
 * **Quit key** - Exit the app (default: Ctrl+Q)
 * **State sync** - Element values automatically sync to ``app.state`` by element ID
 

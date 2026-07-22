@@ -190,7 +190,7 @@ ENABLE_FOCUS_NAVIGATION
 
 :Type: ``bool``
 :Default: ``True``
-:Description: Enable Tab/Shift+Tab navigation between focusable elements
+:Description: Enable Tab/Shift+Tab navigation between focusable elements. Disabling this leaves ``autofocus`` and programmatic focus (``app.focus_element_by_id``) working - it removes only the Tab/Shift+Tab traversal handlers.
 
 .. code-block:: python
 

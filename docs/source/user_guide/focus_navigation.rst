@@ -8,8 +8,52 @@ How focus is determined
 
 1. During rendering the layout engine collects all :class:`wijjit.elements.base.Element` instances.
 2. ``FocusManager.set_elements`` filters the list to those with ``focusable=True`` (buttons, inputs, menus, etc.).
-3. The manager tries to keep focus on the same ``id`` as the previous frame. If an element disappeared, it falls back to the same index or the first available element.
-4. Focus state is synced with each element via ``element.on_focus()`` / ``element.on_blur()`` (implemented by the base class). These hooks toggle visual cues (highlighted borders, caret visibility).
+3. The manager tries to keep focus on the same ``id`` as the previous frame. If an element disappeared, it falls back to the same index.
+4. If nothing could be restored, an element marked ``autofocus=True`` takes focus (see :ref:`autofocus-attribute`). Otherwise focus is left **unset** until the first Tab.
+5. Focus state is synced with each element via ``element.on_focus()`` / ``element.on_blur()`` (implemented by the base class). These hooks toggle visual cues (highlighted borders, caret visibility).
+
+.. _autofocus-attribute:
+
+Initial focus: the ``autofocus`` attribute
+------------------------------------------
+
+A newly started app has **nothing focused**. This is deliberate - focusing the
+first element unconditionally makes the first ``Tab`` appear to skip an element -
+but it means keystrokes go nowhere until the user presses Tab. For a form, that
+is rarely what you want.
+
+Mark the element the app should start in:
+
+.. code-block:: jinja
+
+   {% textinput id="entry" placeholder="New task" width="fill" autofocus=True %}
+   {% endtextinput %}
+
+The rule is precise:
+
+* It applies whenever focus would otherwise be unset - on the first render, and
+  again if the focused element disappears from the tree.
+* It **never** steals focus from an element that already has it, so a re-render
+  cannot yank the cursor out from under the user.
+* It changes only *where focus starts*, never the Tab order.
+* ``tabindex="-1"`` excludes an element from ``autofocus`` exactly as it excludes
+  it from Tab.
+* Use it once per view. More than one is a template mistake: the first in tab
+  order wins, and the framework logs a warning rather than picking silently.
+
+``autofocus`` is accepted by every element, not just inputs, and needs no
+support from the element class - it lives on
+:class:`wijjit.elements.base.Element`.
+
+Inside a modal it selects *which* element the dialog opens on. A trapping
+overlay always takes focus somewhere, so there ``autofocus`` overrides the
+default "first focusable element" choice rather than adding focus where there
+was none.
+
+The imperative equivalent is ``app.focus_element_by_id("entry")``, but note it
+only works **after** the first render has built the elements - which is why it
+cannot be called from an ``on_enter`` hook. Prefer ``autofocus`` for initial
+focus, and the imperative helpers for focus that moves in response to events.
 
 Built-in navigation
 -------------------
@@ -128,6 +172,8 @@ For multi-pane apps where each pane should maintain its own focus, save the focu
 Troubleshooting tips
 --------------------
 
+* **Nothing is focused when the app starts** – that is the default. Mark the field you want the user to start in with ``autofocus=True`` (see :ref:`autofocus-attribute`).
+* **Typing does nothing until I press Tab twice** – a container is taking the first Tab stop. A frame whose content does not fit becomes scrollable, and scrollable containers are focusable, so they sort ahead of their own children. Give the frame enough height for its content.
 * **Element skipped** – ensure ``focusable=True`` and the element is part of the layout tree (check ``element.bounds`` is not ``None``).
 * **Wrong order** – focus order follows the layout tree order. Rearrange template tags or assign an explicit ``tab_index`` attribute to fine-tune. ``tab_index`` is a constructor param on :class:`wijjit.elements.base.Element` and is wired through the element tags, so you can set it directly in templates (e.g. ``{% textinput id="name" tab_index=1 %}``).
 * **Focus lost after rerender** – assign stable ``id`` values. Auto-generated ids may change between renders when conditionals add/remove elements.
