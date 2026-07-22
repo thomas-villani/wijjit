@@ -44,7 +44,12 @@ from jinja2 import nodes
 from wijjit.core.element_registry import ElementRegistry
 from wijjit.core.reconciler import KNOWN_CONTAINER_TYPES
 from wijjit.core.renderer import Renderer
-from wijjit.core.vdom import EPHEMERAL_PROPS, IMPLICIT_TEXT_ROOT_KEY, LAYOUT_META
+from wijjit.core.vdom import (
+    EPHEMERAL_PROPS,
+    FRAMEWORK_ONLY_PROPS,
+    IMPLICIT_TEXT_ROOT_KEY,
+    LAYOUT_META,
+)
 from wijjit.devtools._render import render_with
 from wijjit.devtools.tree import walk_vnodes
 
@@ -61,7 +66,7 @@ CONTAINER_TYPES = KNOWN_CONTAINER_TYPES
 
 # Framework props that tags set on many elements but constructors don't take as
 # parameters (handled by focus/reconciliation machinery, not __init__).
-FRAMEWORK_PROPS = EPHEMERAL_PROPS | {"tab_index"}
+FRAMEWORK_PROPS = EPHEMERAL_PROPS | FRAMEWORK_ONLY_PROPS | {"tab_index"}
 
 # Props never flagged as unknown attributes.
 _IGNORED_PROPS = LAYOUT_META | FRAMEWORK_PROPS

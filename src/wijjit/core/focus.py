@@ -124,12 +124,48 @@ class FocusManager:
         # If we had a focused index, try to focus the same index
         if old_index is not None and old_index < len(self.elements):
             self._set_focus(old_index)
+            return
+
+        # Nothing to restore. An element may claim focus declaratively with
+        # ``autofocus=True``; otherwise focus stays unset and is established by
+        # the first user navigation (Tab/Shift+Tab). Leaving it unset by
+        # default is deliberate - focusing element 0 unconditionally would make
+        # focus appear to "skip" the first element on the initial Tab, and
+        # would change the startup appearance of every existing app.
+        autofocus_index = self._autofocus_index()
+        if autofocus_index is not None:
+            self._set_focus(autofocus_index)
         else:
-            # Start with no focused element - focus will be set on first
-            # user navigation action (Tab/Shift+Tab). This avoids the visual
-            # issue where focus appears to "skip" the first element because
-            # it was focused before bounds were calculated/rendered.
             self.current_index = None
+
+    def _autofocus_index(self) -> int | None:
+        """Find the tab-navigable element requesting autofocus.
+
+        Returns
+        -------
+        int or None
+            Index into ``self.elements`` of the first element with
+            ``autofocus`` set, or None if no element requests it.
+
+        Notes
+        -----
+        Only tab-navigable elements are considered, so ``tabindex="-1"``
+        excludes an element from autofocus as well as from Tab. More than one
+        ``autofocus`` in a view is a template mistake: the first in tab order
+        wins and the rest are reported once, since a silent pick would be
+        indistinguishable from the attribute not working.
+        """
+        claimed = [i for i, elem in enumerate(self.elements) if elem.autofocus]
+        if not claimed:
+            return None
+        if len(claimed) > 1:
+            ids = [getattr(self.elements[i], "id", None) or "?" for i in claimed]
+            logger.warning(
+                "Multiple elements request autofocus (%s); focusing the first "
+                "in tab order. Remove autofocus from the others.",
+                ", ".join(str(i) for i in ids),
+            )
+        return claimed[0]
 
     def get_focused_element(self) -> Element | None:
         """Get the currently focused element.
@@ -346,8 +382,15 @@ class FocusManager:
         if old_focused and old_focused in self.elements:
             self.focus_element(old_focused)
         elif self.elements:
-            # Otherwise focus first element in filtered list
-            self.focus_first()
+            # Otherwise focus the element that asked for it, else the first.
+            # An overlay always takes focus somewhere (that is the point of
+            # trapping), so unlike set_elements there is no "leave it unset"
+            # case here - autofocus only changes *which* element wins.
+            autofocus_index = self._autofocus_index()
+            if autofocus_index is not None:
+                self._set_focus(autofocus_index)
+            else:
+                self.focus_first()
         else:
             self.current_index = None
 

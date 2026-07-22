@@ -271,6 +271,22 @@ A frame whose content does not fit becomes scrollable, which also makes it
 focusable and puts it in the Tab order. If you did not want that, give the
 frame more height.
 
+## Focus
+
+Nothing is focused when an app starts, so keystrokes go nowhere until the user
+presses Tab. Give the field the user should start in `autofocus=True`:
+
+```
+{% textinput id="entry" width="fill" autofocus=True %}{% endtextinput %}
+```
+
+It applies whenever focus would otherwise be unset -- on the first render, and
+again if the focused element disappears -- and never steals focus from an
+element that already has it. One per view; `tabindex="-1"` excludes an element
+from autofocus as it does from Tab. `app.focus_element_by_id("entry")` does the
+same thing imperatively, but only after the first render has built the
+elements.
+
 ## Common mistakes
 
 | Mistake | Correct |
@@ -281,6 +297,7 @@ frame more height.
 | `width=fill` | `width="fill"` -- quote non-integer sizes |
 | Formatting values into the template source | Pass them as context kwargs |
 | Setting `value=` on every input each render | Let `bind` handle it |
+| Expecting the first field to be focused | Mark it `autofocus=True` |
 | Looping without `key=` | Give repeated elements stable unique ids |
 
 ## Check your work

@@ -216,7 +216,14 @@ preserves cursor/scroll/selection state across renders.
   async dispatch, animation/spinner frame advance, notification expiry,
   pending-task cancellation on shutdown.
 - **focus.py** / **hover.py** - Keyboard focus navigation (Tab/Shift+Tab,
-  tab-index) and mouse hover lifecycle.
+  tab-index) and mouse hover lifecycle. Focus starts *unset* by design; an
+  element may claim it declaratively with `autofocus=True`, applied whenever
+  focus would otherwise be None (`FocusManager._autofocus_index`). `autofocus`
+  lives in `FRAMEWORK_ONLY_PROPS` (`core/vdom.py`) - props on the base
+  `Element` that the registry's constructor-signature filter would drop on
+  create, so the reconciler applies them by setattr right after construction.
+  Prefer that list over threading a new framework prop through every element
+  `__init__` the way `tab_index` was.
 - **mouse_router.py** - Hit testing, overlay-first routing by z-index, context
   menu (right-click), hover updates, async element mouse dispatch.
 - **overlay.py** - Layered overlays (`LayerType`: `BASE`, `MODAL`, `DROPDOWN`, `TOOLTIP`),
