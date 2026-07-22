@@ -7,12 +7,16 @@ This package provides static-analysis helpers that complement the live
   return structured :class:`ValidationReport` findings.
 * :func:`build_vnode_tree` / :func:`render_tree_text` / :func:`vnode_to_dict` -
   dump the VNode "DOM" a template produces.
+* :func:`render_llm_help` - a paste-able Wijjit briefing for LLMs, with the tag
+  reference introspected from the live environment.
 
-These power the ``wijjit validate`` and ``wijjit tree`` CLI subcommands.
+These power the ``wijjit validate``, ``wijjit tree`` and ``wijjit llm-help``
+CLI subcommands.
 """
 
 from __future__ import annotations
 
+from wijjit.devtools.llm_help import build_tag_reference, render_llm_help
 from wijjit.devtools.tree import (
     build_vnode_tree,
     render_tree_text,
@@ -35,4 +39,6 @@ __all__ = [
     "render_tree_text",
     "vnode_to_dict",
     "walk_vnodes",
+    "render_llm_help",
+    "build_tag_reference",
 ]
