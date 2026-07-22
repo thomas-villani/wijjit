@@ -93,6 +93,8 @@ diagnose template issues. `validate` and `tree` auto-detect raw template files
 vs `.py` apps by the `.py` suffix:
 
 ```bash
+wijjit new tasks                           # runnable starter app (single file)
+wijjit new tasks --template project        # + templates/, harness tests, pyproject
 wijjit validate myform.wij.j2 --render     # syntax/unknown-tag/undefined-var/attr findings
 wijjit tree myform.wij.j2 --json           # dump the VNode "DOM" tree
 wijjit render examples/.../demo.py --keys "tab,enter"   # ports python -m wijjit.testing
@@ -111,6 +113,14 @@ The validator lives in `src/wijjit/devtools/` (`validate.py` -> `ValidationRepor
 of `Finding`s; `tree.py` -> `build_vnode_tree`/`render_tree_text`/`vnode_to_dict`;
 `_render.py` shares the render mechanics). The dispatcher is `src/wijjit/cli.py`;
 `wijjit render` reuses `run_render` from `wijjit.testing.cli`.
+
+`wijjit new` scaffolding lives in `src/wijjit/devtools/scaffold.py` (file
+contents are module constants, substituted via `__TOKEN__` + `str.replace` --
+`str.format` would choke on the literal `{% %}` braces). Both layouts are
+linted with `wijjit validate` and driven through the harness in
+`tests/testing/test_scaffold.py`, which also runs the *generated* project's own
+pytest suite in forward and reverse order. Keep that bar: whatever the scaffold
+emits becomes the starting shape of every user's app.
 
 **Pytest plugin / fixtures:** installing wijjit registers a `pytest11` plugin
 (`wijjit.testing.pytest_plugin`; opt out `-p no:wijjit`) exposing `wijjit_harness`

@@ -96,6 +96,16 @@ Wijjit requires Python 3.11+ and is tested on Linux, macOS, and Windows.
 
 ## Quick Start
 
+The fastest start is to generate a runnable app and read it:
+
+```bash
+wijjit new tasks          # one file, runnable immediately
+wijjit run tasks.py
+```
+
+Add `--template project` for the fuller layout: the template in its own
+`templates/` file, headless harness tests, and a `pyproject.toml`.
+
 ### Hello World
 
 The simplest possible Wijjit app:
@@ -515,6 +525,12 @@ text-in/text-out and needs no TTY, so the same loop works at your prompt, in CI,
 and for an LLM writing the UI.
 
 ```bash
+# Start from a runnable app instead of a blank file. The default is a single
+# ~60-line file; --template project adds a file-based template, headless
+# harness tests, and packaging metadata.
+wijjit new tasks
+wijjit new my-notes --template project
+
 # Lint a template (or app): reports syntax errors, unknown tags, undefined
 # variables, unknown element types/attributes. Add --render for a snapshot.
 wijjit validate myform.wij.j2 --render
