@@ -6,7 +6,7 @@ reading working code rather than assembling it from documentation.
 Two layouts:
 
 ``single`` (default)
-    One file, ~60 lines, runnable immediately. Matches how the 74 bundled
+    One file, ~90 lines, runnable immediately. Matches how the 74 bundled
     examples ship and how a small CLI tool actually starts life. Uses
     :func:`~wijjit.render_template_string`, so the whole app -- state, template,
     handlers -- reads top to bottom in one place.

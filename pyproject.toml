@@ -116,13 +116,13 @@ packages = ["src/wijjit"]
 # local directories (e.g. a `.venv-wsl/` with broken symlinks on Windows).
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/wijjit",
-    "tests",
-    "examples",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    "pyproject.toml",
+    "/src/wijjit",
+    "/tests",
+    "/examples",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/pyproject.toml",
 ]
 
 [tool.pytest.ini_options]

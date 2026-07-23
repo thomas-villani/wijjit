@@ -197,7 +197,7 @@ That login form renders like this (the password field masks input with `password
 Adding a task, tabbing through the list, and checking it off. This GIF was
 recorded **without a terminal** — the frames come from the same headless harness
 the tests use, one capture per keystroke, rasterized with Pillow
-([`scripts/make_demo_gif.py`](scripts/make_demo_gif.py)). No asciinema, no
+([`scripts/make_demo_gif.py`](https://github.com/thomas-villani/wijjit/blob/main/scripts/make_demo_gif.py)). No asciinema, no
 ffmpeg, and the recording is byte-reproducible.
 
 <p align="center">
@@ -221,12 +221,12 @@ ffmpeg, and the recording is byte-reproducible.
   </tr>
 </table>
 
-**[See the full gallery ->](examples/GALLERY.md)** — 20 more screens covering
+**[See the full gallery ->](https://github.com/thomas-villani/wijjit/blob/main/examples/GALLERY.md)** — 20 more screens covering
 charts, split panels, tables, trees, dialogs, image rendering and theming, each
 with the command to reproduce it.
 
 All screenshots are generated headlessly and reproducibly by
-[`scripts/make_screenshots.py`](scripts/make_screenshots.py) — no terminal
+[`scripts/make_screenshots.py`](https://github.com/thomas-villani/wijjit/blob/main/scripts/make_screenshots.py) — no terminal
 recording involved, and re-running it only changes an image when the example or
 the framework did. Run any of the 74 bundled examples yourself with
 `wijjit run examples/<dir>/<name>.py`.
@@ -442,7 +442,8 @@ for every attribute.
   ProgressBar, Spinner, StatusIndicator, StatusBar, Notification, Modal,
   ImageView (ASCII/ANSI images — needs the `images` extra).
 - **Charts**: BarChart, ColumnChart, LineChart (braille), Gauge, HeatMap,
-  Sparkline — all support a `color` override.
+  Sparkline — with `color_mode` / `color_scale` palettes (plus a per-series
+  `color` on LineChart and Sparkline).
 - **Layout**: Frame, VStack, HStack, SplitPanel, TabbedPanel, Pager.
 - **Dialogs & menus**: ConfirmDialog, AlertDialog, TextInputDialog, DropdownMenu,
   ContextMenu.
@@ -512,7 +513,7 @@ chat), `apps/spreadsheet.py` (editable DataGrid + live chart), `apps/gcommit.py`
 charts), `advanced/dashboard_demo.py` (monitoring dashboard),
 `advanced/plugin_element.py` (a third-party element in ~30 lines), and
 `advanced/filesystem_browser.py` (tree-based file browser). See
-[`examples/README.md`](examples/README.md) for the full categorized catalog.
+[`examples/README.md`](https://github.com/thomas-villani/wijjit/blob/main/examples/README.md) for the full categorized catalog.
 
 Every example runs on the base install except `apps/system_monitor.py`, which
 needs `psutil`.
@@ -527,7 +528,7 @@ and for an LLM writing the UI.
 
 ```bash
 # Start from a runnable app instead of a blank file. The default is a single
-# ~60-line file; --template project adds a file-based template, headless
+# ~90-line file; --template project adds a file-based template, headless
 # harness tests, and packaging metadata.
 wijjit new tasks
 wijjit new my-notes --template project
@@ -626,8 +627,8 @@ feature-complete for this milestone: the element, layout, event, and rendering
 pipelines are all implemented and covered by roughly 3,600 tests running on
 Linux, macOS, and Windows across Python 3.11–3.13.
 
-See the [CHANGELOG](CHANGELOG.md) for what shipped and
-[`roadmap.md`](roadmap.md) for what's next.
+See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG.md) for what shipped and
+[`roadmap.md`](https://github.com/thomas-villani/wijjit/blob/main/roadmap.md) for what's next.
 
 ### Known limitations
 
@@ -649,8 +650,8 @@ See the [CHANGELOG](CHANGELOG.md) for what shipped and
 ## Documentation
 
 - **[Full documentation](https://thomas-villani.github.io/wijjit/)** — guides and API reference
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — development setup, tests, and the CI gates
-- **[CLAUDE.md](CLAUDE.md)** — architecture guide for AI agents working in this repo
+- **[CONTRIBUTING.md](https://github.com/thomas-villani/wijjit/blob/main/CONTRIBUTING.md)** — development setup, tests, and the CI gates
+- **[CLAUDE.md](https://github.com/thomas-villani/wijjit/blob/main/CLAUDE.md)** — architecture guide for AI agents working in this repo
 - **`examples/`** — 74 working examples
 - **`tests/`** — a large test suite that doubles as usage documentation
 
@@ -658,7 +659,7 @@ Build the docs locally with `cd docs && make html`.
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup and
+Contributions are welcome — see [CONTRIBUTING.md](https://github.com/thomas-villani/wijjit/blob/main/CONTRIBUTING.md) for setup and
 the CI gates (`black`, `ruff`, `mypy --strict`, `pytest`).
 
 Areas where help would be particularly valuable:
@@ -670,7 +671,7 @@ Areas where help would be particularly valuable:
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+MIT License. See [LICENSE](https://github.com/thomas-villani/wijjit/blob/main/LICENSE).
 
 ## Credits
 
