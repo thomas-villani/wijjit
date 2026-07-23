@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
+    ASCII_BLOCK_VERTICAL,
+    BLOCK_CHARS_VERTICAL,
     BrailleCanvas,
     begin_chart_border,
     extract_values,
@@ -248,6 +250,10 @@ class Sparkline(Element):
         if chart_height == 1:
             # Calculate how many values per character (may need to aggregate)
             values_per_char = max(1, len(normalized) // chart_width)
+            # Visible bar levels only (block ramp minus its leading space), so
+            # the series minimum draws the shortest bar rather than a gap; the
+            # space is reserved for columns with no data at all.
+            levels = (BLOCK_CHARS_VERTICAL if use_unicode else ASCII_BLOCK_VERTICAL)[1:]
             chars = []
 
             for i in range(chart_width):
@@ -259,7 +265,7 @@ class Sparkline(Element):
                     # Average the values for this column
                     chunk_vals = normalized[start_idx:end_idx]
                     avg_val = sum(chunk_vals) / len(chunk_vals) if chunk_vals else 0
-                    char = get_block_char(avg_val, "vertical", use_unicode)
+                    char = levels[min(int(avg_val * len(levels)), len(levels) - 1)]
                 else:
                     char = " "
 

@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Element, ElementType
 from wijjit.elements.display.chart_utils import (
+    ASCII_BLOCK_VERTICAL,
+    BLOCK_CHARS_VERTICAL,
     begin_chart_border,
     calculate_axis_ticks,
     extract_values,
@@ -404,7 +406,14 @@ class ColumnChart(Element):
 
             # Partial fill at top (fractional part)
             fractional = norm_val * chart_height - int(norm_val * chart_height)
-            if fractional > 0 and column_height < chart_height:
+            if column_height == 0 and fractional == 0.0:
+                # The series minimum normalizes to exactly 0.0 and would paint
+                # nothing at all, reading as missing data. Draw the shortest
+                # stub so every present column is visible.
+                ramp = BLOCK_CHARS_VERTICAL if use_unicode else ASCII_BLOCK_VERTICAL
+                stub_cells = [Cell(char=ramp[1], **col_attrs)] * column_width
+                ctx.write_cells(column_x, chart_height - 1, stub_cells)
+            elif fractional > 0 and column_height < chart_height:
                 partial_y = chart_height - column_height - 1
                 if partial_y >= 0:
                     partial_char = get_block_char(fractional, "vertical", use_unicode)

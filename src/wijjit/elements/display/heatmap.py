@@ -321,8 +321,12 @@ class HeatMap(Element):
                     # Pad to cell width
                     value_str = value_str.center(self.cell_width)[: self.cell_width]
                 else:
-                    # Use block character
-                    value_str = " " * self.cell_width
+                    # Solid blocks tinted like the background: the cell reads
+                    # as one color block in a color terminal but stays visible
+                    # where background color is stripped (NO_COLOR, plain-text
+                    # captures, dumb terminals).
+                    cell_attrs["fg_color"] = cell_color
+                    value_str = "\u2588" * self.cell_width
 
                 # Render cell
                 for char_idx, char in enumerate(value_str):
@@ -355,7 +359,15 @@ class HeatMap(Element):
             for i in range(bar_width):
                 normalized = i / max(1, bar_width - 1)
                 bar_color = get_gradient_color(normalized, 0.0, 1.0, self.color_scale)
-                bar_attrs = {**base_style.to_cell_attrs(), "bg_color": bar_color}
-                ctx.write_cell(bar_start + i, legend_y, Cell(char=" ", **bar_attrs))
+                # Same fg-tinted block treatment as the grid cells, so the
+                # legend gradient survives color-stripped output too.
+                bar_attrs = {
+                    **base_style.to_cell_attrs(),
+                    "fg_color": bar_color,
+                    "bg_color": bar_color,
+                }
+                ctx.write_cell(
+                    bar_start + i, legend_y, Cell(char="\u2588", **bar_attrs)
+                )
 
             ctx.write_text(bar_end + 1, legend_y, max_label, legend_style)

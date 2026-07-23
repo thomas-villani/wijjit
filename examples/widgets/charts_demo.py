@@ -94,7 +94,7 @@ def main_view():
     {# Row 2: Bar Chart and Column Chart #}
     {% hstack spacing=2 %}
       {% frame title="Sales by Category (Bar)" border="single" width=38 height=10 %}
-        {% barchart id="sales_bar" data=state.sales_data width=34 height=6
+        {% barchart id="sales_bar" data=state.sales_data width=34 height=8
            show_labels=true show_values=true color_mode="gradient" color_scale="green" %}
         {% endbarchart %}
       {% endframe %}
