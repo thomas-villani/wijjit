@@ -62,7 +62,7 @@ from templates rather than positioning code.
 
 ```bash
 wijjit run examples/apps/system_monitor.py
-wijjit render examples/apps/system_monitor.py --size 94x30 --tick 2 --ansi
+wijjit render examples/apps/system_monitor.py --size 94x34 --tick 2 --ansi
 ```
 
 ### Todo App
@@ -92,7 +92,7 @@ A `DataGrid` with VisiCalc-style cell entry, formulas and keyboard navigation.
 
 ```bash
 wijjit run examples/apps/spreadsheet.py
-wijjit render examples/apps/spreadsheet.py --size 92x28 --ansi
+wijjit render examples/apps/spreadsheet.py --size 106x28 --ansi
 ```
 
 ### Chatbot
@@ -127,7 +127,7 @@ against both light and dark terminals; override per series with `series_colors`.
 
 ```bash
 wijjit run examples/widgets/charts_demo.py
-wijjit render examples/widgets/charts_demo.py --size 100x40 --tick 2 --ansi
+wijjit render examples/widgets/charts_demo.py --size 84x40 --tick 2 --ansi
 ```
 
 ### Dashboard
@@ -141,7 +141,7 @@ Charts, gauges and status indicators composed into a single refreshing layout.
 
 ```bash
 wijjit run examples/advanced/dashboard_demo.py
-wijjit render examples/advanced/dashboard_demo.py --size 98x32 --tick 2 --ansi
+wijjit render examples/advanced/dashboard_demo.py --size 122x40 --tick 2 --ansi
 ```
 
 ---
@@ -159,7 +159,7 @@ Draggable, collapsible, nestable split panels with keyboard resize.
 
 ```bash
 wijjit run examples/advanced/splitpanel_nested_demo.py
-wijjit render examples/advanced/splitpanel_nested_demo.py --size 92x28 --ansi
+wijjit render examples/advanced/splitpanel_nested_demo.py --size 120x28 --ansi
 ```
 
 ### HStack Flexbox
@@ -174,7 +174,7 @@ a terminal grid.
 
 ```bash
 wijjit run examples/basic/hstack_flexbox_demo.py
-wijjit render examples/basic/hstack_flexbox_demo.py --size 86x26 --ansi
+wijjit render examples/basic/hstack_flexbox_demo.py --size 84x32 --ansi
 ```
 
 ### Grid
@@ -188,7 +188,7 @@ Grid layout basics — the starting point for most multi-pane apps.
 
 ```bash
 wijjit run examples/basic/grid_demo.py
-wijjit render examples/basic/grid_demo.py --size 76x24 --ansi
+wijjit render examples/basic/grid_demo.py --size 76x38 --ansi
 ```
 
 ---
@@ -206,7 +206,7 @@ Rich-powered, sortable, scrollable tables.
 
 ```bash
 wijjit run examples/widgets/table_demo.py
-wijjit render examples/widgets/table_demo.py --size 88x28 --ansi
+wijjit render examples/widgets/table_demo.py --size 104x31 --ansi
 ```
 
 ### Tree
@@ -220,7 +220,7 @@ Hierarchical tree with expand/collapse and single or multi-select.
 
 ```bash
 wijjit run examples/widgets/tree_demo.py
-wijjit render examples/widgets/tree_demo.py --size 74x26 --ansi
+wijjit render examples/widgets/tree_demo.py --size 74x28 --keys "click:5,5,click:8,6,click:14,9" --ansi
 ```
 
 ### DataGrid
@@ -234,7 +234,7 @@ Spreadsheet-style data entry, with optional pandas interop.
 
 ```bash
 wijjit run examples/widgets/datagrid_demo.py
-wijjit render examples/widgets/datagrid_demo.py --size 92x26 --ansi
+wijjit render examples/widgets/datagrid_demo.py --size 78x30 --ansi
 ```
 
 ### LogView
@@ -248,7 +248,7 @@ Streaming log viewer with level colouring and ANSI passthrough.
 
 ```bash
 wijjit run examples/widgets/logview_demo.py
-wijjit render examples/widgets/logview_demo.py --size 92x28 --ansi
+wijjit render examples/widgets/logview_demo.py --size 102x18 --ansi
 ```
 
 ### ImageView
@@ -264,7 +264,7 @@ Real images in the terminal, in three rendering modes — half-block colour,
 
 ```bash
 wijjit run examples/widgets/imageview_demo.py
-wijjit render examples/widgets/imageview_demo.py --size 96x30 --ansi
+wijjit render examples/widgets/imageview_demo.py --size 86x32 --ansi
 ```
 
 ---
@@ -282,7 +282,7 @@ Text inputs, selects, checkboxes and validation wired to `@app.on_action`.
 
 ```bash
 wijjit run examples/advanced/form_demo.py
-wijjit render examples/advanced/form_demo.py --size 80x30 --ansi
+wijjit render examples/advanced/form_demo.py --size 94x40 --ansi
 ```
 
 ### Login Form
@@ -312,7 +312,7 @@ Modal overlays with focus trapping and click-outside handling. Captured with
 
 ```bash
 wijjit run examples/widgets/confirm_dialog_demo.py
-wijjit render examples/widgets/confirm_dialog_demo.py --size 80x26 --keys "d" --ansi
+wijjit render examples/widgets/confirm_dialog_demo.py --size 62x17 --keys "d" --ansi
 ```
 
 ### Tabbed Panel
@@ -326,7 +326,7 @@ Tabbed navigation with per-tab content.
 
 ```bash
 wijjit run examples/widgets/tabbedpanel_demo.py
-wijjit render examples/widgets/tabbedpanel_demo.py --size 82x26 --ansi
+wijjit render examples/widgets/tabbedpanel_demo.py --size 84x36 --ansi
 ```
 
 ### Autocomplete
@@ -340,7 +340,7 @@ A suggestion dropdown over a text input, captured after typing `py`.
 
 ```bash
 wijjit run examples/basic/autocomplete_demo.py
-wijjit render examples/basic/autocomplete_demo.py --size 76x24 --keys "type:py" --ansi
+wijjit render examples/basic/autocomplete_demo.py --size 92x32 --keys "type:py" --ansi
 ```
 
 ---
@@ -372,7 +372,7 @@ Themes loaded from a real CSS file via `tinycss2`.
 
 ```bash
 wijjit run examples/styling/css_theme_demo.py
-wijjit render examples/styling/css_theme_demo.py --size 84x28 --ansi
+wijjit render examples/styling/css_theme_demo.py --size 84x36 --ansi
 ```
 
 ---

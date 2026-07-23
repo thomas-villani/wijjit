@@ -78,7 +78,7 @@ CLIPS: dict[str, dict[str, Any]] = {
     },
     "charts": {
         "example": "examples/widgets/charts_demo.py",
-        "size": (100, 40),
+        "size": (84, 40),
         "steps": [
             ("tick:2", 1600),
             ("r", 1400),  # refresh re-rolls every chart

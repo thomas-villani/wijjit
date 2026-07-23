@@ -178,7 +178,7 @@ def main_view():
         {% endlogview %}
       {% endhstack %}
     {% endvstack %}
-    {% hstack spacing=2 %}
+    {% hstack spacing=2 wrap=true %}
       {% button id="add_log_btn" action="add_log" %}Add Log{% endbutton %}
       {% button id="add_error_btn" action="add_error" %}Add ERROR{% endbutton %}
       {% button id="add_warning_btn" action="add_warning" %}Add WARNING{% endbutton %}
