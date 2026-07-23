@@ -66,7 +66,10 @@ CONTAINER_TYPES = KNOWN_CONTAINER_TYPES
 
 # Framework props that tags set on many elements but constructors don't take as
 # parameters (handled by focus/reconciliation machinery, not __init__).
-FRAMEWORK_PROPS = EPHEMERAL_PROPS | FRAMEWORK_ONLY_PROPS | {"tab_index"}
+# ``action`` is routed through the event system: input tags always emit it
+# (``None`` when unset) and the reconciler applies it by setattr, so it is a
+# valid attribute even on elements whose ``__init__`` does not list it.
+FRAMEWORK_PROPS = EPHEMERAL_PROPS | FRAMEWORK_ONLY_PROPS | {"tab_index", "action"}
 
 # Props never flagged as unknown attributes.
 _IGNORED_PROPS = LAYOUT_META | FRAMEWORK_PROPS

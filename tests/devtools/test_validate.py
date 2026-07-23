@@ -202,3 +202,18 @@ def test_nested_loop_unkeyed_element_flagged_once():
     report = validate_template(src, context={"groups": []})
     unkeyed = [f for f in report.findings if f.code == "unkeyed-loop-element"]
     assert len(unkeyed) == 1
+
+
+def test_action_prop_is_not_flagged_as_unknown_attribute():
+    """Input tags always emit ``action`` (None when unset); the event system
+    handles it, so it must not read as a typo on elements whose ``__init__``
+    does not list it (Checkbox, Select, Slider, Toggle, ...)."""
+    src = (
+        "{% vstack %}"
+        "{% checkbox id='c' label='A' %}{% endcheckbox %}"
+        "{% toggle id='t' %}{% endtoggle %}"
+        "{% checkbox id='c2' label='B' action='submit' %}{% endcheckbox %}"
+        "{% endvstack %}"
+    )
+    report = validate_template(src)
+    assert "unknown-attribute" not in _codes(report)
