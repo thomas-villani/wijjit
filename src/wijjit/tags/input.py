@@ -127,8 +127,16 @@ class TextInputExtension(Extension):
         state = render_ctx.state
         focused_id = render_ctx.focused_id
 
-        # Convert width to int safely
-        width = safe_int(width, default=30, name="width")
+        # Preserve layout specs ("fill"/"auto"/"NN%") for the layout node so
+        # the field can stretch inside its parent; the element itself gets a
+        # numeric width for its initial render and adopts the assigned bounds
+        # via TextInput.set_bounds.
+        width_spec: int | str = width
+        if isinstance(width, str) and not width.isdigit():
+            width = 30
+        else:
+            width = safe_int(width, default=30, name="width")
+            width_spec = width
 
         # Auto-generate ID if not provided
         if id is None:
@@ -186,10 +194,13 @@ class TextInputExtension(Extension):
             style_name = "brackets"  # Default
         # BRACKETS, BOX, and BLOCK styles have 2-character border overhead
         # UNDERLINE and MINIMAL have no side borders
-        if style_name in ("brackets", "box", "block"):
-            layout_width = width + 2
+        layout_width: int | str
+        if isinstance(width_spec, str):
+            layout_width = width_spec  # keep "fill"/"auto"/"NN%" for the engine
+        elif style_name in ("brackets", "box", "block"):
+            layout_width = width_spec + 2
         else:
-            layout_width = width
+            layout_width = width_spec
 
         vnode.set_layout(width=layout_width, height=1)
         layout_context.add_vnode(vnode)

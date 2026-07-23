@@ -8,6 +8,7 @@ import re
 from typing import Any
 
 from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
+from wijjit.layout.bounds import Bounds
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
@@ -224,6 +225,28 @@ class LogView(ScrollableElement):
     def autoscroll_state_key(self, value: str | None) -> None:
         """Set an explicit autoscroll state key."""
         self._autoscroll_state_key_override = value
+
+    def set_bounds(self, bounds: Bounds) -> None:
+        """Adopt the layout allocation so the painted box matches it.
+
+        The box (border included) is drawn from ``self.width`` /
+        ``self.height``, which under ``width="fill"`` hold the tag's numeric
+        defaults rather than the width the layout engine actually assigned -
+        drawing the box short of (or past) its slot. For fixed sizes the tag
+        already budgets the border into the layout node, so bounds match the
+        props and this sync is a no-op.
+
+        Parameters
+        ----------
+        bounds : Bounds
+            New bounds for the element.
+        """
+        super().set_bounds(bounds)
+        if bounds:
+            self.width = bounds.width
+            if bounds.height != self.height:
+                self.height = bounds.height
+                self.scroll_manager.update_viewport_size(self._get_content_height())
 
     def _get_content_height(self) -> int:
         """Calculate content area height accounting for borders.
