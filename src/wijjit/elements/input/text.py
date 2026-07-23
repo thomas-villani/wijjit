@@ -659,6 +659,28 @@ class TextInput(AutocompleteMixin, Element):
 
         return (self.width + border_width, 1)
 
+    def set_bounds(self, bounds: Bounds) -> None:
+        """Stretch the field to the assigned width (e.g. ``width="fill"``).
+
+        The field is painted from ``self.width`` (content columns, excluding
+        the bracket/box border glyphs), which under a ``"fill"`` spec holds
+        the tag's numeric default rather than the width the layout engine
+        assigned. Fixed-width inputs already budget the border into the
+        layout node, so bounds match the props and this sync is a no-op.
+
+        Parameters
+        ----------
+        bounds : Bounds
+            New bounds for the element.
+        """
+        super().set_bounds(bounds)
+        if bounds:
+            inner = bounds.width
+            if self.style in (InputStyle.BRACKETS, InputStyle.BOX, InputStyle.BLOCK):
+                inner = max(1, inner - 2)
+            if inner != self.width:
+                self.width = inner
+
     def get_ephemeral_state(self) -> dict[str, Any]:
         """Get ephemeral state for reconciliation.
 

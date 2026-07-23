@@ -144,7 +144,7 @@ def main_view():
     {% endlogview %}
 
     {# Input row - Enter in the textinput fires the "send" action #}
-    {% hstack spacing=1 %}
+    {% hstack spacing=1 width="fill" %}
       {% textinput id="chat_input" placeholder="Type your message..." width="fill" action="send" autofocus=True %}{% endtextinput %}
       {% button action="send" %}Send{% endbutton %}
       {% button action="clear" %}Clear{% endbutton %}
