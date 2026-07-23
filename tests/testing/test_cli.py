@@ -103,6 +103,38 @@ def test_run_missing_file_exits_nonzero(capsys):
     assert "Failed to load" in capsys.readouterr().err
 
 
+def test_validate_missing_file_exits_nonzero(capsys):
+    code = main(["validate", "does_not_exist.wij.j2"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "Failed to validate" in err
+    assert "Traceback" not in err
+
+
+def test_validate_missing_context_file_exits_nonzero(tmp_path, capsys):
+    f = tmp_path / "ok.wij"
+    f.write_text("{% frame width=30 height=4 %}hi{% endframe %}", encoding="utf-8")
+    code = main(["validate", str(f), "--context", str(tmp_path / "nope.json")])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "Failed to validate" in err
+    assert "Traceback" not in err
+
+
+def test_render_bad_keys_step_exits_nonzero(capsys):
+    code = main(["render", "examples/basic/hello_world.py", "--keys", "bogus_key_xyz"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "Bad --keys step" in err
+    assert "Traceback" not in err
+
+
+def test_render_bad_click_coords_exits_nonzero(capsys):
+    code = main(["render", "examples/basic/hello_world.py", "--keys", "click:abc,5"])
+    assert code == 1
+    assert "Bad --keys step" in capsys.readouterr().err
+
+
 def test_validate_with_context_file(tmp_path, capsys):
     f = tmp_path / "ctx.wij"
     f.write_text(
