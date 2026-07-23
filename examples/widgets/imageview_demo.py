@@ -17,7 +17,7 @@ IMAGE_PATH = str(Path(__file__).parent.parent / "assets" / "test-image.png")
 
 app = Wijjit()
 
-TEMPLATE = """{% frame title="ImageView Demo" border="double" width=80 height=40 %}
+TEMPLATE = """{% frame title="ImageView Demo" border="double" width=84 height=31 %}
 Renders images as ANSI colored characters in the terminal | Press 'q' to quit
 {% hstack %}
 {% imageview src=image width=24 %}{% endimageview %}

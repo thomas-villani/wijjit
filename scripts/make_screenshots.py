@@ -58,7 +58,7 @@ SHOTS: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "charts",
         "examples/widgets/charts_demo.py",
-        (100, 40),
+        (84, 40),
         "",
         2,
         "wijjit - charts_demo.py",
@@ -97,7 +97,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "system_monitor",
         "examples/apps/system_monitor.py",
-        (94, 30),
+        (94, 34),
         "",
         2,
         "wijjit - system_monitor.py",
@@ -105,7 +105,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "spreadsheet",
         "examples/apps/spreadsheet.py",
-        (92, 28),
+        (106, 28),
         "",
         0,
         "wijjit - spreadsheet.py",
@@ -125,7 +125,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "dashboard",
         "examples/advanced/dashboard_demo.py",
-        (98, 32),
+        (122, 40),
         "",
         2,
         "wijjit - dashboard_demo.py",
@@ -133,7 +133,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "splitpanel_nested",
         "examples/advanced/splitpanel_nested_demo.py",
-        (92, 28),
+        (120, 28),
         "",
         0,
         "wijjit - splitpanel_nested_demo.py",
@@ -141,7 +141,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "hstack_flexbox",
         "examples/basic/hstack_flexbox_demo.py",
-        (86, 26),
+        (84, 32),
         "",
         0,
         "wijjit - hstack_flexbox_demo.py",
@@ -149,7 +149,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "grid",
         "examples/basic/grid_demo.py",
-        (76, 24),
+        (76, 38),
         "",
         0,
         "wijjit - grid_demo.py",
@@ -158,23 +158,27 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "table",
         "examples/widgets/table_demo.py",
-        (88, 28),
+        (104, 31),
         "",
         0,
         "wijjit - table_demo.py",
     ),
+    # Expanded by clicking indicators: the `expanded=` state binding is dropped
+    # at element creation (roadmap Group E, deferred to 0.1.1), so the initial
+    # screen would show a single collapsed root. Clicks: expand "project",
+    # expand "src", select "main.py" (populates the File Details pane).
     (
         "tree",
         "examples/widgets/tree_demo.py",
-        (74, 26),
-        "",
+        (74, 28),
+        "click:5,5,click:8,6,click:14,9",
         0,
         "wijjit - tree_demo.py",
     ),
     (
         "datagrid",
         "examples/widgets/datagrid_demo.py",
-        (92, 26),
+        (78, 30),
         "",
         0,
         "wijjit - datagrid_demo.py",
@@ -182,7 +186,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "logview",
         "examples/widgets/logview_demo.py",
-        (92, 28),
+        (102, 18),
         "",
         0,
         "wijjit - logview_demo.py",
@@ -193,7 +197,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "imageview",
         "examples/widgets/imageview_demo.py",
-        (96, 30),
+        (86, 32),
         "",
         0,
         "wijjit - imageview_demo.py",
@@ -202,7 +206,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "form",
         "examples/advanced/form_demo.py",
-        (80, 30),
+        (94, 40),
         "",
         0,
         "wijjit - form_demo.py",
@@ -214,7 +218,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "dialogs",
         "examples/widgets/confirm_dialog_demo.py",
-        (80, 26),
+        (62, 17),
         "d",
         0,
         "wijjit - confirm_dialog_demo.py",
@@ -222,7 +226,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "tabbedpanel",
         "examples/widgets/tabbedpanel_demo.py",
-        (82, 26),
+        (84, 36),
         "",
         0,
         "wijjit - tabbedpanel_demo.py",
@@ -230,7 +234,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "autocomplete",
         "examples/basic/autocomplete_demo.py",
-        (76, 24),
+        (92, 32),
         "type:py",
         0,
         "wijjit - autocomplete_demo.py",
@@ -239,7 +243,7 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
     (
         "css_theme",
         "examples/styling/css_theme_demo.py",
-        (84, 28),
+        (84, 36),
         "",
         0,
         "wijjit - css_theme_demo.py",

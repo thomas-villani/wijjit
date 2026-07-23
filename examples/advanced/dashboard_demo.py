@@ -115,7 +115,7 @@ def main_view():
     """
     return render_template_string(
         """
-{% frame title="System Dashboard" border="double" width=120 height=40 %}
+{% frame title="System Dashboard" border="double" width=122 height=40 %}
   {% vstack spacing=1 padding=1 %}
     {% vstack spacing=0 %}
       Status: {{ state.system_status }} | Last Update: {{ state.last_update }}
