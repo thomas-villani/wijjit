@@ -82,13 +82,17 @@ def _cmd_new(args: argparse.Namespace) -> int:
 def _cmd_validate(args: argparse.Namespace) -> int:
     from wijjit.devtools import validate_file
 
-    report = validate_file(
-        args.file,
-        context=_load_context(args.context),
-        width=args.size[0],
-        height=args.size[1],
-        render=args.render,
-    )
+    try:
+        report = validate_file(
+            args.file,
+            context=_load_context(args.context),
+            width=args.size[0],
+            height=args.size[1],
+            render=args.render,
+        )
+    except Exception as exc:  # noqa: BLE001 - report cleanly, no traceback
+        print(f"Failed to validate: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
     if args.json:
         print(json.dumps(report.to_dict(), indent=2, default=str))
     else:

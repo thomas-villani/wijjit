@@ -135,7 +135,11 @@ def run_render(
     with WijjitHarness(app, size=size) as harness:
         if keys:
             for step in _tokenize_keys(keys):
-                _apply_step(harness, step)
+                try:
+                    _apply_step(harness, step)
+                except ValueError as exc:
+                    print(f"Bad --keys step {step!r}: {exc}", file=sys.stderr)
+                    return 1
         if tick:
             harness.tick(tick)
         sys.stdout.write(harness.screen_ansi() if ansi else harness.screen())
