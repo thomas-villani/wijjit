@@ -498,8 +498,10 @@ class BarChart(ScrollableElement):
             norm_val = normalized[bar_idx]
             label = self.labels[bar_idx] if bar_idx < len(self.labels) else ""
 
-            # Calculate bar fill width
-            fill_width = int(norm_val * bar_width)
+            # Calculate bar fill width. The series minimum normalizes to
+            # exactly 0.0, which would draw a zero-length bar and read as
+            # missing data; give every present bar at least one fill cell.
+            fill_width = max(1, int(norm_val * bar_width))
             empty_width = bar_width - fill_width
 
             # Get bar color

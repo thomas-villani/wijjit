@@ -573,3 +573,139 @@ class TestChartIntegration:
         assert linechart.series == {"data": []}
         assert gauge.value == 0.0
         assert heatmap.data == []
+
+
+def _buffer_text(buffer, width, height):
+    """Join a buffer's glyphs into plain text for content assertions."""
+    return "\n".join(
+        "".join((buffer.get_cell(x, y).char or " ") for x in range(width))
+        for y in range(height)
+    )
+
+
+class TestChartMinimumVisibility:
+    """The series minimum must render a visible glyph, never a blank.
+
+    Values normalize onto [0, 1], so the minimum lands exactly on 0.0; a
+    glyph ramp whose index 0 is a space (reserved for "no data") silently
+    drops that data point. Regression tests for the 0.1.0 fixes.
+    """
+
+    def test_sparkline_bar_min_is_not_blank(self):
+        """Every present column of a bar sparkline draws a bar glyph."""
+        data = [
+            59,
+            31,
+            44,
+            65,
+            76,
+            69,
+            45,
+            45,
+            37,
+            74,
+            49,
+            20,
+            33,
+            72,
+            75,
+            67,
+            48,
+            76,
+            57,
+            28,
+        ]
+        sparkline = Sparkline(data=data, width=20, style="bar")
+        line = sparkline._render_bar_style(20, 1)[0]
+        assert " " not in line, f"bar sparkline dropped a data point: {line!r}"
+
+    def test_columnchart_min_column_is_visible(self):
+        """The minimum-valued column renders at least a stub block."""
+        data = [("Jan", 120), ("Feb", 150), ("Mar", 180), ("Jun", 220)]
+        chart = ColumnChart(
+            data=data,
+            width=30,
+            height=8,
+            column_width=2,
+            spacing=1,
+            show_axis=False,
+            show_labels=False,
+            border_style="none",
+        )
+        buffer = render_element_buffer(chart, width=30, height=8)
+        text = _buffer_text(buffer, 30, 8)
+        rows = text.splitlines()
+        # The Jan column occupies x in [0, 2); it must paint something.
+        jan_cells = "".join(row[0:2] for row in rows)
+        assert jan_cells.strip(), f"minimum column painted nothing:\n{text}"
+
+
+class TestHeatMapVisibility:
+    """HeatMap cells must survive color-stripped output.
+
+    Cells used to be background-colored spaces, which render as pure
+    whitespace in any no-color context (plain-text captures, NO_COLOR,
+    dumb terminals). They now paint foreground-tinted block glyphs.
+    """
+
+    def test_heatmap_cells_visible_without_color(self):
+        grid = [[(r * 12 + c) % 100 for c in range(12)] for r in range(5)]
+        heatmap = HeatMap(data=grid, width=34, height=9, cell_width=2)
+        buffer = render_element_buffer(heatmap, width=34, height=9)
+        text = _buffer_text(buffer, 34, 9)
+        assert "█" in text, f"heatmap grid painted no visible glyphs:\n{text}"
+
+    def test_heatmap_show_values_text_still_visible(self):
+        """show_values=True keeps readable digits, not fg==bg blocks."""
+        grid = [[5, 50], [95, 20]]
+        heatmap = HeatMap(data=grid, width=20, height=6, cell_width=3, show_values=True)
+        buffer = render_element_buffer(heatmap, width=20, height=6)
+        text = _buffer_text(buffer, 20, 6)
+        assert "95" in text
+
+
+class TestBarChartScrollGeometry:
+    """Pin the scrollbar-vs-fits geometry so a future off-by-one is caught."""
+
+    _SALES = [
+        {"label": "Electronics", "value": 4500},
+        {"label": "Clothing", "value": 3200},
+        {"label": "Food", "value": 2800},
+        {"label": "Books", "value": 1500},
+        {"label": "Sports", "value": 2100},
+    ]
+
+    def test_no_scrollbar_when_all_bars_fit(self):
+        """height 7 -> viewport 5 -> all 5 bars fit, no scroll column."""
+        chart = BarChart(
+            data=self._SALES, width=34, height=7, show_labels=True, show_values=True
+        )
+        buffer = render_element_buffer(chart, width=34, height=7)
+        text = _buffer_text(buffer, 34, 7)
+        for label in ("Electronics", "Clothing", "Food", "Books", "Sports"):
+            assert label in text
+        for line in text.splitlines():
+            if "4500" in line or "1500" in line:
+                assert (
+                    "█│" not in line and "││" not in line
+                ), f"unexpected scrollbar glyph in row: {line!r}"
+
+    def test_scrollbar_present_when_overflowing(self):
+        """height 6 -> viewport 4 -> 5 bars overflow, scroll column appears."""
+        chart = BarChart(
+            data=self._SALES, width=34, height=6, show_labels=True, show_values=True
+        )
+        buffer = render_element_buffer(chart, width=34, height=6)
+        text = _buffer_text(buffer, 34, 6)
+        assert "Sports" not in text
+        assert any("█│" in line or "││" in line for line in text.splitlines())
+
+    def test_min_value_bar_gets_a_stub(self):
+        """The minimum-valued bar draws at least one fill cell."""
+        chart = BarChart(
+            data=self._SALES, width=34, height=7, show_labels=True, show_values=True
+        )
+        buffer = render_element_buffer(chart, width=34, height=7)
+        text = _buffer_text(buffer, 34, 7)
+        books_row = next(line for line in text.splitlines() if "Books" in line)
+        assert "█" in books_row, f"minimum bar painted no fill: {books_row!r}"
