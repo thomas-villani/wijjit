@@ -40,12 +40,15 @@ diff.
 
 from __future__ import annotations
 
+import html
 import io
+import re
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+from rich.cells import cell_len
 from rich.console import Console
 from rich.text import Text
 
@@ -291,8 +294,71 @@ def capture_ansi(path: str, size: tuple[int, int], keys: str, tick: int) -> str:
     return result.stdout
 
 
+# A terminal line's glyphs live in <text> runs clipped to a per-line rect
+# (``...-line-N``); the window chrome (title, border) uses other clips, so this
+# marker is what tells the two apart when we regrid.
+_LINE_TEXT_RE = re.compile(r"<text ([^>]*?)>(.*?)</text>", re.DOTALL)
+_ATTR_RE = re.compile(r'([\w-]+)="([^"]*)"')
+_TEXTLEN_RE = re.compile(r'textLength="([0-9.]+)"')
+
+
+def _regrid_svg(svg: str) -> str:
+    """Pin every glyph to its terminal cell so charts stay aligned.
+
+    Rich emits each colour-contiguous span of a line as one ``<text>`` run with
+    ``textLength`` and the default ``lengthAdjust="spacing"``, which only
+    redistributes inter-glyph gaps. A glyph whose natural advance differs from
+    the base cell -- block elements, braille dots, some box-drawing -- therefore
+    drifts the rest of its run off the grid, so a chart column no longer sits
+    over its axis. That drift is what makes the column and line charts look
+    mis-rendered in a viewer that lacks the embedded font.
+
+    This rewrites each terminal-line run into one ``<text>`` per cell, placed at
+    its exact column and forced to a single cell width via
+    ``lengthAdjust="spacingAndGlyphs"``. Every glyph is then squeezed or stretched
+    into precisely its cell regardless of the rendering font's advances, so the
+    grid holds. Backgrounds are separate ``<rect>`` elements Rich already places
+    by pixel, so they are untouched.
+    """
+    lengths = [float(m) for m in _TEXTLEN_RE.findall(svg)]
+    if not lengths:
+        return svg
+    cell_w = min(lengths)  # the width of a single narrow cell (a border, say)
+
+    def rewrite(match: re.Match[str]) -> str:
+        attrs = dict(_ATTR_RE.findall(match.group(1)))
+        clip = attrs.get("clip-path", "")
+        if "-line-" not in clip:
+            return match.group(0)  # window chrome, not a terminal line
+        content = html.unescape(match.group(2))
+        x0 = float(attrs["x"])
+        y = attrs["y"]
+        cls = attrs.get("class", "")
+        cls_attr = f'class="{cls}" ' if cls else ""
+        cells: list[str] = []
+        col = 0
+        for char in content:
+            width = cell_len(char)
+            if char.strip():  # spaces render nothing; backgrounds are rects
+                gx = x0 + col * cell_w
+                cells.append(
+                    f'<text {cls_attr}x="{gx:g}" y="{y}" '
+                    f'textLength="{width * cell_w:g}" '
+                    f'lengthAdjust="spacingAndGlyphs" '
+                    f'clip-path="{clip}">{html.escape(char)}</text>'
+                )
+            col += width
+        return "".join(cells)
+
+    return _LINE_TEXT_RE.sub(rewrite, svg)
+
+
 def to_svg(ansi: str, dst: Path, title: str) -> None:
-    """Convert a captured ANSI screen to an SVG file via Rich."""
+    """Convert a captured ANSI screen to an SVG file via Rich.
+
+    The SVG is post-processed by :func:`_regrid_svg` so block-element and braille
+    glyphs (charts) stay pinned to the monospace grid in any viewer.
+    """
     lines = ansi.splitlines()
     width = max((Text.from_ansi(line).cell_len for line in lines), default=80)
     # Record into an in-memory sink so nothing hits the OS stdout encoding
@@ -300,7 +366,7 @@ def to_svg(ansi: str, dst: Path, title: str) -> None:
     console = Console(record=True, width=width, height=len(lines), file=io.StringIO())
     for line in lines:
         console.print(Text.from_ansi(line), no_wrap=True, overflow="ignore")
-    console.save_svg(str(dst), title=title)
+    dst.write_text(_regrid_svg(console.export_svg(title=title)), encoding="utf-8")
 
 
 def render_set(
