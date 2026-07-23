@@ -753,7 +753,16 @@ def _batched_input(batches):
     return mock_input
 
 
-def _drain(handler, count, timeout=0.2):
+# Generous per-read timeout. These tests always read events that already
+# exist, so ``read_input`` returns the instant its batch is available and this
+# ceiling is never actually spent on the happy path. It only matters for the
+# very first read, where the persistent reader thread has to be scheduled and
+# produce its first batch; on a loaded CI runner (observed on macOS/3.12) a
+# tight 0.2s could expire before that thread woke, shifting every event by one.
+_DRAIN_TIMEOUT = 2.0
+
+
+def _drain(handler, count, timeout=_DRAIN_TIMEOUT):
     """Read ``count`` events, returning each event's name (or None)."""
     names = []
     for _ in range(count):
@@ -762,7 +771,7 @@ def _drain(handler, count, timeout=0.2):
     return names
 
 
-async def _drain_async(handler, count, timeout=0.2):
+async def _drain_async(handler, count, timeout=_DRAIN_TIMEOUT):
     """Async twin of :func:`_drain`."""
     names = []
     for _ in range(count):
