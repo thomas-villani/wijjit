@@ -2596,6 +2596,7 @@ class ImageViewExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("ImageView", key=id)
+        vnode.set_prop("id", id)  # Set id as prop so Element gets it
         vnode.set_prop("src", src)
         vnode.set_prop("mode", mode)
         vnode.set_prop("threshold", threshold)
