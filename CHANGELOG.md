@@ -188,6 +188,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are no external users to carry an alias for. `invert=` is unchanged and still
   applies only to braille mode.
 
+- **More elements opt in to the skip-unchanged fast path.** The skip-unchanged
+  paint optimization only helps elements that publish a `render_signature()`;
+  it previously shipped for `TextElement`, `TextInput`, and `Button`, so an
+  otherwise-static form still repainted its checkboxes, toggles, and sliders on
+  every keystroke. Signatures now ship for `Checkbox`, `CheckboxGroup`, `Radio`,
+  `RadioGroup`, `Toggle`, `Slider`, `ProgressBar`, `StatusIndicator`,
+  `StatusBar`, `Link`, `Sparkline`, `Gauge`, and `ColumnChart` - so an unchanged
+  widget is skipped while the one field being edited repaints. Each signature
+  captures exactly the instance state its `render_to` reads (content plus the
+  variant/layout inputs; focus/hover/checked/selected and CSS classes come from
+  the shared `_style_signature`), and unit tests assert every signature is
+  sensitive to each of those inputs. `Select`, `BarChart`, and `Table` stay on
+  the safe default (`None` -> always repaint): their paint couples to internal
+  scroll state that a signature cannot yet capture completely. Measured **~1.36x
+  (about 27% less per-render CPU)** on a static form where one field changes per
+  keystroke; screen output stays byte-for-byte identical (review 2.5).
+- **Skip re-painting unchanged elements.** With the per-frame allocation and
+  full-screen diff costs already gone, the largest remaining per-keystroke cost
+  was the paint itself: `render_to` (and its per-glyph `write_text` loop) ran for
+  *every* element every frame, even the ones that did not change. On the
+  incremental path the paint buffer already starts as a copy of the previous
+  frame, so an unchanged element's cells are already correct - there is nothing
+  to repaint. Each element now exposes a `render_signature()` (value, cursor,
+  style-affecting state, ...); when it and the element's on-screen geometry match
+  the previous frame, the renderer skips `render_to` entirely and just re-records
+  the element's previous painted region as coverage (so vacated-cell blanking
+  still spares it). Correctness is guarded three ways: elements return `None`
+  (always repaint) unless they opt in with a complete signature; an element whose
+  region overlaps the always-repainted frame-border pass, or that sits under an
+  `overflow_x="visible"` frame, is never skipped; and a `verify_skips` render
+  mode paints would-be-skipped elements anyway and asserts the result is
+  byte-identical to the baseline (exercised across every bundled example). Gated
+  on the incremental path with a stable theme, behind a
+  `renderer.skip_unchanged_elements` off-switch, screen output byte-for-byte
+  identical to a full paint (pinned by on-vs-off screen + emitted-ANSI
+  equivalence tests). Signatures ship for `TextElement`, `TextInput`, and
+  `Button`; measured **~14% less per-render CPU** on a static-heavy 40-row view
+  where one input changes per keystroke (review 2.5).
+- **Cheaper damage-tracking bookkeeping on the paint path.** The per-frame
+  coverage set (which records every painted cell so the incremental path can
+  blank vacated content) now stores a packed `y * width + x` int per cell
+  instead of an `(x, y)` tuple, removing a tuple allocation on every glyph write
+  (~1268 painted cells/frame on the profiled 40-row view); the renderer unpacks
+  it in the vacated-cell loop. The wide-glyph continuation test
+  (`is_continuation`, ~768k calls over 400 renders) drops its string compare for
+  `not cell.char` — exactly equivalent, since the continuation sentinel is the
+  only empty `char` in the pipeline. Both are byte-for-byte identical on screen
+  (review 2.5 follow-up).
+- **Interned cells on the paint hot path.** `PaintContext.write_text` /
+  `fill_rect` allocated a fresh `Cell` for every glyph on every frame (~407k
+  `Cell.__post_init__` calls over 400 renders on a 40-row view). A bounded
+  (LRU) `wijjit.terminal.cell.intern_cell` now shares one immutable `Cell` per
+  `(char, style)`, so re-painting the same text is a cache lookup instead of an
+  allocation - safe for exactly the reason the shared blank cell is (cells are
+  never mutated in place). It also speeds the diff: an unchanged glyph resolves
+  to the *same* object frame-over-frame, so `Cell.__eq__`'s identity
+  short-circuit settles it without comparing fields (the biggest gain on the
+  full-repaint path). The cache is keyed positionally (roughly an order of
+  magnitude cheaper than a keyword key). Measured ~15% less per-render CPU on
+  top of the width fast path below (review 2.5).
+- **Faster text-width measurement: printable-ASCII fast path (`display_width`).**
+  With the per-frame allocation and full-screen diff costs removed by the two
+  changes below, profiling a 40-row Latin-text view showed the single largest
+  remaining per-render cost was `wcwidth`/`wcswidth` — the per-character Unicode
+  table bisection run for every glyph painted, every cell measured by the diff,
+  and every `visible_length` call. A new `wijjit.terminal.ansi.display_width`
+  fast-paths the overwhelmingly common all-printable-ASCII case (where each code
+  point is provably one column, so the width is just `len`) and otherwise defers
+  to `wcswidth` unchanged; the cell/width/wrap call sites route through it (and
+  their per-call `from wcwidth import ...` imports were hoisted). CJK/emoji/NFD
+  width handling is unaffected. Measured ~2x faster per render (~8.6 ms -> ~4.6 ms
+  on the profiled view); benefits the full-repaint path too, not just the
+  incremental one (review 2.5).
+- **Incremental (damage-tracked) rendering.** The base render used to repaint
+  the whole view into a fresh buffer and diff the entire screen every frame, so
+  a one-character edit cost the same as a full redraw (the bulk of per-keystroke
+  CPU). The paint buffer now starts as a copy of the previous frame and the
+  buffer write paths change-detect, so the dirty set — and therefore the diff —
+  covers only the cells that actually changed; cells painted last frame but not
+  this one are blanked (vacated content). This is gated to the safe case (no
+  overlays this or last frame, unchanged size, diff rendering on) with a
+  full-repaint fallback and an `renderer.incremental_render` off-switch, and is
+  byte-for-byte identical on screen to the full-repaint path. Measured ~32% less
+  per-render CPU on a localized edit in a 40-row view (review 2.5).
+- **Faster per-frame paint: empty screen-buffer cells share one blank `Cell`.**
+  `ScreenBuffer` used to allocate a distinct `Cell(" ")` for every position on
+  every render (a fresh buffer is composed each frame), which profiling showed
+  was the single largest per-keystroke cost — far more than the template
+  re-execution or VNode diff. Empty positions now reference one shared blank
+  cell, which is safe because the pipeline replaces cell slots and never mutates
+  a cell in place. Measured ~17% less CPU per render on a 40-row bound-input
+  view, with byte-for-byte identical output (review 2.5, partial; further wins —
+  buffer reuse and locality-limited diffing — tracked in `roadmap.md`).
+- **Setting `on_double_click` on a `Button` now suppresses activation on
+  double-click.** The base handler runs first and claims the event, so the
+  callback fires instead of the button activating. Without the callback, a
+  double-click still activates as before.
+- **Template files are conventionally named `*.wij.j2`** (was `*.tui`), so
+  editors syntax-highlight them as Jinja. The extension is not enforced:
+  `validate` and `tree` detect apps by the `.py` suffix and treat anything else
+  as a template.
+- Expanded the PyPI `keywords` list for discoverability.
+- README trimmed and corrected: dropped a duplicated feature list, the inline
+  dependency version pins, and the self-contradictory "not optimized / not
+  recommended for high-performance applications" language that the measured
+  benchmarks contradict. Added performance and accessibility sections.
+- **Inner-text discipline**: `{% textinput %}` now uses its tag body as the
+  initial value when no `value=` is given, and `{% button %}` / `{% menuitem %}`
+  accept a `label=` attribute as an alternative to the body (the attribute wins
+  when both are present). Consistent with the existing checkbox/radio/textarea
+  behavior.
+- Hoisted a number of standard-library imports from function bodies up to
+  module level (code hygiene; no behavior change).
+- Version is now sourced from `wijjit.__version__` (single source of truth).
+
 ### Removed
 - **~126 lines of dead code in `TextArea`.** `_render_cursor_in_line` and
   `_apply_selection_to_line_ansi` were a pre-cell-buffer path that built ANSI
@@ -195,6 +310,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **`width="fill"` now works on `TextInput` and `LogView`.** The textinput
+  tag silently coerced a `"fill"` spec to the numeric default (30 columns),
+  so the field never joined fill distribution and could shove row siblings
+  past the frame edge; LogView kept the fill spec but painted its box from
+  its numeric default width, drawing short of the slot the layout engine
+  assigned. The tag now forwards `"fill"`/`"auto"`/percent specs to the
+  layout node, and both elements adopt their assigned bounds in
+  `set_bounds` (a no-op for fixed sizes).
+- **The `{% imageview %}` tag now sets the element's `id`.** It passed `id`
+  only as the reconciliation key, so `element.id` was always `None` (unlike
+  the other display tags).
+- **Charts no longer drop the series minimum.** Values normalize onto
+  `[0, 1]`, so the smallest data point landed exactly on 0.0 and rendered as
+  nothing at all: a gap in a bar-style `Sparkline`, a missing column in
+  `ColumnChart`, and a zero-length bar in `BarChart`. Each now draws the
+  shortest visible glyph for present data, reserving blank strictly for
+  "no data".
+- **`HeatMap` is visible without color support.** Grid cells (and the legend
+  gradient) were background-colored spaces, which disappear entirely in any
+  color-stripped context (`NO_COLOR`, plain-text captures, dumb terminals).
+  Cells now paint foreground-tinted solid blocks, which look identical in a
+  color terminal and stay legible everywhere else.
+- **`wijjit validate` no longer flags `action=` as an unknown attribute.**
+  Input tags always emit an `action` prop (`None` when unset) and the event
+  system routes it, so every bare `{% checkbox %}` / `{% toggle %}` /
+  `{% select %}` / `{% slider %}` drew a spurious "possible typo" warning
+  from the flagship linter. `action` now joins the framework-prop exclusions.
+- **`wijjit validate` and `wijjit render` report bad input cleanly.** A
+  missing template file, a missing or malformed `--context` JSON file, and a
+  typo'd `--keys` step (unknown key name, non-numeric `click:` coordinates)
+  printed raw Python tracebacks; each now prints a one-line error and exits 1,
+  matching `wijjit tree`.
 - **A template `{% modal %}` / dialog vanished on the next re-render.** A
   centered overlay declared in a template is rebuilt fresh (with `bounds=None`)
   every render; the initial render centred it, but the per-render *update* path
@@ -480,122 +627,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The source distribution now builds deterministically via an explicit file
   list, so a stray local virtualenv (e.g. `.venv-wsl/`) no longer breaks
   `uv build` / packaging.
-
-### Changed
-- **More elements opt in to the skip-unchanged fast path.** The skip-unchanged
-  paint optimization only helps elements that publish a `render_signature()`;
-  it previously shipped for `TextElement`, `TextInput`, and `Button`, so an
-  otherwise-static form still repainted its checkboxes, toggles, and sliders on
-  every keystroke. Signatures now ship for `Checkbox`, `CheckboxGroup`, `Radio`,
-  `RadioGroup`, `Toggle`, `Slider`, `ProgressBar`, `StatusIndicator`,
-  `StatusBar`, `Link`, `Sparkline`, `Gauge`, and `ColumnChart` - so an unchanged
-  widget is skipped while the one field being edited repaints. Each signature
-  captures exactly the instance state its `render_to` reads (content plus the
-  variant/layout inputs; focus/hover/checked/selected and CSS classes come from
-  the shared `_style_signature`), and unit tests assert every signature is
-  sensitive to each of those inputs. `Select`, `BarChart`, and `Table` stay on
-  the safe default (`None` -> always repaint): their paint couples to internal
-  scroll state that a signature cannot yet capture completely. Measured **~1.36x
-  (about 27% less per-render CPU)** on a static form where one field changes per
-  keystroke; screen output stays byte-for-byte identical (review 2.5).
-- **Skip re-painting unchanged elements.** With the per-frame allocation and
-  full-screen diff costs already gone, the largest remaining per-keystroke cost
-  was the paint itself: `render_to` (and its per-glyph `write_text` loop) ran for
-  *every* element every frame, even the ones that did not change. On the
-  incremental path the paint buffer already starts as a copy of the previous
-  frame, so an unchanged element's cells are already correct - there is nothing
-  to repaint. Each element now exposes a `render_signature()` (value, cursor,
-  style-affecting state, ...); when it and the element's on-screen geometry match
-  the previous frame, the renderer skips `render_to` entirely and just re-records
-  the element's previous painted region as coverage (so vacated-cell blanking
-  still spares it). Correctness is guarded three ways: elements return `None`
-  (always repaint) unless they opt in with a complete signature; an element whose
-  region overlaps the always-repainted frame-border pass, or that sits under an
-  `overflow_x="visible"` frame, is never skipped; and a `verify_skips` render
-  mode paints would-be-skipped elements anyway and asserts the result is
-  byte-identical to the baseline (exercised across every bundled example). Gated
-  on the incremental path with a stable theme, behind a
-  `renderer.skip_unchanged_elements` off-switch, screen output byte-for-byte
-  identical to a full paint (pinned by on-vs-off screen + emitted-ANSI
-  equivalence tests). Signatures ship for `TextElement`, `TextInput`, and
-  `Button`; measured **~14% less per-render CPU** on a static-heavy 40-row view
-  where one input changes per keystroke (review 2.5).
-- **Cheaper damage-tracking bookkeeping on the paint path.** The per-frame
-  coverage set (which records every painted cell so the incremental path can
-  blank vacated content) now stores a packed `y * width + x` int per cell
-  instead of an `(x, y)` tuple, removing a tuple allocation on every glyph write
-  (~1268 painted cells/frame on the profiled 40-row view); the renderer unpacks
-  it in the vacated-cell loop. The wide-glyph continuation test
-  (`is_continuation`, ~768k calls over 400 renders) drops its string compare for
-  `not cell.char` — exactly equivalent, since the continuation sentinel is the
-  only empty `char` in the pipeline. Both are byte-for-byte identical on screen
-  (review 2.5 follow-up).
-- **Interned cells on the paint hot path.** `PaintContext.write_text` /
-  `fill_rect` allocated a fresh `Cell` for every glyph on every frame (~407k
-  `Cell.__post_init__` calls over 400 renders on a 40-row view). A bounded
-  (LRU) `wijjit.terminal.cell.intern_cell` now shares one immutable `Cell` per
-  `(char, style)`, so re-painting the same text is a cache lookup instead of an
-  allocation - safe for exactly the reason the shared blank cell is (cells are
-  never mutated in place). It also speeds the diff: an unchanged glyph resolves
-  to the *same* object frame-over-frame, so `Cell.__eq__`'s identity
-  short-circuit settles it without comparing fields (the biggest gain on the
-  full-repaint path). The cache is keyed positionally (roughly an order of
-  magnitude cheaper than a keyword key). Measured ~15% less per-render CPU on
-  top of the width fast path below (review 2.5).
-- **Faster text-width measurement: printable-ASCII fast path (`display_width`).**
-  With the per-frame allocation and full-screen diff costs removed by the two
-  changes below, profiling a 40-row Latin-text view showed the single largest
-  remaining per-render cost was `wcwidth`/`wcswidth` — the per-character Unicode
-  table bisection run for every glyph painted, every cell measured by the diff,
-  and every `visible_length` call. A new `wijjit.terminal.ansi.display_width`
-  fast-paths the overwhelmingly common all-printable-ASCII case (where each code
-  point is provably one column, so the width is just `len`) and otherwise defers
-  to `wcswidth` unchanged; the cell/width/wrap call sites route through it (and
-  their per-call `from wcwidth import ...` imports were hoisted). CJK/emoji/NFD
-  width handling is unaffected. Measured ~2x faster per render (~8.6 ms -> ~4.6 ms
-  on the profiled view); benefits the full-repaint path too, not just the
-  incremental one (review 2.5).
-- **Incremental (damage-tracked) rendering.** The base render used to repaint
-  the whole view into a fresh buffer and diff the entire screen every frame, so
-  a one-character edit cost the same as a full redraw (the bulk of per-keystroke
-  CPU). The paint buffer now starts as a copy of the previous frame and the
-  buffer write paths change-detect, so the dirty set — and therefore the diff —
-  covers only the cells that actually changed; cells painted last frame but not
-  this one are blanked (vacated content). This is gated to the safe case (no
-  overlays this or last frame, unchanged size, diff rendering on) with a
-  full-repaint fallback and an `renderer.incremental_render` off-switch, and is
-  byte-for-byte identical on screen to the full-repaint path. Measured ~32% less
-  per-render CPU on a localized edit in a 40-row view (review 2.5).
-- **Faster per-frame paint: empty screen-buffer cells share one blank `Cell`.**
-  `ScreenBuffer` used to allocate a distinct `Cell(" ")` for every position on
-  every render (a fresh buffer is composed each frame), which profiling showed
-  was the single largest per-keystroke cost — far more than the template
-  re-execution or VNode diff. Empty positions now reference one shared blank
-  cell, which is safe because the pipeline replaces cell slots and never mutates
-  a cell in place. Measured ~17% less CPU per render on a 40-row bound-input
-  view, with byte-for-byte identical output (review 2.5, partial; further wins —
-  buffer reuse and locality-limited diffing — tracked in `roadmap.md`).
-- **Setting `on_double_click` on a `Button` now suppresses activation on
-  double-click.** The base handler runs first and claims the event, so the
-  callback fires instead of the button activating. Without the callback, a
-  double-click still activates as before.
-- **Template files are conventionally named `*.wij.j2`** (was `*.tui`), so
-  editors syntax-highlight them as Jinja. The extension is not enforced:
-  `validate` and `tree` detect apps by the `.py` suffix and treat anything else
-  as a template.
-- Expanded the PyPI `keywords` list for discoverability.
-- README trimmed and corrected: dropped a duplicated feature list, the inline
-  dependency version pins, and the self-contradictory "not optimized / not
-  recommended for high-performance applications" language that the measured
-  benchmarks contradict. Added performance and accessibility sections.
-- **Inner-text discipline**: `{% textinput %}` now uses its tag body as the
-  initial value when no `value=` is given, and `{% button %}` / `{% menuitem %}`
-  accept a `label=` attribute as an alternative to the body (the attribute wins
-  when both are present). Consistent with the existing checkbox/radio/textarea
-  behavior.
-- Hoisted a number of standard-library imports from function bodies up to
-  module level (code hygiene; no behavior change).
-- Version is now sourced from `wijjit.__version__` (single source of truth).
 
 [Unreleased]: https://github.com/thomas-villani/wijjit/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/thomas-villani/wijjit/releases/tag/v0.1.0
