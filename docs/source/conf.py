@@ -5,6 +5,7 @@
 
 import os
 import sys
+from importlib.metadata import PackageNotFoundError, version as get_version
 
 sys.path.insert(0, os.path.abspath('../../src'))
 
@@ -14,8 +15,11 @@ sys.path.insert(0, os.path.abspath('../../src'))
 project = 'Wijjit'
 copyright = '2025, Tom Villani, Ph.D.'
 author = 'Tom Villani, Ph.D.'
-release = '0.1.0'
-version = '0.1.0'
+try:
+    release = get_version('wijjit')
+except PackageNotFoundError:
+    from wijjit import __version__ as release
+version = release
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

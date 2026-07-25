@@ -92,6 +92,7 @@ dev = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-rtd-theme>=3.0.2",
     "sphinx-tabs>=3.4.7",
+    "bump-my-version>=0.26.0"
 ]
 images = [
     "pillow>=12.0.0",
@@ -289,3 +290,23 @@ disable_error_code = ["unused-ignore"]
 [[tool.mypy.overrides]]
 module = "wcwidth"
 ignore_missing_imports = true
+
+[tool.bumpversion]
+current_version = "0.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+tag = true
+tag_name = "v{new_version}"
+tag_message = "Release {new_version}"
+commit = true
+message = "Bump version: {current_version} -> {new_version}"
+allow_dirty = false
+
+# `[project]` declares `dynamic = ["version"]` and hatchling reads it from
+# `wijjit.__version__`, so that module is the only file to rewrite. Do not add a
+# pyproject.toml target here: its `search` would match this table's own
+# `current_version` line, which bump-my-version already maintains itself.
+[[tool.bumpversion.files]]
+filename = "src/wijjit/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
