@@ -228,7 +228,7 @@ with the command to reproduce it.
 All screenshots are generated headlessly and reproducibly by
 [`scripts/make_screenshots.py`](https://github.com/thomas-villani/wijjit/blob/main/scripts/make_screenshots.py) — no terminal
 recording involved, and re-running it only changes an image when the example or
-the framework did. Run any of the 74 bundled examples yourself with
+the framework did. Run any of the 73 bundled examples yourself with
 `wijjit run examples/<dir>/<name>.py`.
 
 ## Core Concepts
@@ -497,8 +497,8 @@ so focus and selection remain visible without relying on color.
 
 ## Examples
 
-The `examples/` directory contains **74 working examples** in five categories —
-`basic/` (15), `widgets/` (30), `advanced/` (22), `styling/` (2), and `apps/`
+The `examples/` directory contains **73 working examples** in five categories —
+`basic/` (15), `widgets/` (30), `advanced/` (21), `styling/` (2), and `apps/`
 (5) — all using template-based UI and decorator event handlers.
 
 ```bash
@@ -643,7 +643,13 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 - **Third-party elements are leaf-only.** The plugin seam registers self-closing
   and simple-body widgets; custom *containers* (which need layout-tree and
   validator integration) are deferred.
-- **No hot template reload.** On the roadmap.
+- **Template auto-reload is development-only.** File-backed templates can reload automatically during development, but packaged or embedded templates still require a restart to pick up changes.
+- **`RUN_SYNC_IN_EXECUTOR` does not cover action handlers.** It moves blocking
+  `@app.on_key` / mouse / change handlers onto a worker thread, but
+  `@app.on_action` handlers (what buttons fire) are invoked inline, so the
+  setting has no effect on them. Either way the event loop awaits the handler
+  before the next repaint, so a long action still holds the screen. Tracked for
+  0.1.1.
 - **Some Windows alt-key combinations** are not delivered by the underlying
   terminal input layer.
 
@@ -652,7 +658,7 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 - **[Full documentation](https://thomas-villani.github.io/wijjit/)** — guides and API reference
 - **[CONTRIBUTING.md](https://github.com/thomas-villani/wijjit/blob/main/CONTRIBUTING.md)** — development setup, tests, and the CI gates
 - **[CLAUDE.md](https://github.com/thomas-villani/wijjit/blob/main/CLAUDE.md)** — architecture guide for AI agents working in this repo
-- **`examples/`** — 74 working examples
+- **`examples/`** — 73 working examples
 - **`tests/`** — a large test suite that doubles as usage documentation
 
 Build the docs locally with `cd docs && make html`.

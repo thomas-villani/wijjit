@@ -100,7 +100,6 @@ Complete mini-applications and advanced usage patterns.
 - **state_management_demo.py** - State watchers, async callbacks, derived state, change logging
 - **event_patterns_demo.py** - Event scopes (global/view/element), priorities, propagation
 - **error_handling_demo.py** - Error handling patterns and graceful degradation
-- **executor_demo.py** - ThreadPoolExecutor configuration for non-blocking I/O
 - **context_menu_demo.py** - Right-click context menus (experimental)
 
 **Layout & Scrolling:**

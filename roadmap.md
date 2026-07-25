@@ -145,10 +145,11 @@ colours; wrapped text overpainting the widget beneath it; single-character
 hotkeys firing while typing. Investigated and *not* framework bugs:
 `system_monitor` (psutil simply was not installed; it now fails with an install
 hint), `preferences_demo`'s stray cursor (Wijjit emits no show-cursor for any
-non-text element - a Windows Terminal artifact), and `executor_demo` "always
-blocking" (the demo advertised responsiveness the executor does not provide and
-hard-coded its mode label to "Direct (blocking)"; the copy now describes what
-the executor actually does).
+non-text element - a Windows Terminal artifact). `executor_demo` "always
+blocking" turned out to be accurate and deeper than a demo bug: every control in
+it is a button, and `RUN_SYNC_IN_EXECUTOR` does not apply to `@app.on_action`
+handlers at all, so the demo exercised a setting it could never show. It was
+removed for 0.1.0; see the two executor entries below.
 
 **Already resolved in 0.1.0** (for reference): mouse hit-testing offset on
 scrolled frames; radio_demo layout crash (directional padding on
@@ -428,17 +429,34 @@ diff SGR, once-per-frame size sampling, SplitPanel clamp+weakref).
   loop assigns ``int(content_height * pct)`` and advances by that larger value
   (``engine.py:540-549, 586-587, 632``). Likely needs a taller element to surface.
 
-- [ ] **A long handler still stalls the frame, executor or not.**
-  ``RUN_SYNC_IN_EXECUTOR`` moves a sync handler onto a worker thread, which frees
-  the event-loop *thread* (timers, background tasks and state callbacks keep
-  running), but ``_process_frame_async`` still ``await``\ s the dispatch and the
-  loop body is one sequential coroutine — so nothing repaints until the handler
-  returns. Async handlers are awaited inline too, so they block the frame just
-  the same unless they spawn a task. To make "the UI stays responsive during a
-  long action" true rather than aspirational, dispatch would have to become
-  fire-and-forget for handlers that opt in, which changes handler ordering
-  guarantees and needs its own design pass. ``executor_demo``'s copy was
-  corrected to describe today's behaviour (2026-07-24).
+- [ ] **``RUN_SYNC_IN_EXECUTOR`` silently does not apply to action handlers.**
+  ``HandlerRegistry.dispatch_async`` honours the executor, so a blocking
+  ``@app.on_key`` / mouse / change handler runs on a worker thread and the loop
+  keeps servicing timers, background tasks and state callbacks. ``@app.on_action``
+  handlers never reach the registry: ``Wijjit._dispatch_action`` (``app.py``)
+  calls ``result = handler(action_event)`` inline, so the config has *no effect*
+  on them. Measured 2026-07-24: with a 0.4 s blocking handler, the key path lets
+  ~20 background ticks through with the executor on and 0 with it off, while the
+  action path is 0 either way. Since buttons are the obvious place a user reaches
+  for this, the setting looks broken. Fix is to route ``_dispatch_action``
+  through the same executor path — deferred because it changes when every action
+  handler runs relative to state callbacks and re-render, which needs its own
+  test pass. Pinned by ``tests/core/test_executor_dispatch.py``; those
+  expectations flip when it lands.
+- [ ] **Even on the executor, a long handler delays the next frame.** The
+  executor frees the event-loop *thread*, but ``_process_frame_async`` still
+  ``await``\ s the dispatch and the loop body is one sequential coroutine, so
+  nothing repaints until the handler returns. Async handlers are awaited inline
+  too and block the frame just the same unless they spawn a task. Making "the UI
+  stays responsive during a long action" true needs opt-in fire-and-forget
+  dispatch, which changes handler ordering guarantees.
+- [ ] **Restore an executor demo once the two items above land.**
+  ``examples/advanced/executor_demo.py`` was removed before 0.1.0 (2026-07-24):
+  every control in it was a button, so it demonstrated a setting it never
+  exercised — its screen was byte-identical with the executor on and off, and it
+  advertised responsiveness the framework does not provide. A replacement should
+  show the observable difference (background work progressing during a blocking
+  handler) rather than asserting it in prose.
 
 ### Framework correctness / cleanup (from the 0.1.0 code review)
 

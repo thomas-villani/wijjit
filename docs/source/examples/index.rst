@@ -1,11 +1,11 @@
 Examples
 ========
 
-Wijjit ships with 74 runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+Wijjit ships with 73 runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
 
 * ``examples/basic`` (15) – first steps, focus, events, async, alignment.
 * ``examples/widgets`` (30) – component spotlights (tables, trees, dialogs, etc.).
-* ``examples/advanced`` (22) – multi-view apps, complex layouts, and performance patterns (includes the ``templates_dir_demo`` package).
+* ``examples/advanced`` (21) – multi-view apps, complex layouts, and performance patterns (includes the ``templates_dir_demo`` package).
 * ``examples/styling`` (2) – CSS theming and style-class demos.
 * ``examples/apps`` (5) – complete sample applications.
 
@@ -69,7 +69,7 @@ Advanced workflows
 * ``examples/apps/system_monitor.py`` – live CPU/memory gauges and history charts (needs ``psutil``).
 * ``examples/advanced/state_management_demo.py`` / ``event_patterns_demo.py`` – reactors, watchers, and custom event scopes.
 * ``examples/advanced/scroll_demo.py`` / ``scrollable_children_demo.py`` / ``frame_overflow_demo.py`` – focus-preserving scrolling patterns.
-* ``examples/advanced/executor_demo.py`` / ``download_simulator.py`` – background workers and progress coordination.
+* ``examples/advanced/download_simulator.py`` – background workers and progress coordination.
 * ``examples/advanced/error_handling_demo.py`` – graceful fallback paths when handlers fail.
 * ``examples/advanced/plugin_element.py`` – register a third-party element and its template tag through the public plugin seam, no fork required.
 

@@ -318,6 +318,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version is now sourced from `wijjit.__version__` (single source of truth).
 
 ### Removed
+- **`examples/advanced/executor_demo.py`.** It demonstrated
+  `RUN_SYNC_IN_EXECUTOR`, but every control in it was a button, and that setting
+  does not apply to `@app.on_action` handlers - `Wijjit._dispatch_action` calls
+  them inline rather than through `HandlerRegistry.dispatch_async`. The demo's
+  screen was therefore byte-identical with the executor on and off, while its
+  copy advertised a responsiveness the framework does not provide. Both the
+  dispatch gap and a replacement demo are tracked in `roadmap.md`; the asymmetry
+  is pinned by `tests/core/test_executor_dispatch.py`.
 - **~126 lines of dead code in `TextArea`.** `_render_cursor_in_line` and
   `_apply_selection_to_line_ansi` were a pre-cell-buffer path that built ANSI
   strings by hand (one hardcoding a theme color). Rendering has gone through
