@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from wijjit.elements.modal import AlertDialog, ConfirmDialog, TextInputDialog
 
 
@@ -165,6 +167,46 @@ class TestAlertDialog:
 
         assert dialog.width == 45
         assert dialog.height == 7
+
+
+class TestAlertSeverityBorderColor:
+    """A severity must actually tint the border.
+
+    The severity hook intercepted only ``frame.border``, but ``AlertDialog`` is
+    a modal and its Frame resolves ``modal.border`` (``style_prefix="modal"``),
+    so every severity rendered in the plain modal grey.
+    """
+
+    SEVERITIES = {
+        "success": (0, 255, 0),
+        "error": (255, 0, 0),
+        "warning": (255, 255, 0),
+        "info": (100, 149, 237),
+    }
+
+    def _border_color(self, severity, dialog=None):
+        """Return the fg_color of the dialog's top-left border cell."""
+        from tests.helpers import render_element_buffer
+
+        if dialog is None:
+            dialog = AlertDialog(
+                message="Hello", severity=severity, width=30, height=10
+            )
+        buffer = render_element_buffer(dialog, width=40, height=12)
+        return buffer.get_cell(0, 0).fg_color
+
+    @pytest.mark.parametrize("severity", sorted(SEVERITIES))
+    def test_severity_colors_the_border(self, severity):
+        assert self._border_color(severity) == self.SEVERITIES[severity]
+
+    def test_no_severity_leaves_the_default_border(self):
+        assert self._border_color(None) not in self.SEVERITIES.values()
+
+    def test_resolver_is_restored_after_render(self):
+        # A second render must still see the real resolver, not a stacked wrapper.
+        dialog = AlertDialog(message="Hi", severity="error", width=30, height=10)
+        assert self._border_color(None, dialog) == (255, 0, 0)
+        assert self._border_color(None, dialog) == (255, 0, 0)
 
 
 class TestTextInputDialog:

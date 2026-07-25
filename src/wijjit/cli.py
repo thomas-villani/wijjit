@@ -132,15 +132,71 @@ def _cmd_render(args: argparse.Namespace) -> int:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    """Load a ``.py`` app and launch it interactively in this terminal."""
-    from wijjit.testing.examples import ExampleLoadError, load_example_app
+    """Execute a ``.py`` app in this terminal, as ``python file.py`` would.
+
+    This deliberately does *not* go through
+    :func:`~wijjit.testing.examples.load_example_app`. That loader exists to
+    capture an app without starting it: it neuters ``Wijjit.run`` and swallows
+    stdout, which is right for headless inspection and wrong for actually
+    launching something. It also only knows about :class:`Wijjit`, so an
+    :class:`~wijjit.inline.app.InlineApp` demo would start its own blocking
+    input loop *during loading* and hang before this command got to run
+    anything.
+
+    The module is executed as ``__main__`` so its entry point runs normally. As
+    a convenience, a module that defines a module-level ``app`` but never runs
+    it (no ``if __name__ == "__main__"`` block) is launched afterwards.
+    """
+    from wijjit.core.app import Wijjit
+
+    path = Path(args.file)
+    if not path.is_file():
+        print(f"Failed to load {args.file}: file not found", file=sys.stderr)
+        return 1
 
     try:
-        app = load_example_app(args.file)
-    except ExampleLoadError as exc:
+        source = path.read_text(encoding="utf-8")
+        code = compile(source, str(path), "exec")
+    except (OSError, SyntaxError) as exc:
         print(f"Failed to load {args.file}: {exc}", file=sys.stderr)
         return 1
-    app.run()
+
+    module_globals: dict[str, object] = {
+        "__name__": "__main__",
+        "__file__": str(path),
+        "__builtins__": __builtins__,
+    }
+
+    # Record whether the module started an app itself, without suppressing it.
+    started: list[Wijjit] = []
+    original_run = Wijjit.run
+
+    def _tracking_run(self: Wijjit) -> None:
+        started.append(self)
+        original_run(self)
+
+    original_argv = sys.argv
+    original_sys_path = list(sys.path)
+    Wijjit.run = _tracking_run  # type: ignore[method-assign]
+    # Mirror ``python file.py``: argv is just the script, and its directory is
+    # importable so a demo can import sibling helper modules.
+    sys.argv = [str(path)]
+    sys.path.insert(0, str(path.parent.resolve()))
+    try:
+        exec(code, module_globals)  # noqa: S102 - user-specified local file
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        Wijjit.run = original_run  # type: ignore[method-assign]
+        sys.argv = original_argv
+        sys.path[:] = original_sys_path
+
+    if started:
+        return 0
+
+    app = module_globals.get("app")
+    if isinstance(app, Wijjit):
+        app.run()
     return 0
 
 
