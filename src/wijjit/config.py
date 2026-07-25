@@ -409,6 +409,14 @@ class DefaultConfig:
     #: Unicode support: 'auto' (detect), 'force' (always use), 'disable' (ASCII only)
     UNICODE_SUPPORT = "auto"
 
+    #: Shrink over-committed layouts to fit the terminal instead of clipping.
+    #: When a container's children ask for more space than the container has
+    #: (typically hard-coded ``width=``/``height=`` values on a terminal smaller
+    #: than the author's), children with slack give space back in proportion,
+    #: floored at the size their content genuinely needs. Set False to restore
+    #: the pre-0.1.0 behaviour of letting the overflow clip.
+    AUTO_FIT_LAYOUT = True
+
     # ============================================================
     # PERFORMANCE & THREADING
     # ============================================================

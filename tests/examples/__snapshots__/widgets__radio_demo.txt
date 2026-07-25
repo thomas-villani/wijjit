@@ -2,13 +2,13 @@
 ║                                                                                  ║                
 ║  Please select your options and submit                                           ║                
 ║                                                                                  ║                
-║  ╭─ Select Size ─────────╮  ┌─ Select Color ────────┐  ╔═ Shipping Method ═════╗ ║                
-║  │ ┌─ Size ──────────┐   │  │ ○ Red                 │  ║ ◉ Standard (5-7 days) ║ ║                
-║  │ │ ○ Extra Small   │   │  │ ○ Green               │  ║ ○ Express (2-3 days)  ║ ║                
-║  │ │ ○ Small         │   │  │ ◉ Blue                │  ║ ○ Overnight           ║ ║                
-║  │ │ ◉ Medium        │   │  │ ○ Yellow              │  ╚═══════════════════════╝ ║                
-║  │ │ ○ Large         │   │  │ ○ Purple              │                            ║                
-║  │ │ ○ Extra Large   │   │  └───────────────────────┘                            ║                
+║  ╭─ Select Size ─────────╮  ┌─ Select Color ───────┐  ╔═ Shipping Method ═════╗  ║                
+║  │ ┌─ Size ──────────┐   │  │ ○ Red                │  ║ ◉ Standard (5-7 days) ║  ║                
+║  │ │ ○ Extra Small   │   │  │ ○ Green              │  ║ ○ Express (2-3 days)  ║  ║                
+║  │ │ ○ Small         │   │  │ ◉ Blue               │  ║ ○ Overnight           ║  ║                
+║  │ │ ◉ Medium        │   │  │ ○ Yellow             │  ╚═══════════════════════╝  ║                
+║  │ │ ○ Large         │   │  │ ○ Purple             │                             ║                
+║  │ │ ○ Extra Large   │   │  └──────────────────────┘                             ║                
 ║  │ └─────────────────┘   │                                                       ║                
 ║  ╰───────────────────────╯                                                       ║                
 ║                                                                                  ║                
