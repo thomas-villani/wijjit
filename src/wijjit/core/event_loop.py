@@ -632,12 +632,13 @@ class EventLoop:
             key_obj=input_event,  # Store original Key object
         )
 
-        # Check if we should skip view-scoped handlers for text input
-        # When an INPUT element (TextInput, TextArea) is focused, plain character keys
-        # should go directly to the element, not to view-scoped handlers.
-        # This prevents 's' key handlers from firing when typing 's' in a text field.
-        # Ctrl+, Alt+, and special keys still go through handlers for shortcuts.
-        skip_view_handlers_for_input = False
+        # Check if we should skip hotkey handlers for text input.
+        # When an INPUT element (TextInput, TextArea) is focused, plain character
+        # keys should go to the element, not to a hotkey handler: a global
+        # @app.on_key("q") quit must not fire while the user types "q" in a name
+        # field. Ctrl+, Alt+ and special keys (F1, Escape, ...) are unambiguous
+        # and still reach handlers, so shortcuts keep working while typing.
+        skip_hotkeys_for_input = False
         focused_elem = self.app.focus_manager.get_focused_element()
         if focused_elem is not None and input_event.is_char:
             # Check if focused element is an INPUT type (TextInput, TextArea)
@@ -652,9 +653,9 @@ class EventLoop:
                     "ctrl" in input_event.modifiers or "alt" in input_event.modifiers
                 )
                 if not has_modifier:
-                    skip_view_handlers_for_input = True
+                    skip_hotkeys_for_input = True
                     logger.debug(
-                        f"Skipping view handlers for '{input_event.name}' - "
+                        f"Skipping hotkey handlers for '{input_event.name}' - "
                         f"INPUT element is focused"
                     )
 
@@ -664,11 +665,14 @@ class EventLoop:
         is_tab_key = input_event.name in ("tab", "shift+tab")
         if not self.app.overlay_manager.should_trap_focus() or is_tab_key:
             # No modal trapping focus, OR it's Tab key for focus cycling.
-            # When a text input is focused, exclude VIEW-scoped handlers so a
-            # plain character does not trigger a view hotkey - but still let
-            # GLOBAL handlers (e.g. an @app.on_key("q") quit) and element
-            # handlers fire.
-            exclude_scope = HandlerScope.VIEW if skip_view_handlers_for_input else None
+            # When a text input is focused, exclude VIEW- and GLOBAL-scoped
+            # handlers so a plain character is text, not a hotkey. ELEMENT-scoped
+            # handlers still fire: those are bound to the focused element itself.
+            exclude_scope = (
+                (HandlerScope.VIEW, HandlerScope.GLOBAL)
+                if skip_hotkeys_for_input
+                else None
+            )
             await self.app.handler_registry.dispatch_async(
                 event, executor=self.executor, exclude_scope=exclude_scope
             )

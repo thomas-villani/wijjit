@@ -58,7 +58,7 @@ def main_view():
 
         {% button action="toggle" class=state.button_class %}{{ state.button_label }}{% endbutton %}
 
-        {% text class="text-muted" %}Press 'q' to quit{% endtext %}
+        {% text class="text-muted" %}Press 'q' or Ctrl+Q to quit{% endtext %}
       {% endvstack %}
     {% endframe %}
     """

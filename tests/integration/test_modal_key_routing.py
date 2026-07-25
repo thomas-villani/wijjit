@@ -281,13 +281,14 @@ class TestDialogFirstKeyActivatesButton:
 
 
 class TestFocusedInputKeyScope:
-    """A focused TextInput must suppress only VIEW-scoped key handlers.
+    """A focused TextInput swallows plain characters; modified keys get through.
 
-    Regression for the bug where a focused input set
-    ``skip_view_handlers_for_input`` and the event loop then skipped *all*
-    handler dispatch - so a global ``@app.on_key("q")`` quit never fired while
-    typing in a field (``horizontal_scroll_demo`` "q doesn't quit"). Global and
-    element handlers must still fire; only view-scoped handlers are suppressed.
+    This started as "a focused input skipped *all* handler dispatch, so a global
+    ``@app.on_key('q')`` quit never fired" and was fixed by letting GLOBAL
+    handlers through. That overshot: it also meant typing a name containing "q"
+    quit the app. The rule is now about the key, not the scope - an unmodified
+    character belongs to the focused text field, while modified and special keys
+    (``Ctrl+Q``, ``Escape``, arrows) stay unambiguous and still reach handlers.
     """
 
     def _build_app(self) -> Wijjit:
@@ -307,6 +308,10 @@ class TestFocusedInputKeyScope:
         def global_handler(_event) -> None:
             app.state["global_fired"] += 1
 
+        @app.on_key("ctrl+g")
+        def global_ctrl_handler(_event) -> None:
+            app.state["global_fired"] += 1
+
         def view_handler(event) -> None:
             if event.key and event.key.lower() == "v":
                 app.state["view_fired"] += 1
@@ -319,14 +324,27 @@ class TestFocusedInputKeyScope:
         )
         return app
 
-    def test_global_handler_fires_with_input_focused(self) -> None:
+    def test_plain_char_does_not_fire_global_handler_with_input_focused(self) -> None:
         app = self._build_app()
         with WijjitHarness(app, size=(50, 10)) as h:
             h.press("tab")
             assert h.focused is not None, "TextInput was not focused"
             h.press("g")
+            assert h.state["global_fired"] == 0, (
+                "global @app.on_key('g') fired for a plain char while a "
+                "TextInput was focused"
+            )
+            assert h.state["name"] == "g", "char was not typed into the input"
+
+    def test_modified_key_fires_global_handler_with_input_focused(self) -> None:
+        app = self._build_app()
+        with WijjitHarness(app, size=(50, 10)) as h:
+            h.press("tab")
+            assert h.focused is not None, "TextInput was not focused"
+            h.press("ctrl+g")
             assert h.state["global_fired"] == 1, (
-                "global @app.on_key('g') did not fire while a TextInput was " "focused"
+                "global @app.on_key('ctrl+g') did not fire while a TextInput "
+                "was focused"
             )
 
     def test_view_handler_suppressed_with_input_focused(self) -> None:

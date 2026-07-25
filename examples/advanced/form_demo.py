@@ -12,7 +12,7 @@ Run with: python examples/advanced/form_demo.py
 
 Controls:
 - Tab/Shift+Tab: Navigate between fields
-- q: Quit
+- q: Quit (Ctrl+Q always quits, even while typing)
 """
 
 import re
@@ -246,7 +246,7 @@ def main_view():
     {% endhstack %}
 
     {% vstack spacing=0 %}
-      * = Required field | [Tab/Shift+Tab] Navigate | [q] Quit
+      * = Required field | [Tab/Shift+Tab] Navigate | [q] or [Ctrl+Q] Quit
     {% endvstack %}
   {% endvstack %}
 {% endframe %}

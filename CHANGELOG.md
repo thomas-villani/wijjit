@@ -324,6 +324,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **Wrapped text no longer eats the widget below it.** Layout measures
+  bottom-up, before any width is known, so a line that would wrap was measured
+  as one row, allocated one row, and then painted its continuation lines over
+  whichever sibling was laid out beneath it - losing both the rest of the
+  sentence and the next widget. Nodes and elements now answer
+  `get_height_for_width(width)` on the way down, once a width is settled, and
+  `VStack`/`FrameNode` recurse through it. Visible in several demos whose
+  instruction lines were silently truncated mid-sentence.
+- **A plain keystroke belongs to the focused text field, not to a hotkey.**
+  Single-character hotkeys (`@app.on_key("q")`) fired while the user was typing,
+  so entering a name containing "q" quit the app. View-scoped handlers were
+  already suppressed for exactly this reason; global ones now are too, while a
+  `TextInput`/`TextArea` has focus. Modified and special keys (`Ctrl+S`,
+  `Escape`, arrows) are unambiguous and still reach handlers, and the built-in
+  `Ctrl+Q` quit is unaffected - so an app whose only quit key is `q` is still
+  closable while typing.
 - **Mouse clicks land on the right row on Windows.** Win32 reports mouse
   positions in console *screen buffer* coordinates, and prompt_toolkit's Win32
   input passes them through untouched. Wijjit addresses the visible window, so

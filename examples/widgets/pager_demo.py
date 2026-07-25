@@ -174,7 +174,7 @@ Developer: Tom Villani
 Framework: Wijjit - Wijjit Is Just Jinja In Terminal
 
 Press Home to go back to the first page,
-or press 'q' to quit this demo.
+or press 'q' (or Ctrl+Q) to quit this demo.
             {% endpage %}
 
         {% endpager %}

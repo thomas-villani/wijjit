@@ -59,7 +59,7 @@ def test_bottom_action_buttons_and_footer_visible() -> None:
     screen = _render()
     for label in ("Clear Errors", "Clear History", "Quit"):
         assert label in screen, f"Bottom button '{label}' not visible.\n\n{screen}"
-    assert "[q] Quit" in screen, "Footer hint missing.\n\n" + screen
+    assert "[q] or [Ctrl+Q] Quit" in screen, "Footer hint missing.\n\n" + screen
 
 
 def test_right_column_frames_have_intact_right_borders() -> None:
@@ -92,4 +92,4 @@ def test_layout_stable_with_error_message() -> None:
     # Bottom actions still visible:
     assert "Clear Errors" in screen
     assert "Quit" in screen
-    assert "[q] Quit" in screen
+    assert "[q] or [Ctrl+Q] Quit" in screen

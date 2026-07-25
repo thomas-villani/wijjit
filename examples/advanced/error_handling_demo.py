@@ -11,7 +11,7 @@ Run with: python examples/advanced/error_handling_demo.py
 
 Controls:
 - Click buttons to trigger various error scenarios
-- q: Quit
+- q: Quit (Ctrl+Q always quits, even while typing)
 """
 
 import asyncio
@@ -140,7 +140,7 @@ def main_view():
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
 
-    Try the error scenarios above to see error handling in action!  [q] Quit
+    Try the error scenarios above to see error handling in action!  [q] or [Ctrl+Q] Quit
   {% endvstack %}
 {% endframe %}
         """,

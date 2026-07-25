@@ -3,6 +3,7 @@
 │  Make your selections below                                                                     █│
 │                                                                                                 █│
 │  Instructions: Tab to navigate | Up/Down to browse | Enter/Space to select/toggle | Home/End    █│
+│  for first/last                                                                                 █│
 │                                                                                                 █│
 │  ┌─ Color ──────────────────────┐  ╭─ Size ───────────────────────╮                             █│
 │  │  Red                         │  │  Extra Small                 │                             █│
@@ -19,12 +20,11 @@
 │  ║  Low                         ║  │  Argentina                             │                   █│
 │  ║  None                        ║  │  Australia                             │                   █│
 │  ╚══════════════════════════════╝  │  Austria                               │                   █│
-│                                    │  Belgium                               │                   █│
-│                                    │  Brazil                                │                   █│
+│                                    │  Belgium                               │                   ││
+│                                    │  Brazil                                │                   ││
 │                                    └────────────────────────────────────────┘                   ││
 │                                                                                                 ││
 │  ╭─ Toppings (multi-select) ─────────╮  Multi-select instructions:                              ││
 │  │ *Cheese                           │  - Enter/Space toggles selection                         ││
 │  │ *Pepperoni                        │  - * marks selected items                                ││
-│  │  Mushrooms                        │  - Multiple items can be selected                        ││
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘

@@ -749,6 +749,29 @@ class Element(ABC):
         """
         self.bounds = bounds
 
+    def get_height_for_width(self, width: int) -> int:
+        """Return the height this element needs when laid out at ``width``.
+
+        Layout measures bottom-up (:meth:`get_intrinsic_size`) before it knows
+        how much width a child will get. That is wrong for anything whose
+        height depends on its width - wrapped text being the obvious case, where
+        the intrinsic pass reports one row for a line that will occupy three. A
+        container that has already resolved a child's width calls this instead.
+
+        Parameters
+        ----------
+        width : int
+            The width the element will be laid out at.
+
+        Returns
+        -------
+        int
+            Required height. The default ignores ``width`` and reports the
+            intrinsic height, which is correct for every element whose height
+            does not depend on its width.
+        """
+        return self.get_intrinsic_size()[1]
+
     # === Virtual DOM Lifecycle Methods ===
     # TODO: should these be abstract methods?
 
@@ -1371,6 +1394,10 @@ class TextElement(Element):
         -----
         If HTML mode is enabled, HTML tags are stripped when calculating
         visible width to get accurate sizing.
+
+        The height counts *unwrapped* lines, because the layout width is not
+        known during the bottom-up measure pass. Containers that have resolved
+        this element's width should call :meth:`get_height_for_width` instead.
         """
         from wijjit.terminal.ansi import visible_length
 
@@ -1380,6 +1407,37 @@ class TextElement(Element):
         width = max((visible_length(line) for line in lines), default=1)
         height = len(lines)
         return (width, height)
+
+    def get_height_for_width(self, width: int) -> int:
+        """Return the row count this text needs once wrapped to ``width``.
+
+        Parameters
+        ----------
+        width : int
+            The width the element will be laid out at.
+
+        Returns
+        -------
+        int
+            Number of display rows. Equal to the unwrapped line count when
+            wrapping is off or every line already fits.
+
+        Notes
+        -----
+        Without this, a long line is measured as one row, is allocated one row,
+        and then paints its wrapped continuation lines over whatever sibling was
+        laid out beneath it - so the sibling silently disappears.
+        """
+        if not self.wrap or width <= 0:
+            return self.get_intrinsic_size()[1]
+
+        from wijjit.terminal.ansi import wrap_text
+
+        rows = 0
+        for line in self._get_display_text().split("\n"):
+            # An empty line still occupies a row; wrap_text returns [] for it.
+            rows += len(wrap_text(line, width)) or 1
+        return max(1, rows)
 
     def _get_display_text(self) -> str:
         """Get text for display, stripping HTML tags if needed.

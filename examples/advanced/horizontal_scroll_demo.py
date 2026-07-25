@@ -13,7 +13,7 @@ Controls:
 - Mouse wheel: Vertical scroll
 - Shift+Mouse wheel: Horizontal scroll
 - Tab: Switch between elements
-- 'q' to quit
+- 'q' to quit (Ctrl+Q always quits, even while typing)
 """
 
 from wijjit import Wijjit, render_template_string
@@ -82,7 +82,7 @@ def main_view():
     {% frame width="fill" height=5 border="single" title="Controls" padding=(0,1,0,1) %}
 Left/Right: Scroll horizontally | Shift+Left/Right: Page scroll
 Up/Down: Scroll vertically | Shift+Wheel: Horizontal scroll
-Tab: Switch focus | q: Quit
+Tab: Switch focus | q or Ctrl+Q: Quit
     {% endframe %}
 
 {% endframe %}

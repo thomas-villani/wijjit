@@ -12,7 +12,7 @@ Run with: python examples/advanced/state_management_demo.py
 
 Controls:
 - Tab/Shift+Tab: Navigate between inputs
-- q: Quit
+- q: Quit (Ctrl+Q always quits, even while typing)
 """
 
 import asyncio
@@ -249,7 +249,7 @@ def main_view():
       • Derived state (counter_squared) computed automatically
       • Form completeness checking across multiple fields
 
-      [q] Quit | Try changing values to see state watchers in action!
+      [q] or [Ctrl+Q] Quit | Try changing values to see state watchers in action!
     {% endvstack %}
   {% endvstack %}
 {% endframe %}
