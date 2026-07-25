@@ -43,6 +43,153 @@ JustifyContent = Literal[
 ]
 
 
+# How far auto-fit may compress a leaf element. Elements clip or scroll their
+# own content, so an over-committed row is better served by squeezing two
+# widgets than by letting the second run off the screen entirely. These match
+# the "reasonable minimum for visibility" figures ElementNode already uses for
+# dynamically sized elements.
+ELEMENT_MIN_VISIBLE_WIDTH = 10
+ELEMENT_MIN_VISIBLE_HEIGHT = 5
+
+# Whether over-committed fixed sizes are shrunk to fit their parent. Set from
+# the ``AUTO_FIT_LAYOUT`` config key at app construction, mirroring how
+# ``UNICODE_SUPPORT`` reaches ``wijjit.terminal.ansi.set_unicode_mode``. Layout
+# is a leaf layer with no handle on the app, so the value is pushed in.
+_auto_fit_enabled: bool = True
+
+
+def set_auto_fit(enabled: bool) -> None:
+    """Enable or disable auto-fit shrinking for over-committed layouts.
+
+    Parameters
+    ----------
+    enabled : bool
+        When True (the default), a container whose children ask for more space
+        than the container was given shrinks those children to fit rather than
+        letting them overflow and clip. See :func:`shrink_to_fit`.
+    """
+    global _auto_fit_enabled
+    _auto_fit_enabled = enabled
+
+
+def auto_fit_enabled() -> bool:
+    """Return whether auto-fit shrinking is currently enabled.
+
+    Returns
+    -------
+    bool
+        True if over-committed layouts shrink to fit.
+    """
+    return _auto_fit_enabled
+
+
+def shrink_to_fit(
+    requested: list[int], minimums: list[int], available: int
+) -> list[int]:
+    """Scale over-committed sizes down proportionally, floored at minimums.
+
+    This is the CSS flexbox ``flex-shrink`` rule reduced to what Wijjit needs:
+    when the children of a stack collectively ask for more room than the stack
+    has, every child that has slack gives space back in proportion to how much
+    slack it has, so a rigid child is not squeezed while a roomy sibling keeps
+    its surplus.
+
+    Parameters
+    ----------
+    requested : list of int
+        The size each child asked for, in child order.
+    minimums : list of int
+        The floor for each child - the size below which it must not be shrunk
+        (typically ``constraints.content_min_width`` / ``content_min_height``).
+    available : int
+        Total space the children must fit into, gaps already deducted.
+
+    Returns
+    -------
+    list of int
+        Sizes summing to at most ``available``, or ``requested`` unchanged when
+        it already fits, when auto-fit is disabled, or when no child has slack.
+
+    Notes
+    -----
+    If the minimums alone exceed ``available`` the result still overflows: the
+    layout is genuinely too small and clipping is the only remaining option.
+    """
+    if not requested:
+        return []
+    total = sum(requested)
+    overflow = total - available
+    if overflow <= 0 or not _auto_fit_enabled:
+        return list(requested)
+
+    # Slack is what each child can give up before hitting its content floor.
+    slack = [max(0, r - m) for r, m in zip(requested, minimums, strict=True)]
+    total_slack = sum(slack)
+    if total_slack <= 0:
+        return list(requested)
+
+    # Never claw back more than the children can actually give.
+    to_reclaim = min(overflow, total_slack)
+    cuts = [(to_reclaim * s) // total_slack for s in slack]
+
+    # Integer division leaves a remainder; hand it to the children that still
+    # have slack left, largest slack first, so the result sums exactly.
+    leftover = to_reclaim - sum(cuts)
+    if leftover:
+        order = sorted(
+            range(len(slack)), key=lambda i: slack[i] - cuts[i], reverse=True
+        )
+        for i in order:
+            if leftover <= 0:
+                break
+            room = slack[i] - cuts[i]
+            if room <= 0:
+                continue
+            take = min(room, leftover)
+            cuts[i] += take
+            leftover -= take
+
+    return [r - c for r, c in zip(requested, cuts, strict=True)]
+
+
+def _content_min_width(node: "LayoutNode") -> int:
+    """Return a node's auto-fit width floor.
+
+    Parameters
+    ----------
+    node : LayoutNode
+        The node to inspect.
+
+    Returns
+    -------
+    int
+        ``constraints.content_min_width`` when constraints have been calculated,
+        otherwise 0 (an uncalculated node imposes no floor).
+    """
+    if node.constraints is None:
+        return 0
+    return node.constraints.content_min_width or 0
+
+
+def _content_min_height(node: "LayoutNode") -> int:
+    """Return a node's auto-fit height floor.
+
+    Parameters
+    ----------
+    node : LayoutNode
+        The node to inspect.
+
+    Returns
+    -------
+    int
+        ``constraints.content_min_height`` when constraints have been
+        calculated, otherwise 0.
+    """
+    if node.constraints is None:
+        return 0
+    return node.constraints.content_min_height or 0
+
+
 def _distribute_fill(total: int, count: int) -> list[int]:
     """Split ``total`` into ``count`` near-equal parts, remainder to the front.
 
@@ -84,6 +231,12 @@ class SizeConstraints:
         Preferred width (default: min_width)
     preferred_height : int, optional
         Preferred height (default: min_height)
+    content_min_width : int, optional
+        Width below which the node's *content* cannot be shown, ignoring any
+        explicit fixed ``width`` spec (default: ``min_width``).
+    content_min_height : int, optional
+        Height below which the node's *content* cannot be shown, ignoring any
+        explicit fixed ``height`` spec (default: ``min_height``).
 
     Attributes
     ----------
@@ -95,19 +248,37 @@ class SizeConstraints:
         Preferred width
     preferred_height : int
         Preferred height
+    content_min_width : int
+        Natural content minimum width (the auto-fit shrink floor)
+    content_min_height : int
+        Natural content minimum height (the auto-fit shrink floor)
+
+    Notes
+    -----
+    A node with a fixed ``width``/``height`` spec reports that value as both
+    ``min_*`` and ``preferred_*``, which makes it look incompressible. The
+    ``content_min_*`` pair records what the node would need if the author had
+    not pinned a size, and is what auto-fit (see :func:`shrink_to_fit`) uses as
+    the floor when it has to claw back over-committed space.
     """
 
     min_width: int
     min_height: int
     preferred_width: int | None = None
     preferred_height: int | None = None
+    content_min_width: int | None = None
+    content_min_height: int | None = None
 
     def __post_init__(self) -> None:
-        """Set preferred sizes to min sizes if not specified."""
+        """Set preferred and content-minimum sizes to min sizes if not given."""
         if self.preferred_width is None:
             self.preferred_width = self.min_width
         if self.preferred_height is None:
             self.preferred_height = self.min_height
+        if self.content_min_width is None:
+            self.content_min_width = self.min_width
+        if self.content_min_height is None:
+            self.content_min_height = self.min_height
 
 
 @dataclass
@@ -262,8 +433,9 @@ class ElementNode(LayoutNode):
         elif supports_dynamic_sizing and self.width_spec.is_fill:
             # Dynamic sizing elements report minimal constraints to avoid inflating parent
             # They will expand to fill when space is available via assign_bounds
-            min_width = 10  # Reasonable minimum for visibility
-            preferred_width = 10  # Keep preferred same as min to avoid inflating parent
+            min_width = ELEMENT_MIN_VISIBLE_WIDTH
+            # Keep preferred same as min to avoid inflating parent
+            preferred_width = ELEMENT_MIN_VISIBLE_WIDTH
         else:
             # Auto or other - get intrinsic size from element
             content_width, _ = self.element.get_intrinsic_size()
@@ -276,19 +448,29 @@ class ElementNode(LayoutNode):
         elif supports_dynamic_sizing and self.height_spec.is_fill:
             # Dynamic sizing elements report minimal constraints to avoid inflating parent
             # They will expand to fill when space is available via assign_bounds
-            min_height = 5  # Reasonable minimum for visibility (includes borders)
-            preferred_height = 5  # Keep preferred same as min to avoid inflating parent
+            min_height = ELEMENT_MIN_VISIBLE_HEIGHT
+            # Keep preferred same as min to avoid inflating parent
+            preferred_height = ELEMENT_MIN_VISIBLE_HEIGHT
         else:
             # Auto or other - get intrinsic size from element
             _, content_height = self.element.get_intrinsic_size()
             min_height = content_height
             preferred_height = content_height
 
+        # An element's requested size is not a hard floor for auto-fit: elements
+        # clip or scroll their own content, so under space pressure a squeezed
+        # widget still shows something, whereas an unshrunk one is pushed off the
+        # screen entirely. Never raise the floor above what was asked for.
+        content_min_width = min(min_width, ELEMENT_MIN_VISIBLE_WIDTH)
+        content_min_height = min(min_height, ELEMENT_MIN_VISIBLE_HEIGHT)
+
         self.constraints = SizeConstraints(
             min_width=min_width,
             min_height=min_height,
             preferred_width=preferred_width,
             preferred_height=preferred_height,
+            content_min_width=content_min_width,
+            content_min_height=content_min_height,
         )
         return self.constraints
 
@@ -392,6 +574,12 @@ class Container(LayoutNode):
         self.margin = parse_margin(margin)
         self.align_h = align_h
         self.align_v = align_v
+        # Axes on which auto-fit must not shrink children. A scrollable frame
+        # sets these on its content container: overflow on the scrolling axis is
+        # the entire point of a viewport, so squeezing the content to fit would
+        # leave nothing to scroll.
+        self.no_shrink_width = False
+        self.no_shrink_height = False
 
     def add_child(self, child: LayoutNode) -> None:
         """Add a child node.
@@ -491,11 +679,16 @@ class VStack(Container):
 
         # Width: max of children
         max_child_width = max(c.preferred_width for c in child_constraints)
+        # The auto-fit floor must be built from the children's own floors, not
+        # their preferred sizes - otherwise one nested fixed-width widget makes
+        # the whole column look incompressible.
+        max_child_content_min = max(c.content_min_width or 0 for c in child_constraints)
 
         # Height: sum of children plus spacing
         # For children with height=fill, use min_height instead of preferred_height
         # to avoid inflating the parent
         total_height = 0
+        total_content_min_height = 0
         for i, child in enumerate(self.children):
             constraint = child_constraints[i]
             if child.height_spec.is_fill:
@@ -504,22 +697,33 @@ class VStack(Container):
             else:
                 # Fixed/auto children contribute their preferred size
                 total_height += constraint.preferred_height
+            total_content_min_height += constraint.content_min_height or 0
         total_height += self.spacing * (len(self.children) - 1)
+        total_content_min_height += self.spacing * (len(self.children) - 1)
 
         # Add padding and margins
         min_width = max_child_width + pad_w + margin_left + margin_right
         min_height = total_height + pad_h + margin_top + margin_bottom
 
+        # What the stack needs before any explicit size spec is applied. Auto-fit
+        # shrinks toward these, not toward a pinned width/height.
+        content_min_width = max_child_content_min + pad_w + margin_left + margin_right
+        content_min_height = (
+            total_content_min_height + pad_h + margin_top + margin_bottom
+        )
+
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
             min_width = self.width_spec.value
             preferred_width = self.width_spec.value
+            content_min_width = min(content_min_width, min_width)
         else:
             preferred_width = min_width
 
         if self.height_spec.is_fixed:
             min_height = self.height_spec.value
             preferred_height = self.height_spec.value
+            content_min_height = min(content_min_height, min_height)
         else:
             preferred_height = min_height
 
@@ -528,6 +732,8 @@ class VStack(Container):
             min_height=min_height,
             preferred_width=preferred_width,
             preferred_height=preferred_height,
+            content_min_width=content_min_width,
+            content_min_height=content_min_height,
         )
         return self.constraints
 
@@ -566,11 +772,27 @@ class VStack(Container):
         fill_children = [c for c in self.children if c.height_spec.is_fill]
         fixed_children = [c for c in self.children if not c.height_spec.is_fill]
 
-        # Calculate fixed heights
-        fixed_height = sum(
+        # Auto-fit: when the non-fill children ask for more rows than the stack
+        # has, claw the surplus back from those with slack so the column fits the
+        # terminal instead of running off the bottom. Fill children then take
+        # what is left, like a CSS flex item with ``flex-basis: 0``.
+        requested_heights = [
             c.constraints.preferred_height if c.constraints else 0
             for c in fixed_children
+        ]
+        fixed_heights = (
+            requested_heights
+            if self.no_shrink_height
+            else shrink_to_fit(
+                requested_heights,
+                [_content_min_height(c) for c in fixed_children],
+                content_height,
+            )
         )
+        shrunk_height = {
+            id(c): h for c, h in zip(fixed_children, fixed_heights, strict=True)
+        }
+        fixed_height = sum(fixed_heights)
 
         # Distribute remaining height to fill children, spreading the integer
         # remainder onto the leading fill children so they consume every cell.
@@ -607,14 +829,22 @@ class VStack(Container):
         for child in self.children:
             if child.height_spec.is_fill:
                 child_height = next(fill_heights)
-            elif child.height_spec.is_fixed:
-                child_height = child.height_spec.value
-            elif child.height_spec.is_percentage:
-                child_height = int(content_height * child.height_spec.get_percentage())
             else:
-                child_height = (
-                    child.constraints.preferred_height if child.constraints else 1
-                )
+                if child.height_spec.is_fixed:
+                    child_height = child.height_spec.value
+                elif child.height_spec.is_percentage:
+                    child_height = int(
+                        content_height * child.height_spec.get_percentage()
+                    )
+                else:
+                    child_height = (
+                        child.constraints.preferred_height if child.constraints else 1
+                    )
+                # Cap at the auto-fit allowance. Equal to the request when the
+                # column fits, smaller when this child had to give space back.
+                allowance = shrunk_height.get(id(child))
+                if allowance is not None:
+                    child_height = min(child_height, allowance)
 
             # Width handling based on child's width_spec
             # - Fixed: Use the explicit width value
@@ -625,8 +855,13 @@ class VStack(Container):
             # Note: align_h="stretch" affects POSITIONING of narrower children,
             # NOT whether auto-width children are stretched. Only "fill" children stretch.
             if child.width_spec.is_fixed:
-                # Respect the child's explicit fixed width
+                # Respect the child's explicit fixed width, but never let it
+                # exceed the column: a pinned width wider than the terminal
+                # would otherwise overflow and clip. Size.calculate() applies the
+                # same min() for fixed sizes; auto-fit extends it to the stacks.
                 child_width = child.width_spec.value
+                if auto_fit_enabled() and not self.no_shrink_width:
+                    child_width = max(min(child_width, content_width), 0)
             elif child.width_spec.is_fill:
                 # Fill children stretch to available width
                 child_width = content_width
@@ -813,6 +1048,10 @@ class HStack(Container):
             Child height
         """
         if child.height_spec.is_fixed:
+            # Cross axis: a pinned height taller than the row would overflow and
+            # clip, so clamp it the way Size.calculate() clamps fixed sizes.
+            if auto_fit_enabled() and not self.no_shrink_height:
+                return max(0, min(child.height_spec.value, content_height))
             return child.height_spec.value
         elif child.height_spec.is_fill:
             return row_height if self.wrap else content_height
@@ -896,11 +1135,9 @@ class HStack(Container):
     def _apply_justify(
         self,
         children: list[LayoutNode],
-        total_children_width: int,
+        widths: list[int],
         x_start: int,
         available_width: int,
-        content_width: int,
-        fill_width_each: int,
     ) -> list[tuple[int, LayoutNode]]:
         """Calculate x positions for children based on justify mode.
 
@@ -908,16 +1145,14 @@ class HStack(Container):
         ----------
         children : list of LayoutNode
             Children to position
-        total_children_width : int
-            Sum of all children widths (excluding gaps)
+        widths : list of int
+            Final width of each child, in the same order as ``children``. These
+            are resolved up front (fill distribution and auto-fit shrink already
+            applied) so positions and assigned widths cannot disagree.
         x_start : int
             Starting x position
         available_width : int
             Available width for positioning
-        content_width : int
-            Content width for child width calculations
-        fill_width_each : int
-            Width for each fill child
 
         Returns
         -------
@@ -928,6 +1163,8 @@ class HStack(Container):
         if num_children == 0:
             return []
 
+        total_children_width = sum(widths)
+
         # Calculate total space including gaps
         total_gap_width = self.column_gap * (num_children - 1)
         content_with_gaps = total_children_width + total_gap_width
@@ -936,53 +1173,21 @@ class HStack(Container):
         positions: list[tuple[int, LayoutNode]] = []
         current_x = x_start
 
-        if self.justify == "flex-start":
-            # Pack at start (default)
-            for child in children:
-                positions.append((current_x, child))
-                child_width = self._get_child_width(
-                    child, content_width, fill_width_each
-                )
-                current_x += child_width + self.column_gap
-
-        elif self.justify == "flex-end":
-            # Pack at end
-            current_x = x_start + free_space
-            for child in children:
-                positions.append((current_x, child))
-                child_width = self._get_child_width(
-                    child, content_width, fill_width_each
-                )
-                current_x += child_width + self.column_gap
-
-        elif self.justify == "center":
-            # Center the group
-            current_x = x_start + free_space // 2
-            for child in children:
-                positions.append((current_x, child))
-                child_width = self._get_child_width(
-                    child, content_width, fill_width_each
-                )
-                current_x += child_width + self.column_gap
-
-        elif self.justify == "space-between":
+        if self.justify == "space-between":
             # First at start, last at end, equal space between
             if num_children == 1:
                 positions.append((x_start, children[0]))
             else:
                 gaps = self._distribute_space(free_space, num_children - 1)
-                for i, child in enumerate(children):
+                for i, (child, child_width) in enumerate(
+                    zip(children, widths, strict=True)
+                ):
                     positions.append((current_x, child))
-                    child_width = self._get_child_width(
-                        child, content_width, fill_width_each
-                    )
                     extra_gap = gaps[i] if i < len(gaps) else 0
                     current_x += child_width + self.column_gap + extra_gap
 
         elif self.justify == "space-around":
             # Equal space around each item (half space at edges)
-            if num_children == 0:
-                return []
             # Each item gets equal space around it
             # Total gaps = 2 * num_children (one before and one after each)
             # Edge gaps are half of inter-item gaps
@@ -990,11 +1195,10 @@ class HStack(Container):
             half_gap_sizes = self._distribute_space(free_space, total_half_gaps)
             # First edge gap
             current_x = x_start + half_gap_sizes[0] if half_gap_sizes else x_start
-            for i, child in enumerate(children):
+            for i, (child, child_width) in enumerate(
+                zip(children, widths, strict=True)
+            ):
                 positions.append((current_x, child))
-                child_width = self._get_child_width(
-                    child, content_width, fill_width_each
-                )
                 # After each child: half_gap[2*i+1] + column_gap + half_gap[2*i+2]
                 after_idx = 2 * i + 1
                 before_next_idx = 2 * i + 2
@@ -1013,21 +1217,23 @@ class HStack(Container):
             num_gaps = num_children + 1
             gaps = self._distribute_space(free_space, num_gaps)
             current_x = x_start + (gaps[0] if gaps else 0)
-            for i, child in enumerate(children):
+            for i, (child, child_width) in enumerate(
+                zip(children, widths, strict=True)
+            ):
                 positions.append((current_x, child))
-                child_width = self._get_child_width(
-                    child, content_width, fill_width_each
-                )
                 extra_gap = gaps[i + 1] if i + 1 < len(gaps) else 0
                 current_x += child_width + self.column_gap + extra_gap
 
         else:
-            # Fallback to flex-start
-            for child in children:
+            # Packed layouts ("flex-start", "flex-end", "center", and any
+            # unrecognized value, which falls back to flex-start). They differ
+            # only in where the group starts; the walk itself is identical.
+            if self.justify == "flex-end":
+                current_x = x_start + free_space
+            elif self.justify == "center":
+                current_x = x_start + free_space // 2
+            for child, child_width in zip(children, widths, strict=True):
                 positions.append((current_x, child))
-                child_width = self._get_child_width(
-                    child, content_width, fill_width_each
-                )
                 current_x += child_width + self.column_gap
 
         return positions
@@ -1070,6 +1276,11 @@ class HStack(Container):
         # to avoid inflating the parent (unless wrap mode, where fill=auto)
         total_width = 0
         max_child_width = 0
+        # The auto-fit floor is built from the children's own floors, not their
+        # preferred sizes, so a nested fixed-width widget does not make the whole
+        # row look incompressible.
+        total_content_min_width = 0
+        max_child_content_min = 0
         for i, child in enumerate(self.children):
             constraint = child_constraints[i]
             if child.width_spec.is_fill and not self.wrap:
@@ -1080,11 +1291,16 @@ class HStack(Container):
                 child_width = constraint.preferred_width
             total_width += child_width
             max_child_width = max(max_child_width, child_width)
+            child_content_min = constraint.content_min_width or 0
+            total_content_min_width += child_content_min
+            max_child_content_min = max(max_child_content_min, child_content_min)
         total_width += self.column_gap * (len(self.children) - 1)
+        total_content_min_width += self.column_gap * (len(self.children) - 1)
 
         # Height: max of children
         # For children with height=fill, use min_height instead of preferred_height
         max_child_height = 0
+        max_child_content_min_height = 0
         for i, child in enumerate(self.children):
             constraint = child_constraints[i]
             if child.height_spec.is_fill:
@@ -1094,6 +1310,9 @@ class HStack(Container):
                 # Fixed/auto children contribute their preferred size
                 height = constraint.preferred_height
             max_child_height = max(max_child_height, height)
+            max_child_content_min_height = max(
+                max_child_content_min_height, constraint.content_min_height or 0
+            )
 
         # Add padding and margins
         preferred_content_width = total_width + pad_w + margin_left + margin_right
@@ -1105,10 +1324,27 @@ class HStack(Container):
         else:
             min_content_width = preferred_content_width
 
+        # What the stack needs before any explicit size spec is applied. Auto-fit
+        # shrinks toward these, not toward a pinned width/height. In wrap mode the
+        # floor is the widest single child's floor - a wrapped row can reflow the
+        # rest onto more rows.
+        if self.wrap:
+            content_min_width = (
+                max_child_content_min + pad_w + margin_left + margin_right
+            )
+        else:
+            content_min_width = (
+                total_content_min_width + pad_w + margin_left + margin_right
+            )
+        content_min_height = (
+            max_child_content_min_height + pad_h + margin_top + margin_bottom
+        )
+
         # Apply width/height specs if fixed
         if self.width_spec.is_fixed:
             min_width = self.width_spec.value
             preferred_width = self.width_spec.value
+            content_min_width = min(content_min_width, min_width)
         else:
             min_width = min_content_width
             preferred_width = preferred_content_width
@@ -1116,6 +1352,7 @@ class HStack(Container):
         if self.height_spec.is_fixed:
             min_height = self.height_spec.value
             preferred_height = self.height_spec.value
+            content_min_height = min(content_min_height, min_height)
         else:
             min_height = min_content_height
             preferred_height = min_content_height
@@ -1125,6 +1362,8 @@ class HStack(Container):
             min_height=min_height,
             preferred_width=preferred_width,
             preferred_height=preferred_height,
+            content_min_width=content_min_width,
+            content_min_height=content_min_height,
         )
         return self.constraints
 
@@ -1181,6 +1420,58 @@ class HStack(Container):
                 content_x, content_y, content_width, content_height
             )
 
+    def _resolve_child_widths(self, content_width: int) -> list[int]:
+        """Resolve the final width of every child, applying auto-fit shrink.
+
+        Fill children absorb whatever is left after their non-fill siblings are
+        served. When the non-fill siblings over-commit the row, auto-fit claws
+        space back from them (see :func:`shrink_to_fit`) so the row fits the
+        terminal instead of running off the right edge.
+
+        Parameters
+        ----------
+        content_width : int
+            Available content width, gaps included.
+
+        Returns
+        -------
+        list of int
+            Final width per child, in child order.
+        """
+        num = len(self.children)
+        available = max(0, content_width - self.column_gap * (num - 1))
+
+        fill_idx = [i for i, c in enumerate(self.children) if c.width_spec.is_fill]
+        rigid_idx = [i for i, c in enumerate(self.children) if not c.width_spec.is_fill]
+
+        widths = [0] * num
+        for i in rigid_idx:
+            widths[i] = self._get_child_width(self.children[i], content_width, 0)
+
+        # Rigid children are shrunk only against the row itself. Fill children
+        # get whatever is left over, exactly like a CSS flex item with
+        # ``flex-basis: 0``: reserving room for them up front would shrink a
+        # fixed-width sibling even in rows that already fit.
+        if not self.no_shrink_width:
+            shrunk = shrink_to_fit(
+                [widths[i] for i in rigid_idx],
+                [_content_min_width(self.children[i]) for i in rigid_idx],
+                available,
+            )
+            for i, w in zip(rigid_idx, shrunk, strict=True):
+                widths[i] = w
+
+        if fill_idx:
+            remaining = max(0, available - sum(widths[i] for i in rigid_idx))
+            # Spread the integer remainder onto the leading fill children so
+            # they consume every cell.
+            for i, w in zip(
+                fill_idx, _distribute_fill(remaining, len(fill_idx)), strict=True
+            ):
+                widths[i] = w
+
+        return widths
+
     def _assign_bounds_with_fill(
         self, content_x: int, content_y: int, content_width: int, content_height: int
     ) -> None:
@@ -1199,30 +1490,11 @@ class HStack(Container):
         content_height : int
             Available content height
         """
-        # Calculate widths
-        fill_children = [c for c in self.children if c.width_spec.is_fill]
-        fixed_children = [c for c in self.children if not c.width_spec.is_fill]
-
-        fixed_width = sum(
-            c.constraints.preferred_width if c.constraints else 0
-            for c in fixed_children
-        )
-
-        # Subtract gaps from available width for fill distribution
-        available_for_children = content_width - self.column_gap * (
-            len(self.children) - 1
-        )
-        remaining_width = max(0, available_for_children - fixed_width)
-        # Spread the integer remainder onto the leading fill children so they
-        # consume every cell (in wrap mode _get_child_width ignores the value
-        # and treats fill as auto, so the iterator is harmlessly drained).
-        fill_widths = iter(_distribute_fill(remaining_width, len(fill_children)))
+        widths = self._resolve_child_widths(content_width)
 
         current_x = content_x
 
-        for child in self.children:
-            fill_w = next(fill_widths) if child.width_spec.is_fill else 0
-            child_width = self._get_child_width(child, content_width, fill_w)
+        for child, child_width in zip(self.children, widths, strict=True):
             child_height = self._get_child_height(child, content_height, content_height)
 
             # Apply vertical alignment
@@ -1247,23 +1519,17 @@ class HStack(Container):
         content_height : int
             Available content height
         """
-        # Calculate total children width
-        total_children_width = sum(
-            self._get_child_width(c, content_width, 0) for c in self.children
-        )
+        widths = self._resolve_child_widths(content_width)
 
         # Get positioned children from justify
         positions = self._apply_justify(
             self.children,
-            total_children_width,
+            widths,
             content_x,
             content_width,
-            content_width,
-            0,  # No fill width
         )
 
-        for child_x, child in positions:
-            child_width = self._get_child_width(child, content_width, 0)
+        for (child_x, child), child_width in zip(positions, widths, strict=True):
             child_height = self._get_child_height(child, content_height, content_height)
 
             # Apply vertical alignment
@@ -1291,18 +1557,26 @@ class HStack(Container):
         current_y = content_y
 
         for row in rows:
+            # Wrapping already resolves overflow by reflowing, so widths here are
+            # taken as requested - only a single child too wide for the whole row
+            # is clamped, which shrink_to_fit does for free.
+            row_widths = shrink_to_fit(
+                [self._get_child_width(c, content_width, 0) for c in row.children],
+                [_content_min_width(c) for c in row.children],
+                max(0, content_width - self.column_gap * (len(row.children) - 1)),
+            )
+
             # Get positioned children from justify for this row
             positions = self._apply_justify(
                 row.children,
-                row.total_width,
+                row_widths,
                 content_x,
                 content_width,
-                content_width,
-                0,  # No fill width in wrap mode
             )
 
-            for child_x, child in positions:
-                child_width = self._get_child_width(child, content_width, 0)
+            for (child_x, child), child_width in zip(
+                positions, row_widths, strict=True
+            ):
                 child_height = self._get_child_height(
                     child, row.max_height, content_height
                 )
@@ -1990,11 +2264,16 @@ class FrameNode(Container):
             child_constraints = self.content_container.calculate_constraints()
             child_min_w = child_constraints.min_width
             child_min_h = child_constraints.min_height
+            # Auto-fit floors come from the content's own floors, so a nested
+            # fixed-size widget does not make this frame incompressible.
+            child_content_min_w = child_constraints.content_min_width or 0
+            child_content_min_h = child_constraints.content_min_height or 0
 
             # If frame ALSO has direct text content (edge case), add it to height
             # This shouldn't normally happen (text becomes TextElement child), but handle it
             if self.frame.content:
                 child_min_h += len(self.frame.content)
+                child_content_min_h += len(self.frame.content)
         else:
             # No layout children, but check if frame has text content
             if self.frame.content:
@@ -2004,6 +2283,8 @@ class FrameNode(Container):
             else:
                 child_min_w = 0
                 child_min_h = 0
+            child_content_min_w = child_min_w
+            child_content_min_h = child_min_h
 
         # Account for frame borders and padding
         padding_top, padding_right, padding_bottom, padding_left = (
@@ -2021,17 +2302,40 @@ class FrameNode(Container):
         total_min_w = frame_min_w + margin_left + margin_right
         total_min_h = frame_min_h + margin_top + margin_bottom
 
+        # What the frame needs before any explicit size spec is applied - border,
+        # padding and the content's own floor. Auto-fit shrinks toward this and
+        # never below it, so a squeezed frame keeps its border and a sliver of
+        # content rather than collapsing.
+        content_min_w = (
+            child_content_min_w
+            + padding_left
+            + padding_right
+            + border_width
+            + margin_left
+            + margin_right
+        )
+        content_min_h = (
+            child_content_min_h
+            + padding_top
+            + padding_bottom
+            + border_height
+            + margin_top
+            + margin_bottom
+        )
+
         # Respect fixed width/height specifications
         # If width_spec is fixed, use that instead of calculated width
         if self.width_spec.is_fixed:
             total_min_w = self.width_spec.value + margin_left + margin_right
             preferred_width = self.width_spec.value + margin_left + margin_right
+            content_min_w = min(content_min_w, total_min_w)
         else:
             preferred_width = total_min_w
 
         if self.height_spec.is_fixed:
             total_min_h = self.height_spec.value + margin_top + margin_bottom
             preferred_height = self.height_spec.value + margin_top + margin_bottom
+            content_min_h = min(content_min_h, total_min_h)
         else:
             preferred_height = total_min_h
 
@@ -2040,6 +2344,8 @@ class FrameNode(Container):
             min_height=total_min_h,
             preferred_width=preferred_width,
             preferred_height=preferred_height,
+            content_min_width=content_min_w,
+            content_min_height=content_min_h,
         )
         return self.constraints
 
@@ -2171,6 +2477,15 @@ class FrameNode(Container):
             # frame that fit still fits. Laying out at the correct width up front
             # avoids the full re-layout that made review item 2.4 O(2^depth): that
             # second pass recurses into nested frames, each of which doubled again.
+            # A viewport exists to hold content bigger than itself, so auto-fit
+            # must leave the scrolling axis alone - shrinking the content to the
+            # viewport would leave nothing to scroll.
+            self.content_container.no_shrink_height = bool(self.frame.style.scrollable)
+            self.content_container.no_shrink_width = self.frame.style.overflow_x in (
+                "scroll",
+                "auto",
+            )
+
             reserve = scrollbar_reserved()
             layout_width = inner_width - 1 if reserve else inner_width
             self.content_container.assign_bounds(

@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-23
+
 ### Added
+- **Auto-fit layout: over-committed sizes shrink instead of clipping.** A
+  template that hard-codes `width=120` used to run off the right edge of any
+  terminal narrower than the author's, silently losing whichever borders and
+  widgets fell outside. Containers now apply CSS flexbox's `flex-shrink` rule:
+  when a stack's children collectively ask for more room than the stack has,
+  each child with slack gives space back in proportion to how much slack it has,
+  floored at what its content genuinely needs (`SizeConstraints.content_min_*`,
+  computed recursively so one pinned-width descendant no longer makes a whole
+  subtree look incompressible). Fixed sizes on the cross axis are clamped to the
+  parent the same way `Size.calculate` already clamped them. Scrollable frames
+  are exempt on their scrolling axis - a viewport exists to hold oversized
+  content. Set `AUTO_FIT_LAYOUT = False` to restore the old clipping behaviour.
 - **`ImageView` quadrant render mode, and a settable braille threshold.**
   `ImageView` now takes `mode="color"|"quadrant"|"braille"` in place of the
   `braille=True` boolean (**breaking**, see below). The new `"quadrant"` mode
@@ -310,6 +324,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **`Tree` now adopts its assigned bounds.** The element painted its border
+  from the `width`/`height` it was constructed with rather than the box the
+  layout engine handed it, so a tree in a narrowed row drew its right border
+  outside the parent's clip and appeared to have no right edge at all. It now
+  resizes in `set_bounds`, like `TextInput`, `LogView` and `ContentView`.
 - **`width="fill"` now works on `TextInput` and `LogView`.** The textinput
   tag silently coerced a `"fill"` spec to the numeric default (30 columns),
   so the field never joined fill distribution and could shove row siblings

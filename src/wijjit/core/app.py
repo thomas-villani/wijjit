@@ -284,6 +284,9 @@ class Wijjit:
         # Configure color mode (NO_COLOR)
         self._configure_color_mode()
 
+        # Configure auto-fit layout shrinking
+        self._configure_auto_fit()
+
         logger.info(
             f"Config: DEBUG={self.config['DEBUG']}, "
             f"ENABLE_MOUSE={self.config['ENABLE_MOUSE']}, "
@@ -514,6 +517,19 @@ class Wijjit:
 
         ansi.set_unicode_mode(mode)
         logger.debug(f"Unicode support mode set to: {mode}")
+
+    def _configure_auto_fit(self) -> None:
+        """Configure auto-fit layout shrinking from config settings.
+
+        Applies ``AUTO_FIT_LAYOUT`` to the layout engine. Layout is a leaf layer
+        with no handle on the app, so the value is pushed in the same way
+        ``UNICODE_SUPPORT`` is pushed to :mod:`wijjit.terminal.ansi`.
+        """
+        from wijjit.layout import engine
+
+        enabled = bool(self.config["AUTO_FIT_LAYOUT"])
+        engine.set_auto_fit(enabled)
+        logger.debug(f"Auto-fit layout set to: {enabled}")
 
     def _configure_color_mode(self) -> None:
         """Configure color mode based on NO_COLOR config setting.

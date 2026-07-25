@@ -1225,6 +1225,37 @@ class TestTreeBorderedViewport:
         assert start <= tree.highlighted_index < end
 
 
+class TestTreeSetBounds:
+    """The tree draws its own border, so it must track its allocated bounds."""
+
+    def _make_tree(self, **kwargs):
+        data = {"label": "Root", "value": "root", "children": []}
+        return Tree(data=data, width=50, height=18, **kwargs)
+
+    def test_bounds_resize_the_tree(self):
+        # Auto-fit can hand the tree a narrower box than the template declared;
+        # without this the right border falls outside the parent's clip.
+        tree = self._make_tree()
+        tree.set_bounds(Bounds(x=0, y=0, width=35, height=12))
+
+        assert tree.width == 35
+        assert tree.height == 12
+
+    def test_bounds_never_collapse_below_a_border_box(self):
+        tree = self._make_tree()
+        tree.set_bounds(Bounds(x=0, y=0, width=1, height=1))
+
+        assert tree.width == 3
+        assert tree.height == 3
+
+    def test_matching_bounds_are_a_no_op(self):
+        tree = self._make_tree()
+        tree.set_bounds(Bounds(x=0, y=0, width=50, height=18))
+
+        assert tree.width == 50
+        assert tree.height == 18
+
+
 class TestTreeWideChars:
     """Wide-character (CJK) rendering regression tests (review 2.1/2.11).
 

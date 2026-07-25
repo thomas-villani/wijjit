@@ -16,6 +16,7 @@ from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
+    from wijjit.layout.bounds import Bounds
     from wijjit.rendering.paint_context import PaintContext
     from wijjit.styling.style import Style
 
@@ -1198,6 +1199,37 @@ class Tree(ScrollableElement):
             self._rebuild_nodes()
         if "scroll_position" in state and self.scroll_manager:
             self.scroll_manager.scroll_to(state["scroll_position"])
+
+    def set_bounds(self, bounds: "Bounds") -> None:
+        """Set bounds and resize the tree to the space it was allocated.
+
+        ``self.width``/``self.height`` are the tree's *outer* dimensions - the
+        border row and column are drawn from them - so they have to track the
+        bounds the layout engine hands out. Without this the tree keeps drawing
+        at its template-declared size and its right border falls outside the
+        parent's clip when auto-fit shrinks the row (see
+        ``wijjit.layout.engine.shrink_to_fit``).
+
+        Parameters
+        ----------
+        bounds : Bounds
+            New bounds for the element.
+        """
+        super().set_bounds(bounds)
+
+        if not bounds:
+            return
+
+        # Keep at least a border box; below that there is nothing to draw.
+        new_width = max(3, bounds.width)
+        new_height = max(3, bounds.height)
+        if new_width == self.width and new_height == self.height:
+            return
+
+        self.width = new_width
+        self.height = new_height
+        # render_to re-syncs the viewport from _get_content_height(), which
+        # derives from the height just set, so the scroll offset stays clamped.
 
     def render_to(self, ctx: "PaintContext") -> None:
         """Render tree using cell-based rendering (NEW API).
