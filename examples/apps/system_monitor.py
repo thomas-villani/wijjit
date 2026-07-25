@@ -15,7 +15,13 @@ from __future__ import annotations
 from datetime import datetime
 from threading import Event, Thread
 
-import psutil
+try:
+    import psutil
+except ImportError:  # pragma: no cover - depends on the local environment
+    raise SystemExit(
+        "system_monitor needs psutil for its CPU and memory readings.\n"
+        "Install it with:  uv pip install psutil"
+    ) from None
 
 from wijjit import Wijjit, render_template_string
 

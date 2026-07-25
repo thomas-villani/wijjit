@@ -21,17 +21,28 @@ from wijjit import Wijjit, render_template_string
 # Create app, configuring the ThreadPoolExecutor for sync handlers via the
 # constructor. The executor is built during __init__ from these config keys, so
 # they must be passed here (config_overrides are upper-cased to config keys:
-# run_sync_in_executor -> RUN_SYNC_IN_EXECUTOR, etc.). This keeps the UI
-# responsive during blocking I/O in synchronous handlers.
+# run_sync_in_executor -> RUN_SYNC_IN_EXECUTOR, etc.). This moves a blocking
+# handler off the event-loop thread; see the "Executor Info" panel for what that
+# does and does not buy you.
+MAX_WORKERS = 4
+
 app = Wijjit(
     initial_state={
         "status": "Ready",
-        "execution_mode": "Direct (blocking)",
         "operation_log": [],
         "operation_count": 0,
     },
     run_sync_in_executor=True,
-    executor_max_workers=4,  # 4 worker threads
+    executor_max_workers=MAX_WORKERS,
+)
+
+# Report the mode the app is actually running in rather than a hard-coded
+# string: this used to read "Direct (blocking)" forever, even though the
+# executor above was in use the whole time.
+app.state["execution_mode"] = (
+    f"ThreadPoolExecutor ({MAX_WORKERS} workers)"
+    if app.config["RUN_SYNC_IN_EXECUTOR"]
+    else "Direct (on the event-loop thread)"
 )
 
 
@@ -126,18 +137,23 @@ def main_view():
         {% frame title="Executor Info" border="single" width="fill" %}
           {% vstack spacing=0 padding=1 %}
             Configuration:
-            • run_sync_in_executor: True
-            • executor_max_workers: 4 threads
-            • Mode: Non-blocking execution
+            - run_sync_in_executor: True
+            - executor_max_workers: 4 threads
 
-            Benefits:
-            • UI remains responsive during I/O
-            • Multiple operations run concurrently
-            • Prevents event loop blocking
-            • Better performance for I/O-bound tasks
+            What this does:
+            - Keeps a blocking handler off the
+              event-loop thread
+            - Lets timers, background tasks and
+              state callbacks keep running
+            - Bounds how many blocking handlers
+              run at once (4)
 
-            Note: Async handlers don't need executor
-                  (they're already non-blocking)
+            What it does NOT do: the loop still
+            awaits the handler, so a long task
+            delays the next frame. For a UI that
+            keeps painting, start the work in a
+            background task and let it update
+            state as it goes.
           {% endvstack %}
         {% endframe %}
       {% endvstack %}
@@ -149,9 +165,9 @@ def main_view():
     {% endhstack %}
 
     {% vstack spacing=0 %}
-      Try clicking multiple buttons rapidly - UI stays responsive!
-      Operations run in background thread pool.
-      [q] Quit
+      Each task runs on a worker thread, not the event-loop thread.
+      The loop still awaits it, so the screen holds still until it finishes.
+      [q] or [Ctrl+Q] Quit
     {% endvstack %}
   {% endvstack %}
 {% endframe %}

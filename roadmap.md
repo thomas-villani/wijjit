@@ -107,13 +107,10 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
   its budget in columns, NFD combining marks fold onto the base glyph, and the
   diff/full-render emitters advance by true glyph width — border overflow,
   diff-cursor desync, and the click offset are gone for template/frame text.
-- [ ] **Wide-character correctness — direct-paint elements** — the remaining
-  sweep of ``len()`` / raw-slicing width math in elements that bypass
-  ``write_text`` with per-char ``buffer.set_cell`` loops (``TextArea``,
-  ``Tree``, ``ListView``, ``LogView``, ``DataGrid``, ``CodeEditor``; overlaps
-  the clip-region sweep, review 2.1/2.11), plus ``ansi_string_to_cells``
-  pre-rendered content (Rich tables), which still maps one code point per
-  cell. Tracked from the 0.1.0 code review (Theme A, CRITICALs #2/#3/#5).
+- [ ] Wide-character correctness — remaining non-template paths
+    - finalize char-vs-column cursor/scroll/edit behavior in TextArea / DataGrid / related input paths
+    - make ansi_string_to_cells() emit continuation cells for width-2 glyphs
+    - audit remaining width math based on raw char slicing rather than display column
 - [x] **Reposition the tagline** (review 3.6). Landed 2026-07-16. The tagline is
   now the recursive acronym "Wijjit Is Just Jinja In Terminal", and the pitch
   leads with what the template architecture buys — a UI that is a static artifact
@@ -136,6 +133,22 @@ demo-bug triage (groups A-H). The cross-cutting / crash items were fixed in
 0.1.0; everything below is cosmetic, demo-level, platform-specific, or an
 architecture-level refactor not worth the risk days before tagging. Root causes
 are in ``RELEASE_PLAN.md`` (Part 2). Pull individual items forward as use cases demand.
+
+**Resolved 2026-07-24 in the pre-tag example sweep** (`tv-notes.md`):
+terminal-aware auto-fit sizing (over-committed layouts shrink instead of
+clipping); `Tree` adopting its assigned bounds; the Windows click/wheel row
+offset (Win32 reports *buffer* coordinates - this also explains "clicking the
+scrollable frames and the mouse wheel don't work" and the `wijjit run` vs
+`python` discrepancy, both of which verify correct headlessly); `wijjit run`
+hanging on inline apps and swallowing script output; `AlertDialog` severity
+colours; wrapped text overpainting the widget beneath it; single-character
+hotkeys firing while typing. Investigated and *not* framework bugs:
+`system_monitor` (psutil simply was not installed; it now fails with an install
+hint), `preferences_demo`'s stray cursor (Wijjit emits no show-cursor for any
+non-text element - a Windows Terminal artifact), and `executor_demo` "always
+blocking" (the demo advertised responsiveness the executor does not provide and
+hard-coded its mode label to "Direct (blocking)"; the copy now describes what
+the executor actually does).
 
 **Already resolved in 0.1.0** (for reference): mouse hit-testing offset on
 scrolled frames; radio_demo layout crash (directional padding on
@@ -168,6 +181,11 @@ handler was always correct).
   renderer threads only a vertical ``scroll_offset``. Needs intrinsic-width
   layout under ``overflow_x``, a horizontal scroll manager, and an x-clip/offset
   through the renderer. (Works today for TextArea + frame *text* content.)
+  Re-confirmed 2026-07-24: the horizontal scrollbar in ``horizontal_scroll_demo``
+  is not drawn at all, because ``_needs_scroll_x`` is only ever set in
+  ``Frame.set_content``, which a child-content frame never calls. The vertical
+  path avoids this via the dedicated ``set_child_content_height`` hook; the fix
+  is the horizontal analogue plus the x-offset plumbing above.
 - [ ] **Group D — frame overflow / clip clamping.** ``content_view_demo``:
   scrolling the outer frame lets children escape the frame *top* (clip not
   clamped to the border row). ``frame_overflow_demo``: 3x50%-in-one-row HStack
@@ -366,6 +384,14 @@ those same fields.
 - [ ] **spinner_demo on scroll** — trailing ``.`` of the ellipsis ghosts in its
   column; the emoji clock frame ("Working with clock..k") is sized with
   ``len()``. Ties into the wide-character correctness item above.
+- [ ] **``autocomplete_demo`` — typing is reported as broken once the suggestion
+  popup opens.** Not reproducible headlessly: under ``WijjitHarness`` the popup
+  never opens at all (``_autocomplete_state.is_open`` stays False and no
+  suggestions are computed), so the harness does not exercise the path the
+  report is about. Two things to establish on a real console: why the popup
+  stays closed under the harness (if it needs a live overlay manager, the
+  harness should wire one so this is testable), and what the popup then does to
+  key routing. Reported 2026-07-24.
 
 ### Input & terminal handling (from the 0.1.0 code review, 2.12 tail)
 
@@ -401,6 +427,18 @@ diff SGR, once-per-frame size sampling, SplitPanel clamp+weakref).
   percentage child's *intrinsic* height alongside fixed children but the per-child
   loop assigns ``int(content_height * pct)`` and advances by that larger value
   (``engine.py:540-549, 586-587, 632``). Likely needs a taller element to surface.
+
+- [ ] **A long handler still stalls the frame, executor or not.**
+  ``RUN_SYNC_IN_EXECUTOR`` moves a sync handler onto a worker thread, which frees
+  the event-loop *thread* (timers, background tasks and state callbacks keep
+  running), but ``_process_frame_async`` still ``await``\ s the dispatch and the
+  loop body is one sequential coroutine — so nothing repaints until the handler
+  returns. Async handlers are awaited inline too, so they block the frame just
+  the same unless they spawn a task. To make "the UI stays responsive during a
+  long action" true rather than aspirational, dispatch would have to become
+  fire-and-forget for handlers that opt in, which changes handler ordering
+  guarantees and needs its own design pass. ``executor_demo``'s copy was
+  corrected to describe today's behaviour (2026-07-24).
 
 ### Framework correctness / cleanup (from the 0.1.0 code review)
 
