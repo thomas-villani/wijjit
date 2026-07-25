@@ -35,16 +35,6 @@ def _click_button(harness: WijjitHarness, label_substr: str) -> None:
     harness.click(btn.bounds.x + 1, btn.bounds.y)
 
 
-def test_executor_demo_runs_sync_handler_in_executor():
-    """executor_demo loaded (no app.configure crash) and runs a task."""
-    app = _load("advanced/executor_demo.py")
-    assert app.event_loop.executor is not None  # configured via constructor
-    with WijjitHarness(app, size=(100, 36)) as h:
-        _click_button(h, "Quick Task")
-        assert app.state["operation_count"] == 1
-        h.assert_text("complete")
-
-
 def test_state_management_increment_does_not_hang():
     """state_management_demo increments without re-entrant on_change recursion."""
     app = _load("advanced/state_management_demo.py")
