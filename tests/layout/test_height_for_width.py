@@ -78,9 +78,7 @@ class TestNodeHeightForWidth:
     def test_vstack_grows_when_a_child_wraps(self):
         stack = VStack(
             children=[
-                ElementNode(
-                    TextElement(text="word " * 20), width="fill", height="auto"
-                )
+                ElementNode(TextElement(text="word " * 20), width="fill", height="auto")
             ],
         )
         stack.calculate_constraints()
