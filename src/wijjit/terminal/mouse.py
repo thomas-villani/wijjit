@@ -13,9 +13,81 @@ The module handles:
 """
 
 import re
+import sys
 import time
 from dataclasses import dataclass
 from enum import Enum, IntEnum
+
+from wijjit.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
+def console_window_origin() -> tuple[int, int]:
+    """Return the console window's top-left corner within its screen buffer.
+
+    Win32 reports mouse positions in *screen buffer* coordinates
+    (``MOUSE_EVENT_RECORD.dwMousePosition`` is documented as "character-cell
+    coordinates" of the buffer), while everything Wijjit draws is addressed
+    relative to the visible window. The two agree only while the window sits at
+    the top of the buffer. Once the buffer has scrolled - which is the normal
+    state of a shell that has printed anything, and of a demo that prints a
+    banner before ``app.run()`` - every mouse row arrives offset by the scroll
+    distance, so clicks land on the wrong widget.
+
+    prompt_toolkit's Win32 input passes ``dwMousePosition`` through untouched,
+    so the conversion has to happen here.
+
+    Returns
+    -------
+    tuple of int
+        ``(left, top)`` of the window within the buffer. ``(0, 0)`` on
+        non-Windows platforms, and whenever the console cannot be queried (no
+        console attached, redirected output, a failing API call) - in every one
+        of those cases the raw coordinates are already the best guess.
+    """
+    if sys.platform != "win32":
+        return (0, 0)
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class _COORD(ctypes.Structure):
+            _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+        class _SMALL_RECT(ctypes.Structure):  # noqa: N801 - mirrors the Win32 name
+            _fields_ = [
+                ("Left", ctypes.c_short),
+                ("Top", ctypes.c_short),
+                ("Right", ctypes.c_short),
+                ("Bottom", ctypes.c_short),
+            ]
+
+        class _CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):  # noqa: N801 - Win32 name
+            _fields_ = [
+                ("dwSize", _COORD),
+                ("dwCursorPosition", _COORD),
+                ("wAttributes", ctypes.c_ushort),
+                ("srWindow", _SMALL_RECT),
+                ("dwMaximumWindowSize", _COORD),
+            ]
+
+        kernel32 = ctypes.windll.kernel32
+        # STD_OUTPUT_HANDLE. The mouse coordinates describe the active output
+        # buffer, which is what we draw into.
+        handle = kernel32.GetStdHandle(wintypes.DWORD(-11))
+        if handle == 0 or handle == -1:
+            return (0, 0)
+
+        info = _CONSOLE_SCREEN_BUFFER_INFO()
+        if not kernel32.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
+            return (0, 0)
+
+        return (int(info.srWindow.Left), int(info.srWindow.Top))
+    except Exception:  # pragma: no cover - defensive, platform-dependent
+        logger.debug("Could not read console window origin", exc_info=True)
+        return (0, 0)
 
 
 class MouseTrackingMode(IntEnum):
@@ -269,7 +341,10 @@ class MouseEventParser:
         On Windows, prompt_toolkit's Win32 input does not emit vt100 escape
         sequences. Instead it delivers a single ``KeyPress`` whose ``data`` is a
         ``";"``-delimited string of the form ``"<button>;<event>;<x>;<y>"`` (for
-        example ``"LEFT;MOUSE_DOWN;13;6"``). Coordinates are already 0-based.
+        example ``"LEFT;MOUSE_DOWN;13;6"``). Coordinates are already 0-based,
+        but they are relative to the console *screen buffer*, so the window's
+        origin within that buffer is subtracted here to get the window-relative
+        cell Wijjit actually drew (see :func:`console_window_origin`).
 
         Parameters
         ----------
@@ -300,6 +375,12 @@ class MouseEventParser:
             y = int(y_str)
         except ValueError:
             return None
+
+        # Buffer coordinates -> window coordinates. Clamp at 0: a click on the
+        # scrollback above the window would otherwise report a negative row.
+        origin_x, origin_y = console_window_origin()
+        x = max(0, x - origin_x)
+        y = max(0, y - origin_y)
 
         # Scroll wheel events carry their own direction and need no synthesis.
         if event_name == "SCROLL_UP":

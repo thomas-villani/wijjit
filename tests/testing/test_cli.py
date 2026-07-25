@@ -103,6 +103,67 @@ def test_run_missing_file_exits_nonzero(capsys):
     assert "Failed to load" in capsys.readouterr().err
 
 
+def test_run_executes_script_output_visibly(tmp_path, capsys):
+    # ``wijjit run`` used to go through load_example_app, which swallows stdout
+    # to keep banner prints out of headless inspection. A script that prints and
+    # sleeps then looked like a hang, and one that ran its own blocking loop
+    # (an InlineApp) really did hang, during loading.
+    script = tmp_path / "plain.py"
+    script.write_text("print('ran as', __name__)\n", encoding="utf-8")
+
+    assert main(["run", str(script)]) == 0
+    assert "ran as __main__" in capsys.readouterr().out
+
+
+def test_run_launches_module_level_app_that_never_runs_itself(tmp_path, monkeypatch):
+    # Convenience path: a file with no ``if __name__ == "__main__"`` block.
+    from wijjit.core.app import Wijjit
+
+    launched = []
+    monkeypatch.setattr(Wijjit, "run", lambda self: launched.append(self))
+
+    script = tmp_path / "bare.py"
+    script.write_text(
+        "from wijjit import Wijjit\napp = Wijjit()\n",
+        encoding="utf-8",
+    )
+
+    assert main(["run", str(script)]) == 0
+    assert len(launched) == 1
+
+
+def test_run_does_not_double_launch(tmp_path, monkeypatch):
+    # A module that runs itself must not be run a second time by the fallback.
+    from wijjit.core.app import Wijjit
+
+    launched = []
+    monkeypatch.setattr(Wijjit, "run", lambda self: launched.append(self))
+
+    script = tmp_path / "selfrun.py"
+    script.write_text(
+        "from wijjit import Wijjit\n"
+        "app = Wijjit()\n"
+        "if __name__ == '__main__':\n"
+        "    app.run()\n",
+        encoding="utf-8",
+    )
+
+    assert main(["run", str(script)]) == 0
+    assert len(launched) == 1
+
+
+def test_run_restores_argv_and_syspath(tmp_path):
+    import sys
+
+    script = tmp_path / "probe.py"
+    script.write_text("import sys\nassert sys.argv[0].endswith('probe.py')\n", "utf-8")
+
+    before_argv, before_path = list(sys.argv), list(sys.path)
+    assert main(["run", str(script)]) == 0
+    assert sys.argv == before_argv
+    assert sys.path == before_path
+
+
 def test_validate_missing_file_exits_nonzero(capsys):
     code = main(["validate", "does_not_exist.wij.j2"])
     assert code == 1

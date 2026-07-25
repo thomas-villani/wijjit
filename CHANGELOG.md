@@ -324,6 +324,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PaintContext` since the clip migration; both had zero call sites.
 
 ### Fixed
+- **Mouse clicks land on the right row on Windows.** Win32 reports mouse
+  positions in console *screen buffer* coordinates, and prompt_toolkit's Win32
+  input passes them through untouched. Wijjit addresses the visible window, so
+  once the buffer had scrolled - the normal state of a shell that has printed
+  anything, or a demo that prints a banner before `app.run()` - every click
+  landed that many rows above the pointer. The window origin is now subtracted
+  (`GetConsoleScreenBufferInfo().srWindow`), which also explains why a demo
+  behaved differently under `wijjit run` than under `python demo.py`.
+- **`wijjit run` no longer hangs on inline apps, and shows their output.** It
+  went through the headless capture loader, which suppresses stdout and neuters
+  `Wijjit.run` - so a script that printed and slept looked like a hang, and an
+  `InlineApp` demo started its own blocking input loop *during loading* and
+  really did hang. `wijjit run` now executes the file as `__main__`, the way
+  `python file.py` does, and only falls back to launching a module-level `app`
+  when the module never ran one itself.
+- **`AlertDialog` severities are colored again.** The severity hook intercepted
+  only `frame.border`, but an alert is a modal and its frame resolves
+  `modal.border` (`style_prefix="modal"`), so `severity="success"|"error"|
+  "warning"|"info"` all rendered in the plain modal grey. Any `*.border`
+  request is now matched.
 - **`Tree` now adopts its assigned bounds.** The element painted its border
   from the `width`/`height` it was constructed with rather than the box the
   layout engine handed it, so a tree in a narrowed row drew its right border

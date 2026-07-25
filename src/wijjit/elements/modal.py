@@ -308,10 +308,17 @@ class AlertDialog(ModalElement):
                 base_class: str | None = None,
                 inline_overrides: dict[str, Any] | None = None,
             ) -> Style:
-                # Check if this is a frame.border request
+                # Any border request, whatever the frame's style prefix. The
+                # underlying Frame resolves "<prefix>.border", and an alert is a
+                # modal, so it asks for "modal.border" - matching only
+                # "frame.border" here meant the severity colour never applied.
                 if (
-                    base_class in ("frame.border", "frame.border:focus")
+                    base_class is not None
                     and border_style_class
+                    and (
+                        base_class.endswith(".border")
+                        or base_class.endswith(".border:focus")
+                    )
                 ):
                     # Try to resolve severity-specific border style
                     severity_style = ctx.style_resolver.resolve_style_by_class(

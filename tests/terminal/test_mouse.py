@@ -492,6 +492,71 @@ class TestParseWindows:
         assert parser.parse_windows("LEFT;UNKNOWN_EVENT;1;2") is None
 
 
+class TestWindowsBufferToWindowCoordinates:
+    """Win32 reports mouse cells in buffer coordinates, not window coordinates.
+
+    Once the console buffer has scrolled, every reported row is offset by the
+    scroll distance, so clicks land on whatever widget sits that many rows
+    above the pointer. ``parse_windows`` subtracts the window origin.
+    """
+
+    def test_scrolled_buffer_offset_is_removed(self, monkeypatch):
+        monkeypatch.setattr(
+            "wijjit.terminal.mouse.console_window_origin", lambda: (0, 2)
+        )
+        parser = MouseEventParser()
+        event = parser.parse_windows("LEFT;MOUSE_DOWN;13;8")
+
+        # The user clicked window row 6; the buffer called it row 8.
+        assert event.x == 13
+        assert event.y == 6
+
+    def test_horizontal_offset_is_removed(self, monkeypatch):
+        monkeypatch.setattr(
+            "wijjit.terminal.mouse.console_window_origin", lambda: (5, 0)
+        )
+        parser = MouseEventParser()
+        event = parser.parse_windows("LEFT;MOUSE_DOWN;13;8")
+
+        assert event.x == 8
+        assert event.y == 8
+
+    def test_unscrolled_buffer_is_unchanged(self, monkeypatch):
+        monkeypatch.setattr(
+            "wijjit.terminal.mouse.console_window_origin", lambda: (0, 0)
+        )
+        parser = MouseEventParser()
+        event = parser.parse_windows("LEFT;MOUSE_DOWN;13;8")
+
+        assert (event.x, event.y) == (13, 8)
+
+    def test_scroll_events_are_translated_too(self, monkeypatch):
+        monkeypatch.setattr(
+            "wijjit.terminal.mouse.console_window_origin", lambda: (0, 3)
+        )
+        parser = MouseEventParser()
+        event = parser.parse_windows("NONE;SCROLL_UP;4;10")
+
+        assert event.type == MouseEventType.SCROLL
+        assert event.y == 7
+
+    def test_clicks_above_the_window_clamp_to_zero(self, monkeypatch):
+        # A click in the scrollback would otherwise report a negative row.
+        monkeypatch.setattr(
+            "wijjit.terminal.mouse.console_window_origin", lambda: (0, 10)
+        )
+        parser = MouseEventParser()
+        event = parser.parse_windows("LEFT;MOUSE_DOWN;2;4")
+
+        assert event.y == 0
+
+    def test_origin_is_zero_off_windows(self, monkeypatch):
+        import wijjit.terminal.mouse as mouse_mod
+
+        monkeypatch.setattr(mouse_mod.sys, "platform", "linux")
+        assert mouse_mod.console_window_origin() == (0, 0)
+
+
 class TestNormalModeButtonlessRelease:
     """Legacy normal-mode releases also report no button; clicks must synthesize."""
 
