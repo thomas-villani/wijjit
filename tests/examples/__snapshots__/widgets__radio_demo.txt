@@ -15,7 +15,7 @@
 ║  < Submit Order >  < Reset >  < Quit >                                           ║                
 ║                                                                                  ║                
 ║  Controls: [Tab/Shift+Tab] Navigate groups | [Arrow keys] Navigate within        ║                
-║                                                                                  ║                
+║  group | [Space/Enter] Select | [q] Quit                                         ║                
 ║                                                                                  ║                
 ║                                                                                  ║                
 ║                                                                                  ║                

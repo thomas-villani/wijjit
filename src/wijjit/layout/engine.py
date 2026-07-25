@@ -372,6 +372,31 @@ class LayoutNode(ABC):
         """
         pass
 
+    def get_height_for_width(self, width: int) -> int:
+        """Return the height this node needs when laid out at ``width``.
+
+        The bottom-up constraint pass has to guess a height before any width is
+        known, which is wrong for anything whose height depends on its width.
+        Wrapped text is the case that bites: a long line measures as one row,
+        is allocated one row, and paints its continuation lines over whichever
+        sibling was laid out beneath it. Containers call this on the way down,
+        once a child's width is settled, to correct the guess.
+
+        Parameters
+        ----------
+        width : int
+            The width this node will be laid out at.
+
+        Returns
+        -------
+        int
+            Required height. The default reports the constraint-pass value,
+            which is correct for every node whose height is width-independent.
+        """
+        if self.height_spec.is_fixed:
+            return int(self.height_spec.value)
+        return self.constraints.preferred_height if self.constraints else 1
+
     @abstractmethod
     def collect_elements(self) -> list[Element]:
         """Collect all Element objects in this subtree.
@@ -490,6 +515,25 @@ class ElementNode(LayoutNode):
         """
         self.bounds = Bounds(x=x, y=y, width=width, height=height)
         self.element.set_bounds(self.bounds)
+
+    def get_height_for_width(self, width: int) -> int:
+        """Re-measure the wrapped element against its settled width.
+
+        Parameters
+        ----------
+        width : int
+            The width this node will be laid out at.
+
+        Returns
+        -------
+        int
+            Rows the element needs at ``width``.
+        """
+        if self.height_spec.is_fixed:
+            return int(self.height_spec.value)
+        if width <= 0:
+            return super().get_height_for_width(width)
+        return max(1, self.element.get_height_for_width(width))
 
     def collect_elements(self) -> list[Element]:
         """Return the wrapped element and any nested children.
@@ -737,6 +781,115 @@ class VStack(Container):
         )
         return self.constraints
 
+    def _resolve_child_width(self, child: LayoutNode, content_width: int) -> int:
+        """Resolve one child's width within this column.
+
+        Parameters
+        ----------
+        child : LayoutNode
+            The child to size.
+        content_width : int
+            Width available inside this stack's padding and margins.
+
+        Returns
+        -------
+        int
+            The child's width.
+
+        Notes
+        -----
+        ``align_h="stretch"`` affects the *positioning* of a narrower child, not
+        whether an auto-width child is stretched. Only ``fill`` children stretch.
+        """
+        if child.width_spec.is_fixed:
+            # Respect the child's explicit fixed width, but never let it exceed
+            # the column: a pinned width wider than the terminal would otherwise
+            # overflow and clip. Size.calculate() applies the same min() for
+            # fixed sizes; auto-fit extends it to the stacks.
+            child_width = child.width_spec.value
+            if auto_fit_enabled() and not self.no_shrink_width:
+                child_width = max(min(child_width, content_width), 0)
+            return child_width
+        if child.width_spec.is_fill:
+            return content_width
+        if child.width_spec.is_percentage:
+            return int(content_width * child.width_spec.get_percentage())
+        # Auto - intrinsic size from constraints, clamped to what is available.
+        child_width = (
+            child.constraints.preferred_width if child.constraints else content_width
+        )
+        return min(child_width, content_width)
+
+    def _requested_height(
+        self, child: LayoutNode, child_width: int, content_height: int
+    ) -> int:
+        """Resolve the height one non-fill child asks for at ``child_width``.
+
+        Parameters
+        ----------
+        child : LayoutNode
+            The child to measure.
+        child_width : int
+            The width the child has already been assigned.
+        content_height : int
+            Height available for children, spacing already deducted.
+
+        Returns
+        -------
+        int
+            Rows the child wants.
+
+        Notes
+        -----
+        An auto-height leaf is re-measured against its resolved width. The
+        bottom-up constraint pass could not do this - it runs before any width
+        is known - so a wrapping line was measured as a single row, allocated a
+        single row, and then painted its continuation lines over the sibling
+        laid out beneath it.
+        """
+        if child.height_spec.is_fixed:
+            return int(child.height_spec.value)
+        if child.height_spec.is_percentage:
+            return int(content_height * child.height_spec.get_percentage())
+        return child.get_height_for_width(child_width)
+
+    def get_height_for_width(self, width: int) -> int:
+        """Sum the children's heights at the widths this column would give them.
+
+        Parameters
+        ----------
+        width : int
+            The width this stack will be laid out at.
+
+        Returns
+        -------
+        int
+            Rows the column needs, including spacing, padding and margins.
+        """
+        if self.height_spec.is_fixed:
+            return int(self.height_spec.value)
+        if not self.children or width <= 0:
+            return super().get_height_for_width(width)
+
+        margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.padding
+        content_width = width - pad_left - pad_right - margin_left - margin_right
+
+        total = 0
+        for child in self.children:
+            if child.height_spec.is_fill or child.height_spec.is_percentage:
+                # Neither can be resolved without knowing the height on offer,
+                # which is what this call is trying to establish. Fall back to
+                # the constraint-pass figure.
+                total += child.constraints.min_height if child.constraints else 0
+                continue
+            total += child.get_height_for_width(
+                self._resolve_child_width(child, content_width)
+            )
+
+        total += self.spacing * (len(self.children) - 1)
+        return total + pad_top + pad_bottom + margin_top + margin_bottom
+
     def assign_bounds(self, x: int, y: int, width: int, height: int) -> None:
         """Assign bounds to container and position children vertically.
 
@@ -768,6 +921,13 @@ class VStack(Container):
         original_content_height = content_height
         content_height -= self.spacing * (len(self.children) - 1)
 
+        # Resolve every child's width up front. Heights are measured against
+        # them (wrapped text needs its width before it knows its row count), and
+        # the loop below reuses them so the two passes cannot disagree.
+        child_widths = {
+            id(c): self._resolve_child_width(c, content_width) for c in self.children
+        }
+
         # Count fill children
         fill_children = [c for c in self.children if c.height_spec.is_fill]
         fixed_children = [c for c in self.children if not c.height_spec.is_fill]
@@ -777,7 +937,7 @@ class VStack(Container):
         # terminal instead of running off the bottom. Fill children then take
         # what is left, like a CSS flex item with ``flex-basis: 0``.
         requested_heights = [
-            c.constraints.preferred_height if c.constraints else 0
+            self._requested_height(c, child_widths[id(c)], content_height)
             for c in fixed_children
         ]
         fixed_heights = (
@@ -827,56 +987,19 @@ class VStack(Container):
         current_x = x + margin_left + pad_left
 
         for child in self.children:
+            child_width = child_widths[id(child)]
+
             if child.height_spec.is_fill:
                 child_height = next(fill_heights)
             else:
-                if child.height_spec.is_fixed:
-                    child_height = child.height_spec.value
-                elif child.height_spec.is_percentage:
-                    child_height = int(
-                        content_height * child.height_spec.get_percentage()
-                    )
-                else:
-                    child_height = (
-                        child.constraints.preferred_height if child.constraints else 1
-                    )
+                child_height = self._requested_height(
+                    child, child_width, content_height
+                )
                 # Cap at the auto-fit allowance. Equal to the request when the
                 # column fits, smaller when this child had to give space back.
                 allowance = shrunk_height.get(id(child))
                 if allowance is not None:
                     child_height = min(child_height, allowance)
-
-            # Width handling based on child's width_spec
-            # - Fixed: Use the explicit width value
-            # - Fill: Stretch to fill available content_width
-            # - Percentage: Calculate from content_width
-            # - Auto: Use intrinsic size (preferred_width from constraints)
-            #
-            # Note: align_h="stretch" affects POSITIONING of narrower children,
-            # NOT whether auto-width children are stretched. Only "fill" children stretch.
-            if child.width_spec.is_fixed:
-                # Respect the child's explicit fixed width, but never let it
-                # exceed the column: a pinned width wider than the terminal
-                # would otherwise overflow and clip. Size.calculate() applies the
-                # same min() for fixed sizes; auto-fit extends it to the stacks.
-                child_width = child.width_spec.value
-                if auto_fit_enabled() and not self.no_shrink_width:
-                    child_width = max(min(child_width, content_width), 0)
-            elif child.width_spec.is_fill:
-                # Fill children stretch to available width
-                child_width = content_width
-            elif child.width_spec.is_percentage:
-                # Percentage of available width
-                child_width = int(content_width * child.width_spec.get_percentage())
-            else:
-                # Auto - use intrinsic size from constraints
-                child_width = (
-                    child.constraints.preferred_width
-                    if child.constraints
-                    else content_width
-                )
-                # Clamp to available width
-                child_width = min(child_width, content_width)
 
             # Apply horizontal alignment if child is narrower than available space
             if child_width < content_width:
@@ -2236,6 +2359,41 @@ class FrameNode(Container):
             Child node to add
         """
         self.content_container.add_child(child)
+
+    def get_height_for_width(self, width: int) -> int:
+        """Measure the frame's content at the interior width ``width`` implies.
+
+        Parameters
+        ----------
+        width : int
+            The width this frame will be laid out at, margins included.
+
+        Returns
+        -------
+        int
+            Rows the frame needs, including borders, padding and margins.
+        """
+        if self.height_spec.is_fixed:
+            return int(self.height_spec.value)
+        if not self.content_container.children or width <= 0:
+            return super().get_height_for_width(width)
+
+        margin_top, margin_right, margin_bottom, margin_left = self.margin
+        pad_top, pad_right, pad_bottom, pad_left = self.frame.style.padding
+        # Interior width: drop margins, the two border columns, then padding.
+        inner_width = width - margin_left - margin_right - 2 - pad_left - pad_right
+        if inner_width <= 0:
+            return super().get_height_for_width(width)
+
+        inner_height = self.content_container.get_height_for_width(inner_width)
+        return (
+            inner_height
+            + pad_top
+            + pad_bottom
+            + 2  # top and bottom borders
+            + margin_top
+            + margin_bottom
+        )
 
     def calculate_constraints(self) -> SizeConstraints:
         """Calculate size constraints for the frame and its children.

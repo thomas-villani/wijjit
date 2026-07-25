@@ -11,7 +11,7 @@ Run with: python examples/advanced/data_entry_demo.py
 
 Controls:
 - Tab/Shift+Tab: Navigate between fields
-- q: Quit
+- q: Quit (Ctrl+Q always quits, even while typing)
 """
 
 from datetime import datetime
@@ -302,7 +302,7 @@ def main_view():
     {% endif %}
 
     {% vstack spacing=0 %}
-      * = Required field | [Tab/Shift+Tab] Navigate | [q] Quit
+      * = Required field | [Tab/Shift+Tab] Navigate | [q] or [Ctrl+Q] Quit
     {% endvstack %}
   {% endvstack %}
 {% endframe %}

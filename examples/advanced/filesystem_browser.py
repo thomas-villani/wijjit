@@ -61,7 +61,7 @@ def main_view():
     """Main filesystem browser view."""
     return render_template_string(
         """
-{% frame title="Filesystem Browser" border="double" width=100 height=35 %}
+{% frame title="Filesystem Browser" border="double" width=120 height=35 %}
   {% vstack spacing=1 padding=1 %}
     {{ state.message }}
 

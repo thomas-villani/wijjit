@@ -8,7 +8,7 @@ Features demonstrated:
 - Collapsible first panel (drag far left to collapse, double-click to restore)
 - Keyboard resize (Ctrl+Left/Right when focused)
 
-Press 'q' to quit.
+Press 'q' (or Ctrl+Q while typing) to quit.
 """
 
 from wijjit import Wijjit, render_template_string

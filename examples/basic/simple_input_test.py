@@ -17,7 +17,7 @@ def main_view():
   Status: {{ state.test }}
   {% textinput id="test" placeholder="Type here" width=30 %}{% endtextinput %}
 
-  Press 'q' to quit
+  Press 'q' (or Ctrl+Q while typing) to quit
 {% endvstack %}
         """
     )

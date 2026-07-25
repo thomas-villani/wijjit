@@ -9,7 +9,7 @@ interactions in Wijjit applications. It includes:
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -463,7 +463,7 @@ class HandlerRegistry:
         self,
         event: Event,
         executor: ThreadPoolExecutor | None = None,
-        exclude_scope: HandlerScope | None = None,
+        exclude_scope: HandlerScope | Collection[HandlerScope] | None = None,
     ) -> None:
         """Dispatch an event to matching handlers (async).
 
@@ -480,11 +480,12 @@ class HandlerRegistry:
             handlers run directly on the event loop thread (may block).
             If provided, sync handlers are executed in the thread pool
             to prevent blocking the event loop.
-        exclude_scope : HandlerScope, optional
-            If given, handlers registered at this scope are not dispatched.
-            Used to suppress view-scoped key handlers while a text input is
-            focused (so typing a character does not trigger a view hotkey)
-            without also suppressing global or element-scoped handlers.
+        exclude_scope : HandlerScope or collection of HandlerScope, optional
+            If given, handlers registered at this scope (or any of these
+            scopes) are not dispatched. Used to suppress view- and
+            global-scoped key handlers while a text input is focused, so
+            typing a character does not trigger a hotkey, without also
+            suppressing element-scoped handlers.
 
         Notes
         -----
@@ -523,7 +524,9 @@ class HandlerRegistry:
                     handler.callback(event)
 
     def _find_matching_handlers(
-        self, event: Event, exclude_scope: HandlerScope | None = None
+        self,
+        event: Event,
+        exclude_scope: HandlerScope | Collection[HandlerScope] | None = None,
     ) -> list[Handler]:
         """Find handlers that match the given event.
 
@@ -531,15 +534,22 @@ class HandlerRegistry:
         ----------
         event : Event
             The event to match
-        exclude_scope : HandlerScope, optional
-            If given, handlers registered at this scope are excluded from the
-            result.
+        exclude_scope : HandlerScope or collection of HandlerScope, optional
+            If given, handlers registered at this scope (or any of these
+            scopes) are excluded from the result.
 
         Returns
         -------
         list of Handler
             Matching handlers sorted by priority (highest first)
         """
+        if exclude_scope is None:
+            excluded: frozenset[HandlerScope] = frozenset()
+        elif isinstance(exclude_scope, HandlerScope):
+            excluded = frozenset({exclude_scope})
+        else:
+            excluded = frozenset(exclude_scope)
+
         matching = []
 
         for handler in self.handlers:
@@ -551,7 +561,7 @@ class HandlerRegistry:
                 continue
 
             # Skip handlers at an excluded scope
-            if exclude_scope is not None and handler.scope == exclude_scope:
+            if handler.scope in excluded:
                 continue
 
             # Check scope-specific matching
