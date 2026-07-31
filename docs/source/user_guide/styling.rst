@@ -49,21 +49,40 @@ are already registered, so switching to one of those is a single call:
 
 Themes can be swapped at runtime (e.g., toggle between light/dark). Elements re-render automatically because the theme change marks all dirty regions.
 
-Inline overrides in templates
------------------------------
+Overrides in templates
+----------------------
 
-Many tags accept a ``style`` or ``classes`` attribute:
+Templates style elements by **class**, not by inline colours. Give an element a
+``class`` and add a matching entry to your theme:
 
 .. code-block:: jinja
 
-    {% button action="danger" style={"bg_color": (200, 0, 0)} %}Delete{% endbutton %}
+    {% button action="delete" class="danger" %}Delete{% endbutton %}
 
-You can also expose a ``class`` attribute to reuse theme entries (e.g., ``class="toolbar.button"``). Consistent naming conventions help manage large design systems.
+.. code-block:: python
+
+    app.renderer.theme_manager.register_theme(Theme("myapp", {
+        "danger": Style(bg_color=(200, 0, 0), fg_color=(255, 255, 255)),
+        "danger:focus": Style(bg_color=(255, 60, 60), fg_color=(0, 0, 0), bold=True),
+    }))
+    app.renderer.theme_manager.set_theme("myapp")
+
+Dotted class names (``class="toolbar.button"``) let you reuse theme entries in a
+BEM-like hierarchy; consistent naming helps manage large design systems.
+
+.. note::
+
+   A few tags *do* take an attribute literally named ``style``, but it selects a
+   **visual preset**, not a colour — ``{% button style="brackets" %}``,
+   ``{% progressbar style="gradient" %}``, ``{% sparkline style="line" %}``. It
+   does not accept a ``Style`` dict. Inline colour overrides exist only in the
+   Python API, via ``resolve_style(..., inline_overrides={...})`` inside a custom
+   element's ``render_to``.
 
 Dynamic styling
 ---------------
 
-* Derive colors from state – pass RGB tuples or bool flags to inline ``style`` based on theme preference stored in ``state``.
+* Derive colors from state – swap the ``class`` attribute based on a theme preference stored in ``state``, and define both classes in the theme.
 * Toggle pseudo-classes manually – custom elements can set ``self.focused``/``self.hovered`` to trigger ``:focus``/``:hover`` styles.
 * Dark/light switching – store the current theme name in ``state.theme`` and call ``app.renderer.theme_manager.set_theme(state.theme)`` whenever it changes (register any custom ``Theme`` objects once at startup so their names are known).
 

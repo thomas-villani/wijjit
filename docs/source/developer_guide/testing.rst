@@ -13,6 +13,15 @@ Directory layout
 * ``tests/elements`` – each widget family (input/display/modal/menu).
 * ``tests/tags`` – template extensions.
 * ``tests/terminal`` – ANSI helpers, screen buffer, input devices.
+* ``tests/rendering`` – paint context, ANSI adapters, clip regions.
+* ``tests/styling`` – themes, style resolution, CSS parsing.
+* ``tests/inline`` – ``render_inline`` and ``InlineApp``.
+* ``tests/autocomplete`` – the suggestion popup and completers.
+* ``tests/plugins`` – the third-party element seam.
+* ``tests/devtools`` – the ``wijjit`` CLI, validator, and tree dump.
+* ``tests/testing`` – the harness, pytest plugin, scaffolding, and LLM briefing.
+* ``tests/examples`` – every driveable example rendered through the harness.
+* ``tests/golden`` – golden-file output (regenerate with ``--golden-update``).
 * ``tests/integration`` – cross-cutting flows (render pipeline, menu wiring, template compilation).
 * ``tests/e2e`` – end-to-end scripts using prompt-toolkit simulators.
 * ``tests/benchmarks`` – performance checks (opt-in).
@@ -46,7 +55,7 @@ Defined in ``pytest.ini`` (strictly enforced):
 * ``@pytest.mark.slow`` – >1s runtime; excluded from quick pass.
 * ``@pytest.mark.visual`` – snapshot/visual regression tests (uses Syrupy).
 * ``@pytest.mark.benchmark`` – performance measurements (requires ``pytest-benchmark``).
-* ``@pytest.mark.asyncio`` – async tests using ``pytest-asyncio`` (``asyncio_mode = "auto"`` is also enabled, so most async tests need no marker).
+* ``@pytest.mark.asyncio`` – async tests using ``pytest-asyncio``. ``pytest.ini`` leaves pytest-asyncio in its default **strict** mode, so this marker is **required**: an ``async def test_`` without it is collected but never awaited. Every async test in the suite carries it.
 
 Use these markers consistently so CI jobs can target subsets.
 

@@ -26,7 +26,7 @@ React model. Do not reintroduce it as one.
 patterns instead of procedural positioning code.
 
 **Status**: At the `0.1.0` release (version sourced from `wijjit.__version__`).
-Core framework is complete and stable; ~3700 tests pass. See `RELEASE_PLAN.md`
+Core framework is complete and stable; ~3800 tests pass. See `RELEASE_PLAN.md`
 for the remaining (publish-side) release steps.
 
 ## Environment & Tooling
@@ -53,8 +53,11 @@ for the remaining (publish-side) release steps.
 
 Tests live under `tests/{layer}/test_{module}.py`. There are also
 `tests/e2e/`, `tests/integration/`, `tests/golden/`, `tests/benchmarks/`, and
-snapshot tests (syrupy). Use `@pytest.mark.asyncio` (or rely on
-`asyncio_mode = "auto"`) for async tests.
+snapshot tests (syrupy). `pytest.ini` is the authoritative pytest config (it
+takes precedence over `[tool.pytest.ini_options]` in `pyproject.toml`) and
+leaves pytest-asyncio in **strict** mode, so every async test needs an explicit
+`@pytest.mark.asyncio` — without it the coroutine is collected but never
+awaited.
 
 **Headless harness:** `wijjit.testing.WijjitHarness` drives a real app without
 a TTY - it feeds scripted keys/mouse through the actual event-loop dispatch and
@@ -372,8 +375,10 @@ defaults; `tests/core/test_config.py` covers it.
   declaratively - a controllable ephemeral prop whose bound value *changed* this
   render is applied over the preserved snapshot ("state wins, else preserve"),
   routed through the element's `restore_ephemeral_state`.
-- **Async by default**: the loop is async internally; `app.run()` calls
-  `asyncio.run(app.run_async())`. Both sync and async handlers/views are supported.
+- **Async by default**: the loop is async internally; `app.run()` delegates to
+  `EventLoop.run()`, which calls `asyncio.run(EventLoop.run_async())`. There is
+  no `Wijjit.run_async`; from inside a running loop, await
+  `app.event_loop.run_async()`. Both sync and async handlers/views are supported.
 - **No Unicode/emoji in implementation code** (fine in tests/docs/test data).
 - **NumPy-style docstrings** for all modules/classes/methods/functions.
 - **Keep dependencies minimal**: jinja2, prompt-toolkit, rich, tinycss2,

@@ -97,10 +97,10 @@ All input tags live in :mod:`wijjit.tags.input` and automatically bind to ``stat
     Multi-line editor (supports scrolling, custom borders). Attributes: ``id``, ``height``, ``width``, ``placeholder``, ``bind``.
 
 ``{% codeeditor %}…{% endcodeeditor %}``
-    Syntax-highlighted code editor (:class:`wijjit.elements.input.code_editor.CodeEditor`). Extends ``textarea`` with Pygments-powered highlighting. Attributes: ``id``, ``language`` (programming language or ``"auto"``), ``theme`` (``monokai``, ``dracula``, ``nord``, ``github-light``), ``show_line_numbers``, ``filename_hint``, ``width``, ``height``, ``bind``.
+    Syntax-highlighted code editor (:class:`wijjit.elements.input.code_editor.CodeEditor`). Extends ``textarea`` with Pygments-powered highlighting. Attributes: ``id``, ``language`` (programming language or ``"auto"``), ``theme`` (``monokai``, ``dracula``, ``nord``, ``github-light``), ``show_line_numbers``, ``filename_hint``, ``width``, ``height``, ``wrap_mode``, ``capture_tab``, ``tab_width``. Unlike ``textinput`` / ``textarea``, ``codeeditor`` does not take ``bind``.
 
 ``{% button %}…{% endbutton %}``
-    Action buttons. Use ``action="save"`` to emit :class:`wijjit.core.events.ActionEvent`. Optional ``variant`` (``primary``, ``danger``) and ``icon`` attributes help styling.
+    Action buttons. Use ``action="save"`` to emit :class:`wijjit.core.events.ActionEvent`. The optional ``style`` attribute picks the bracket preset; for colour, give the button a ``class`` and style that class in your theme.
 
 ``{% checkbox %}``, ``{% radiogroup %}``, ``{% select %}``
     High-level inputs for boolean/multi-choice fields. Provide ``options`` as a list of dicts (``{"label": "Admin", "value": "admin"}``) or iterate inside the tag. Checkbox/radio groups expose an ``orientation`` attribute (``"vertical"`` – the default – or ``"horizontal"``).
@@ -152,7 +152,7 @@ Display & data tags
 -------------------
 
 ``{% table %}``
-    Renders :class:`wijjit.elements.display.table.TableElement`. Supports column definitions (``columns=[{"key": "name", "label": "Name", "width": 20}]``), row selection, zebra striping, and custom cell renderers. Use ``data=state.rows`` or pass a literal list.
+    Renders :class:`wijjit.elements.display.table.Table`. Supports column definitions (``columns=[{"key": "name", "label": "Name", "width": 20}]``), row selection, zebra striping, and custom cell renderers. Use ``data=state.rows`` or pass a literal list.
 
 ``{% tree %}``
     Hierarchical data viewer with expand/collapse support. Provide ``nodes`` with ``children`` arrays.

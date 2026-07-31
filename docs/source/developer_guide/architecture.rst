@@ -38,13 +38,18 @@ The ``src/wijjit`` tree is intentionally segmented:
 * ``tags/`` – Jinja extensions mapping template tags to element/layout nodes.
 * ``rendering/`` – paint context and ANSI adapters bridging Rich / prompt-toolkit.
 * ``terminal/`` – input handling, screen buffer, ANSI utilities.
-* ``styling/`` – theme + style resolver.
-* ``helpers.py`` – misc utilities shared across modules.
+* ``styling/`` – theme + style resolver, plus the CSS parser.
+* ``inline/`` – non-alternate-screen output (``render_inline``, ``InlineApp``).
+* ``autocomplete/`` – suggestion popup for text inputs and the code editor.
+* ``devtools/`` – static analysis behind the CLI (validator, VNode-tree dump, LLM briefing, ``wijjit new`` scaffolding).
+* ``testing/`` – the headless ``WijjitHarness``, ``app_from_template``, and the ``pytest11`` plugin.
+* ``plugins.py`` – the public third-party element seam (``register_element`` + ``wijjit.plugins`` entry-point discovery).
+* ``cli.py`` / ``config.py`` / ``helpers.py`` – the ``wijjit`` console script, Flask-style config, and shared utilities.
 
 Renderer & layout pipeline
 --------------------------
 
-1. **Template render** – :class:`wijjit.core.renderer.Renderer` configures a Jinja environment with the custom tags from ``wijjit.tags``. Views call ``Renderer.render_view`` which passes ``state``, ``data``, and ``params`` to the template.
+1. **Template render** – :class:`wijjit.core.renderer.Renderer` configures a Jinja environment with the custom tags from ``wijjit.tags``. ``Wijjit._render`` evaluates the view, then calls ``Renderer.render_with_layout`` (or ``render_string`` for a tagless template). The template context is the view's keyword arguments flattened to top level, plus an auto-injected ``state``; ``params`` and a wrapping ``data`` object are *not* placed in the context.
 2. **VNode tree** – tags such as ``{% vstack %}``, ``{% frame %}``, and ``{% button %}`` do **not** build elements directly; they emit immutable :class:`wijjit.core.vdom.VNode` descriptions via a ``VNodeBuilder``. The template render therefore produces a VNode tree, not an element tree.
 3. **Reconcile** – :class:`wijjit.core.reconciler.Reconciler` diffs the new VNode tree against the previous one and creates/updates/replaces/deletes the corresponding stateful :class:`wijjit.elements.base.Element` objects, reusing existing elements (and their ephemeral UI state) where possible. The reconciler also wires the resulting elements into the layout tree (``wijjit.layout.engine``).
 4. **Constraint pass** – :meth:`wijjit.layout.engine.LayoutNode.calculate_constraints` recursively computes minimum/preferred sizes based on element content and width/height specs. Scrollable frames consult ``wijjit.layout.scroll`` to measure overflow.
@@ -225,22 +230,22 @@ Event system
 
 * **Input layer** – :class:`wijjit.terminal.input.InputHandler` captures keys and mouse events from prompt-toolkit. Mouse events are wrapped in :class:`wijjit.terminal.mouse.MouseEvent`.
 * **Event types** – defined in :mod:`wijjit.core.events`: ``KeyEvent``, ``ActionEvent``, ``ChangeEvent``, ``FocusEvent``, ``MouseEvent``. Each has metadata (key, modifiers, element id, etc.).
-* **Handler registry** – :class:`HandlerRegistry`` stores ``Handler`` objects tagged with ``HandlerScope`` (GLOBAL / VIEW / ELEMENT), optional view/element ids, and priority. ``dispatch`` looks up matching handlers, runs sync callbacks, and awaits async ones.
-* **Convenience decorators** – ``@app.on_action``, ``@app.on_key`` wrap ``HandlerRegistry.register``. Internally they set ``scope=VIEW`` by default so handlers automatically clear during navigation.
+* **Handler registry** – :class:`HandlerRegistry` stores ``Handler`` objects tagged with ``HandlerScope`` (GLOBAL / VIEW / ELEMENT), optional view/element ids, and priority. ``dispatch`` looks up matching handlers, runs sync callbacks, and awaits async ones.
+* **Convenience decorators** – ``@app.on_key`` wraps ``HandlerRegistry.register`` at ``HandlerScope.GLOBAL``; ``@app.on_action`` bypasses ``HandlerScope`` entirely and stores its callback in a separate action-handler map. View-scoped handlers (the ones that clear automatically during navigation) come from the lower-level ``app.on(..., scope=HandlerScope.VIEW, view_name=...)``.
 * **Mouse routing** – :class:`wijjit.core.mouse_router.MouseEventRouter` performs hit-testing (overlays first, then base layout), updates :class:`wijjit.core.hover.HoverManager`, and forwards events to elements with ``handle_mouse`` methods.
-* **Focus management** – :class:`wijjit.core.focus.FocusManager`` tracks focusable elements, handles Tab/Shift+Tab, and marks dirty regions when focus changes. Focus starts *unset* by design (focusing element 0 unconditionally would make the first Tab appear to skip it); an element may claim it declaratively with ``autofocus=True``, which ``set_elements`` applies whenever focus would otherwise be ``None``. Overlays can trap focus and restore the previous state upon closing.
+* **Focus management** – :class:`wijjit.core.focus.FocusManager` tracks focusable elements, handles Tab/Shift+Tab, and marks dirty regions when focus changes. Focus starts *unset* by design (focusing element 0 unconditionally would make the first Tab appear to skip it); an element may claim it declaratively with ``autofocus=True``, which ``set_elements`` applies whenever focus would otherwise be ``None``. Overlays can trap focus and restore the previous state upon closing.
 
 State & wiring
 --------------
 
-* **Reactive state** – :class:`wijjit.core.state.State`` extends ``UserDict`` with change detection, attribute access, global and per-key watchers, and async callback support. ``Wijjit`` registers ``state.on_change`` to set ``app.needs_render`` when any key changes.
-* **Element wiring** – :class:`wijjit.core.wiring.ElementWiringManager`` binds template-generated elements (forms, lists) to state keys/actions by id. For example, ``{% textinput id="username" %}`` automatically syncs ``state["username"]`` and emits ``ChangeEvent`` when edits occur.
-* **Notifications** – :class:`wijjit.core.notification_manager.NotificationManager`` leverages overlays to display toast-like alerts, auto-expiring them with the help of the event loop’s periodic checks.
+* **Reactive state** – :class:`wijjit.core.state.State` extends ``UserDict`` with change detection, attribute access, global and per-key watchers, and async callback support. ``Wijjit`` registers ``state.on_change`` to set ``app.needs_render`` when any key changes.
+* **Element wiring** – :class:`wijjit.core.wiring.ElementWiringManager` binds template-generated elements (forms, lists) to state keys/actions by id. For example, ``{% textinput id="username" %}`` automatically syncs ``state["username"]`` and emits ``ChangeEvent`` when edits occur.
+* **Notifications** – :class:`wijjit.core.notification_manager.NotificationManager` leverages overlays to display toast-like alerts, auto-expiring them with the help of the event loop’s periodic checks.
 
 Overlays & modals
 -----------------
 
-* :class:`wijjit.core.overlay.OverlayManager`` manages stacked overlays grouped by :class:`LayerType`` (BASE / MODAL / DROPDOWN / TOOLTIP). Each overlay stores focus state, z-index, and dismissal behavior.
+* :class:`wijjit.core.overlay.OverlayManager` manages stacked overlays grouped by :class:`LayerType` (BASE / MODAL / DROPDOWN / TOOLTIP). Each overlay stores focus state, z-index, and dismissal behavior.
 * Template tags in ``wijjit.tags.dialogs`` and ``wijjit.tags.menu`` emit overlay descriptors (confirm dialogs, alerts, dropdown menus, context menus). During rendering the overlay manager instantiates the appropriate elements and pushes them with ``trap_focus`` or ``dimmed_background`` as needed.
 * Mouse clicks and keyboard events route through overlays before reaching the base layout, ensuring modals behave like first-class screens.
 

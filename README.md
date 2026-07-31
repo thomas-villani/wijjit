@@ -624,7 +624,7 @@ deterministic across CI runners. See the
 
 Wijjit `0.1.0` is the first public release. The core framework is stable and
 feature-complete for this milestone: the element, layout, event, and rendering
-pipelines are all implemented and covered by roughly 3,700 tests running on
+pipelines are all implemented and covered by roughly 3,800 tests running on
 Linux, macOS, and Windows across Python 3.11–3.13.
 
 See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG.md) for what shipped and

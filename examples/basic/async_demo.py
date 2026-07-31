@@ -122,7 +122,7 @@ Press 'q' to quit
         app.quit()
 
     try:
-        app.run()  # Internally calls asyncio.run(app.run_async())
+        app.run()  # Internally calls asyncio.run(EventLoop.run_async())
     except KeyboardInterrupt:
         pass
     except Exception as e:

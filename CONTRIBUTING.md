@@ -11,7 +11,7 @@ management.
 ```bash
 git clone https://github.com/thomas-villani/wijjit.git
 cd wijjit
-uv sync --all-extras   # creates .venv with runtime + dev + images extras
+uv sync --all-extras   # creates .venv with runtime + dev + images + xlsx extras
 ```
 
 ## Running the checks
@@ -53,8 +53,8 @@ in the PR if so.
 ## Project guidance
 
 `CLAUDE.md` documents the architecture and conventions in depth and is a good
-orientation for where things live. Outstanding work is tracked in
-`RELEASE_PLAN.md`.
+orientation for where things live. Outstanding work is tracked in `roadmap.md`,
+the single post-0.1.0 backlog; `RELEASE_PLAN.md` is the publish runbook.
 
 By contributing, you agree that your contributions are licensed under the
 project's [MIT License](LICENSE).

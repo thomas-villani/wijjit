@@ -8,7 +8,7 @@ Requirements
 
 * Python ``>= 3.11`` (matching ``pyproject.toml``)
 * A virtual environment manager (``uv`` is recommended for reproducible, cached installs)
-* Build dependencies for Rich/Prompt Toolkit (standard on Linux/macOS, ``build-essential`` on Debian/Ubuntu)
+* No compiler needed — every runtime dependency ships pure-Python wheels
 
 Install Wijjit
 --------------

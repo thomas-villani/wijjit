@@ -109,7 +109,7 @@ DataGrid
     See ``examples/widgets/datagrid_demo.py`` for a complete inventory management example with add/delete row functionality.
 
 Button
-    Clickable action trigger (:mod:`wijjit.elements.input.button`). Attributes: ``variant`` (``primary``, ``secondary``, ``danger``), ``icon``, ``disabled``. Useful for both primary actions and inline icon buttons. Remember that ``action`` ids participate in handler routing—keep them short verbs (``save``, ``cancel``) and reuse them across views to share behavior.
+    Clickable action trigger (:mod:`wijjit.elements.input.button`). Attributes: ``action`` (the action id to emit), ``style`` (the bracket preset used to draw the button), and the universal ``class`` for theming. Style a "danger" button with a CSS class (``class="danger"``) plus a matching theme entry rather than a ``variant`` attribute — there is none. Remember that ``action`` ids participate in handler routing—keep them short verbs (``save``, ``cancel``) and reuse them across views to share behavior.
 
 Checkbox / CheckboxGroup
     Toggle booleans or sets of values. Groups accept ``options`` and maintain a list in state (``state.selected_tags``). Support tri-state rendering, keyboard navigation, and spacing options. Use them for preference panes or wizards.
@@ -141,7 +141,7 @@ Link
          {% link action="logout" class="text-danger" %}Logout{% endlink %}
        {% endhstack %}
 
-    See ``examples/widgets/html_demo.py`` for usage examples alongside HTMLViewer.
+    See ``examples/widgets/contentview_demo.py`` for links used alongside HTML-formatted content.
 
 Slider
     Numeric input with draggable handle (:mod:`wijjit.elements.input.slider`). Supports both integer and float modes, keyboard navigation (Left/Right arrows, Home/End), and mouse interaction (click to set, drag to adjust).
@@ -333,7 +333,7 @@ StatusBar
     Sticky footer for breadcrumbs, key hints, or status indicators. Combine with ``{% hstack %}`` sections to align regions left/center/right. ``examples/widgets/statusbar_demo.py`` shows how to surface view-scoped hints.
 
 Notifications
-    Inline banners styled by ``tone`` (``info``, ``success``, ``warning``, ``error``). Available as template tags and as programmatic overlays via :class:`wijjit.core.notification_manager.NotificationManager`. Use them for asynchronous feedback or confirmations.
+    Toast banners styled by ``severity`` (``info``, ``success``, ``warning``, ``error``). There is **no** ``{% notification %}`` template tag — raise one from Python with ``app.notify("Saved!", severity="success")``, which routes through :class:`wijjit.core.notification_manager.NotificationManager` and auto-dismisses after ``duration`` seconds (pass ``duration=None`` to keep it up). Use them for asynchronous feedback or confirmations.
 
     .. literalinclude:: ../../../examples/widgets/notification_demo.py
        :language: python
@@ -341,7 +341,7 @@ Notifications
        :caption: ``examples/widgets/notification_demo.py`` – framing actionable hints
 
 ImageView
-    Renders raster images as ASCII/ANSI art in the terminal (:mod:`wijjit.elements.display.imageview`). Requires the ``images`` extra (``pip install wijjit[images]``), which pulls in Pillow. Exposed via the ``{% imageview %}`` tag (registered alias: ``Image``). Accepts a file path, raw bytes, or a PIL ``Image`` as ``src`` and auto-binds it to ``state[id]`` unless ``bind=False``.
+    Renders raster images as ASCII/ANSI art in the terminal (:mod:`wijjit.elements.display.image`). Requires the ``images`` extra (``pip install wijjit[images]``), which pulls in Pillow. Exposed via the ``{% imageview %}`` tag (registered alias: ``Image``). Accepts a file path, raw bytes, or a PIL ``Image`` as ``src`` and auto-binds it to ``state[id]`` unless ``bind=False``.
 
     Key attributes:
 
@@ -597,11 +597,47 @@ When the built-in set isn’t enough, implement a subclass of :class:`wijjit.ele
 3. Set ``focusable`` and implement ``handle_key`` / ``handle_mouse`` when appropriate.
 4. Expose the component via a Jinja extension (see ``wijjit/tags``) or instantiate it inside a view and insert it into the layout tree manually.
 
+Shipping an element as its own package
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You do not have to fork Wijjit or monkeypatch it. :func:`wijjit.register_element`
+couples a VNode type name with your ``Element`` subclass and, optionally, a
+``{% tag %}`` extension:
+
+.. code-block:: python
+
+   from wijjit import Element, register_element
+
+   class SparkGauge(Element):
+       ...
+
+   register_element("SparkGauge", SparkGauge, tag="sparkgauge")
+
+Because both the element registry and the Jinja environment are built *per
+renderer*, every new renderer drains this global registry at construction — so
+the running app **and** ``wijjit validate`` pick your element up automatically.
+
+Call it at module level and declare a ``wijjit.plugins`` entry point (mirroring
+the ``pytest11`` precedent) and an installed package registers itself on import:
+
+.. code-block:: toml
+
+   [project.entry-points."wijjit.plugins"]
+   sparkgauge = "my_package.elements"
+
+``Wijjit.register_element`` is the instance-method form, which also live-patches
+an already-constructed app. Scope note: v1 covers **leaf** elements (self-closing
+or simple-body widgets); custom *containers*, which need layout-tree-builder and
+validator integration, are a deferred follow-up.
+
+``examples/advanced/plugin_element.py`` is a complete working example in about
+30 lines.
+
 Tips
 ----
 
 * Wrap inputs inside frames or stacks to control spacing and provide labels.
-* Use ``state`` to drive visual states (e.g., ``{% button variant="danger" disabled=state.in_progress %}``).
+* Use ``state`` to drive visual states through the universal ``class`` attribute (e.g., ``{% button class=state.in_progress and "busy" or "primary" %}``), then style those classes in your theme.
 * For high-frequency components (logs, tables), prefer incremental updates to state rather than rebuilding entire datasets every tick.
 * Read the example gallery – most widgets live under ``examples/widgets/*_demo.py`` so you can run the exact code showcased here.
 

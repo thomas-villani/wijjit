@@ -10,11 +10,11 @@ The :class:`wijjit.core.app.Wijjit` class orchestrates everything:
 
 1. **Construction** – provide ``template_dir`` (if you keep templates on disk) and optional ``initial_state``. Creating the app sets up everything it needs to render and respond to input: the rendering pipeline, layout engine, focus and mouse handling, the overlay system, and the terminal connection.
 2. **Configuration** – register views via ``@app.view``, hook actions/keys/mouse handlers, and set global options (refresh interval, custom themes, etc.). Nothing is rendered yet.
-3. **Run** – ``app.run()`` starts the event loop, which enters the alternate terminal buffer, enables mouse tracking, and renders the default view. Wijjit is async internally, so ``app.run()`` is a thin wrapper around ``asyncio.run(...)``; if you are already inside an event loop, call ``await app.run_async()`` instead.
+3. **Run** – ``app.run()`` starts the event loop, which enters the alternate terminal buffer, enables mouse tracking, and renders the default view. Wijjit is async internally, so ``app.run()`` is a thin wrapper around ``asyncio.run(...)``; if you are already inside an event loop, await the loop directly with ``await app.event_loop.run_async()`` instead.
 4. **Main loop** – every tick collects input, dispatches events, applies state changes, and re-renders whenever something changed. Focus, hover, overlays, and notifications are updated along the way.
 5. **Shutdown** – ``app.quit()`` or ``Ctrl+C`` causes the event loop to unwind, restore the cursor and terminal state, and stop any background work. ``on_exit`` view hooks and overlay ``on_close`` callbacks are guaranteed to run.
 
-If a handler raises, Wijjit logs the traceback and then shuts down cleanly rather than leaving your terminal in a broken state.
+If a handler raises, Wijjit logs the traceback and the app keeps running — one bad handler does not take down your UI. Tracebacks are buffered while the alternate screen is active and flushed to stderr after the terminal is restored, so they never corrupt the frame. The exception is the *initial* render: a template that fails on first paint is fatal, so the error surfaces on a clean screen instead of leaving your terminal wedged.
 
 Views and routing
 -----------------
@@ -43,7 +43,7 @@ Wijjit ships with :class:`wijjit.core.state.State`, a dict-like container with c
 
 Key behaviors:
 
-* Reserved keys – names that collide with dict methods (``items``, ``keys``, …) are disallowed to keep template attribute access predictable.
+* Any key name – including ones that collide with a ``State`` method (``items``, ``keys``, …). Templates resolve ``{{ state.items }}`` to your value; in Python, reach those keys with ``state["items"]``. See :ref:`method-named-keys`.
 * Attribute access – ``state.greeting`` works in Python and templates, but ``state["greeting"]`` remains available for non-identifier keys.
 * Async callbacks – watchers can be ``async def``; Wijjit tracks pending tasks and awaits them safely.
 * Immutability optional – the class does not enforce immutability; you can mutate nested lists/dicts, but prefer assigning new objects to keep renders predictable.

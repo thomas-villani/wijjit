@@ -47,7 +47,7 @@ Commit & PR expectations
 * Commits should be focused and present tense (e.g., ``Add spinner demo``). Squash locally if you end up with WIP commits.
 * Before opening a PR, run tests, lint, mypy, and docs build; include a checklist in the PR body describing which commands you ran.
 * Provide context in the PR description: problem solved, high-level approach, any trade-offs.
-* Reference related issues/design docs (``plan/`` or ``AGENTS.md``) when applicable.
+* Reference related issues and the ``roadmap.md`` backlog entry when applicable.
 * For user-facing changes (UI, docs), attach screenshots or asciinema recordings to help reviewers.
 
 Review process
@@ -61,9 +61,9 @@ Communicating changes
 ---------------------
 
 * Update docs alongside code. E.g., new elements require updates in :doc:`../user_guide/components`, template tags in :doc:`../user_guide/templates`, etc.
-* If you touch release-critical files (``src/wijjit/__init__.py``, ``docs/index.rst``), mention it in the PR summary so maintainers can prioritize review.
+* If you touch release-critical files (``src/wijjit/__init__.py``, ``docs/source/index.rst``), mention it in the PR summary so maintainers can prioritize review.
 
 Need help?
 ----------
 
-File an issue describing the bug/feature, or start a draft PR with questions inline. We’d rather collaborate early than rewrite late. Also consult ``CLAUDE.md`` and ``plan/`` notes for architectural decisions before proposing sweeping changes.
+File an issue describing the bug/feature, or start a draft PR with questions inline. We’d rather collaborate early than rewrite late. Also consult ``CLAUDE.md`` (architecture and conventions) and ``roadmap.md`` (the post-0.1.0 backlog, with root causes for known bugs) before proposing sweeping changes.
