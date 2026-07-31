@@ -25,8 +25,8 @@ final CHANGELOG date. See Part 1.
 ## Part 1 - Remaining steps to ship 0.1.0
 
 ### 1a - Finalize metadata & version (at tag time)
-- [ ] `CHANGELOG.md`: set the `[0.1.0]` date to the actual release date (currently
-      `2026-07-23`, the pre-tag audit date); keep an empty `[Unreleased]` stub.
+- [x] `CHANGELOG.md`: set the `[0.1.0]` date to the actual release date
+      (`2026-07-31`); keep an empty `[Unreleased]` stub.
 
 ### 1b - Docs hosting (GitHub Pages)
 - [x] Enable Pages in repo settings (Source: GitHub Actions). **[user action]**
@@ -36,10 +36,15 @@ final CHANGELOG date. See Part 1.
       place and the `Documentation` project URL already points at the Pages site.)
 
 ### 1c - Release pipeline hardening
-- [ ] (Optional) Add required-reviewer protection to the `pypi` GitHub
-      environment so a tag push can't auto-publish without a human gate.
-      (The `release.yml` build job already install-smoke-tests the wheel in a
-      clean venv before any publish.)
+- [x] Add required-reviewer protection to the `pypi` GitHub environment so a tag
+      push can't auto-publish without a human gate. (Reviewer:
+      `thomas-villani`. The `release.yml` build job already install-smoke-tests
+      the wheel in a clean venv before any publish.)
+- [x] Deployment branch policies: `pypi` accepts the `v*` **tag** pattern only,
+      so the real publish can only ever run from a release tag - a
+      `workflow_dispatch` with `target=pypi` from a branch is refused by the
+      environment. `testpypi` additionally allows the `main` **branch**, which
+      is what makes the 1f dry-run dispatchable.
 
 ### 1d - Community health & polish
 - [x] Document the `pyperclip` Linux behavior (system clipboard needs xclip/xsel;
@@ -48,15 +53,24 @@ final CHANGELOG date. See Part 1.
 ### 1e - Trusted Publishing external setup (one-time) **[user actions]**
 - [x] PyPI: register a pending Trusted Publisher - repo `thomas-villani/wijjit`,
       workflow `release.yml`, environment `pypi`.
-- [ ] TestPyPI: same, environment `testpypi`.
+- [x] TestPyPI: same, environment `testpypi`. (Neither `pypi.org/project/wijjit`
+      nor `test.pypi.org/project/wijjit` exists yet, so both sides must be
+      registered as *pending* publishers - they convert to project-scoped
+      publishers on first successful upload.)
 - [x] Create GitHub Actions environments named `pypi` and `testpypi`.
 
 ### 1f - Build & TestPyPI dry-run
 - [x] Local: `uv build` + `uvx twine check dist/*`.
-- [ ] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`); then in a
+- [x] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`); then in a
       clean venv install from TestPyPI and smoke-test (import + a headless
       example). Note: a TestPyPI version cannot be re-uploaded - bump a local
       `.devN` if a retry is needed.
+      (Done 2026-07-31, run `30652654671`: build 19s, publish 15s, both
+      artifacts up. Reinstalled from TestPyPI into a clean 3.13 venv - import,
+      `WijjitHarness`, `wijjit --version`, `wijjit new` -> `validate --render`
+      -> `render`, and `llm-help` all OK. Because 0.1.0 is now taken on
+      TestPyPI, any further dry-run needs a `.devN`; the real PyPI upload is
+      unaffected.)
 
 ### 1g - Repo hygiene (before tagging)
 - [x] Delete the scratch file `todo-release.md` (0.1.1 example ideas) before
