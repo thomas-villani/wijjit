@@ -1,11 +1,11 @@
 Examples
 ========
 
-Wijjit ships with 73 runnable scripts under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+Wijjit ships with 74 runnable examples under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
 
 * ``examples/basic`` (15) – first steps, focus, events, async, alignment.
 * ``examples/widgets`` (30) – component spotlights (tables, trees, dialogs, etc.).
-* ``examples/advanced`` (21) – multi-view apps, complex layouts, and performance patterns (includes the ``templates_dir_demo`` package).
+* ``examples/advanced`` (22) – multi-view apps, complex layouts, and performance patterns (includes the ``templates_dir_demo`` package).
 * ``examples/styling`` (2) – CSS theming and style-class demos.
 * ``examples/apps`` (5) – complete sample applications.
 

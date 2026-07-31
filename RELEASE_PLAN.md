@@ -9,7 +9,7 @@ root `issues.md`. Everything already completed has been collapsed into the
 
 **Current state:**
 - Version: **`0.1.0`** (single source: `wijjit.__version__`, hatchling dynamic).
-- Tests green (~3000 pass, excl. benchmarks); `ruff check src/` clean;
+- Tests green (~3700 pass, excl. benchmarks); `ruff check src/` clean;
   `mypy --strict src/` clean; `uv build` produces sdist + wheel; `twine check`
   passes. CI (3 OS x Py 3.11-3.13 + lint + coverage) is green.
 - Sphinx docs build clean (0 warnings). Hosting: **GitHub Pages**.
@@ -26,7 +26,7 @@ final CHANGELOG date. See Part 1.
 
 ### 1a - Finalize metadata & version (at tag time)
 - [ ] `CHANGELOG.md`: set the `[0.1.0]` date to the actual release date (currently
-      `2026-06-28`); keep an empty `[Unreleased]` stub.
+      `2026-07-23`, the pre-tag audit date); keep an empty `[Unreleased]` stub.
 
 ### 1b - Docs hosting (GitHub Pages)
 - [x] Enable Pages in repo settings (Source: GitHub Actions). **[user action]**
@@ -66,6 +66,10 @@ final CHANGELOG date. See Part 1.
 - [ ] Commit the version bump on `main`, `git tag v0.1.0`, `git push origin
       v0.1.0`. The tag triggers `release.yml` -> build (+ install-smoke) ->
       publish to PyPI via OIDC -> GitHub Release from the CHANGELOG section.
+      Note: `wijjit.__version__` is *already* `0.1.0`, so this first release is
+      tagged by hand. `bump-my-version` (configured in `pyproject.toml`) owns
+      subsequent bumps - `uv run bump-my-version bump patch` rewrites
+      `__init__.py`, commits, and creates the `vX.Y.Z` tag in one step.
 - [ ] Post-release: clean-venv `pip install wijjit` -> import + headless
       hello-world; confirm the PyPI page renders the README and all project URLs
       (incl. the Pages docs URL) resolve.

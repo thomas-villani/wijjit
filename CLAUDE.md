@@ -26,7 +26,7 @@ React model. Do not reintroduce it as one.
 patterns instead of procedural positioning code.
 
 **Status**: At the `0.1.0` release (version sourced from `wijjit.__version__`).
-Core framework is complete and stable; ~3600 tests pass. See `RELEASE_PLAN.md`
+Core framework is complete and stable; ~3700 tests pass. See `RELEASE_PLAN.md`
 for the remaining (publish-side) release steps.
 
 ## Environment & Tooling
@@ -381,8 +381,9 @@ defaults; `tests/core/test_config.py` covers it.
 
 ## Examples
 
-`examples/` has 73 runnable demos, organized into `basic/` (15), `widgets/`
-(30), `advanced/` (21), `styling/` (2), `apps/` (5). Run with
+`examples/` has 74 runnable demos, organized into `basic/` (15), `widgets/`
+(30), `advanced/` (22, incl. the `templates_dir_demo/` package), `styling/` (2),
+`apps/` (5). Run with
 `python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
 behavioral bugs deferred to 0.1.1, tracked with root causes in `roadmap.md`
 (the single post-0.1.0 backlog).

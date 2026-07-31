@@ -42,7 +42,7 @@ Why Wijjit
 * **Cheap updates** – a virtual-DOM reconciler diffs re-renders into a cell buffer, so a changed widget writes a few dozen bytes instead of repainting the screen. An idle frame writes nothing at all. See :doc:`user_guide/performance`.
 * **Built to be tested** – a headless harness drives real apps without a TTY, plus a ``wijjit`` CLI to validate templates and dump the render tree.
 * **Batteries included** – 36 elements: six chart types, an image viewer, a code editor with autocomplete, and an editable data grid, with no plugins required.
-* **Production features** – 74 runnable examples and roughly 3,600 tests across Linux, macOS, and Windows on Python 3.11–3.13.
+* **Production features** – 74 runnable examples and roughly 3,700 tests across Linux, macOS, and Windows on Python 3.11–3.13.
 
 Quick Example
 -------------
