@@ -209,7 +209,7 @@ QUIT_KEY
    app.config['QUIT_KEY'] = 'ctrl+c'   # Ctrl+C
    app.config['QUIT_KEY'] = 'escape'   # ESC key
 
-Display & Terminal (3 options)
+Display & Terminal (5 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 USE_ALTERNATE_SCREEN
@@ -244,6 +244,28 @@ APP_TITLE
 .. code-block:: python
 
    app.config['APP_TITLE'] = 'My Wijjit App'  # Set the terminal title
+
+HARDWARE_CURSOR
+^^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``True``
+:Description: Park the real terminal cursor on the focused text caret. When the focused element reports a caret cell (``TextInput``, ``TextArea``, ``CodeEditor``), each frame ends with a cursor-move plus show-cursor escape, so the hardware cursor sits and blinks on the caret; it is hidden again when no caret is visible. Terminals and screen readers track the hardware cursor, so this is an accessibility improvement over the painted reverse-video caret alone. Works alongside the default ``HIDE_CURSOR=True`` startup state; inline apps are unaffected.
+
+.. code-block:: python
+
+   app.config['HARDWARE_CURSOR'] = False  # Painted caret only
+
+REMOTE
+^^^^^^
+
+:Type: ``bool``
+:Default: ``False``
+:Description: Run without claiming ownership of the process terminal. The default backend still writes to stdout, but does **not** install the process-global ``SIGTERM``/``SIGHUP``/``atexit`` terminal-restore net or the ``SIGTSTP`` suspend handler. Set this when embedding a Wijjit app in a host process that manages the terminal itself. Custom transports express the same intent via ``TerminalBackend.owns_terminal`` and do not need this flag.
+
+.. code-block:: python
+
+   app.config['REMOTE'] = True  # Embedded in a host that owns the terminal
 
 Process Control (1 option)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -407,7 +429,7 @@ EXECUTOR_MAX_WORKERS
 
    app.config['EXECUTOR_MAX_WORKERS'] = 4  # 4 worker threads
 
-Rendering (2 options)
+Rendering (3 options)
 ~~~~~~~~~~~~~~~~~~~~~~
 
 RENDER_THROTTLE_MS
@@ -440,6 +462,17 @@ FULL_REPAINT_INTERVAL
 
 .. tip::
    Left disabled by default because a periodic full repaint negates the diff renderer's bytes-saved advantage. If your app knowingly writes to the terminal (spawns a subprocess, prints), prefer a one-shot :meth:`app.request_full_repaint() <wijjit.core.app.Wijjit.request_full_repaint>` right after instead of a standing heartbeat.
+
+AUTO_FIT_LAYOUT
+^^^^^^^^^^^^^^^
+
+:Type: ``bool``
+:Default: ``True``
+:Description: Shrink over-committed layouts to fit the terminal instead of clipping them. When a container's children ask for more space than the container has — typically hard-coded ``width=``/``height=`` values on a terminal smaller than the author's — children with slack give space back in proportion, floored at the size their content genuinely needs. Set ``False`` to restore the pre-0.1.0 behaviour of letting the overflow clip.
+
+.. code-block:: python
+
+   app.config['AUTO_FIT_LAYOUT'] = False  # Let over-committed layouts clip
 
 Notifications (5 options)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

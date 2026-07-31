@@ -93,7 +93,7 @@ Source: ``examples/widgets/spinner_demo.py`` + :doc:`../user_guide/styling`
 
 1. Create a custom ``Theme`` with overrides (button colors, frame borders).
 2. Register and activate it via ``app.renderer.theme_manager.register_theme(custom_theme)`` followed by ``app.renderer.theme_manager.set_theme(custom_theme.name)`` during startup or in response to user preference toggles.
-3. Use ``style={...}`` attributes on template tags for one-off overrides (e.g., danger buttons).
+3. Give elements a ``class`` in the template (e.g. ``{% button class="danger" %}``) and define that class in the theme — templates style by class, not by inline colour dicts.
 4. Snapshot the UI after theme changes to catch regressions.
 
 Have a recipe to add? Drop a runnable snippet in ``examples/`` and update this page so others can benefit. Refer back to :doc:`../user_guide/core_concepts` for a deeper explanation of how these patterns plug into the runtime.

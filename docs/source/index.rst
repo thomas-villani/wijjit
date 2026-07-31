@@ -42,7 +42,7 @@ Why Wijjit
 * **Cheap updates** – a virtual-DOM reconciler diffs re-renders into a cell buffer, so a changed widget writes a few dozen bytes instead of repainting the screen. An idle frame writes nothing at all. See :doc:`user_guide/performance`.
 * **Built to be tested** – a headless harness drives real apps without a TTY, plus a ``wijjit`` CLI to validate templates and dump the render tree.
 * **Batteries included** – 36 elements: six chart types, an image viewer, a code editor with autocomplete, and an editable data grid, with no plugins required.
-* **Production features** – 74 runnable examples and roughly 3,700 tests across Linux, macOS, and Windows on Python 3.11–3.13.
+* **Production features** – 74 runnable examples and roughly 3,800 tests across Linux, macOS, and Windows on Python 3.11–3.13.
 
 Quick Example
 -------------
@@ -171,7 +171,10 @@ Known limitations for 0.1.0:
 
 * **No virtual scrolling** — every row of a ``Table``, ``ListView``, or ``Tree`` is laid out on each render. Page or filter very large datasets before rendering them.
 * **Wide characters are column-correct on the standard text path only** — text rendered through templates and frames handles CJK/emoji/decomposed accents at their true width, but elements that paint cells directly (``TextArea``, ``Tree``, ``ListView``, pre-rendered ANSI content) can still misalign wide glyphs.
-* **No plugin system and no hot template reload** — both are on the roadmap.
+* **Third-party elements are leaf-only** — the plugin seam registers self-closing and simple-body widgets; custom *containers* (which need layout-tree and validator integration) are deferred.
+* **Template auto-reload is development-only** — file-backed templates can reload automatically with ``TEMPLATE_AUTO_RELOAD``, but packaged or embedded templates still require a restart to pick up changes.
+* **``RUN_SYNC_IN_EXECUTOR`` does not cover action handlers** — it moves blocking ``@app.on_key`` / mouse / change handlers onto a worker thread, but ``@app.on_action`` handlers (what buttons fire) are invoked inline, so the setting has no effect on them.
+* **Some Windows alt-key combinations** are not delivered by the underlying terminal input layer.
 
 Links
 -----
