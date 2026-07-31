@@ -206,6 +206,30 @@ class TextInput(AutocompleteMixin, Element):
 
         return paths
 
+    @property
+    def captures_tab(self) -> bool:
+        """Whether Tab should reach this input instead of moving focus.
+
+        Returns
+        -------
+        bool
+            True only while an autocomplete popup is open and configured to
+            accept the highlighted suggestion on Tab.
+
+        Notes
+        -----
+        Claimed conditionally rather than always: a text input in a form must
+        keep Tab-to-next-field. The moment the popup closes, Tab goes back to
+        moving focus - which is also what makes the completer's
+        ``select_on_tab`` reachable at all, since the app's focus handler
+        would otherwise cancel Tab before any element saw it.
+        """
+        if not self.completer:
+            return False
+        if not getattr(self.completer.config, "select_on_tab", False):
+            return False
+        return bool(self._autocomplete_state.is_open)
+
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input.
 
@@ -741,6 +765,13 @@ class TextArea(Element):
         - "rounded": Rounded corner box-drawing characters
         - None: No borders
         Can also accept BorderStyle enum values.
+    capture_tab : bool, optional
+        Whether Tab inserts an indent instead of moving focus to the next
+        element (default: False). Shift+Tab still moves focus backward, so
+        the field can always be left. ``CodeEditor`` defaults this to True.
+    tab_width : int, optional
+        Number of spaces one Tab inserts when ``capture_tab`` is enabled
+        (default: 4). Minimum 1.
 
     Attributes
     ----------
@@ -764,6 +795,10 @@ class TextArea(Element):
         Whether to show scrollbar
     border_style : BorderStyle or None
         Border style for rendering
+    capture_tab : bool
+        Whether Tab inserts an indent instead of moving focus
+    tab_width : int
+        Number of spaces inserted by Tab when ``capture_tab`` is enabled
     """
 
     def __init__(
@@ -786,10 +821,19 @@ class TextArea(Element):
         dynamic_sizing: bool = False,
         autosize: bool = False,
         max_height: int | None = None,
+        capture_tab: bool = False,
+        tab_width: int = 4,
     ):
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.INPUT
         self.focusable = True
+
+        # Tab handling. Off by default: in an ordinary form Tab should move to
+        # the next field, which is both the web convention and the behavior a
+        # keyboard user expects. Turn it on for editors, where an indent is
+        # worth more than the focus move - Shift+Tab still leaves either way.
+        self.capture_tab = capture_tab
+        self.tab_width = max(1, int(tab_width))
 
         # Display dimensions
         self.width = width
@@ -1371,6 +1415,21 @@ class TextArea(Element):
         self._insert_run_end = None
         return True
 
+    @property
+    def captures_tab(self) -> bool:
+        """Whether Tab inserts an indent here instead of moving focus.
+
+        Returns
+        -------
+        bool
+            The value of ``capture_tab``.
+
+        See Also
+        --------
+        wijjit.elements.base.Element.captures_tab : The framework contract.
+        """
+        return bool(self.capture_tab)
+
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input, recording undo history around any edit.
 
@@ -1469,6 +1528,29 @@ class TextArea(Element):
                 old_value = self.get_value()  # Update old value after deletion
 
             handled = self._insert_char(key.char)
+            if handled:
+                self._emit_change(old_value, self.get_value())
+            return handled
+
+        # Tab - insert an indent. Only reached when capture_tab is on: the app's
+        # focus handler consults ``captures_tab`` before offering the key, and
+        # otherwise moves focus without the element ever seeing it. Tab is a
+        # SPECIAL key (its char is "\t"), so the is_char branch above does not
+        # catch it. Spaces rather than a literal tab: every width calculation
+        # in the layout and paint path measures display columns, and a "\t"
+        # cell has no well-defined width.
+        elif key == Keys.TAB:
+            if self._has_selection():
+                self._delete_selection()
+                old_value = self.get_value()
+
+            handled = False
+            for _ in range(self.tab_width):
+                # One char at a time so max_lines and hard-wrap reflow apply
+                # exactly as they do to typed input.
+                if not self._insert_char(" "):
+                    break
+                handled = True
             if handled:
                 self._emit_change(old_value, self.get_value())
             return handled

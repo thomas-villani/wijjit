@@ -10,6 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-07-23
 
 ### Added
+- **Tab can belong to the focused element: indent in an editor, accept a
+  suggestion in a popup.** Tab was claimed outright by the built-in focus
+  navigation, which runs as a high-priority global handler and cancels the
+  event - and a cancelled event never reaches the focused element. So it was
+  not that `TextArea` lacked a Tab binding: **no element could see Tab at
+  all**, which had quietly made two existing code paths unreachable, the
+  completer's `select_on_tab` and `DataGrid`'s Tab cell navigation. An element
+  now opts in through a `captures_tab` property and gets *first refusal* on
+  plain Tab, with focus moving on anyway if its `handle_key` declines.
+  `CodeEditor` sets `capture_tab=True` by default (an indent is worth more
+  than the focus move in an editor) and `TextArea` defaults it to False (a form
+  field should keep Tab-to-next-field); both accept `tab_width`, default 4, and
+  insert spaces rather than a literal `\t`, since every width calculation in
+  the layout and paint path measures display columns. `TextInput` claims Tab
+  *conditionally* - only while its autocomplete popup is open - which is what
+  revives `select_on_tab`. **Shift+Tab is never captured**: it always moves
+  focus backward, and because backward movement wraps, every element stays
+  reachable even though Tab cannot move forward past a capturing editor. That
+  is the whole escape story, because Ctrl+Tab is not available to any terminal
+  app - terminals encode Ctrl+I as Tab. The opt-in is deliberately a property
+  and not "did `handle_key` return True": `DataGrid` returns True for Tab
+  unconditionally, including at the last cell, so routing on the return value
+  alone would have turned every grid into a focus trap. `DataGrid` therefore
+  keeps its current behaviour (Tab leaves the grid) and its cell navigation
+  stays parked until those edge returns are fixed.
 - **Auto-fit layout: over-committed sizes shrink instead of clipping.** A
   template that hard-codes `width=120` used to run off the right edge of any
   terminal narrower than the author's, silently losing whichever borders and

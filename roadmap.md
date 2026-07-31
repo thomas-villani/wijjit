@@ -368,11 +368,20 @@ those same fields.
   (or expose an option). ``textarea_demo`` should reveal the end of long lines.
 - [ ] **listview / logview demo layout** — rightmost list / buttons overflow the
   panel to the right.
-- [ ] **code_editor_demo** — buttons don't fit and the editor escapes the frame;
-  add a CodeEditor option to capture Tab instead of moving focus. The same
-  option is wanted on ``TextArea``: Tab currently always moves focus there too,
-  so a multi-line field cannot accept an indent (insert a tab or N spaces).
-  Pair it with a ``Ctrl+Tab`` escape hatch so focus stays reachable.
+- [~] **code_editor_demo** — buttons don't fit and the editor escapes the frame.
+  The Tab half of this item shipped in 0.1.0: ``captures_tab`` gives a focused
+  element first refusal on Tab, ``CodeEditor`` defaults to capturing it and
+  ``TextArea`` opts in with ``capture_tab=True``. The ``Ctrl+Tab`` escape hatch
+  originally proposed here is impossible — terminals encode Ctrl+I as Tab — so
+  Shift+Tab (which wraps) is the way out. Remaining: the demo's own layout.
+- [ ] **``DataGrid`` Tab cell navigation is parked.** ``datagrid.py:1095`` and
+  ``:1217`` implement Excel-style Tab/Shift+Tab between cells, and until the
+  0.1.0 ``captures_tab`` work it could never run (the global Tab handler
+  cancelled the event first). It is still off, deliberately: both branches
+  return ``True`` unconditionally, including at the last cell, so opting the
+  grid in as-is would make Tab *and* Shift+Tab dead keys inside it. Fix the
+  edge returns (return ``False`` at the last/first cell so focus moves on),
+  then set ``captures_tab``.
 - [ ] **event_patterns_demo button row off-screen** — the fixed ``height=36``
   frame holds two tall side panels plus a 26-row log, pushing the action-button
   row (``Go to View 2`` … ``Quit``) to ~row 50, below the viewport. Keys all
@@ -388,14 +397,20 @@ those same fields.
 - [ ] **spinner_demo on scroll** — trailing ``.`` of the ellipsis ghosts in its
   column; the emoji clock frame ("Working with clock..k") is sized with
   ``len()``. Ties into the wide-character correctness item above.
-- [ ] **``autocomplete_demo`` — typing is reported as broken once the suggestion
-  popup opens.** Not reproducible headlessly: under ``WijjitHarness`` the popup
-  never opens at all (``_autocomplete_state.is_open`` stays False and no
-  suggestions are computed), so the harness does not exercise the path the
-  report is about. Two things to establish on a real console: why the popup
-  stays closed under the harness (if it needs a live overlay manager, the
-  harness should wire one so this is testable), and what the popup then does to
-  key routing. Reported 2026-07-24.
+- [~] **``autocomplete_demo`` — typing is reported as broken once the suggestion
+  popup opens.** Reported 2026-07-24. Half of this is now answered. The
+  "popup never opens under the harness" mystery was mundane: ``CompleterConfig``
+  defaults to ``trigger="manual"``, so typing is *supposed* to do nothing until
+  ``Ctrl+/``. A completer built with ``trigger="auto"`` opens the popup under
+  the harness fine, which makes the whole path testable —
+  ``tests/core/test_tab_capture.py::TestAutocompleteSelectOnTab`` drives it
+  end to end. That test also fixed one real defect the report may have been
+  describing: ``select_on_tab`` was unreachable code, because the global Tab
+  handler cancelled the event before the input saw it, so Tab moved focus out
+  of the field mid-completion instead of accepting the suggestion. Still open:
+  whether anything *else* misroutes keys while the popup is open on a real
+  console, and whether the demo should default to ``trigger="auto"`` so it
+  demonstrates what its name promises.
 
 ### Input & terminal handling (from the 0.1.0 code review, 2.12 tail)
 
@@ -489,6 +504,13 @@ release-blocking — pull forward opportunistically.
   ``dispatch_async`` lacks per-handler exception isolation; ``set_focus_filter(None)``
   is a no-op contradicting its docstring; non-interactive overlays
   (tooltips/notifications at TOOLTIP z-index) can swallow clicks to base UI.
+- [ ] **A template with two top-level sibling elements silently drops all but
+  the first.** ``{% textinput id="a" %}{% textinput id="b" %}`` at the root of a
+  template renders only ``a`` — the implicit root frame takes a single child, so
+  ``b`` never reaches ``positioned_elements`` and no warning is logged. Wrapping
+  them in a ``{% vstack %}`` works, which is the idiomatic shape anyway, but the
+  failure mode is invisible. Either wrap multiple roots implicitly or make
+  ``wijjit validate`` flag it. Found 2026-07-31 while writing the Tab tests.
 - [ ] **Layout:** frame inner dims can go negative (missing ``max(0,…)``);
   ``space-around`` mis-distributes remainder + double-counts ``column_gap``;
   split-panel ``_clamp_ratio`` vs ``_calculate_sizes`` disagreement (resize
