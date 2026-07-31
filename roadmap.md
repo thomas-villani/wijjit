@@ -24,7 +24,7 @@ release is gated only on the external publish steps in `RELEASE_PLAN.md` Part 1.
 
 ## 0.1.0 (current release target)
 
-The framework is feature-complete for a credible first release: ~3600 tests
+The framework is feature-complete for a credible first release: ~3700 tests
 passing, ruff clean, `mypy --strict` clean, Sphinx docs build with zero
 warnings. The remaining 0.1.0 work is a tight set of quality-of-life fixes
 that would otherwise embarrass the first public release.
@@ -369,7 +369,10 @@ those same fields.
 - [ ] **listview / logview demo layout** — rightmost list / buttons overflow the
   panel to the right.
 - [ ] **code_editor_demo** — buttons don't fit and the editor escapes the frame;
-  add a CodeEditor option to capture Tab instead of moving focus.
+  add a CodeEditor option to capture Tab instead of moving focus. The same
+  option is wanted on ``TextArea``: Tab currently always moves focus there too,
+  so a multi-line field cannot accept an indent (insert a tab or N spaces).
+  Pair it with a ``Ctrl+Tab`` escape hatch so focus stays reachable.
 - [ ] **event_patterns_demo button row off-screen** — the fixed ``height=36``
   frame holds two tall side panels plus a 26-row log, pushing the action-button
   row (``Go to View 2`` … ``Quit``) to ~row 50, below the viewport. Keys all

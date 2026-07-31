@@ -114,6 +114,8 @@ Complete mini-applications and advanced usage patterns.
 **Template Patterns:**
 - **templates_dir_demo/** - Flask-style file templates: views load `templates/*.wij.j2`
   from an auto-discovered `templates/` directory and share a header via `{% include %}`
+- **plugin_element.py** - Third-party element plugin: registers a `SparkGauge` element and
+  its `{% sparkgauge %}` tag through `wijjit.register_element`, no fork required
 - **template_demo.py** - Template features and patterns
 - **download_simulator.py** - Progress tracking simulation
 

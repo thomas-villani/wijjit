@@ -228,7 +228,7 @@ with the command to reproduce it.
 All screenshots are generated headlessly and reproducibly by
 [`scripts/make_screenshots.py`](https://github.com/thomas-villani/wijjit/blob/main/scripts/make_screenshots.py) — no terminal
 recording involved, and re-running it only changes an image when the example or
-the framework did. Run any of the 73 bundled examples yourself with
+the framework did. Run any of the 74 bundled examples yourself with
 `wijjit run examples/<dir>/<name>.py`.
 
 ## Core Concepts
@@ -497,8 +497,8 @@ so focus and selection remain visible without relying on color.
 
 ## Examples
 
-The `examples/` directory contains **73 working examples** in five categories —
-`basic/` (15), `widgets/` (30), `advanced/` (21), `styling/` (2), and `apps/`
+The `examples/` directory contains **74 working examples** in five categories —
+`basic/` (15), `widgets/` (30), `advanced/` (22), `styling/` (2), and `apps/`
 (5) — all using template-based UI and decorator event handlers.
 
 ```bash
@@ -624,7 +624,7 @@ deterministic across CI runners. See the
 
 Wijjit `0.1.0` is the first public release. The core framework is stable and
 feature-complete for this milestone: the element, layout, event, and rendering
-pipelines are all implemented and covered by roughly 3,600 tests running on
+pipelines are all implemented and covered by roughly 3,700 tests running on
 Linux, macOS, and Windows across Python 3.11–3.13.
 
 See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG.md) for what shipped and
@@ -658,7 +658,7 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 - **[Full documentation](https://thomas-villani.github.io/wijjit/)** — guides and API reference
 - **[CONTRIBUTING.md](https://github.com/thomas-villani/wijjit/blob/main/CONTRIBUTING.md)** — development setup, tests, and the CI gates
 - **[CLAUDE.md](https://github.com/thomas-villani/wijjit/blob/main/CLAUDE.md)** — architecture guide for AI agents working in this repo
-- **`examples/`** — 73 working examples
+- **`examples/`** — 74 working examples
 - **`tests/`** — a large test suite that doubles as usage documentation
 
 Build the docs locally with `cd docs && make html`.
