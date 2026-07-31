@@ -9,7 +9,10 @@ This demo showcases the CodeEditor element with:
 - All TextArea features (selection, clipboard, etc.)
 
 Controls:
-- Tab/Shift+Tab: Navigate between elements (the editor is focused first)
+- Tab: Indent by 4 spaces (the editor captures Tab; set capture_tab=False to
+  get plain focus navigation instead)
+- Shift+Tab: Leave the editor - focus moves backward, and wraps, so every
+  control stays reachable
 - Arrow keys: Move cursor in editor
 - Ctrl+A: Select all
 - Ctrl+C/X/V: Copy/Cut/Paste

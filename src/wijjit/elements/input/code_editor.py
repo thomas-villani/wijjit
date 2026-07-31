@@ -428,6 +428,12 @@ class CodeEditor(TextArea):
         Whether to show vertical scrollbar (default: True)
     border_style : str or None, optional
         Border style: "single", "double", "rounded", or None (default: "single")
+    capture_tab : bool, optional
+        Whether Tab inserts an indent instead of moving focus (default: True,
+        unlike ``TextArea``). Shift+Tab still moves focus backward, so the
+        editor can always be left.
+    tab_width : int, optional
+        Number of spaces one Tab inserts (default: 4)
 
     Attributes
     ----------
@@ -479,8 +485,12 @@ class CodeEditor(TextArea):
         wrap_mode: Literal["none", "soft"] = "none",
         show_scrollbar: bool = True,
         border_style: Literal["single", "double", "rounded"] | None = "single",
+        capture_tab: bool = True,
+        tab_width: int = 4,
     ) -> None:
-        # Initialize base TextArea
+        # Initialize base TextArea. capture_tab defaults to True here (and to
+        # False on TextArea): in a code editor an indent is worth more than the
+        # focus move, and Shift+Tab still steps backward out of the editor.
         super().__init__(
             id=id,
             classes=classes,
@@ -491,6 +501,8 @@ class CodeEditor(TextArea):
             wrap_mode=wrap_mode,
             show_scrollbar=show_scrollbar,
             border_style=border_style,
+            capture_tab=capture_tab,
+            tab_width=tab_width,
         )
 
         # Line number display

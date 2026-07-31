@@ -1193,6 +1193,8 @@ class TextAreaExtension(Extension):
         bind: bool | str = True,
         autosize: bool = False,
         max_height: int | None = None,
+        capture_tab: bool = False,
+        tab_width: int = 4,
         **kwargs: Any,
     ) -> str:
         """Render the textarea tag.
@@ -1232,6 +1234,11 @@ class TextAreaExtension(Extension):
             Maximum total height (rows, including borders) when ``autosize`` is
             enabled. ``None`` (default) means unbounded; content beyond it
             scrolls.
+        capture_tab : bool
+            Tab inserts an indent instead of moving focus (default: False).
+            Shift+Tab still moves focus backward, so the field can be left.
+        tab_width : int
+            Spaces inserted by Tab when ``capture_tab`` is on (default: 4)
         classes : str, optional
             CSS-like class names for styling
         tab_index : int, optional
@@ -1334,6 +1341,8 @@ class TextAreaExtension(Extension):
         vnode.set_prop("dynamic_sizing", dynamic_sizing)
         vnode.set_prop("autosize", autosize)
         vnode.set_prop("max_height", max_height)
+        vnode.set_prop("capture_tab", bool(capture_tab))
+        vnode.set_prop("tab_width", int(tab_width))
         # Normalize class/tabindex/key and forward extra attributes as props.
         forward_extra_props(vnode, kwargs)
 
@@ -1408,6 +1417,8 @@ class CodeEditorExtension(Extension):
         border_style: BorderStyle | Literal["single", "double", "rounded"] = "single",
         action: str | None = None,
         bind: bool | str = True,
+        capture_tab: bool = True,
+        tab_width: int = 4,
         **kwargs: Any,
     ) -> str:
         """Render the codeeditor tag.
@@ -1445,6 +1456,11 @@ class CodeEditorExtension(Extension):
             State binding. True auto-binds value to state[id]; False disables
             binding; a string names the state key to bind to instead, so the
             id stays a pure identity (default: True).
+        capture_tab : bool
+            Tab inserts an indent instead of moving focus (default: True for
+            the editor). Shift+Tab still moves focus backward.
+        tab_width : int
+            Spaces inserted by Tab when ``capture_tab`` is on (default: 4)
         classes : str, optional
             CSS-like class names for styling
         tab_index : int, optional
@@ -1523,6 +1539,8 @@ class CodeEditorExtension(Extension):
         vnode.set_prop("border_style", border_style)
         vnode.set_prop("action", action)
         vnode.set_prop("bind", bind)
+        vnode.set_prop("capture_tab", bool(capture_tab))
+        vnode.set_prop("tab_width", int(tab_width))
         vnode.set_prop("focused", is_focused)
         # Normalize class/tabindex/key and forward extra attributes as props.
         forward_extra_props(vnode, kwargs)

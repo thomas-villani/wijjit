@@ -70,6 +70,44 @@ Override strategies:
 * Disable automatic Tab handling by setting ``app.focus_navigation_enabled = False`` and register your own key handlers (useful for custom grids).
 * For modal dialogs, focus is automatically trapped if you set ``trap_focus=True`` when pushing the overlay. Closing the modal restores the previous focus state.
 
+.. _tab-capture:
+
+When Tab belongs to the element instead
+---------------------------------------
+
+Sometimes Tab is an editing key, not a navigation key: a code editor should
+indent, and an open autocomplete popup should accept the highlighted
+suggestion. Because the built-in handler above runs early and cancels the
+event, a focused element does not see Tab at all unless it asks for it.
+
+An element asks by overriding the ``captures_tab`` property
+(:attr:`wijjit.elements.base.Element.captures_tab`). When it returns True the
+element gets **first refusal** on plain Tab: its ``handle_key`` is called, and
+focus moves on anyway if it returns False.
+
+Two rules keep this from stranding the keyboard user:
+
+* **Shift+Tab is never captured.** It always moves focus backward, so there is
+  always a way out - and because backward movement wraps, every element stays
+  reachable even though Tab cannot move *forward* past a capturing element.
+  (Ctrl+Tab is not an alternative: terminals encode Ctrl+I as Tab.)
+* **Declining is normal.** An element that returns True unconditionally turns
+  Tab into a dead key; return False whenever there is nothing useful to do.
+
+In templates this is the ``capture_tab`` attribute, with ``tab_width``
+controlling how many spaces one Tab inserts:
+
+.. code-block:: jinja
+
+   {# A code editor indents by default - no attribute needed #}
+   {% codeeditor id="src" language="python" width="fill" height=20 %}{% endcodeeditor %}
+
+   {# A textarea moves focus by default; opt in where an indent is wanted #}
+   {% textarea id="notes" width=40 height=8 capture_tab=True tab_width=2 %}{% endtextarea %}
+
+``TextInput`` claims Tab conditionally: only while its autocomplete popup is
+open, so a plain form field keeps Tab-to-next-field.
+
 Focus cycling in modals
 -----------------------
 

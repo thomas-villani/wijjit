@@ -1690,12 +1690,29 @@ class Wijjit:
         ----------
         event : KeyEvent
             Key event to handle
+
+        Notes
+        -----
+        Because this handler runs early (GLOBAL scope, priority 100) and
+        cancels the event, it is the *only* place Tab can be routed anywhere
+        else: cancelling stops ``_route_key_to_focused_element`` from ever
+        reaching the focused element. So an element that wants Tab - a code
+        editor inserting an indent, an autocomplete popup accepting the
+        highlighted suggestion - has to be offered the key here.
+
+        The focused element gets **first refusal** on plain Tab when its
+        ``captures_tab`` property is True: it is handed the key, and focus
+        moves on anyway if it returns False. Shift+Tab is never offered, so
+        backward focus movement is always available as the way out of an
+        element that captures Tab.
         """
         if not self.focus_navigation_enabled:
             return
 
         # Handle Tab and Shift+Tab
         if event.key == "tab":
+            if self._offer_tab_to_focused_element(event):
+                return
             self.focus_manager.focus_next()
             event.cancel()
             self.needs_render = True
@@ -1703,6 +1720,43 @@ class Wijjit:
             self.focus_manager.focus_previous()
             event.cancel()
             self.needs_render = True
+
+    def _offer_tab_to_focused_element(self, event: KeyEvent) -> bool:
+        """Give a Tab-capturing focused element first refusal on the Tab key.
+
+        Parameters
+        ----------
+        event : KeyEvent
+            The Tab key event. Cancelled here if the element consumes it.
+
+        Returns
+        -------
+        bool
+            True if the element consumed the key, meaning focus should not
+            move. False to fall through to normal focus navigation.
+
+        Notes
+        -----
+        A failing ``handle_key`` must not eat the keypress: any exception is
+        routed to the app error handler and treated as "not handled", so Tab
+        still moves focus rather than becoming dead in a broken element.
+        """
+        focused = self.focus_manager.get_focused_element()
+        if focused is None or not getattr(focused, "captures_tab", False):
+            return False
+        if event.key_obj is None:
+            return False
+
+        try:
+            handled = focused.handle_key(event.key_obj)
+        except Exception as e:
+            self._handle_error("Error offering Tab to focused element", e)
+            return False
+
+        if handled:
+            event.cancel()
+            self.needs_render = True
+        return bool(handled)
 
     def _dispatch_action(
         self, action_id: str, data: Any = None, event: ActionEvent | None = None

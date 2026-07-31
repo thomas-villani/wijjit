@@ -18,6 +18,8 @@ TextInput / TextArea
 
     ``textarea`` adds scrollbars, selection APIs, and clipboard shortcuts. It's ideal for log editing, notes, or prompt composition. Pair it with derived state to show live counts, as demonstrated below.
 
+    By default Tab moves focus out of a ``textarea``, as it does in a web form. Set ``capture_tab=True`` (with an optional ``tab_width``, default 4) to make Tab insert an indent instead; ``Shift+Tab`` still moves focus backward, so the field can always be left. See :ref:`tab-capture`.
+
     ``textarea`` (and ``codeeditor``, which extends it) supports **undo with ``Ctrl+Z`` and redo with ``Ctrl+Y``**. Typing a word is a single undo rather than one per letter, and a keypress that does several things at once - typing over a selection, or an insertion that triggers a hard-wrap reflow - undoes as one action. History is bounded at 200 edits and is discarded when the content is replaced programmatically (``element.value = "..."`` with different text). ``undo()`` and ``redo()`` are also callable from Python.
 
     .. literalinclude:: ../../../examples/widgets/textarea_demo.py
@@ -36,6 +38,7 @@ CodeEditor
     * ``theme`` - Color theme (``monokai``, ``dracula``, ``nord``, ``github-light``)
     * ``show_line_numbers`` - Display line numbers in the gutter (default: ``True``)
     * ``filename_hint`` - Helps auto-detection when ``language="auto"``
+    * ``capture_tab`` - Tab inserts an indent rather than moving focus (default: ``True`` here, unlike ``TextArea``); ``tab_width`` sets its size (default: 4). ``Shift+Tab`` still steps backward out of the editor - see :ref:`tab-capture`.
 
     Performance is optimized for large files through per-line token caching and debounced re-tokenization during edits. Inherits all ``TextArea`` features including selection, clipboard support, and scrolling.
 

@@ -651,6 +651,41 @@ class Element(ABC):
         """
         return False
 
+    @property
+    def captures_tab(self) -> bool:
+        """Whether this element wants the Tab key instead of focus movement.
+
+        Returns
+        -------
+        bool
+            True to be offered the Tab key before focus moves on.
+
+        Notes
+        -----
+        Tab is claimed by the framework's built-in focus navigation
+        (``Wijjit._handle_tab_key``), which runs as a high-priority GLOBAL
+        handler and cancels the event - so a focused element normally never
+        sees Tab at all. Overriding this to return True gives the element
+        *first refusal*: ``handle_key`` is called with the Tab key, and focus
+        only moves on if it returns False.
+
+        Two rules keep this from producing a focus trap, and an override must
+        respect both:
+
+        - Only plain Tab is offered. **Shift+Tab always moves focus backward**
+          and is never routed here, so there is always a way out. (Ctrl+Tab is
+          not an option: terminals encode Ctrl+I as Tab, and prompt_toolkit
+          maps ``ControlI`` to ``Keys.TAB``.)
+        - Return False from ``handle_key`` whenever the element has nothing
+          useful to do with Tab, so focus moves on instead of stalling. An
+          element that returns True unconditionally makes Tab a dead key.
+
+        This is a property rather than a fixed attribute so it can depend on
+        live state - ``TextInput`` claims Tab only while its autocomplete
+        popup is open, and releases it otherwise.
+        """
+        return False
+
     def handle_key(self, key: Key) -> bool:
         """Handle a key press.
 
