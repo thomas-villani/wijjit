@@ -9,7 +9,7 @@ it, dump it, and drive it headlessly. No TTY, no test code.*
 [![Python versions](https://img.shields.io/pypi/pyversions/wijjit.svg)](https://pypi.org/project/wijjit/)
 [![CI](https://github.com/thomas-villani/wijjit/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas-villani/wijjit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/thomas-villani/wijjit/blob/main/LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://thomas-villani.github.io/wijjit/)
+[![Documentation Status](https://readthedocs.org/projects/wijjit/badge/?version=latest)](https://wijjit.readthedocs.io/en/latest/)
 
 ---
 
@@ -333,7 +333,7 @@ def save(event):
 Elements also expose callback attributes for direct event handling —
 `on_double_click`, `on_context_menu`, `Table.on_row_click`,
 `TextInput.on_submit`, and low-level drag-and-drop hooks. See the
-[event handling guide](https://thomas-villani.github.io/wijjit/user_guide/event_handling.html)
+[event handling guide](https://wijjit.readthedocs.io/en/latest/user_guide/event_handling.html)
 for the complete reference.
 
 ### Layout System
@@ -371,7 +371,7 @@ content), or a percentage (`"50%"`).
 {% endpager %}
 ```
 
-See the [Layout guide](https://thomas-villani.github.io/wijjit/user_guide/layout_system.html)
+See the [Layout guide](https://wijjit.readthedocs.io/en/latest/user_guide/layout_system.html)
 for the complete reference.
 
 ### Modal Dialogs
@@ -430,7 +430,7 @@ asyncio.run(main())
 Wijjit ships 36 elements plus the layout primitives below — charts, an image
 viewer, a code editor with autocomplete, and an editable data grid all included,
 no plugins required. Each has a template tag and a Python class; see the
-[component reference](https://thomas-villani.github.io/wijjit/user_guide/components.html)
+[component reference](https://wijjit.readthedocs.io/en/latest/user_guide/components.html)
 for every attribute.
 
 - **Input**: TextInput (with `password` masking), TextArea, CodeEditor
@@ -479,7 +479,7 @@ changed* rather than to the size of the view. A full repaint (the worst case:
 first paint or a terminal resize) still touches every cell. The dashboard's
 one-change render is only modestly cheaper because its table repaints wholesale;
 a form of independent widgets sees roughly a 2x steady-state speedup. The
-[performance guide](https://thomas-villani.github.io/wijjit/user_guide/performance.html)
+[performance guide](https://wijjit.readthedocs.io/en/latest/user_guide/performance.html)
 has the full picture, including how to profile your own app.
 
 ## Accessibility
@@ -618,7 +618,7 @@ and `emitted_frames` / `emitted_ansi()` expose the **raw ANSI bytes the app
 wrote** — so you can assert on the actual diff output, not a re-serialized
 buffer. Waits are measured in frames rather than wall-clock, so tests stay
 deterministic across CI runners. See the
-[testing guide](https://thomas-villani.github.io/wijjit/user_guide/testing_apps.html).
+[testing guide](https://wijjit.readthedocs.io/en/latest/user_guide/testing_apps.html).
 
 ## Project Status
 
@@ -655,7 +655,7 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 
 ## Documentation
 
-- **[Full documentation](https://thomas-villani.github.io/wijjit/)** — guides and API reference
+- **[Full documentation](https://wijjit.readthedocs.io/en/latest/)** — guides and API reference
 - **[CONTRIBUTING.md](https://github.com/thomas-villani/wijjit/blob/main/CONTRIBUTING.md)** — development setup, tests, and the CI gates
 - **[CLAUDE.md](https://github.com/thomas-villani/wijjit/blob/main/CLAUDE.md)** — architecture guide for AI agents working in this repo
 - **`examples/`** — 74 working examples
