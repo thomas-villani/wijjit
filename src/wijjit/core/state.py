@@ -704,6 +704,8 @@ class State(UserDict[str, Any]):
         no container wrapper could ever intercept (a pandas ``DataFrame``, a
         numpy array, your own model class).
 
+        .. versionadded:: 0.1.1
+
         Parameters
         ----------
         key : str
@@ -794,6 +796,8 @@ class State(UserDict[str, Any]):
         ``async def`` and you need them to have completed before continuing,
         the same way :meth:`async_batch_update` relates to
         :meth:`batch_update`.
+
+        .. versionadded:: 0.1.1
 
         Parameters
         ----------

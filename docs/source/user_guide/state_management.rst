@@ -26,6 +26,10 @@ There are two reliable ways to write it. Pick whichever fits the value.
 Option 1: declare the mutation with ``state.mutate()``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. versionadded:: 0.1.1
+   ``State.mutate()`` and ``State.async_mutate()``. On 0.1.0, use the
+   build-first form in Option 2 below.
+
 ``State.mutate(key)`` is a context manager that yields the live value and fires change callbacks once, on exit:
 
 .. code-block:: python
@@ -92,6 +96,12 @@ If the in-place mutation has already happened and wrapping it in ``mutate()`` is
     app.state["todos"] = app.state["todos"]   # fires (and logs a warning)
 
 This always fires a change, and logs a warning pointing at the two options above. Reach for it only as a recovery hatch - ``mutate()`` says the same thing without the warning, and says it before the fact.
+
+.. versionchanged:: 0.1.1
+   Inside ``batch_update()`` (and ``async_batch_update()``) this hatch used to
+   be dropped silently. The batch exit only re-fires keys whose old and new
+   values differ, and assigning the same object back supplies the same
+   already-mutated object for both. It now notifies correctly.
 
 Common mutation patterns
 ------------------------
