@@ -54,7 +54,7 @@ def main_view():
 
       File List (right-click for menu):
 
-      {% listview id="file_list" items=file_list selection_style="highlight" width=40 height=8 %}{% endlistview %}
+      {% listview id="file_list" items=file_list width=40 height=8 %}{% endlistview %}
 
       {% contextmenu target="file_list" visible="show_context_menu" %}
           {% menuitem action="open_file" key="Enter" %}Open{% endmenuitem %}

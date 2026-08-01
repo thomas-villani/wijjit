@@ -31,9 +31,12 @@ reported error captured as ``render-error`` / ``app-load``.
 
 from __future__ import annotations
 
+import ast
 import inspect
 import re
+import textwrap
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -262,12 +265,71 @@ class ValidationReport:
         return "\n".join(lines)
 
 
+@cache
+def _instance_attrs(factory: type) -> frozenset[str]:
+    """Return the instance attribute names an element class assigns itself.
+
+    A constructor signature is only half of what an element accepts. The
+    registry filters *creation* props to the ``__init__`` signature, but the
+    reconciler applies *updates* with
+    ``if hasattr(element, name): setattr(element, name, value)``
+    (:meth:`Reconciler._apply_prop_changes`), so any attribute the element
+    carries is a live prop target even when it is not a constructor parameter.
+    ``DataGrid`` is the worked example: the tag emits ``width_spec`` /
+    ``height_spec``, which the constructor spells ``width`` / ``height`` but
+    stores under the ``_spec`` names - so the props really are applied, and
+    flagging them as typos was wrong.
+
+    The scan is static (an AST walk of every ``__init__`` in the MRO looking for
+    ``self.NAME = ...``), never instantiating the element - constructing one
+    here could import an optional dependency or do real work.
+
+    Parameters
+    ----------
+    factory : type
+        Element class to inspect.
+
+    Returns
+    -------
+    frozenset of str
+        Attribute names reachable by ``setattr`` on an instance: everything on
+        the class (methods, properties, class attributes) plus every
+        ``self.NAME`` assigned in an ``__init__`` along the MRO.
+    """
+    names: set[str] = set(dir(factory))
+    for klass in factory.__mro__:
+        init = klass.__dict__.get("__init__")
+        if init is None:
+            continue
+        try:
+            source = textwrap.dedent(inspect.getsource(init))
+            tree = ast.parse(source)
+        except (OSError, TypeError, SyntaxError, IndentationError):
+            continue
+        for node in ast.walk(tree):
+            targets: list[ast.expr] = []
+            if isinstance(node, ast.Assign):
+                targets = list(node.targets)
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                targets = [node.target]
+            for target in targets:
+                if (
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                ):
+                    names.add(target.attr)
+    return frozenset(names)
+
+
 def _dropped_props(factory: type, prop_names: set[str]) -> set[str]:
-    """Return props the factory's ``__init__`` would not accept.
+    """Return props the element would neither accept nor carry.
 
     Mirrors :meth:`ElementRegistry._filter_props_for_factory`: a ``**kwargs``
     parameter accepts everything, otherwise props outside the signature are
-    dropped.
+    dropped at construction. Props that name an attribute the element carries
+    are still applied on update by the reconciler, so they are not reported -
+    see :func:`_instance_attrs`.
     """
     try:
         sig = inspect.signature(factory.__init__)  # type: ignore[misc]
@@ -276,12 +338,189 @@ def _dropped_props(factory: type, prop_names: set[str]) -> set[str]:
     for param in sig.parameters.values():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
             return set()
-    valid = set(sig.parameters.keys()) - {"self"}
+    valid = (set(sig.parameters.keys()) - {"self"}) | _instance_attrs(factory)
     return prop_names - valid
 
 
-def _check_tree(root: Any, registry: ElementRegistry) -> list[Finding]:
-    """Walk the VNode tree, checking element types and attributes."""
+@cache
+def _tag_vnode_types() -> dict[str, frozenset[str]]:
+    """Map each template tag to the VNode types its render method builds.
+
+    Recovered statically: every VNode-building tag's ``_render_<tag>`` contains
+    a literal ``VNodeBuilder("<Type>", ...)`` call, so the mapping can be read
+    out of the AST without rendering anything. Tags that build no VNode at all
+    (the dialog and menu tags, which populate ``overlay_info`` instead) map to
+    an empty set.
+
+    Returns
+    -------
+    dict
+        Tag name -> frozenset of VNode type names it can build.
+    """
+    from wijjit.core.renderer import Renderer
+
+    env = Renderer().env
+    mapping: dict[str, frozenset[str]] = {}
+    for extension in env.extensions.values():
+        for tag in getattr(extension, "tags", set()):
+            handler = getattr(extension, f"_render_{tag}", None)
+            if handler is None:
+                continue
+            try:
+                tree = ast.parse(textwrap.dedent(inspect.getsource(handler)))
+            except (OSError, TypeError, SyntaxError, IndentationError):
+                continue
+            built: set[str] = set()
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and getattr(node.func, "id", None) == "VNodeBuilder"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                ):
+                    built.add(str(node.args[0].value))
+            mapping[str(tag)] = frozenset(built)
+    return mapping
+
+
+@cache
+def _tag_element_types() -> dict[str, str]:
+    """Map each template tag to the single element type it builds.
+
+    Only *unambiguous* tags are included. Container tags build more than one
+    kind of node (``{% frame %}`` yields a ``Frame`` plus a ``TextElement`` for
+    its body text, ``{% radiogroup %}`` yields three), and there is no sound way
+    to decide which one an attribute belongs to, so they are left out and their
+    findings simply carry no line number - the status quo.
+
+    Returns
+    -------
+    dict
+        Tag name -> element type name, for tags that build exactly one
+        registered element type.
+    """
+    registry = ElementRegistry()
+    mapping: dict[str, str] = {}
+    for tag, built in _tag_vnode_types().items():
+        registered = {t for t in built if registry.has_type(t)}
+        if len(registered) == 1:
+            mapping[tag] = registered.pop()
+    return mapping
+
+
+def _root_element_linenos(node: nodes.Node) -> list[int]:
+    """Return the source lines of the element tags at a template's top level.
+
+    A template has room for exactly one root: the renderer wraps the first
+    top-level element in an implicit root frame, and
+    :meth:`RenderContext.add_vnode` drops any later one on the floor - with no
+    warning, because at that point there is no container to add it to. So
+    ``{% textinput id="a" %}{% textinput id="b" %}`` renders only ``a``.
+
+    Branches of an ``{% if %}`` are alternatives rather than siblings, so the
+    larger branch is taken rather than their sum. A ``{% for %}`` at the top
+    level *is* a defect whenever its body yields an element, since every
+    iteration after the first is dropped - it is reported as two roots so the
+    caller's "more than one" test catches it.
+
+    Parameters
+    ----------
+    node : jinja2.nodes.Node
+        Node to inspect; call with the template root.
+
+    Returns
+    -------
+    list of int
+        One line number per top-level root, in source order.
+    """
+    vnode_tags = _tag_vnode_types()
+
+    if isinstance(node, nodes.CallBlock):
+        method = getattr(getattr(node.call, "node", None), "name", None)
+        if isinstance(method, str) and method.startswith("_render_"):
+            # A tag that builds no VNode (dialogs, menu items) never becomes a
+            # root; anything else takes the single root slot, and its own body
+            # is nested rather than top-level, so do not descend.
+            if vnode_tags.get(method[len("_render_") :]):
+                return [node.lineno]
+            return []
+
+    if isinstance(node, nodes.If):
+        taken: list[int] = []
+        for branch in (node.body, node.elif_, node.else_):
+            lines: list[int] = []
+            for child in branch:
+                lines.extend(_root_element_linenos(child))
+            if len(lines) > len(taken):
+                taken = lines
+        return taken
+
+    if isinstance(node, nodes.For):
+        lines = []
+        for child in node.body:
+            lines.extend(_root_element_linenos(child))
+        # One element per iteration: all but the first are dropped.
+        return lines * 2 if lines else []
+
+    lines = []
+    for child in node.iter_child_nodes():
+        lines.extend(_root_element_linenos(child))
+    return lines
+
+
+def _attribute_linenos(template_ast: nodes.Template) -> dict[tuple[str, str], int]:
+    """Locate each element attribute's source line in the template AST.
+
+    The VNode tree has no source positions - by render time a ``{% for %}`` has
+    been unrolled and the templates' line structure is gone - which is why
+    ``unknown-attribute`` findings historically printed without a line. The
+    attributes are still literal keyword arguments in the AST, so their lines
+    can be recovered there and matched back to the findings by
+    (element type, attribute name).
+
+    Parameters
+    ----------
+    template_ast : jinja2.nodes.Template
+        Parsed template AST.
+
+    Returns
+    -------
+    dict
+        ``(element_type, attribute_name)`` -> 1-based line. First occurrence
+        wins, so a repeated typo points at the one the author should fix first.
+    """
+    tag_types = _tag_element_types()
+    linenos: dict[tuple[str, str], int] = {}
+    for node in template_ast.find_all(nodes.CallBlock):
+        method = getattr(getattr(node.call, "node", None), "name", None)
+        if not isinstance(method, str) or not method.startswith("_render_"):
+            continue
+        element_type = tag_types.get(method[len("_render_") :])
+        if element_type is None:
+            continue
+        for keyword in node.call.kwargs:
+            linenos.setdefault((element_type, keyword.key), keyword.lineno)
+    return linenos
+
+
+def _check_tree(
+    root: Any,
+    registry: ElementRegistry,
+    linenos: dict[tuple[str, str], int] | None = None,
+) -> list[Finding]:
+    """Walk the VNode tree, checking element types and attributes.
+
+    Parameters
+    ----------
+    root : VNode
+        Root of the rendered VNode tree.
+    registry : ElementRegistry
+        Registry used to resolve element types to factories.
+    linenos : dict, optional
+        ``(element_type, attribute)`` -> source line, from
+        :func:`_attribute_linenos`. Absent in app mode, where there is no single
+        template source to point into.
+    """
     findings: list[Finding] = []
     for node in walk_vnodes(root):
         is_container = node.type in CONTAINER_TYPES
@@ -308,9 +547,45 @@ def _check_tree(root: Any, registry: ElementRegistry) -> list[Finding]:
                     "unknown-attribute",
                     f"{node.type} does not accept attribute {name!r} "
                     f"(possible typo).",
+                    (linenos or {}).get((node.type, name)),
                 )
             )
     return findings
+
+
+def _dedupe(findings: list[Finding]) -> list[Finding]:
+    """Collapse identical findings, preserving first-seen order.
+
+    The tree checks run per VNode, and a ``{% for %}`` is fully unrolled by the
+    time they see it - so one bad attribute on a tag inside a loop over N items
+    used to be reported N times. The loop is a template-authoring detail; the
+    defect is one edit in one place, so it should be one finding.
+
+    Parameters
+    ----------
+    findings : list of Finding
+        Findings in detection order.
+
+    Returns
+    -------
+    list of Finding
+        The same list with exact duplicates removed.
+    """
+    seen: set[tuple[str, str, str, int | None, int | None]] = set()
+    unique: list[Finding] = []
+    for finding in findings:
+        identity = (
+            finding.severity,
+            finding.code,
+            finding.message,
+            finding.line,
+            finding.col,
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
+        unique.append(finding)
+    return unique
 
 
 def validate_template(
@@ -377,6 +652,22 @@ def validate_template(
     # structure is gone by render time).
     report.findings.extend(_check_unkeyed_loop_elements(ast))
 
+    # 2c. Multiple top-level roots. Only the first survives; the rest are
+    # dropped silently, so this must be caught statically - by render time the
+    # extras simply are not in the tree to notice.
+    root_lines = _root_element_linenos(ast)
+    if len(root_lines) > 1:
+        report.findings.append(
+            Finding(
+                "warning",
+                "multiple-root-elements",
+                f"Template has {len(root_lines)} top-level elements; only the "
+                f"first is rendered and the rest are dropped silently. Wrap "
+                f"them in a {{% vstack %}} or {{% frame %}}.",
+                root_lines[1],
+            )
+        )
+
     # 3. Render pass (reuse the same renderer; parse() did not touch its state).
     outcome = render_with(renderer, source, context=context, width=width, height=height)
 
@@ -407,10 +698,12 @@ def validate_template(
             if outcome.render_error is not None:
                 if render:
                     report.rendered = outcome.rendered
+                report.findings = _dedupe(report.findings)
                 return report
         else:
             if render:
                 report.rendered = outcome.rendered
+            report.findings = _dedupe(report.findings)
             return report
 
     if render:
@@ -429,9 +722,17 @@ def validate_template(
                 "an implicit text element.",
             )
         )
+        report.findings = _dedupe(report.findings)
         return report
 
-    report.findings.extend(_check_tree(outcome.root, renderer._reconciler.registry))
+    report.findings.extend(
+        _check_tree(
+            outcome.root,
+            renderer._reconciler.registry,
+            _attribute_linenos(ast),
+        )
+    )
+    report.findings = _dedupe(report.findings)
     return report
 
 
@@ -493,6 +794,7 @@ def _validate_app(
 
     if outcome.root is not None:
         report.findings.extend(_check_tree(outcome.root, _Registry()))
+    report.findings = _dedupe(report.findings)
     return report
 
 
