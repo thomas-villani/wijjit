@@ -217,3 +217,108 @@ def test_action_prop_is_not_flagged_as_unknown_attribute():
     )
     report = validate_template(src)
     assert "unknown-attribute" not in _codes(report)
+
+
+# -- issue #59: props the framework applies off the constructor path ---------
+
+
+def test_bare_codeeditor_validates_clean():
+    """``{% codeeditor %}`` emits ``bind``, which CodeEditor now accepts.
+
+    The tag always sets a ``bind`` prop, but ``CodeEditor.__init__`` did not
+    take one (unlike the ``TextArea`` it extends), so the linter flagged the
+    framework's own shipped tag as a typo. See issue #59.
+    """
+    src = '{% frame %}{% codeeditor id="s" %}{% endcodeeditor %}{% endframe %}'
+    report = validate_template(src)
+    assert _codes(report) == []
+
+
+def test_bare_datagrid_validates_clean():
+    """``{% datagrid %}`` emits ``width_spec``/``height_spec``.
+
+    Those are not constructor parameters - the constructor spells them
+    ``width``/``height`` - but they name real attributes, so the reconciler
+    applies them on update. Reporting them as typos was wrong. See issue #59.
+    """
+    src = '{% frame %}{% datagrid id="g" %}{% enddatagrid %}{% endframe %}'
+    report = validate_template(src)
+    assert _codes(report) == []
+
+
+def test_genuine_typo_is_still_flagged():
+    """Widening the accepted-prop set must not blunt the check it protects."""
+    src = '{% frame %}{% button colour="red" %}Hi{% endbutton %}{% endframe %}'
+    report = validate_template(src)
+    assert "unknown-attribute" in _codes(report)
+
+
+# -- duplicate findings and line numbers -------------------------------------
+
+
+def test_bad_attribute_in_loop_is_reported_once():
+    """The tree check runs per unrolled VNode; N iterations must not mean N
+    findings. The defect is one edit in one place."""
+    src = (
+        "{% vstack %}{% for i in [1, 2, 3] %}"
+        '{% button colour="red" key=i %}Hi{% endbutton %}'
+        "{% endfor %}{% endvstack %}"
+    )
+    report = validate_template(src)
+    unknown = [f for f in report.findings if f.code == "unknown-attribute"]
+    assert len(unknown) == 1
+
+
+def test_unknown_attribute_carries_a_line_number():
+    """VNode-derived findings lost source positions; the line is recovered from
+    the template AST, where the attribute is still a literal keyword."""
+    src = "{% vstack %}\n{% text %}hi{% endtext %}\n{% button colour='red' %}x{% endbutton %}\n{% endvstack %}"
+    report = validate_template(src)
+    unknown = [f for f in report.findings if f.code == "unknown-attribute"]
+    assert len(unknown) == 1
+    assert unknown[0].line == 3
+
+
+# -- multiple top-level roots ------------------------------------------------
+
+
+def test_two_top_level_siblings_are_flagged():
+    """Only the first root renders; the rest are dropped with no warning."""
+    src = (
+        '{% textinput id="a" %}{% endtextinput %}\n'
+        '{% textinput id="b" %}{% endtextinput %}'
+    )
+    report = validate_template(src)
+    assert "multiple-root-elements" in _codes(report)
+
+
+def test_wrapped_siblings_are_not_flagged():
+    src = (
+        "{% vstack %}"
+        '{% textinput id="a" %}{% endtextinput %}'
+        '{% textinput id="b" %}{% endtextinput %}'
+        "{% endvstack %}"
+    )
+    report = validate_template(src)
+    assert "multiple-root-elements" not in _codes(report)
+
+
+def test_exclusive_if_branches_are_not_two_roots():
+    """Branches of an ``{% if %}`` are alternatives, not siblings."""
+    src = (
+        "{% if flag %}"
+        '{% textinput id="a" %}{% endtextinput %}'
+        "{% else %}"
+        '{% textinput id="b" %}{% endtextinput %}'
+        "{% endif %}"
+    )
+    report = validate_template(src, context={"flag": True})
+    assert "multiple-root-elements" not in _codes(report)
+
+
+def test_top_level_loop_over_elements_is_flagged():
+    """Every iteration after the first is dropped, so a bare top-level loop is
+    the same defect wearing a different shape."""
+    src = "{% for i in [1, 2] %}{% textinput key=i %}{% endtextinput %}{% endfor %}"
+    report = validate_template(src)
+    assert "multiple-root-elements" in _codes(report)

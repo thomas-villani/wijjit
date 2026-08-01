@@ -434,6 +434,9 @@ class CodeEditor(TextArea):
         editor can always be left.
     tab_width : int, optional
         Number of spaces one Tab inserts (default: 4)
+    bind : bool or str, optional
+        State binding: ``True`` binds to ``state[id]``, a string binds to that
+        key, ``False`` opts out (default: True). Forwarded to ``TextArea``.
 
     Attributes
     ----------
@@ -487,6 +490,7 @@ class CodeEditor(TextArea):
         border_style: Literal["single", "double", "rounded"] | None = "single",
         capture_tab: bool = True,
         tab_width: int = 4,
+        bind: bool | str = True,
     ) -> None:
         # Initialize base TextArea. capture_tab defaults to True here (and to
         # False on TextArea): in a code editor an indent is worth more than the
@@ -496,6 +500,7 @@ class CodeEditor(TextArea):
             classes=classes,
             tab_index=tab_index,
             value="",  # Set value later after highlighter is ready
+            bind=bind,
             width=width,
             height=height,
             wrap_mode=wrap_mode,
