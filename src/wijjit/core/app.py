@@ -271,12 +271,31 @@ class Wijjit:
 
         # Apply any additional config overrides
         # Convert snake_case kwargs to UPPERCASE config keys
+        # A kwarg is uppercased into a config key unconditionally, so a typo
+        # (quite_key=) silently becomes a key nothing reads instead of raising
+        # the way a misspelled argument normally would. Setting an unrecognized
+        # key stays legal - apps do stash their own config - but is reported,
+        # since the common case is the typo. Collected here and warned about
+        # below, once _configure_logging has attached the file handler, so the
+        # message lands in the log rather than on the terminal.
+        unknown_config_keys = []
         for key, value in config_overrides.items():
             config_key = key.upper()
+            if config_key not in self.config:
+                unknown_config_keys.append((key, config_key))
             self.config[config_key] = value
 
         # Configure logging based on config
         self._configure_logging()
+
+        for key, config_key in unknown_config_keys:
+            logger.warning(
+                "Unknown config key %r (from keyword argument %r). It was set, "
+                "but no Wijjit setting reads it - check the spelling against "
+                "wijjit.config.DefaultConfig.",
+                config_key,
+                key,
+            )
 
         # Configure unicode support mode
         self._configure_unicode_support()

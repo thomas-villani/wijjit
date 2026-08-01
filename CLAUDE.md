@@ -308,7 +308,8 @@ Jinja2 extensions: `layout.py` (vstack/hstack/frame/pager/page),
 ### Styling Layer (`src/wijjit/styling/`)
 
 `style.py`, `theme.py`, `resolver.py`, and `css_parser.py` (CSS theming via
-`tinycss2`). Themes load from CSS/JSON files or built-ins. Config keys:
+`tinycss2`). Themes load from CSS files or built-ins (a JSON loader is a
+roadmap item, not a feature - `THEME_FILE` rejects `.json`). Config keys:
 `DEFAULT_THEME` ('default'/'dark'/'light'/'high_contrast'), `THEME_FILE`,
 `STYLE_FILE`, `FOCUS_COLOR`, `NO_COLOR`, `UNICODE_SUPPORT`.
 

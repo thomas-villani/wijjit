@@ -50,6 +50,12 @@ class Theme:
     def __init__(self, name: str, styles: dict[str, Style]) -> None:
         self.name = name
         self.styles = styles
+        # Bumped on every mutation through set_style(). StyleResolver caches
+        # resolved styles and watches this counter to know when to drop them;
+        # without it a runtime restyle is invisible until the cache is cleared
+        # by something else. Mutating .styles directly bypasses this, which is
+        # why set_style() is the supported way to change a live theme.
+        self.revision = 0
 
     def get_style(self, class_name: str) -> Style:
         """Get style for an element class.
@@ -95,6 +101,9 @@ class Theme:
         -----
         Allows runtime modification of themes for customization.
 
+        Bumps ``revision`` so a ``StyleResolver`` holding cached resolutions
+        of this theme recomputes them on the next resolve.
+
         Examples
         --------
         >>> theme = Theme('custom', {})
@@ -103,6 +112,7 @@ class Theme:
         True
         """
         self.styles[class_name] = style
+        self.revision += 1
 
     @classmethod
     def from_css(cls, filepath: str, name: str = "custom") -> Theme:

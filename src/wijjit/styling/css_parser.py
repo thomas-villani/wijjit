@@ -138,35 +138,47 @@ def _parse_declarations(declarations: list) -> dict[str, Any]:
                     )
 
             elif prop == "font-weight":
-                # Bold if "bold" or weight >= 600
-                if value_str.lower() == "bold" or (
-                    value_str.isdigit() and int(value_str) >= 600
-                ):
+                # Bold if "bold" or weight >= 600; "normal" (or a light
+                # numeric weight) explicitly turns bold OFF so a later rule
+                # can undo an earlier one.
+                lowered = value_str.lower()
+                if lowered == "bold" or (value_str.isdigit() and int(value_str) >= 600):
                     style_attrs["bold"] = True
+                elif lowered == "normal" or value_str.isdigit():
+                    style_attrs["bold"] = False
 
             elif prop == "font-style":
-                # Italic
-                if value_str.lower() == "italic":
+                # Italic; "normal" turns it off
+                lowered = value_str.lower()
+                if lowered == "italic":
                     style_attrs["italic"] = True
+                elif lowered == "normal":
+                    style_attrs["italic"] = False
 
             elif prop == "text-decoration":
-                # Underline
-                if "underline" in value_str.lower():
+                # Underline; "none" turns it off
+                lowered = value_str.lower()
+                if "underline" in lowered:
                     style_attrs["underline"] = True
+                elif "none" in lowered:
+                    style_attrs["underline"] = False
 
             elif prop == "opacity":
-                # Dim if opacity < 1
+                # Dim if opacity < 1; a full opacity turns dim off
                 try:
                     opacity = float(value_str)
-                    if opacity < 1.0:
-                        style_attrs["dim"] = True
                 except ValueError:
                     pass
+                else:
+                    style_attrs["dim"] = opacity < 1.0
 
             elif prop == "filter":
-                # Reverse if "invert"
-                if "invert" in value_str.lower():
+                # Reverse if "invert"; "none" turns it off
+                lowered = value_str.lower()
+                if "invert" in lowered:
                     style_attrs["reverse"] = True
+                elif "none" in lowered:
+                    style_attrs["reverse"] = False
         else:
             logger.warning(
                 "Unknown CSS property %r ignored; supported properties are: %s.",

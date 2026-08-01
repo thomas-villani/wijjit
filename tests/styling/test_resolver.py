@@ -813,3 +813,46 @@ def test_textarea_still_shares_input_styling():
 
     resolver = StyleResolver(DefaultTheme())
     assert resolver._infer_class_from_element(TextArea()) == "input"
+
+
+class TestThemeMutationInvalidatesCache:
+    """Tests that restyling a theme in place is visible to the resolver."""
+
+    def test_set_style_after_a_cached_resolve_takes_effect(self):
+        """Test that Theme.set_style invalidates cached resolutions.
+
+        The resolver caches by (element type, classes, state, focus color).
+        Restyling the theme afterwards used to leave the stale entry in
+        place, so a runtime restyle - including the one STYLE_FILE performs
+        through Theme.set_style - silently did nothing.
+
+        Returns
+        -------
+        None
+        """
+        theme = Theme("custom", {"text": Style(bold=True)})
+        resolver = StyleResolver(theme)
+        element = TextElement("hi")
+
+        assert resolver.resolve_style(element).bold is True
+
+        theme.set_style("text", Style(bold=False, italic=True))
+
+        restyled = resolver.resolve_style(element)
+        assert restyled.italic is True
+        assert restyled.bold is False
+
+    def test_unchanged_theme_still_uses_the_cache(self):
+        """Test that the revision check does not defeat caching.
+
+        Returns
+        -------
+        None
+        """
+        theme = Theme("custom", {"text": Style(bold=True)})
+        resolver = StyleResolver(theme)
+        element = TextElement("hi")
+
+        first = resolver.resolve_style(element)
+        second = resolver.resolve_style(element)
+        assert first is second

@@ -204,17 +204,25 @@ class Style:
         }
 
     def __bool__(self) -> bool:
-        """Check if style has any non-default properties.
+        """Check if the style specifies anything at all.
 
         Returns
         -------
         bool
-            True if any style property is set, False if default/empty
+            True if any style property is specified (including one
+            explicitly turned off), False only if every property is None
 
         Notes
         -----
         Useful for conditionally applying styles or checking if a style
         has any effect.
+
+        A property set to ``False`` counts as specified. ``False`` is not
+        the same as unspecified: it is how a rule *turns an attribute off*
+        (e.g. CSS ``font-weight: normal`` over an inherited bold), and
+        ``merge`` propagates it. Treating such a style as empty would make
+        callers that guard with ``if style:`` skip it, so the off-switch
+        would never reach the cascade.
 
         Examples
         --------
@@ -229,15 +237,20 @@ class Style:
         >>> style = Style(bold=True)
         >>> bool(style)
         True
+
+        So is a style that only turns an attribute off:
+
+        >>> bool(Style(bold=False))
+        True
         """
         return (
             self.fg_color is not None
             or self.bg_color is not None
-            or (self.bold is not None and self.bold)
-            or (self.italic is not None and self.italic)
-            or (self.underline is not None and self.underline)
-            or (self.dim is not None and self.dim)
-            or (self.reverse is not None and self.reverse)
+            or self.bold is not None
+            or self.italic is not None
+            or self.underline is not None
+            or self.dim is not None
+            or self.reverse is not None
         )
 
 
