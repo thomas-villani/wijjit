@@ -469,3 +469,21 @@ class TestTabIndex:
         assert elem1_new.focused
         assert not elem2_new.focused
         assert not elem3_new.focused
+
+
+def test_set_focus_filter_none_restores_the_full_cycle():
+    """Documented as "None to clear filter", but it was a bare ``return`` - so
+    a caller clearing an overlay trap silently kept the trapped ring."""
+    from wijjit.core.focus import FocusManager
+    from wijjit.elements.input.button import Button
+
+    a, b, c = Button("a"), Button("b"), Button("c")
+    manager = FocusManager()
+    manager.set_elements([a, b, c])
+    assert len(manager.elements) == 3
+
+    manager.set_focus_filter([b])
+    assert manager.elements == [b]
+
+    manager.set_focus_filter(None)
+    assert manager.elements == [a, b, c]
