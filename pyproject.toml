@@ -126,8 +126,12 @@ include = [
     "/pyproject.toml",
 ]
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
+# NOTE: pytest config lives in pytest.ini, which takes precedence over
+# [tool.pytest.ini_options] whenever both exist - so no pytest settings belong
+# here. An `asyncio_mode = "auto"` key sat here doing nothing; pytest-asyncio
+# runs in strict mode, which is the safer default given that an unmarked async
+# test under auto-mode-that-is-not-actually-on is collected but never awaited.
+# Every async test must carry @pytest.mark.asyncio.
 
 [tool.ruff]
 line-length = 120
