@@ -856,3 +856,40 @@ class TestPhase3Features:
 
         text_style = theme.get_style("text")
         assert text_style.bold is True
+
+
+class TestUnknownConfigKwargs:
+    """Tests for the warning on unrecognized Wijjit(**config_overrides) keys."""
+
+    def test_typoed_kwarg_warns_but_still_applies(self):
+        """A kwarg that maps to no known config key is reported.
+
+        Every kwarg is uppercased into a config key unconditionally, so a
+        misspelling silently becomes a key nothing reads instead of raising
+        the way a misspelled argument normally would.
+
+        Returns
+        -------
+        None
+        """
+        with patch("wijjit.core.app.logger") as mock_logger:
+            app = Wijjit(quite_key="x")
+
+        assert app.config["QUITE_KEY"] == "x"
+        warned = " ".join(str(call) for call in mock_logger.warning.call_args_list)
+        assert "QUITE_KEY" in warned
+        assert "quite_key" in warned
+
+    def test_known_kwarg_does_not_warn(self):
+        """A correctly spelled kwarg produces no warning.
+
+        Returns
+        -------
+        None
+        """
+        with patch("wijjit.core.app.logger") as mock_logger:
+            app = Wijjit(quit_key="x")
+
+        assert app.config["QUIT_KEY"] == "x"
+        warned = " ".join(str(call) for call in mock_logger.warning.call_args_list)
+        assert "QUIT_KEY" not in warned

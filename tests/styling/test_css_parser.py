@@ -311,11 +311,12 @@ class TestPropertyMapping:
         styles = self.parser.parse(css)
         assert styles[".test"].bold is True
 
-    def test_font_weight_normal(self):
-        """Test that font-weight: normal does not set bold.
+    def test_font_weight_normal_turns_bold_off(self):
+        """Test that font-weight: normal explicitly sets bold=False.
 
-        Verifies that font-weight: normal doesn't create a style entry
-        since it doesn't set any attributes.
+        Verifies the off-switch: the rule must survive parsing and carry
+        ``bold=False``, not vanish. It previously produced no style attrs at
+        all, so the whole rule was dropped and could never un-bold anything.
         """
         css = """
         .test {
@@ -323,8 +324,47 @@ class TestPropertyMapping:
         }
         """
         styles = self.parser.parse(css)
-        # Empty rules don't create style entries
-        assert ".test" not in styles
+        assert ".test" in styles
+        assert styles[".test"].bold is False
+
+    def test_font_weight_light_numeric_turns_bold_off(self):
+        """Test that a numeric font-weight below 600 sets bold=False."""
+        css = """
+        .test {
+            font-weight: 400;
+        }
+        """
+        styles = self.parser.parse(css)
+        assert styles[".test"].bold is False
+
+    def test_off_switches_override_an_earlier_rule(self):
+        """Test that a later rule can turn earlier attributes back off.
+
+        This is the user-visible point of the off-switch: a utility class
+        that undoes the base element style.
+        """
+        css = """
+        .test {
+            font-weight: bold;
+            font-style: italic;
+            text-decoration: underline;
+            opacity: 0.5;
+            filter: invert;
+        }
+        .test {
+            font-weight: normal;
+            font-style: normal;
+            text-decoration: none;
+            opacity: 1;
+            filter: none;
+        }
+        """
+        style = self.parser.parse(css)[".test"]
+        assert style.bold is False
+        assert style.italic is False
+        assert style.underline is False
+        assert style.dim is False
+        assert style.reverse is False
 
     def test_font_style_italic(self):
         """Test mapping font-style: italic to italic attribute.
@@ -365,11 +405,11 @@ class TestPropertyMapping:
         styles = self.parser.parse(css)
         assert styles[".test"].dim is True
 
-    def test_opacity_full(self):
-        """Test that opacity: 1 does not set dim.
+    def test_opacity_full_turns_dim_off(self):
+        """Test that opacity: 1 explicitly sets dim=False.
 
-        Verifies that opacity of 1.0 doesn't create a style entry
-        since it doesn't set any attributes.
+        Full opacity is the off-switch for dim, so it must be recorded
+        rather than dropped - otherwise it cannot undo an earlier rule.
         """
         css = """
         .test {
@@ -377,8 +417,8 @@ class TestPropertyMapping:
         }
         """
         styles = self.parser.parse(css)
-        # Empty rules don't create style entries
-        assert ".test" not in styles
+        assert ".test" in styles
+        assert styles[".test"].dim is False
 
     def test_filter_invert(self):
         """Test mapping filter: invert to reverse attribute.

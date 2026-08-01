@@ -604,3 +604,41 @@ class TestStyleEquality:
         style1 = Style(bold=True)
         style2 = Style(italic=True)
         assert style1 != style2
+
+
+class TestStyleTruthiness:
+    """Tests for Style.__bool__ treating an explicit False as specified."""
+
+    def test_empty_style_is_falsy(self):
+        """Test that a style with every property unset is falsy.
+
+        Returns
+        -------
+        None
+        """
+        assert not bool(Style())
+
+    def test_style_that_only_turns_an_attribute_off_is_truthy(self):
+        """Test that a style specifying only False values is truthy.
+
+        Callers guard the cascade with ``if style:``. If a style whose sole
+        content is ``bold=False`` were falsy, that guard would skip it and
+        the off-switch could never reach the merge.
+
+        Returns
+        -------
+        None
+        """
+        for attr in ("bold", "italic", "underline", "dim", "reverse"):
+            assert bool(Style(**{attr: False})), f"{attr}=False should be truthy"
+
+    def test_off_switch_survives_a_merge(self):
+        """Test that merging a False attribute over True turns it off.
+
+        Returns
+        -------
+        None
+        """
+        merged = Style(bold=True, italic=True).merge(Style(bold=False))
+        assert merged.bold is False
+        assert merged.italic is True

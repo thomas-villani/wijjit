@@ -346,7 +346,8 @@ THEME_FILE
 
 :Type: ``str`` or ``None``
 :Default: ``None``
-:Description: Path to custom theme file (CSS or JSON format)
+:Description: Path to a custom theme file. CSS is the only supported format;
+   a ``.json`` path is rejected with an error in the log.
 
 .. code-block:: python
 

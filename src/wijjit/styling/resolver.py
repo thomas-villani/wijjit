@@ -142,6 +142,25 @@ class StyleResolver:
         self.focus_color = focus_color
         # Cache for resolved styles: (base_class, css_classes_key, state_key) -> Style
         self._style_cache: dict[tuple[Any, ...], Style] = {}
+        # Revision of self.theme the cache was built against. A theme can be
+        # restyled in place (Theme.set_style, e.g. via the STYLE_FILE config
+        # or an app doing a runtime restyle) without the resolver being told,
+        # so every resolve compares this before trusting a cached entry.
+        self._theme_revision = getattr(theme, "revision", 0)
+
+    def _invalidate_if_theme_changed(self) -> None:
+        """Drop cached resolutions if the theme was restyled in place.
+
+        Notes
+        -----
+        ``Theme.set_style`` bumps ``Theme.revision``. Comparing it here keeps
+        the cache correct without the mutator needing a reference back to
+        every resolver using the theme.
+        """
+        revision = getattr(self.theme, "revision", 0)
+        if revision != self._theme_revision:
+            self._theme_revision = revision
+            self._style_cache.clear()
 
     def resolve_style(
         self,
@@ -207,6 +226,8 @@ class StyleResolver:
         >>> style.fg_color
         (255, 255, 0)
         """
+        self._invalidate_if_theme_changed()
+
         # Get base element type (for structural styling)
         if base_class is not None:
             # Explicit base_class provided (backward compatibility)
@@ -465,6 +486,7 @@ class StyleResolver:
         """
         self.theme = theme
         # Clear style cache since theme changed
+        self._theme_revision = getattr(theme, "revision", 0)
         self._style_cache.clear()
 
     def set_focus_color(self, color: tuple[int, int, int] | None) -> None:
