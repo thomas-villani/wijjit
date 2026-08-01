@@ -1,0 +1,42 @@
+# Read the Docs build configuration.
+#
+# Read the Docs requires this file to be present on every branch or tag it
+# builds; a version without it fails rather than falling back to a default.
+# That includes historical tags -- see the note at the bottom.
+#
+# Reference: https://docs.readthedocs.io/en/stable/config-file/v2.html
+
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    # The newest interpreter the project supports (requires-python = ">=3.11").
+    python: "3.13"
+
+sphinx:
+  configuration: docs/source/conf.py
+  # Match the `-W` used by .github/workflows/ci.yml and docs.yml. The build is
+  # warning-clean, and a warning here usually means a broken cross-reference
+  # that would otherwise ship silently.
+  fail_on_warning: true
+
+python:
+  install:
+    # Installing the package itself is required, not just convenient:
+    # docs/source/conf.py reads the version via importlib.metadata, and the
+    # autosummary API pages import wijjit to introspect it.
+    #
+    # The docs dependencies live in the `dev` extra alongside the test and lint
+    # tooling. That installs more than a docs build needs; splitting a `docs`
+    # extra out of `dev` would trim it, at the cost of keeping two lists in
+    # sync with .github/workflows/docs.yml.
+    - method: pip
+      path: .
+      extra_requirements:
+        - dev
+
+# Note on historical versions: the v0.1.0 tag predates this file, so activating
+# it in the Read the Docs dashboard will fail to build. To publish 0.1.0 docs,
+# branch from the tag, add this file to that branch, and activate the branch as
+# a version. Otherwise the oldest buildable version is 0.1.1.
