@@ -35,8 +35,15 @@ logger = get_logger(__name__)
 # (0x20-0x2F) + a final byte (0x40-0x7E); OSC is ``ESC ]`` ... terminated by
 # BEL (``\x07``) or ST (``ESC \``). The OSC alternative is listed first so it is
 # tried before the generic CSI branch.
+#
+# The string-terminated controls DCS (``ESC P``), SOS (``ESC X``), PM (``ESC ^``)
+# and APC (``ESC _``) share OSC's shape but not its introducer, so they need
+# their own alternative - without it a Sixel image (``ESC P ... ESC \``) matched
+# neither branch and counted as visible text, inflating ``visible_length`` by
+# the whole payload.
 ANSI_ESCAPE_PATTERN = re.compile(
     r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC ... BEL/ST
+    r"|\x1b[P^_X][^\x1b]*(?:\x1b\\|\x07)"  # DCS/PM/APC/SOS ... ST/BEL
     r"|\x1b\[[0-?]*[ -/]*[@-~]"  # CSI (incl. private/intermediate bytes)
 )
 

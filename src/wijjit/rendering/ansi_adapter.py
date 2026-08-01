@@ -23,9 +23,15 @@ from wijjit.terminal.cell import Cell, is_continuation
 # SGR (Select Graphic Rendition) - styling codes we want to parse
 _SGR_PATTERN = re.compile(r"\x1b\[([0-9;]*)m")
 
-# Other ANSI escape sequences to strip (cursor movement, erase, positioning, etc.)
-# This matches CSI sequences: ESC [ (params) (letter) where letter is NOT 'm' (which is SGR)
-_OTHER_ANSI_PATTERN = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+# Other ANSI escape sequences to strip (cursor movement, erase, positioning...).
+# This is the full ECMA-48 CSI grammar - ESC [ + parameter bytes (0x30-0x3F) +
+# intermediate bytes (0x20-0x2F) + a final byte (0x40-0x7E) - deliberately the
+# same shape as ``ANSI_ESCAPE_PATTERN`` in :mod:`wijjit.terminal.ansi`. The
+# earlier ``\x1b\[[0-9;?]*[A-Za-z]`` was narrower on both ends: it omitted the
+# intermediate bytes and restricted the final byte to letters, so a
+# ``~``-terminated sequence like ``\x1b[3~`` did not match, fell through to the
+# literal branch below, and planted a visible ESC character in the buffer.
+_OTHER_ANSI_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 # OSC (Operating System Command) sequences to strip
 # Format: ESC ] ... BEL or ESC ] ... ESC \

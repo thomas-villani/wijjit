@@ -187,3 +187,31 @@ class TestAnsiStringToCells:
 
         result = "".join(c.char for c in cells)
         assert result == "Start link1 and link2 end"
+
+
+def test_tilde_terminated_csi_does_not_plant_a_literal_escape_cell():
+    """``_OTHER_ANSI_PATTERN`` restricted the CSI final byte to letters, so
+    ``\x1b[3~`` matched nothing, fell through to the literal branch, and put a
+    visible ESC character into the buffer."""
+    from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+    cells = ansi_string_to_cells("a\x1b[3~b")
+    assert [cell.char for cell in cells] == ["a", "b"]
+
+
+def test_csi_with_intermediate_bytes_is_stripped():
+    """ECMA-48 allows intermediate bytes (0x20-0x2F) before the final byte."""
+    from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+    cells = ansi_string_to_cells("a\x1b[?1000 pb")
+    assert [cell.char for cell in cells] == ["a", "b"]
+
+
+def test_sgr_is_still_parsed_not_stripped():
+    """The widened strip pattern also matches ``m``; SGR must keep winning,
+    which it does by being tried first."""
+    from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+    cells = ansi_string_to_cells("\x1b[31mRED\x1b[0m")
+    assert [cell.char for cell in cells] == ["R", "E", "D"]
+    assert cells[0].fg_color is not None
