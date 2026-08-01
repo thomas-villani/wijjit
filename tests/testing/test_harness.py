@@ -178,3 +178,37 @@ class TestEmittedFrameCapture:
         with WijjitHarness(app, size=(60, 14)):
             assert app._backend is not original  # tee installed
         assert app._backend is original  # tee removed
+
+
+def test_harness_forces_unicode_and_restores_it():
+    """The harness pins Unicode so box-drawing is deterministic across
+    platforms. Two things were wrong and cancelled out: the value was ``True``,
+    which is not one of the ``auto``/``force``/``disable`` modes, and it was set
+    after ``Wijjit.__init__`` had already pushed the mode into
+    ``wijjit.terminal.ansi`` - so it never took effect either way.
+    """
+    from wijjit import Wijjit, render_template_string
+    from wijjit.terminal import ansi
+    from wijjit.testing.harness import WijjitHarness
+
+    app = Wijjit()
+
+    @app.view("main", default=True)
+    def main_view():
+        return render_template_string(
+            '{% frame title="T" width=20 height=5 %}'
+            "{% text %}hi{% endtext %}"
+            "{% endframe %}"
+        )
+
+    ansi.set_unicode_mode("disable")
+    try:
+        with WijjitHarness(app, size=(40, 10)) as harness:
+            assert app.config["UNICODE_SUPPORT"] == "force"
+            assert ansi._unicode_mode == "force"
+            # A forced-Unicode frame draws box-drawing, not ASCII fallbacks.
+            assert "\u2500" in harness.screen() or "\u2502" in harness.screen()
+        # The mode is process-global, so it must not leak past the harness.
+        assert ansi._unicode_mode == "disable"
+    finally:
+        ansi.set_unicode_mode("auto")
