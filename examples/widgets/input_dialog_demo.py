@@ -61,15 +61,16 @@ def show_new_file_dialog(event):
 
     def on_submit(filename):
         if filename.strip():
-            state["files"].append(filename.strip())
+            # State detects reassignment, not mutation: a bare
+            # state["files"].append(...) would never re-render.
+            with state.mutate("files") as files:
+                files.append(filename.strip())
             state["message"] = f"Created: {filename}"
         else:
             state["message"] = "Filename cannot be empty"
-        state["_refresh"] = True
 
     def on_cancel():
         state["message"] = "Action cancelled"
-        state["_refresh"] = True
 
     dialog = TextInputDialog(
         title="New File",
@@ -100,7 +101,8 @@ def show_new_file_dialog(event):
     # Set close callback
     def close_dialog():
         app.overlay_manager.pop(overlay)
-        state["_refresh"] = True
+        # Popping an overlay changes no state, so ask for the repaint directly.
+        app.refresh()
 
     dialog.close_callback = close_dialog
 
@@ -110,22 +112,21 @@ def show_rename_dialog(event):
     """Show rename dialog for selected file."""
     if not state["files"]:
         state["message"] = "No files to rename"
-        state["_refresh"] = True
         return
 
     selected_file = state["files"][state["selected_index"]]
 
     def on_submit(new_name):
         if new_name.strip():
-            state["files"][state["selected_index"]] = new_name.strip()
+            # Item assignment mutates the stored list in place, so declare it.
+            with state.mutate("files") as files:
+                files[state["selected_index"]] = new_name.strip()
             state["message"] = f"Renamed to: {new_name}"
         else:
             state["message"] = "Filename cannot be empty"
-        state["_refresh"] = True
 
     def on_cancel():
         state["message"] = "Rename cancelled"
-        state["_refresh"] = True
 
     dialog = TextInputDialog(
         title="Rename File",
@@ -156,7 +157,8 @@ def show_rename_dialog(event):
     # Set close callback
     def close_dialog():
         app.overlay_manager.pop(overlay)
-        state["_refresh"] = True
+        # Popping an overlay changes no state, so ask for the repaint directly.
+        app.refresh()
 
     dialog.close_callback = close_dialog
 
@@ -166,7 +168,6 @@ def move_up(event):
     """Move selection up."""
     if state["selected_index"] > 0:
         state["selected_index"] -= 1
-        state["_refresh"] = True
 
 
 @app.on_key("down")
@@ -174,7 +175,6 @@ def move_down(event):
     """Move selection down."""
     if state["selected_index"] < len(state["files"]) - 1:
         state["selected_index"] += 1
-        state["_refresh"] = True
 
 
 if __name__ == "__main__":
