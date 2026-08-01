@@ -70,6 +70,21 @@ import logging
 import os
 from pathlib import Path
 
+# Accepted ``level`` names, resolved explicitly rather than via
+# ``getattr(logging, name)`` - that lookup happily returns any uppercase
+# attribute of the module, so ``WIJJIT_LOG_LEVEL=BASIC_FORMAT`` would have set
+# the level to a format string.
+_LEVEL_NAMES = {
+    "CRITICAL": logging.CRITICAL,
+    "FATAL": logging.CRITICAL,
+    "ERROR": logging.ERROR,
+    "WARNING": logging.WARNING,
+    "WARN": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+    "NOTSET": logging.NOTSET,
+}
+
 
 def configure_logging(
     filename: str | Path | None = None,
@@ -124,9 +139,17 @@ def configure_logging(
         logger.propagate = False  # Prevent propagation to root logger
         return
 
-    # Convert string level to logging constant if needed
+    # Convert string level to logging constant if needed. A name that is not a
+    # level falls back to INFO, but says so once the handlers exist - silently
+    # downgrading a typo'd WIJJIT_LOG_LEVEL to INFO looks exactly like the level
+    # being ignored, and the whole reason to set DEBUG is to see more.
+    invalid_level: str | None = None
     if isinstance(level, str):
-        level = getattr(logging, level.upper(), logging.INFO)
+        resolved = _LEVEL_NAMES.get(level.strip().upper())
+        if resolved is None:
+            invalid_level = level
+            resolved = logging.INFO
+        level = resolved
 
     # Set logger level
     logger.setLevel(level)
@@ -149,6 +172,11 @@ def configure_logging(
     logger.propagate = False
 
     # Log that logging has been configured
+    if invalid_level is not None:
+        logger.warning(
+            f"Unknown log level {invalid_level!r}; falling back to INFO. "
+            f"Valid levels: {', '.join(sorted(_LEVEL_NAMES))}."
+        )
     logger.info(
         f"Logging configured: file={filename}, level={logging.getLevelName(level)}"
     )
