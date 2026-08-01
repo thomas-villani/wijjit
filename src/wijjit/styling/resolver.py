@@ -14,6 +14,35 @@ if TYPE_CHECKING:
     from wijjit.elements.base import Element
 
 
+# Element class name (lowercased) -> the theme style key that styles it.
+#
+# The default is the lowercased class name, so this table only needs the cases
+# where the two genuinely differ - an element whose class name and theme key
+# were never the same string got *no* base styling at all, silently, because a
+# lookup for a key the theme does not define simply returns nothing.
+#
+# ``ListView`` was the worked example: it mapped to ``"list"`` while every theme
+# spells the key ``listview``. The same shape applied to ``CodeEditor``
+# (``code``), ``MenuElement`` (``menu``), ``ModalElement`` (``modal``),
+# ``NotificationElement`` (``notification``) and ``ProgressBar`` (``progress``).
+# Entries that mapped a name to itself, and a ``radiobutton`` key naming a class
+# that does not exist (it is ``Radio``), were dropped as dead weight.
+#
+# ``TextArea`` -> ``input`` is deliberate rather than a mismatch: it shares the
+# input styling, and the more specific ``textarea.*`` keys are resolved by name
+# where they are needed (e.g. ``textarea.selection``).
+_ELEMENT_STYLE_CLASSES = {
+    "textinput": "input",
+    "textarea": "input",
+    "textelement": "text",
+    "codeeditor": "code",
+    "menuelement": "menu",
+    "modalelement": "modal",
+    "notificationelement": "notification",
+    "progressbar": "progress",
+}
+
+
 def _get_element_classes(element: "Element") -> list[str]:
     """Safely extract CSS classes from an element.
 
@@ -410,24 +439,7 @@ class StyleResolver:
         # Get class name
         class_name = element.__class__.__name__.lower()
 
-        # Map some common element types
-        type_map = {
-            "textinput": "input",
-            "textarea": "input",
-            "textelement": "text",
-            "checkbox": "checkbox",
-            "radiobutton": "radio",
-            "button": "button",
-            "frame": "frame",
-            "table": "table",
-            "tree": "tree",
-            "listview": "list",
-            "statusbar": "statusbar",
-            "modal": "modal",
-            "notification": "notification",
-        }
-
-        return type_map.get(class_name, class_name)
+        return _ELEMENT_STYLE_CLASSES.get(class_name, class_name)
 
     def set_theme(self, theme: Theme) -> None:
         """Change the theme used for resolution.
