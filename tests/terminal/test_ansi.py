@@ -306,3 +306,29 @@ class TestColorize:
         """Test colorize with no styling returns original text."""
         result = colorize("Hello")
         assert result == "Hello"
+
+
+def test_dcs_sequence_is_not_counted_as_visible_text():
+    r"""A Sixel payload (``ESC P ... ESC \``) matched neither the OSC nor the
+    CSI branch, so the whole image counted toward ``visible_length``."""
+    from wijjit.terminal.ansi import strip_ansi, visible_length
+
+    sixel = "A\x1bPq#0;2;0;0;0#0~~@@vv@@~~\x1b\\B"
+    assert strip_ansi(sixel) == "AB"
+    assert visible_length(sixel) == 2
+
+
+def test_apc_and_pm_sequences_are_stripped():
+    from wijjit.terminal.ansi import strip_ansi
+
+    assert strip_ansi("A\x1b_payload\x1b\\B") == "AB"
+    assert strip_ansi("A\x1b^payload\x1b\\B") == "AB"
+
+
+def test_osc_and_csi_still_stripped():
+    """Guard the pre-existing branches against the new alternative."""
+    from wijjit.terminal.ansi import strip_ansi
+
+    assert strip_ansi("\x1b]8;;http://x\x07link\x1b]8;;\x07") == "link"
+    assert strip_ansi("\x1b[31mred\x1b[0m") == "red"
+    assert strip_ansi("\x1b[?25lhidden\x1b[?25h") == "hidden"
