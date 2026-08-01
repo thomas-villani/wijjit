@@ -760,3 +760,56 @@ class TestElementTypeMapping:
         # Should not be empty - should have text style from theme
         # DefaultTheme defines text style, so this should work
         assert style is not None
+
+
+def test_element_style_classes_all_exist_in_the_default_theme():
+    """Every element must infer a style key the theme actually defines.
+
+    An element whose class name and theme key were never the same string got
+    *no* base styling at all, silently - a lookup for an undefined key just
+    returns nothing. ListView was the worked example: it inferred "list" while
+    every theme spells the key "listview".
+    """
+    from wijjit.core.element_registry import ElementRegistry
+    from wijjit.styling.resolver import _ELEMENT_STYLE_CLASSES
+    from wijjit.styling.theme import DefaultTheme
+
+    theme_keys = set(DefaultTheme().styles)
+    registry = ElementRegistry()
+    unstyled = []
+    for type_name in registry.list_types():
+        factory = registry.get_factory(type_name)
+        if factory is None:
+            continue
+        class_name = factory.__name__.lower()
+        inferred = _ELEMENT_STYLE_CLASSES.get(class_name, class_name)
+        # Only assert for elements the theme actually intends to style: if
+        # neither the class name nor its mapping is a theme key, the element
+        # simply has no base style, which is a theme gap not a mapping bug.
+        if class_name in theme_keys and inferred not in theme_keys:
+            unstyled.append(
+                f"{factory.__name__} -> {inferred!r} (theme has {class_name!r})"
+            )
+    assert not unstyled, "elements mapped away from their own theme key: " + "; ".join(
+        unstyled
+    )
+
+
+def test_listview_infers_its_own_theme_key():
+    from wijjit.elements.display.list import ListView
+    from wijjit.styling.resolver import StyleResolver
+    from wijjit.styling.theme import DefaultTheme
+
+    resolver = StyleResolver(DefaultTheme())
+    assert resolver._infer_class_from_element(ListView()) == "listview"
+
+
+def test_textarea_still_shares_input_styling():
+    """Deliberate, not a mismatch - the specific textarea.* keys are resolved
+    by name where they are needed."""
+    from wijjit.elements.input.text import TextArea
+    from wijjit.styling.resolver import StyleResolver
+    from wijjit.styling.theme import DefaultTheme
+
+    resolver = StyleResolver(DefaultTheme())
+    assert resolver._infer_class_from_element(TextArea()) == "input"
