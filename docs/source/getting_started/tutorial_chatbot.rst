@@ -188,8 +188,10 @@ To use a real model, replace the ``for word in reply.split()`` loop with an
 
    Wijjit's reactive ``State`` detects **reassignment**, not in-place mutation.
    Building a new list with ``old + [items]`` (or ``old[:-1] + [line]``) and
-   assigning it back is what schedules the re-render; calling
-   ``app.state["history"].append(...)`` would not.
+   assigning it back is what schedules the re-render; a bare
+   ``app.state["history"].append(...)`` would not. To mutate in place instead,
+   wrap it in ``with app.state.mutate("history") as history:`` - see
+   :ref:`in-place-mutation`.
 
 Step 4 - run it
 ---------------

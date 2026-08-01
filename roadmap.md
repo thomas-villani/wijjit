@@ -575,6 +575,33 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
 - [ ] Shell-pipe passthrough for subshell / other apps
 
 ### Subsystems
+- [ ] **Reactive collection wrappers for `State`** (`ReactiveList` /
+  `ReactiveDict` / `ReactiveSet`). `State.mutate(key)` (landed 2026-07-31)
+  gives a *correct* in-place idiom for any value, but it is opt-in: a naive
+  `state["todos"].append(x)` is still silent, which is why
+  `examples/widgets/input_dialog_demo.py` and `confirm_dialog_demo.py` carry a
+  `state["_refresh"] = True` sentinel. Wrappers make the wrong idiom
+  impossible rather than merely providing a right one. Design notes from the
+  2026-07-31 discussion:
+  - **Subclass the builtins, not `UserList`/`UserDict`.** `isinstance(x, list)`
+    is load-bearing (`State._is_aliased_mutable`, `json.dumps`, pandas in
+    `DataGrid`, Rich). The mutator set is finite and known - for `list`:
+    `append, extend, insert, remove, pop, clear, sort, reverse, __setitem__,
+    __delitem__, __iadd__, __imul__`. Explicit overrides, no metaclass: a
+    metaclass that generates methods produces attributes `mypy --strict`
+    cannot see, and Phase 3 is about shrinking the override list.
+  - **Identity is the real cost.** CPython refuses `obj.__class__ =
+    ReactiveList` for builtin instances, so `state["k"] = my_list` must store
+    a *copy*: `state["k"] is my_list` becomes False and outside references
+    silently detach. This trades a uniform rule ("mutation never fires") for a
+    conditional one. Vue 2 shipped exactly this; go in knowing the price.
+    `mutate()` has no such cost, which is why it stays the documented fallback.
+  - **Wrap recursively at assignment, not lazily on read.** List-of-dicts is
+    the dominant TUI shape (table rows, todo items); lazy-on-read would return
+    a fresh wrapper per `state["rows"][0]` access. Recursive-on-assign is O(n)
+    once, which the current copy-first idiom already costs.
+  - Reuse the `forced=True` notification path added for `mutate()`; gate on a
+    `REACTIVE_COLLECTIONS` key in `DefaultConfig`, default on.
 - [x] **Public element-registration API / plugin seam** (review 3.5). **Landed
   2026-07-16.** A process-global plugin registry (``src/wijjit/plugins.py``) is
   drained at construction by every ``ElementRegistry`` and ``Renderer`` (so the

@@ -92,6 +92,8 @@ class State(UserDict[str, Any]):
         "unwatch",
         "batch_update",
         "async_batch_update",
+        "mutate",
+        "async_mutate",
         "set_async",
         "flush_pending_async",
         "reset",
@@ -115,7 +117,7 @@ class State(UserDict[str, Any]):
         )  # Track if we're in batch update mode
         object.__setattr__(
             self, "_batch_changes", []
-        )  # Queue of (key, old_value, new_value) during batch mode
+        )  # Queue of (key, old_value, new_value, forced) during batch mode
         object.__setattr__(
             self, "_notify_depth", 0
         )  # Re-entrant notification depth guard (see _MAX_NOTIFY_DEPTH)
@@ -199,16 +201,17 @@ class State(UserDict[str, Any]):
 
         * ``state[k] = state[k]`` (the same object back again) cannot be shown
           to be unchanged, so it **fires** - see :meth:`_is_aliased_mutable`.
-          This is the supported escape hatch after an in-place mutation, and
-          it warns, because building the new container first is better.
+          It warns, because it is a recovery hatch rather than an idiom.
         * ``state[k] = list(state[k])`` after an in-place mutation is a *new*
           object that is value-equal to the already-mutated original, so it is
           indistinguishable from a genuine no-op write and stays silent. There
           is no fix short of snapshotting every container handed out on read.
 
-        The rule that always works: build the new container **first**, then
-        assign (``state[k] = [*state[k], x]``). Order matters, and only the
-        copy-then-mutate direction is detectable.
+        Two rules always work. Build the new container **first**, then assign
+        (``state[k] = [*state[k], x]``) - order matters, and only the
+        copy-then-mutate direction is detectable. Or declare the mutation up
+        front with :meth:`mutate`, which needs no copy and works for values
+        that cannot be rebuilt cheaply.
         """
         old_value = self.data.get(key)
         aliased = self._is_aliased_mutable(key, value)
@@ -218,10 +221,13 @@ class State(UserDict[str, Any]):
             logger.warning(
                 f"State key '{key}' was reassigned the same mutable object it "
                 f"already held. Firing a change because an in-place mutation "
-                f"cannot be ruled out. Prefer building the new container "
-                f"first: state['{key}'] = [*state['{key}'], value]"
+                f"cannot be ruled out. Prefer state.mutate('{key}') to declare "
+                f"the mutation, or build the new container first: "
+                f"state['{key}'] = [*state['{key}'], value]"
             )
-            self._trigger_change(key, old_value, value)
+            # forced: old_value *is* value, so the equality gate (and the batch
+            # exit gate) would drop this without it.
+            self._trigger_change(key, old_value, value, forced=True)
             return
 
         # Only trigger callbacks if value actually changed
@@ -474,23 +480,19 @@ class State(UserDict[str, Any]):
 
             # If there were any changes, trigger a single batch callback
             if self.state._batch_changes and not exc_val:
-                # Get unique keys that changed (use the last old/new values)
-                changes_by_key: dict[str, tuple[Any, Any]] = {}
-                for key, old_value, new_value in self.state._batch_changes:
-                    if key not in changes_by_key:
-                        # First change for this key - record original old value
-                        changes_by_key[key] = (old_value, new_value)
-                    else:
-                        # Subsequent changes - keep original old, update new
-                        original_old, _ = changes_by_key[key]
-                        changes_by_key[key] = (original_old, new_value)
+                changes_by_key = self.state._coalesce_batch_changes()
 
-                # Trigger callbacks once for each unique key that actually changed
-                for key, (old_value, new_value) in changes_by_key.items():
-                    if old_value != new_value:
+                # Trigger callbacks once for each unique key that actually
+                # changed - or that was force-flagged by an in-place mutation,
+                # where old and new are the same already-mutated object and the
+                # equality gate would otherwise drop it.
+                for key, (old_value, new_value, forced) in changes_by_key.items():
+                    if forced or old_value != new_value:
                         # Temporarily disable batch mode to allow _trigger_change to work
                         self.state._batch_mode = False
-                        self.state._trigger_change(key, old_value, new_value)
+                        self.state._trigger_change(
+                            key, old_value, new_value, forced=forced
+                        )
 
             self.state._batch_changes = []
             return False  # Don't suppress exceptions
@@ -558,20 +560,13 @@ class State(UserDict[str, Any]):
 
             # If there were any changes, trigger callbacks
             if self.state._batch_changes and not exc_val:
-                # Get unique keys that changed (use the last old/new values)
-                changes_by_key: dict[str, tuple[Any, Any]] = {}
-                for key, old_value, new_value in self.state._batch_changes:
-                    if key not in changes_by_key:
-                        # First change for this key - record original old value
-                        changes_by_key[key] = (old_value, new_value)
-                    else:
-                        # Subsequent changes - keep original old, update new
-                        original_old, _ = changes_by_key[key]
-                        changes_by_key[key] = (original_old, new_value)
+                changes_by_key = self.state._coalesce_batch_changes()
 
-                # Trigger callbacks once for each unique key that actually changed
-                for key, (old_value, new_value) in changes_by_key.items():
-                    if old_value != new_value:
+                # Trigger callbacks once for each unique key that actually
+                # changed - or that was force-flagged by an in-place mutation
+                # (see the sync _BatchContext.__exit__).
+                for key, (old_value, new_value, forced) in changes_by_key.items():
+                    if forced or old_value != new_value:
                         # Use async version to properly await callbacks
                         await self.state._trigger_change_async(
                             key, old_value, new_value
@@ -609,7 +604,223 @@ class State(UserDict[str, Any]):
         """
         return self._AsyncBatchContext(self)
 
-    def _trigger_change(self, key: str, old_value: Any, new_value: Any) -> None:
+    def _coalesce_batch_changes(self) -> dict[str, tuple[Any, Any, bool]]:
+        """Collapse the queued batch changes to one record per key.
+
+        Returns
+        -------
+        dict
+            Maps each changed key to ``(original_old, final_new, forced)``.
+            ``forced`` is True when *any* queued change for that key was an
+            in-place mutation, so the caller must notify without consulting
+            the equality gate.
+
+        Notes
+        -----
+        Shared by the sync and async batch exit paths, which previously
+        carried duplicate copies of this loop.
+        """
+        changes_by_key: dict[str, tuple[Any, Any, bool]] = {}
+        for key, old_value, new_value, forced in self._batch_changes:
+            if key not in changes_by_key:
+                # First change for this key - record original old value
+                changes_by_key[key] = (old_value, new_value, forced)
+            else:
+                # Subsequent changes - keep original old, update new, and make
+                # the force flag sticky so one mutation in a run of writes is
+                # enough to guarantee a notification.
+                original_old, _, was_forced = changes_by_key[key]
+                changes_by_key[key] = (original_old, new_value, was_forced or forced)
+        return changes_by_key
+
+    class _MutationContext:
+        """Context manager for an in-place mutation of a stored value.
+
+        Parameters
+        ----------
+        state : State
+            The state object holding the value.
+        key : str
+            The key whose value is about to be mutated in place.
+        """
+
+        def __init__(self, state: "State", key: str) -> None:
+            self.state = state
+            self.key = key
+
+        def __enter__(self) -> Any:
+            """Yield the live value stored at ``key``."""
+            return self.state._checkout_for_mutation(self.key)
+
+        def __exit__(
+            self,
+            exc_type: type | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> Literal[False]:
+            """Notify that ``key`` was mutated, then let exceptions propagate."""
+            self.state._trigger_change(
+                self.key,
+                self.state.data[self.key],
+                self.state.data[self.key],
+                forced=True,
+            )
+            return False  # Don't suppress exceptions
+
+    def _checkout_for_mutation(self, key: str) -> Any:
+        """Return the live value at ``key``, or explain why it cannot be had.
+
+        Parameters
+        ----------
+        key : str
+            The key being checked out for in-place mutation.
+
+        Returns
+        -------
+        Any
+            The object currently stored at ``key``.
+
+        Raises
+        ------
+        KeyError
+            If the key is not set. There is nothing to mutate, and creating a
+            container here would mean guessing its type.
+        """
+        if key not in self.data:
+            raise KeyError(
+                f"Cannot mutate state key '{key}': it is not set. Assign it "
+                f"first (state['{key}'] = []), then mutate it in place."
+            )
+        return self.data[key]
+
+    def mutate(self, key: str) -> _MutationContext:
+        """Mutate a stored value in place and notify on exit.
+
+        ``State`` detects **reassignment**, not mutation:
+        ``state["todos"].append(x)`` never reaches :meth:`__setitem__`, so
+        nothing fires and nothing re-renders. This context manager is the
+        explicit, type-agnostic way to say "I am about to change this in
+        place" - it works for lists, dicts and sets, and equally for objects
+        no container wrapper could ever intercept (a pandas ``DataFrame``, a
+        numpy array, your own model class).
+
+        Parameters
+        ----------
+        key : str
+            The state key to mutate. Must already be set.
+
+        Returns
+        -------
+        _MutationContext
+            Context manager yielding the live value stored at ``key``.
+
+        Raises
+        ------
+        KeyError
+            If ``key`` is not set.
+
+        Examples
+        --------
+        >>> state = State({'todos': ['write docs']})
+        >>> with state.mutate('todos') as todos:
+        ...     todos.append('ship it')
+        # Change callbacks fire once, here, on exit
+
+        Notes
+        -----
+        The notification is **unconditional**: no attempt is made to check
+        whether the block actually changed anything, because for an arbitrary
+        object there is no cheap way to know. A redundant notification costs
+        one diffed re-render (an unchanged frame writes no bytes); a missed
+        one leaves the screen contradicting the state.
+
+        For the same reason the notification also fires when the block raises.
+        The object is reachable from state and may have been half-mutated
+        already, so suppressing the notification would guarantee a stale
+        screen. This differs deliberately from :meth:`batch_update`, which
+        discards its queued changes on an exception.
+
+        ``old_value`` and ``new_value`` handed to callbacks are the **same
+        already-mutated object**. A watcher that diffs them will see no
+        difference; treat the call as "this key changed, re-read it". Nesting
+        inside :meth:`batch_update` works and coalesces as usual.
+
+        Prefer the immutable form (``state['todos'] = [*state['todos'], x]``)
+        when the container is small and you are not holding an outside
+        reference to it; reach for this when a copy would be wasteful, when
+        the value is not copyable, or when several mutations belong together.
+        """
+        return self._MutationContext(self, key)
+
+    class _AsyncMutationContext:
+        """Async counterpart to :class:`_MutationContext`.
+
+        Parameters
+        ----------
+        state : State
+            The state object holding the value.
+        key : str
+            The key whose value is about to be mutated in place.
+        """
+
+        def __init__(self, state: "State", key: str) -> None:
+            self.state = state
+            self.key = key
+
+        async def __aenter__(self) -> Any:
+            """Yield the live value stored at ``key``."""
+            return self.state._checkout_for_mutation(self.key)
+
+        async def __aexit__(
+            self,
+            exc_type: type | None,
+            exc_val: BaseException | None,
+            exc_tb: Any,
+        ) -> Literal[False]:
+            """Await the change callbacks for the mutated key."""
+            value = self.state.data[self.key]
+            if self.state._batch_mode:
+                # Queue like any other batched change so an enclosing
+                # async_batch_update() coalesces it instead of firing early.
+                self.state._batch_changes.append((self.key, value, value, True))
+            else:
+                await self.state._trigger_change_async(self.key, value, value)
+            return False  # Don't suppress exceptions
+
+    def async_mutate(self, key: str) -> _AsyncMutationContext:
+        """Mutate a stored value in place and await the callbacks on exit.
+
+        The async counterpart to :meth:`mutate`: use it when watchers are
+        ``async def`` and you need them to have completed before continuing,
+        the same way :meth:`async_batch_update` relates to
+        :meth:`batch_update`.
+
+        Parameters
+        ----------
+        key : str
+            The state key to mutate. Must already be set.
+
+        Returns
+        -------
+        _AsyncMutationContext
+            Async context manager yielding the live value stored at ``key``.
+
+        Raises
+        ------
+        KeyError
+            If ``key`` is not set.
+
+        Examples
+        --------
+        >>> async with state.async_mutate('todos') as todos:
+        ...     todos.append('ship it')
+        # Async watchers for 'todos' have finished awaiting here
+        """
+        return self._AsyncMutationContext(self, key)
+
+    def _trigger_change(
+        self, key: str, old_value: Any, new_value: Any, *, forced: bool = False
+    ) -> None:
         """Trigger change callbacks (synchronous).
 
         This method handles both sync and async callbacks, but async callbacks
@@ -624,6 +835,14 @@ class State(UserDict[str, Any]):
             The previous value
         new_value : Any
             The new value
+        forced : bool, optional
+            Notify even though ``old_value`` and ``new_value`` compare equal.
+            Set for in-place mutations (:meth:`mutate`, and the aliased
+            self-assign in :meth:`__setitem__`), where the "old" value is the
+            same object as the new one and has already been mutated, so
+            equality proves nothing. Carried through batch mode - without it
+            the batch exit gate would drop the change (see
+            :meth:`_BatchContext.__exit__`).
 
         Notes
         -----
@@ -634,7 +853,7 @@ class State(UserDict[str, Any]):
         """
         # If in batch mode, queue the change instead of triggering immediately
         if self._batch_mode:
-            self._batch_changes.append((key, old_value, new_value))
+            self._batch_changes.append((key, old_value, new_value, forced))
             return
 
         # Guard against unbounded re-entrant notification (a sync callback that

@@ -656,7 +656,8 @@ class TestInPlaceMutation:
         """``state[k].append(x)`` never reaches __setitem__, so nothing fires.
 
         This is inherent - the write never goes through State at all - and is
-        pinned here so the limit stays visible.
+        pinned here so the limit stays visible. ``state.mutate(k)`` is the
+        supported way to declare such a mutation; see TestMutateContext.
         """
         state = State({"rows": ["a"]})
         callback = Mock()
@@ -789,6 +790,305 @@ class TestInPlaceMutation:
             if r.levelno >= logging.WARNING
         ]
         assert any("rows" in m for m in warnings)
+
+
+class TestMutateContext:
+    """``state.mutate(key)`` - the explicit in-place mutation hatch.
+
+    Unlike a reactive container wrapper, this works for *any* stored value
+    (including objects no wrapper could intercept) and never swaps the stored
+    object for a proxy, so outside references stay valid.
+    """
+
+    def test_mutate_list_fires_once(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.mutate("rows") as rows:
+            rows.append("b")
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b"]
+
+    def test_mutate_yields_the_live_object(self):
+        """No copy, no proxy - the caller mutates what state actually holds."""
+        original = ["a"]
+        state = State({"rows": original})
+
+        with state.mutate("rows") as rows:
+            assert rows is original
+            rows.append("b")
+
+        assert state["rows"] is original
+
+    def test_mutate_fires_after_the_block_not_during(self):
+        """Callbacks see the finished mutation, not an intermediate one."""
+        state = State({"rows": []})
+        seen: list[list[str]] = []
+        state.on_change(lambda k, o, n: seen.append(list(n)))
+
+        with state.mutate("rows") as rows:
+            rows.append("a")
+            rows.append("b")
+            assert seen == []
+
+        assert seen == [["a", "b"]]
+
+    def test_mutate_dict_and_set(self):
+        state = State({"cfg": {"a": 1}, "tags": {"x"}})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.mutate("cfg") as cfg:
+            cfg["b"] = 2
+        with state.mutate("tags") as tags:
+            tags.add("y")
+
+        assert callback.call_count == 2
+        assert state["cfg"] == {"a": 1, "b": 2}
+        assert state["tags"] == {"x", "y"}
+
+    def test_mutate_arbitrary_object(self):
+        """The point of the context manager: no container wrapper required."""
+
+        class Model:
+            def __init__(self) -> None:
+                self.hits = 0
+
+        state = State({"model": Model()})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.mutate("model") as model:
+            model.hits += 1
+
+        callback.assert_called_once()
+        assert state["model"].hits == 1
+
+    def test_mutate_notifies_the_key_watcher(self):
+        state = State({"rows": ["a"]})
+        watcher = Mock()
+        state.watch("rows", watcher)
+
+        with state.mutate("rows") as rows:
+            rows.append("b")
+
+        watcher.assert_called_once()
+        key, old, new = watcher.call_args[0]
+        assert key == "rows"
+        # Documented: old and new are the same already-mutated object.
+        assert old is new is state["rows"]
+
+    def test_mutate_fires_even_when_nothing_changed(self):
+        """Unconditional by design - we cannot diff an arbitrary object."""
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.mutate("rows"):
+            pass
+
+        callback.assert_called_once()
+
+    def test_mutate_fires_and_reraises_on_exception(self):
+        """A half-mutated object must not leave the screen stale."""
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(RuntimeError):
+            with state.mutate("rows") as rows:
+                rows.append("b")
+                raise RuntimeError("boom")
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b"]
+
+    def test_mutate_missing_key_raises_keyerror(self):
+        state = State({"rows": ["a"]})
+
+        with pytest.raises(KeyError, match="not set"):
+            with state.mutate("nope"):
+                pass
+
+    def test_mutate_missing_key_does_not_fire(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(KeyError):
+            with state.mutate("nope"):
+                pass
+
+        callback.assert_not_called()
+
+    def test_mutate_of_method_named_key_works(self):
+        """Subscript access is unrestricted, so mutate() must be too."""
+        state = State({"items": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.mutate("items") as items:
+            items.append("b")
+
+        callback.assert_called_once()
+        assert state["items"] == ["a", "b"]
+
+    def test_nested_mutate_of_same_key_fires_per_context(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.mutate("rows") as outer:
+            outer.append("b")
+            with state.mutate("rows") as inner:
+                inner.append("c")
+
+        assert callback.call_count == 2
+        assert state["rows"] == ["a", "b", "c"]
+
+
+class TestMutateInsideBatch:
+    """A mutation inside ``batch_update()`` must survive the exit gate.
+
+    The batch exit only re-fires keys whose old and new values differ. An
+    in-place mutation hands it the same already-mutated object for both, so
+    without the forced-change flag the notification was dropped entirely.
+    """
+
+    def test_mutate_inside_batch_still_fires(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.batch_update():
+            with state.mutate("rows") as rows:
+                rows.append("b")
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b"]
+
+    def test_mutate_coalesces_with_other_writes_to_same_key(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.batch_update():
+            with state.mutate("rows") as rows:
+                rows.append("b")
+            with state.mutate("rows") as rows:
+                rows.append("c")
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b", "c"]
+
+    def test_mutate_does_not_fire_before_batch_exit(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.batch_update():
+            with state.mutate("rows") as rows:
+                rows.append("b")
+            callback.assert_not_called()
+
+        callback.assert_called_once()
+
+    def test_forced_flag_is_sticky_across_mixed_writes(self):
+        """A scalar no-op after a mutation must not clear the force flag."""
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.batch_update():
+            with state.mutate("rows") as rows:
+                rows.append("b")
+            # A value-equal write to the same key; alone it would be silent.
+            state["rows"] = state["rows"]
+
+        callback.assert_called_once()
+
+    def test_self_assign_inside_batch_fires(self):
+        """The aliased escape hatch was swallowed by batch mode too."""
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.batch_update():
+            rows = state["rows"]
+            rows.append("b")
+            state["rows"] = rows
+
+        callback.assert_called_once()
+
+    def test_unrelated_batch_keys_still_gated_by_equality(self):
+        """Forcing one key must not force the others."""
+        state = State({"rows": ["a"], "count": 1})
+        keys: list[str] = []
+        state.on_change(lambda k, o, n: keys.append(k))
+
+        with state.batch_update():
+            with state.mutate("rows") as rows:
+                rows.append("b")
+            state["count"] = 1  # genuine no-op
+
+        assert keys == ["rows"]
+
+
+class TestAsyncMutateContext:
+    """``async_mutate`` awaits async watchers, mirroring async_batch_update."""
+
+    @pytest.mark.asyncio
+    async def test_async_mutate_awaits_async_watcher(self):
+        state = State({"rows": ["a"]})
+        completed: list[str] = []
+
+        async def watcher(key, old, new):
+            await asyncio.sleep(0)
+            completed.append(key)
+
+        state.watch("rows", watcher)
+
+        async with state.async_mutate("rows") as rows:
+            rows.append("b")
+
+        # Awaited by __aexit__, so no flush is needed.
+        assert completed == ["rows"]
+        assert state["rows"] == ["a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_async_mutate_runs_sync_callbacks_too(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        async with state.async_mutate("rows") as rows:
+            rows.append("b")
+
+        callback.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_mutate_inside_async_batch_coalesces(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        async with state.async_batch_update():
+            async with state.async_mutate("rows") as rows:
+                rows.append("b")
+            callback.assert_not_called()
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_async_mutate_missing_key_raises(self):
+        state = State({"rows": ["a"]})
+
+        with pytest.raises(KeyError, match="not set"):
+            async with state.async_mutate("nope"):
+                pass
 
 
 class TestSyncCallbackThreadAffinity:
