@@ -364,12 +364,16 @@ class FocusManager:
         Notes
         -----
         This temporarily restricts focus navigation to the specified elements.
-        The original element list is preserved and can be restored by passing
-        None or by calling set_elements() again.
+        The original element list is preserved in ``all_focusable`` and is
+        restored by passing None (or by calling set_elements() again).
         """
         if allowed_elements is None:
-            # Clear filter - this would typically be done when restoring
-            # from a saved state after overlay closes
+            # Clear the filter by rebuilding the full cycle from the unfiltered
+            # list. This used to be a bare ``return``, which left the overlay's
+            # restricted cycle in place and contradicted the documented "or None
+            # to clear filter" - callers relying on it silently kept a trapped
+            # focus ring after the overlay closed.
+            self.set_elements(list(self.all_focusable))
             return
 
         # Save currently focused element before filtering
