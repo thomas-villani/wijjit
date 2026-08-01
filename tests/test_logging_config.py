@@ -258,3 +258,47 @@ class TestNoSideEffectsOnImport:
         assert hasattr(logging_config, "get_logger")
         # Module should be importable without errors
         assert logging_config is not None
+
+
+def test_invalid_log_level_falls_back_to_info_and_says_so(tmp_path):
+    """A typo'd WIJJIT_LOG_LEVEL silently became INFO, which looks exactly
+    like the level being ignored - and the point of setting DEBUG is to see
+    more."""
+    import logging
+
+    from wijjit.logging_config import configure_logging
+
+    log_file = tmp_path / "app.log"
+    configure_logging(log_file, level="DEUBG")
+    logging.getLogger("wijjit").handlers[0].flush()
+
+    assert logging.getLogger("wijjit").level == logging.INFO
+    contents = log_file.read_text(encoding="utf-8")
+    assert "Unknown log level" in contents
+    assert "DEUBG" in contents
+
+
+def test_non_level_module_attribute_is_rejected(tmp_path):
+    """``getattr(logging, name)`` returns any uppercase module attribute, so
+    ``BASIC_FORMAT`` used to set the level to a format string."""
+    import logging
+
+    from wijjit.logging_config import configure_logging
+
+    configure_logging(tmp_path / "app.log", level="BASIC_FORMAT")
+    assert logging.getLogger("wijjit").level == logging.INFO
+
+
+def test_valid_levels_are_honoured(tmp_path):
+    import logging
+
+    from wijjit.logging_config import configure_logging
+
+    for name, expected in [
+        ("DEBUG", logging.DEBUG),
+        ("warning", logging.WARNING),
+        ("WARN", logging.WARNING),
+        ("FATAL", logging.CRITICAL),
+    ]:
+        configure_logging(tmp_path / "app.log", level=name)
+        assert logging.getLogger("wijjit").level == expected, name
