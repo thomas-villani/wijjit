@@ -369,7 +369,7 @@ GUIDE_FOOTER = """\
 - `wijjit validate` / `tree` / `render` -- the fastest ground truth.
 - Bundled examples: 74 runnable demos under `examples/`, indexed in
   `examples/README.md` with screenshots in `examples/GALLERY.md`.
-- Full docs: https://thomas-villani.github.io/wijjit/
+- Full docs: https://wijjit.readthedocs.io/en/latest/
 """
 
 

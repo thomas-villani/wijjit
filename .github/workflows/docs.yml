@@ -1,10 +1,13 @@
 name: Docs
 
-# Build the Sphinx documentation and deploy it to GitHub Pages.
+# Build the Sphinx documentation as a check. Publishing is Read the Docs' job
+# (see .readthedocs.yaml); this workflow no longer deploys anywhere.
 #
-# One-time setup: in the repository settings, under Pages, set the source to
-# "GitHub Actions". The `github-pages` environment is created automatically on
-# the first deploy.
+# It is kept rather than deleted because it is the only place the docs are
+# built with `-W` before a merge: ci.yml has no docs job, and Read the Docs
+# builds main and tags *after* the merge, so without this a broken
+# cross-reference would land and only fail once it was too late to catch in
+# review. Running it on pull requests is the whole point.
 
 on:
   push:
@@ -12,19 +15,22 @@ on:
     paths:
       - "docs/**"
       - "src/wijjit/**"
+      - ".readthedocs.yaml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/wijjit/**"
+      - ".readthedocs.yaml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
-# Allow the deploy job to publish to Pages via OIDC.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Serialize Pages deployments; don't cancel an in-progress one.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -37,24 +43,8 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Build Sphinx site
-        # -W turns warnings into errors; the docs build is warning-clean.
+        # -W turns warnings into errors, matching `fail_on_warning: true` in
+        # .readthedocs.yaml so a build that passes here passes there too.
         run: |
           uv sync --extra dev
           uv run sphinx-build -b html -W docs/source docs/build/html
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: docs/build/html
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v5

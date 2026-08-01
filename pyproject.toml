@@ -54,7 +54,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/thomas-villani/wijjit"
-Documentation = "https://thomas-villani.github.io/wijjit/"
+Documentation = "https://wijjit.readthedocs.io/en/latest/"
 Repository = "https://github.com/thomas-villani/wijjit"
 Issues = "https://github.com/thomas-villani/wijjit/issues"
 
