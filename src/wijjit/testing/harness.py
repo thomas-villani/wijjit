@@ -239,6 +239,7 @@ class WijjitHarness:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._orig_input = None
         self._orig_get_size = None
+        self._orig_unicode_mode: str | None = None
         self._started = False
 
         # Errors routed through app._handle_error while the harness drives the
@@ -301,6 +302,7 @@ class WijjitHarness:
                 self._loop.close()
         finally:
             self._restore_terminal_size()
+            self._restore_unicode_mode()
             self._restore_error_handler()
             if self._orig_input is not None:
                 self.app.input_handler = self._orig_input
@@ -897,7 +899,18 @@ class WijjitHarness:
         cfg["ENABLE_MOUSE"] = self._enable_mouse
         # Pin Unicode rendering so snapshots are deterministic across platforms
         # (box-drawing characters would otherwise depend on terminal detection).
-        cfg["UNICODE_SUPPORT"] = True
+        #
+        # Two things were wrong here and cancelled out: the value was ``True``,
+        # which is not one of the ``auto``/``force``/``disable`` modes the config
+        # accepts, and it was assigned *after* ``Wijjit.__init__`` had already
+        # pushed the mode into ``wijjit.terminal.ansi``, so it never took effect
+        # either way. Set the real mode and push it, restoring the previous one
+        # in ``close()`` because the mode is process-global.
+        from wijjit.terminal import ansi
+
+        cfg["UNICODE_SUPPORT"] = "force"
+        self._orig_unicode_mode = ansi._unicode_mode
+        ansi.set_unicode_mode("force")
 
     def _capture_errors(self) -> None:
         """Wrap ``app._handle_error`` so harness-driven errors are recorded.
@@ -934,6 +947,18 @@ class WijjitHarness:
         if self._orig_get_size is not None:
             shutil.get_terminal_size = self._orig_get_size  # type: ignore[assignment]
             self._orig_get_size = None
+
+    def _restore_unicode_mode(self) -> None:
+        """Undo the forced Unicode mode; it is process-global, not per-app."""
+        from wijjit.terminal import ansi
+
+        mode = getattr(self, "_orig_unicode_mode", None)
+        if mode is None:
+            ansi._unicode_mode = None
+            ansi._unicode_support_cache = None
+        else:
+            ansi.set_unicode_mode(mode)
+        self._orig_unicode_mode = None
 
     def _run(self, coro):
         """Run a coroutine on the private loop, suppressing stdout writes."""
