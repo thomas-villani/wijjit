@@ -248,6 +248,21 @@ return render_template_string(TEMPLATE, total=len(items))
 return render_template_string(f"{{% text %}}{len(items)}{{% endtext %}}")
 ```
 
+**State detects reassignment, not mutation.** `state["todos"].append(x)` never
+reaches `State.__setitem__`, so nothing re-renders. Either build the new value
+and assign it, or declare the mutation:
+
+```python
+app.state["todos"] = [*app.state["todos"], item]   # fires
+
+with app.state.mutate("todos") as todos:           # also fires, no copy
+    todos.append(item)
+```
+
+`mutate()` yields the live object and notifies once on exit. It works for any
+value, not just lists and dicts. Use `async with app.state.async_mutate(key)`
+when watchers are `async def` and must finish before you continue.
+
 **Views re-run on every render.** A synchronous view function is called each
 frame, so anything it computes stays live. Async views resolve once -- drive
 those from `state` instead.

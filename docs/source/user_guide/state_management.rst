@@ -21,7 +21,48 @@ In-place mutation and the order that matters
 
 ``State`` detects **reassignment**, not in-place mutation. ``state["todos"].append(x)`` never goes through ``__setitem__`` at all, so no watcher fires and nothing re-renders.
 
-The rule that always works is **build the new container first, then assign**:
+There are two reliable ways to write it. Pick whichever fits the value.
+
+Option 1: declare the mutation with ``state.mutate()``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``State.mutate(key)`` is a context manager that yields the live value and fires change callbacks once, on exit:
+
+.. code-block:: python
+
+    with app.state.mutate("todos") as todos:
+        todos.append(new_todo)
+    # callbacks fire here, exactly once
+
+No copy is made and the stored object is never swapped out, so any reference you were already holding stays valid. Because it does not care what the value *is*, it works for anything - not just lists, dicts and sets, but ``DataFrame``\ s, numpy arrays, and your own classes:
+
+.. code-block:: python
+
+    with app.state.mutate("frame") as df:
+        df.loc[len(df)] = new_row
+
+Group several mutations in one block to notify once:
+
+.. code-block:: python
+
+    with app.state.mutate("todos") as todos:
+        todos.extend(imported)
+        todos.sort(key=lambda t: t.due)
+
+Use ``async with app.state.async_mutate(key)`` when watchers are ``async def`` and you need them to have completed before continuing (the same relationship ``async_batch_update`` has to ``batch_update``).
+
+Three behaviors worth knowing:
+
+* The notification is **unconditional** - ``State`` cannot cheaply diff an arbitrary object, so it does not try. An empty block still notifies. That is deliberate: a redundant notification costs one diffed re-render (an unchanged frame writes no bytes), while a missed one leaves the screen contradicting the state.
+* It **also fires if the block raises**, then re-raises. The object is reachable from state and may be half-mutated, so staying silent would guarantee a stale screen. (This differs from ``batch_update()``, which discards its queued changes on an exception.)
+* Callbacks receive the *same already-mutated object* as both ``old_value`` and ``new_value``. A watcher that diffs the two sees nothing; read the call as "this key changed, re-read it".
+
+Mutating a key that is not set raises ``KeyError`` - assign it first.
+
+Option 2: build the new container first, then assign
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The immutable form stays a good default for small containers, and gives watchers a genuine before/after pair:
 
 .. code-block:: python
 
@@ -40,14 +81,17 @@ The rule that always works is **build the new container first, then assign**:
 
 That copy is a new object, but it is *equal* to the already-mutated original, so it is indistinguishable from a no-op write. There is no way for ``State`` to catch it.
 
-The one escape hatch, if you have already mutated in place, is to assign **the same object** back:
+Recovering from a mutation you already made
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the in-place mutation has already happened and wrapping it in ``mutate()`` is not practical, assign **the same object** back:
 
 .. code-block:: python
 
     app.state["todos"].append(x)
     app.state["todos"] = app.state["todos"]   # fires (and logs a warning)
 
-Assigning the same object back always fires a change (and logs a warning nudging you toward the build-first pattern). Reach for it only to recover from an in-place mutation you cannot easily undo; prefer the immutable form.
+This always fires a change, and logs a warning pointing at the two options above. Reach for it only as a recovery hatch - ``mutate()`` says the same thing without the warning, and says it before the fact.
 
 Common mutation patterns
 ------------------------
