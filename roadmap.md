@@ -428,15 +428,16 @@ diff SGR, once-per-frame size sampling, SplitPanel clamp+weakref).
   ``get_terminal_size()`` once per frame (``event_loop.py``), so an idle app can
   take up to the 0.5s input timeout to reflect a resize. (The mid-frame *tearing*
   half — sampling the size 3x per ``_render`` — was fixed in 2.12.)
-- [ ] **``_OTHER_ANSI_PATTERN`` weaker than ``ansi.py``** (SUSPECTED).
-  ``ansi_adapter.py:21`` uses ``\x1b\[[0-9;?]*[A-Za-z]``, omitting ``<`` /
-  intermediates and restricting the final byte to letters, so ``\x1b[3~`` is not
-  matched and the fallthrough plants a **literal ``\x1b`` Cell** into the buffer.
-  Any ``content_type="ansi"`` content with a ``~``-terminated CSI gets a garbage
-  escape cell. Reuse the correct ECMA-48 ``ANSI_ESCAPE_PATTERN`` from ``ansi.py``.
-- [ ] **DCS sequences pass through ``strip_ansi``** (SUSPECTED, minor).
-  ``\x1bP…\x1b\\`` (Sixel) matches neither branch of ``ANSI_ESCAPE_PATTERN`` (needs
-  ``\x1b[`` or ``\x1b]``), so it counts as visible text.
+- [x] **``_OTHER_ANSI_PATTERN`` weaker than ``ansi.py``**. CONFIRMED and fixed
+  2026-08-01. ``ansi_adapter.py`` used ``\x1b\[[0-9;?]*[A-Za-z]``, omitting
+  intermediate bytes and restricting the final byte to letters, so ``\x1b[3~``
+  matched nothing and the fallthrough planted a **literal ``\x1b`` Cell** into
+  the buffer. Both paths now use the full ECMA-48 CSI grammar; SGR still wins
+  by being tried first.
+- [x] **DCS sequences pass through ``strip_ansi``**. CONFIRMED and fixed
+  2026-08-01. ``\x1bP…\x1b\\`` (Sixel) matched neither branch of
+  ``ANSI_ESCAPE_PATTERN``, so a whole image counted as visible text. DCS/SOS/PM/
+  APC added as their own alternative.
 - [ ] **Legacy "normal" mouse mode + per-byte multi-byte input** (``mouse.py``,
   ``input.py``). SGR is the default and works; the legacy path needs bypassing
   prompt_toolkit's UTF-8 decode. Architectural, low value — migrated from
@@ -501,16 +502,22 @@ release-blocking — pull forward opportunistically.
 - [ ] **Core:** ``on_key`` registry overwrites handlers sharing a key; ``State``
   has no locking around callback lists despite documented multi-thread access;
   ``batch_update`` drops all notifications on exception after applying writes;
-  ``dispatch_async`` lacks per-handler exception isolation; ``set_focus_filter(None)``
-  is a no-op contradicting its docstring; non-interactive overlays
-  (tooltips/notifications at TOOLTIP z-index) can swallow clicks to base UI.
-- [ ] **A template with two top-level sibling elements silently drops all but
+  ``dispatch_async`` lacks per-handler exception isolation; non-interactive
+  overlays (tooltips/notifications at TOOLTIP z-index) can swallow clicks to
+  base UI. (``set_focus_filter(None)`` being a no-op that contradicted its
+  docstring was fixed 2026-08-01 — it now rebuilds the cycle from
+  ``all_focusable``.)
+- [~] **A template with two top-level sibling elements silently drops all but
   the first.** ``{% textinput id="a" %}{% textinput id="b" %}`` at the root of a
-  template renders only ``a`` — the implicit root frame takes a single child, so
-  ``b`` never reaches ``positioned_elements`` and no warning is logged. Wrapping
-  them in a ``{% vstack %}`` works, which is the idiomatic shape anyway, but the
-  failure mode is invisible. Either wrap multiple roots implicitly or make
-  ``wijjit validate`` flag it. Found 2026-07-31 while writing the Tab tests.
+  template renders only ``a`` — ``RenderContext.add_vnode`` has nowhere to put
+  the second once ``vnode_root`` is set, so it is dropped with no warning.
+  Found 2026-07-31 while writing the Tab tests. **``wijjit validate`` flags it
+  as of 2026-08-01** (``multiple-root-elements``, statically — by render time
+  the extras are not in the tree to notice; ``{% if %}`` branches count as
+  alternatives, and a top-level ``{% for %}`` counts as the same defect).
+  Still open: whether the renderer should *implicitly wrap* multiple roots in a
+  ``{% vstack %}`` rather than only warn. Deferred because it changes render
+  output for any template relying on the drop, so it needs a golden sweep.
 - [ ] **Layout:** frame inner dims can go negative (missing ``max(0,…)``);
   ``space-around`` mis-distributes remainder + double-counts ``column_gap``;
   split-panel ``_clamp_ratio`` vs ``_calculate_sizes`` disagreement (resize
@@ -525,30 +532,50 @@ release-blocking — pull forward opportunistically.
   negative; ImageView broad ``except`` + brittle duck-typing.
 - [ ] **Styling:** ``font-weight:normal`` / ``text-decoration:none`` never turn
   attributes OFF; ``theme.set_style`` doesn't invalidate the resolver cache (stale
-  styles); ``_infer_class_from_element`` has stale keys (``radiobutton``,
-  ``listview``→``list``) so ListView base styling isn't applied; no JSON theme
-  loader despite CLAUDE.md mentioning JSON.
-- [ ] **Config/API:** invalid ``WIJJIT_LOG_LEVEL`` silently → INFO; CLI
+  styles); no JSON theme loader despite CLAUDE.md mentioning JSON.
+  (``_infer_class_from_element`` stale keys fixed 2026-08-01. Auditing the whole
+  table against the default theme found the problem was wider than the two
+  recorded here: ``ListView``→``list``, plus ``CodeEditor``, ``MenuElement``,
+  ``ModalElement``, ``NotificationElement`` and ``ProgressBar`` all inferred a
+  key no theme defines, so they got *no* base styling at all. ``radiobutton``
+  named a class that does not exist. The regression test asserts the property —
+  no element may infer away from a key the theme defines under its own name —
+  rather than the table.)
+- [x] **Config/API:** invalid ``WIJJIT_LOG_LEVEL`` silently → INFO; CLI
   ``--context`` / ``context=`` silently ignored in ``.py`` app mode for
-  ``validate`` / ``tree``.
-- [ ] **Devtools / linter polish** (found while verifying the claims in review
+  ``validate`` / ``tree``. Both fixed 2026-08-01. The log-level lookup went
+  through ``getattr(logging, name)``, which also accepted any uppercase module
+  attribute (``BASIC_FORMAT`` set the level to a format string); it now resolves
+  through an explicit table and reports an unknown name through the logger, so
+  the warning lands in the log file rather than on the terminal a TUI is about
+  to paint.
+- [x] **Devtools / linter polish** (found while verifying the claims in review
   3.6; these are now the tooling the README *leads* with, so the bar is higher
-  than the severity suggests):
+  than the severity suggests). **All three landed 2026-08-01**, together with
+  the two false-positive classes in issue #59 and a ratchet test requiring every
+  bundled example to validate clean. That ratchet immediately found a third
+  instance of the Group E ``expanded=`` gap (``tree_demo`` as well as
+  ``filesystem_browser``); both are recorded in ``KNOWN_FINDINGS`` with a
+  companion test that fails if the finding ever stops reproducing, so the
+  exemption cannot outlive the bug.
 
-  - **Duplicate findings inside loops.** One bad attribute in a ``{% for %}``
-    over N items reports N times — the check runs per unrolled VNode, and the
-    findings are never deduped. Verified: a single ``colour=`` typo in a
-    2-iteration loop emits two identical ``unknown-attribute`` warnings. Dedupe
-    on (code, element type, attribute) before rendering the report.
-  - **No line numbers on VNode-derived findings.** ``unknown-attribute`` and
+  - [x] **Duplicate findings inside loops.** One bad attribute in a ``{% for %}``
+    over N items reported N times — the check runs per unrolled VNode, and the
+    findings were never deduped. Findings are now deduped before the report is
+    rendered.
+  - [x] **No line numbers on VNode-derived findings.** ``unknown-attribute`` and
     ``unknown-element-type`` come from the VNode tree, which has lost source
-    positions, so they print as ``file: WARNING[...]`` while AST-derived findings
-    (e.g. ``unkeyed-loop-element``) correctly print ``file:4: WARNING[...]``.
-    That gap is the main thing blocking a useful editor/LSP integration.
-  - **``--context`` with inline JSON raises a raw traceback.** The flag takes a
-    *path*; passing ``--context '{"rows":[1,2]}'`` dies in ``_load_context`` with
-    an unhandled exception instead of a message saying it wants a file. Easy
-    mistake to make, and an ugly failure for the LLM-facing entry point.
+    positions, so they printed as ``file: WARNING[...]`` while AST-derived
+    findings (e.g. ``unkeyed-loop-element``) correctly printed
+    ``file:4: WARNING[...]``. The line is now recovered from the template AST
+    (where the attribute is still a literal keyword) and matched back by
+    (element type, attribute). Tags that build more than one node kind
+    (``frame``, ``radiogroup``) stay unmapped rather than guess, and keep the
+    old no-line behavior.
+  - [x] **``--context`` with inline JSON raises a raw traceback.** Actually
+    caught, but reported as ``OSError: [Errno 22] Invalid argument`` — which
+    names neither the flag nor the fact that it wanted a filename. Inline JSON,
+    a missing file, and malformed JSON now each get their own message.
 - [ ] **Lower-priority semver/API notes** (from the 0.1.0 release audit — "fix
   opportunistically, else document"): make params after the first keyword-only on
   ``Wijjit.__init__`` / ``WijjitHarness.__init__``; unify the state-init kwarg name
@@ -556,9 +583,12 @@ release-blocking — pull forward opportunistically.
   ``Wijjit(**config_overrides)`` silently uppercases typo'd kwargs into config
   keys; two classes named ``MouseEvent`` (core wrapper vs terminal, the core one
   unexported though MOUSE handlers receive it); ``vstack`` supports only
-  ``spacing`` while ``hstack`` calls ``spacing`` "legacy" (align docs);
-  ``harness.py`` sets ``UNICODE_SUPPORT = True`` (invalid for the
-  ``auto/force/disable`` contract, and post-``__init__`` so it no-ops — a bug).
+  ``spacing`` while ``hstack`` calls ``spacing`` "legacy" (align docs).
+  (``harness.py`` setting ``UNICODE_SUPPORT = True`` — invalid for the
+  ``auto/force/disable`` contract, and post-``__init__`` so it no-opped — fixed
+  2026-08-01: set to ``"force"`` and actually pushed to ``terminal.ansi``, with
+  ``close()`` restoring the previous mode since it is process-global. Harness
+  snapshots had been depending on terminal detection all along.)
 
 ## 0.2+ (new scope, post-0.1)
 
@@ -631,14 +661,13 @@ Clearly new functionality or substantial subsystems. Worth doing, not now.
   second-class. Ultimately these two input paths should share a common core
   rather than duplicate; the seam is worth a design pass. The known gaps, in
   rough order of leverage:
-  - **Arrow-key focus navigation between elements** (cheap, high-value). Today
-    ``InlineApp._handle_input`` only forwards arrows to the *focused* element's
-    ``handle_key`` and does Tab/Shift+Tab focus movement; it lacks the event
-    loop's "element didn't consume the arrow -> ``focus_previous``/``focus_next``
-    on Up-Left / Down-Right" fallback (``event_loop.py`` ~L803-814 and the
-    focus-trap path ~L697). Result: on a column of checkboxes/buttons only Tab
-    moves focus. This is ~10 self-contained lines, no API change, and could be
-    pulled forward into a 0.1.x point release independent of the larger merge.
+  - [x] **Arrow-key focus navigation between elements** — **already landed**;
+    this entry was stale (noticed 2026-08-01 while scoping 0.1.1).
+    ``InlineApp._arrow_focus_move`` / ``_arrow_focus_when_unfocused``
+    (``inline/app.py``) implement both the event loop's "element didn't consume
+    the arrow -> ``focus_previous``/``focus_next`` on Up-Left / Down-Right"
+    fallback and the "no focus yet, an arrow enters the ring" case. The rest of
+    the convergence items below are still open.
   - **No action / handler dispatch.** ``InlineApp`` has no ``HandlerRegistry``,
     so ``@app.on_action`` / ``@app.on_key`` / Enter-to-submit don't exist and a
     RadioGroup's ``action`` is dropped. This is by design today (the inline
