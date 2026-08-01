@@ -46,20 +46,20 @@ def show_delete_dialog(event):
     """Show delete confirmation dialog."""
     if not state["files"]:
         state["message"] = "No files to delete"
-        state["_refresh"] = True
         return
 
     def on_confirm():
         """Handle confirmed deletion."""
         if state["files"]:
-            deleted = state["files"].pop()
+            # State detects reassignment, not mutation: a bare
+            # state["files"].pop() would never re-render.
+            with state.mutate("files") as files:
+                deleted = files.pop()
             state["message"] = f"Deleted: {deleted}"
-        state["_refresh"] = True
 
     def on_cancel():
         """Handle cancelled deletion."""
         state["message"] = "Deletion cancelled"
-        state["_refresh"] = True
 
     # Create and show confirm dialog
     dialog = ConfirmDialog(
@@ -81,7 +81,8 @@ def show_delete_dialog(event):
     # Set close callback
     def close_dialog():
         app.overlay_manager.pop(overlay)
-        state["_refresh"] = True
+        # Popping an overlay changes no state, so ask for the repaint directly.
+        app.refresh()
 
     dialog.close_callback = close_dialog
 
