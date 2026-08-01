@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`State.mutate()` for declared in-place mutation.** `State` detects
+  reassignment, not mutation: `state["todos"].append(x)` never reaches
+  `__setitem__`, so nothing re-renders. Until now the only correct idiom was to
+  build a new container and assign it, which copies and which fails *silently*
+  in the wrong order (mutate-then-copy produces a value-equal object that is
+  indistinguishable from a no-op write). `with state.mutate(key) as value:`
+  yields the live object and notifies once on exit - no copy, no swap, so
+  references you already hold stay valid. It does not care what the value is,
+  so it covers `DataFrame`s, numpy arrays and custom classes as well as lists
+  and dicts, and several mutations can be grouped in one block to notify once.
+  `async with state.async_mutate(key)` is the awaiting counterpart, standing to
+  `mutate` as `async_batch_update` does to `batch_update`. Three behaviours are
+  deliberate: the notification is **unconditional** (`State` cannot cheaply diff
+  an arbitrary object, and a redundant notification costs one diffed re-render
+  while a missed one leaves the screen contradicting the state); it **also
+  fires if the block raises**, since a half-mutated object is still reachable
+  from state; and callbacks receive the same already-mutated object as both
+  `old_value` and `new_value`, so a watcher should read the call as "this key
+  changed, re-read it" rather than diff the pair.
+- **`wijjit validate` flags a template with multiple top-level elements.** Only
+  the first root renders - `RenderContext.add_vnode` has nowhere to put a second
+  one once a root exists, and says nothing - so `{% textinput id="a" %}{%
+  textinput id="b" %}` silently rendered only `a`. This cannot be caught at
+  render time, because by then the extras are not in the tree to notice, so it
+  is a static check. `{% if %}` branches are treated as alternatives rather than
+  siblings, and a top-level `{% for %}` is reported as the same defect, since
+  every iteration past the first is dropped.
+- **`CodeEditor` accepts `bind`.** The `{% codeeditor %}` tag always emitted a
+  `bind` prop, but the constructor never took one - unlike the `TextArea` it
+  extends - so it was dropped at construction and only applied on a later
+  update.
+
+### Fixed
+- **`wijjit validate` no longer flags the framework's own tags** (#59). Bare
+  `{% codeeditor %}` and `{% datagrid %}` produced `unknown-attribute`
+  warnings, so two bundled demos failed their own linter and a user writing a
+  correct template got a warning they could neither silence nor act on. Beyond
+  the missing `CodeEditor.bind` above, the check itself modelled the wrong
+  thing: it consulted only `__init__`, while the reconciler also applies props
+  by `setattr` on update whenever the element carries an attribute of that name
+  - which is how `DataGrid`'s `width_spec`/`height_spec` reach it. The check now
+  accepts anything reachable by setattr, read statically from the AST rather
+  than by instantiating an element. A genuine typo still matches no attribute.
+  A new ratchet test requires every bundled example to validate clean.
+- **One typo in a loop is reported once, not once per iteration.** The tree
+  checks run per VNode and a `{% for %}` is fully unrolled by then, so a single
+  bad attribute in a loop over three items produced three identical warnings.
+- **Attribute findings carry a line number.** `unknown-attribute` and
+  `unknown-element-type` printed `file: WARNING[...]` while AST-derived
+  findings printed `file:4: WARNING[...]`, which was the main thing blocking a
+  useful editor/LSP integration. The VNode tree has lost source positions, so
+  the line is recovered from the template AST and matched back by (element
+  type, attribute).
+- **`--context` says what is wrong with it.** The flag takes a path to a JSON
+  file; passing the JSON itself failed with `OSError: [Errno 22] Invalid
+  argument`, which names neither the flag nor the fact that it wanted a
+  filename. Inline JSON, a missing file, and malformed JSON now each get their
+  own message. `--context` was also accepted and silently ignored for a `.py`
+  app by `validate` and `tree` - an app supplies its own context from its views
+  and state - and now warns instead.
+- **A `~`-terminated CSI planted a literal escape character into the buffer.**
+  `ansi_adapter`'s strip pattern was narrower than `terminal.ansi`'s: no
+  intermediate bytes, and a final byte restricted to letters. So `\x1b[3~`
+  matched nothing, fell through to the literal branch, and became a visible
+  cell in any `content_type="ansi"` content carrying one. Both paths now use the
+  full ECMA-48 CSI grammar.
+- **DCS/Sixel payloads counted as visible text.** `ANSI_ESCAPE_PATTERN` knew
+  only CSI and OSC, so the string-terminated controls - DCS (`ESC P`), SOS, PM
+  and APC - matched neither branch and inflated `visible_length` by their whole
+  payload.
+- **Several elements inferred a theme key their theme does not define**, and so
+  got no base styling at all, silently. `ListView` mapped to `"list"` while
+  every theme spells the key `listview`; the same shape applied to `CodeEditor`,
+  `MenuElement`, `ModalElement`, `NotificationElement` and `ProgressBar`. A
+  `radiobutton` entry named a class that does not exist (it is `Radio`).
+- **`FocusManager.set_focus_filter(None)` now clears the filter.** It is
+  documented as "None to clear filter" but was a bare `return`, so a caller
+  clearing an overlay's focus trap silently kept the trapped ring with the rest
+  of the UI unreachable by Tab.
+- **An unknown `WIJJIT_LOG_LEVEL` is reported instead of quietly becoming
+  INFO.** The level resolved through `getattr(logging, name)`, so a typo'd
+  `DEUBG` became INFO with no indication - which looks exactly like the setting
+  being ignored - and any uppercase module attribute was accepted, so
+  `BASIC_FORMAT` set the level to a format string.
+- **`WijjitHarness` really does pin Unicode now.** It set `UNICODE_SUPPORT =
+  True`, which is not one of the `auto`/`force`/`disable` modes, *and* set it
+  after `Wijjit.__init__` had already pushed the mode into `terminal.ansi` - so
+  it never took effect and harness snapshots quietly depended on terminal
+  detection after all. The mode is process-global, so `close()` now restores the
+  previous one.
+- **`batch_update()` no longer drops the same-object recovery hatch.** Assigning
+  a key back to itself after an in-place mutation (`state["k"] = state["k"]`)
+  fires a change, but inside a batch it was silently discarded: the batch exit
+  only re-fires keys whose old and new values differ, and this hatch supplies
+  the same already-mutated object for both.
+
+### Changed
+- **Docs moved to Read the Docs** (<https://wijjit.readthedocs.io>). The README
+  badge and links, `pyproject`'s Documentation URL, and the footer of the
+  `wijjit llm-help` briefing all point there. The Docs workflow keeps building
+  the site with `-W` as a pull-request check but no longer deploys to GitHub
+  Pages.
+- **Removed the dead `asyncio_mode` key from `pyproject.toml`** (#60).
+  `pytest.ini` exists, so pytest resolves it as *the* config file and ignores
+  `[tool.pytest.ini_options]` entirely - pytest-asyncio has been running in
+  strict mode all along. Strict is kept deliberately: under auto mode an async
+  test missing `@pytest.mark.asyncio` is collected but never awaited, so it
+  neither runs nor fails. Every async test must carry the marker.
+
 ## [0.1.0] - 2026-07-31
 
 ### Added
