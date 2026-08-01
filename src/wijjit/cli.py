@@ -34,10 +34,33 @@ from wijjit.testing.cli import _parse_size, run_render
 
 
 def _load_context(path: Path | None) -> dict[str, Any] | None:
-    """Load a JSON context file, or return None when no path is given."""
+    """Load a JSON context file, or return None when no path is given.
+
+    ``--context`` takes a *path*, but passing the JSON itself is an easy and
+    obvious mistake - and one worth naming precisely, because on Windows an
+    inline object comes back as ``OSError: [Errno 22] Invalid argument`` rather
+    than anything resembling "that is not a filename".
+
+    Raises
+    ------
+    ValueError
+        If the argument looks like inline JSON, names a file that does not
+        exist, is not valid JSON, or does not contain a JSON object.
+    """
     if path is None:
         return None
-    data = json.loads(path.read_text(encoding="utf-8"))
+    text = str(path).strip()
+    if text.startswith(("{", "[")):
+        raise ValueError(
+            f"--context takes a path to a JSON file, not JSON itself "
+            f"(got {text[:40]}...). Write it to a file and pass that path."
+        )
+    if not path.is_file():
+        raise ValueError(f"Context file {path} does not exist.")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Context file {path} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise ValueError(f"Context file {path} must contain a JSON object.")
     return data
@@ -79,9 +102,26 @@ def _cmd_new(args: argparse.Namespace) -> int:
     return 0
 
 
+def _warn_unused_context(args: argparse.Namespace) -> None:
+    """Warn that ``--context`` does nothing for a ``.py`` app.
+
+    App mode builds its context from the app's own views and state, so a context
+    file has nowhere to go. Silently ignoring it looked like the context had
+    been applied and its values simply had no effect.
+    """
+    if args.context is not None and Path(args.file).suffix == ".py":
+        print(
+            f"warning: --context is ignored for {args.file} - it applies to raw "
+            f"template files only. A .py app supplies its own context from its "
+            f"views and state.",
+            file=sys.stderr,
+        )
+
+
 def _cmd_validate(args: argparse.Namespace) -> int:
     from wijjit.devtools import validate_file
 
+    _warn_unused_context(args)
     try:
         report = validate_file(
             args.file,
@@ -106,6 +146,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 def _cmd_tree(args: argparse.Namespace) -> int:
     from wijjit.devtools import build_vnode_tree, render_tree_text, vnode_to_dict
 
+    _warn_unused_context(args)
     try:
         root, rendered = build_vnode_tree(
             args.file,

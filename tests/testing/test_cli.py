@@ -1,6 +1,7 @@
 """Tests for the top-level ``wijjit`` CLI dispatcher."""
 
 import json
+from pathlib import Path
 
 from wijjit.cli import main
 from wijjit.testing.cli import _tokenize_keys
@@ -253,3 +254,71 @@ def go(event):
         main(["render", str(app_file), "--size", "40x8", "--keys", "g,settle:200"]) == 0
     )
     assert "done" in capsys.readouterr().out
+
+
+# -- --context diagnostics ---------------------------------------------------
+
+
+def test_load_context_rejects_inline_json_with_a_useful_message(tmp_path):
+    """``--context`` takes a path. Passing the JSON itself is an easy mistake,
+    and on Windows it surfaced as ``OSError: [Errno 22] Invalid argument`` -
+    which says nothing about filenames."""
+    import pytest
+
+    from wijjit.cli import _load_context
+
+    with pytest.raises(ValueError, match="not JSON itself"):
+        _load_context(Path('{"rows": [1, 2]}'))
+
+
+def test_load_context_reports_a_missing_file(tmp_path):
+    import pytest
+
+    from wijjit.cli import _load_context
+
+    with pytest.raises(ValueError, match="does not exist"):
+        _load_context(tmp_path / "nope.json")
+
+
+def test_load_context_reports_invalid_json(tmp_path):
+    import pytest
+
+    from wijjit.cli import _load_context
+
+    bad = tmp_path / "ctx.json"
+    bad.write_text("{not json", encoding="utf-8")
+    with pytest.raises(ValueError, match="not valid JSON"):
+        _load_context(bad)
+
+
+def test_load_context_reads_a_valid_file(tmp_path):
+    from wijjit.cli import _load_context
+
+    good = tmp_path / "ctx.json"
+    good.write_text('{"rows": [1, 2]}', encoding="utf-8")
+    assert _load_context(good) == {"rows": [1, 2]}
+
+
+def test_context_is_reported_as_ignored_for_a_py_app(tmp_path, capsys):
+    """App mode builds its context from the app's own views and state, so a
+    context file has nowhere to go. Silently ignoring it looked like it had
+    been applied and its values simply had no effect."""
+    import argparse
+
+    from wijjit.cli import _warn_unused_context
+
+    ctx = tmp_path / "ctx.json"
+    ctx.write_text("{}", encoding="utf-8")
+    _warn_unused_context(argparse.Namespace(file="app.py", context=ctx))
+    assert "--context is ignored" in capsys.readouterr().err
+
+
+def test_context_is_not_reported_as_ignored_for_a_template(tmp_path, capsys):
+    import argparse
+
+    from wijjit.cli import _warn_unused_context
+
+    ctx = tmp_path / "ctx.json"
+    ctx.write_text("{}", encoding="utf-8")
+    _warn_unused_context(argparse.Namespace(file="a.wij.j2", context=ctx))
+    assert capsys.readouterr().err == ""
