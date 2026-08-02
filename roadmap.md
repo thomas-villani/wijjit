@@ -530,10 +530,23 @@ release-blocking — pull forward opportunistically.
 - [ ] **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
   ticks/min-max not reserved in auto-height; HeatMap legend ``bar_width`` can go
   negative; ImageView broad ``except`` + brittle duck-typing.
-- [ ] **Styling:** ``font-weight:normal`` / ``text-decoration:none`` never turn
+- [x] **Styling:** ``font-weight:normal`` / ``text-decoration:none`` never turn
   attributes OFF; ``theme.set_style`` doesn't invalidate the resolver cache (stale
   styles); no JSON theme loader despite CLAUDE.md mentioning JSON.
-  (``_infer_class_from_element`` stale keys fixed 2026-08-01. Auditing the whole
+  (First two fixed 2026-08-01. The off-switch turned out to be two bugs, not
+  one: ``css_parser`` never wrote ``False`` for the "off" spellings, *and*
+  ``Style.__bool__`` treated ``Style(bold=False)`` as empty, so a correctly
+  parsed off-switch would still have been skipped by every ``if style:`` guard
+  before reaching the cascade. Fixing either alone changes nothing observable,
+  which is presumably how it survived. ``opacity``/``filter``/``font-style`` had
+  the same gap and were fixed alongside the two recorded here. The resolver
+  cache now watches a ``Theme.revision`` counter that ``set_style`` bumps -
+  a counter rather than callbacks, since themes outlive resolvers.
+  The **JSON theme loader was closed as documentation, not code**: ``THEME_FILE``
+  rejects ``.json`` and there is no reason to add a second theme format, so
+  ``CLAUDE.md`` and the configuration guide were corrected to say CSS-only. If a
+  JSON loader is ever actually wanted it should be filed as a feature.
+  ``_infer_class_from_element`` stale keys fixed 2026-08-01. Auditing the whole
   table against the default theme found the problem was wider than the two
   recorded here: ``ListView``→``list``, plus ``CodeEditor``, ``MenuElement``,
   ``ModalElement``, ``NotificationElement`` and ``ProgressBar`` all inferred a
@@ -584,7 +597,13 @@ release-blocking — pull forward opportunistically.
   keys; two classes named ``MouseEvent`` (core wrapper vs terminal, the core one
   unexported though MOUSE handlers receive it); ``vstack`` supports only
   ``spacing`` while ``hstack`` calls ``spacing`` "legacy" (align docs).
-  (``harness.py`` setting ``UNICODE_SUPPORT = True`` — invalid for the
+  (The typo'd-kwargs item is **done, 2026-08-01**, and deliberately as a warning
+  rather than a raise: setting an unrecognized key stays legal because apps do
+  stash their own config there, so refusing would break a supported use to catch
+  a typo. The warning is queued before ``_configure_logging()`` and emitted
+  after, so it reaches the log file instead of the terminal a TUI is about to
+  draw on. The rest of this entry is still open.
+  ``harness.py`` setting ``UNICODE_SUPPORT = True`` — invalid for the
   ``auto/force/disable`` contract, and post-``__init__`` so it no-opped — fixed
   2026-08-01: set to ``"force"`` and actually pushed to ``terminal.ansi``, with
   ``close()`` restoring the previous mode since it is process-global. Harness
