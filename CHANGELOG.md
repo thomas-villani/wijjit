@@ -41,6 +41,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   update.
 
 ### Fixed
+- **CSS could not turn a boolean attribute off.** `font-weight: bold` set bold,
+  but `font-weight: normal` was a no-op, as were `font-style: normal`,
+  `text-decoration: none`, `filter: none`, and a full `opacity`. Every one of
+  them parsed and then did nothing, so a later rule could never undo an earlier
+  one and the cascade only ever accumulated - the ordinary CSS idiom of
+  overriding an inherited attribute simply did not work. Each now sets the
+  attribute to `False` rather than leaving it `None`.
+
+  The parser fix does nothing on its own, which is the other half: `Style.
+  __bool__` reported a style as empty unless some attribute was *truthy*, so
+  `Style(bold=False)` was falsy and every caller guarding with `if style:`
+  skipped it. A correctly parsed off-switch would have been dropped before it
+  reached the cascade. `__bool__` now asks whether a property is **specified**,
+  not whether it is on: `None` means unspecified, `False` means explicitly off,
+  and only the former is empty. The distinction is documented on the method,
+  since it reads like an oversight otherwise.
+- **A theme restyled in place left the resolver serving stale styles.**
+  `StyleResolver` caches resolved styles keyed by class and state, and had no
+  way to learn its theme had changed underneath it. `Theme.set_style` mutates in
+  place - which is what `STYLE_FILE` and any runtime restyle go through - so an
+  updated style stayed invisible until something else happened to clear the
+  cache. `Theme` now carries a `revision` counter that `set_style` bumps, and
+  the resolver compares it on each resolve. A counter rather than a callback
+  list, because the theme would otherwise need a reference back to every
+  resolver using it and themes outlive resolvers. Assigning to `.styles`
+  directly still bypasses it; `set_style` is the supported path and now says so.
+- **`Wijjit(**kwargs)` silently accepted typo'd config keys.** Keywords are
+  uppercased into config keys unconditionally, so `quite_key=True` set a key
+  nothing reads instead of raising the way a misspelled argument normally does.
+  Unknown keys stay legal - apps do stash their own config there - but are now
+  warned about. The warning is collected before `_configure_logging()` and
+  emitted after, so it lands in the log file rather than on the terminal a TUI
+  is about to draw on.
+- **`THEME_FILE` was documented as accepting JSON.** It does not: a `.json` path
+  is rejected outright, and a JSON theme loader is a roadmap item rather than a
+  feature. `CLAUDE.md` and the configuration guide now describe the code.
 - **`wijjit validate` no longer flags the framework's own tags** (#59). Bare
   `{% codeeditor %}` and `{% datagrid %}` produced `unknown-attribute`
   warnings, so two bundled demos failed their own linter and a user writing a
