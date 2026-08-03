@@ -25,10 +25,11 @@ React model. Do not reintroduce it as one.
 **Target Use Case**: Build rich, interactive CLI tools using familiar web
 patterns instead of procedural positioning code.
 
-**Status**: `0.1.0` shipped to PyPI on 2026-07-31; `0.1.1` is the release in
-preparation (version sourced from `wijjit.__version__`). Core framework is
-complete and stable; ~3900 tests pass. `RELEASE_PLAN.md` is the publish runbook;
-`roadmap.md` is the backlog.
+**Status**: `0.1.1` shipped to PyPI on 2026-08-03 (`0.1.0` on 2026-07-31);
+version is sourced from `wijjit.__version__`. Core framework is complete and
+stable; ~3900 tests pass. `RELEASE_PLAN.md` is the publish runbook (its "Shipped
+so far" log is the per-release record); `roadmap.md` is the backlog, and holds
+the selected `0.2.0` scope.
 
 ## Environment & Tooling
 
