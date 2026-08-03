@@ -8,51 +8,73 @@ on (Trusted Publishing, GitHub environments) is recorded as done in Part 3.
 **Shipped so far:**
 - `0.1.0` - **published to PyPI 2026-07-31**, tagged `v0.1.0`, GitHub Release
   created from the CHANGELOG section.
+- `0.1.1` - **published to PyPI 2026-08-03**, tagged `v0.1.1` (on `005989c`),
+  GitHub Release created from the CHANGELOG section. A correctness and tooling
+  release, no breaking changes: one additive public API (`State.mutate()` /
+  `async_mutate()`), a stricter `wijjit validate`, and a batch of styling,
+  config, ANSI, focus and harness fixes. Kept a *patch* bump rather than a
+  minor: the project is 0.x, and the new API's docstrings already carried
+  `.. versionadded:: 0.1.1`. Gates at tag time: 3861 passed / 40 skipped, all
+  12 CI checks green, Sphinx `-W` clean, `twine check` PASSED. Post-release
+  smoke from the published wheel (import, harness render, `wijjit new` ->
+  `validate` -> `render`, all four project URLs) all OK.
 
-**In preparation: `0.1.1`.** A correctness and tooling release - no breaking
-changes. One additive public API (`State.mutate()` / `async_mutate()`), a
-stricter `wijjit validate`, and a batch of styling, config, ANSI, focus and
-harness fixes. Kept a *patch* bump rather than a minor: the project is 0.x, and
-the docstrings for the new API already carry `.. versionadded:: 0.1.1`.
+**In preparation:** nothing yet. Add the next version here when its CHANGELOG
+section is dated.
 
 ---
 
 ## Part 1 - Per-release checklist
 
-Run this list top to bottom for each version. Status shown is for the release
-currently in preparation (`0.1.1`).
+Run this list top to bottom for each version. **The boxes are deliberately left
+unchecked** - this is a template, not a status board, so do not tick them in
+place. Per-release evidence (counts, run IDs, dates) belongs in the "Shipped so
+far" log above.
 
 ### 1a - Gates (all must be green locally and in CI)
-- [x] `.venv/Scripts/python.exe -m pytest tests/ --ignore=tests/benchmarks`
-      (3861 passed, 40 skipped as of 2026-08-03).
-- [x] `ruff check src/ tests/`, `mypy src/`, `black --check src/ tests/`.
-- [x] Sphinx builds clean with `-W` (`docs/`; same flag CI and Read the Docs use).
-- [x] `uv build` + `uvx twine check dist/*`.
-- [x] Every bundled example validates clean and renders headlessly (ratchet test
+- [ ] `.venv/Scripts/python.exe -m pytest tests/ --ignore=tests/benchmarks`.
+- [ ] `ruff check src/ tests/`, `mypy src/`, `black --check src/ tests/`.
+- [ ] Sphinx builds clean with `-W` (`docs/`; same flag CI and Read the Docs use).
+- [ ] `uv build` + `uvx twine check dist/*`.
+- [ ] Every bundled example validates clean and renders headlessly (ratchet test
       in `tests/examples/`).
 
 ### 1b - Finalize metadata & version (at tag time)
-- [x] `CHANGELOG.md`: rename `[Unreleased]` to `[X.Y.Z]` with the actual release
+- [ ] `CHANGELOG.md`: rename `[Unreleased]` to `[X.Y.Z]` with the actual release
       date, leave an empty `[Unreleased]` stub above it, and add the two link
       refs at the bottom (`[Unreleased]` compare-from the new tag, `[X.Y.Z]`
       compare between tags). The `github-release` job extracts its notes by
       matching the literal `## [X.Y.Z]` heading, so the format is load-bearing.
-- [x] Refresh the version/status claims that are written out in prose:
-      `README.md` "Project Status" and `CLAUDE.md` "Status".
-- [ ] Bump the version. `bump-my-version` (configured in `pyproject.toml`) owns
-      this: `uv run bump-my-version bump patch` rewrites `wijjit.__version__`
-      *and* the tool's own `current_version`, commits, and creates the `vX.Y.Z`
-      tag in one step. Do not hand-edit either. `allow_dirty = false`, so commit
-      the CHANGELOG and prose edits first.
+- [ ] Refresh the version/status claims that are written out in prose. There are
+      **three** surfaces, and the third is the one that gets missed: `README.md`
+      "Project Status", `CLAUDE.md` "Status", and `docs/source/index.rst`
+      (the published landing page - both its "Project Status" prose and the test
+      count in the feature list). `docs/source/conf.py` reads the version
+      dynamically, so it needs nothing.
+- [ ] Bump the version **with the tag suppressed**:
+      `uv run bump-my-version bump patch --no-tag`. It rewrites
+      `wijjit.__version__` *and* the tool's own `current_version`, and commits.
+      Do not hand-edit either. `allow_dirty = false`, so commit the CHANGELOG and
+      prose edits first.
+
+      > **Why `--no-tag`.** The config sets `tag = true`, but the `protect-main`
+      > ruleset permits only merge/rebase and this project rebases - which
+      > rewrites SHAs. A tag created here would point at a release-branch commit
+      > that never lands on `main`. The tag is created in 1e instead, against the
+      > merged SHA.
 
 ### 1c - Docs hosting (Read the Docs)
-- [x] Hosting moved from GitHub Pages to <https://wijjit.readthedocs.io> during
-      0.1.1. `.readthedocs.yaml` builds with `fail_on_warning: true`;
-      `.github/workflows/docs.yml` still builds the site as a PR check but no
-      longer deploys.
+
+Hosting moved from GitHub Pages to <https://wijjit.readthedocs.io> during 0.1.1.
+`.readthedocs.yaml` builds with `fail_on_warning: true`;
+`.github/workflows/docs.yml` still builds the site as a PR check but no longer
+deploys. `/en/latest/` rebuilds from `main` on its own - only the *versioned*
+URL needs the step below.
+
 - [ ] After tagging, activate the new version in the Read the Docs dashboard.
-      **[user action]** Note: `v0.1.0` predates `.readthedocs.yaml` and cannot
-      be built - `0.1.1` is the oldest buildable version.
+      **[user action]** Until then `/en/vX.Y.Z/` 404s. Note: `v0.1.0` predates
+      `.readthedocs.yaml` and cannot be built, so `0.1.1` is the oldest
+      buildable version.
 
 ### 1d - Build & TestPyPI dry-run (optional for a patch)
 - [ ] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`), then
@@ -66,14 +88,31 @@ currently in preparation (`0.1.1`).
       this dry-run is belt-and-braces for a patch release.)
 
 ### 1e - Cut the release
-- [ ] Push the bump commit to `main` **via a PR** - `main` rejects direct pushes.
-- [ ] Push the tag: `git push origin vX.Y.Z`. That triggers `release.yml` ->
-      build (+ install-smoke) -> publish to PyPI via OIDC -> GitHub Release from
-      the CHANGELOG section.
+
+**Order matters here.** The tag is created *after* the merge, against the SHA
+that actually landed on `main` - see the note in 1b.
+
+- [ ] Open a PR from the release branch - `main` rejects direct pushes.
+- [ ] Merge it with **`gh pr merge <n> --rebase --delete-branch`**. Squash is
+      refused: the `protect-main` ruleset sets
+      `allowed_merge_methods = ["merge", "rebase"]`, and it governs even though
+      the repo-level API reports `allow_squash_merge: true`. Read
+      `gh api repos/thomas-villani/wijjit/rulesets/<id>` if this ever changes.
+- [ ] `git checkout main && git pull`, then confirm local and remote agree
+      (`git rev-parse HEAD origin/main`) before tagging anything.
+- [ ] Tag the merged bump commit and push it:
+      `git tag -a vX.Y.Z -m "Release X.Y.Z" <sha> && git push origin vX.Y.Z`.
+      That triggers `release.yml` -> build (+ install-smoke) -> publish to PyPI
+      via OIDC -> GitHub Release from the CHANGELOG section.
 - [ ] **Approve the deployment.** The `pypi` environment has required-reviewer
       protection, so the publish job waits for a human click. **[user action]**
+      The click can happen in the browser at any point while the run is
+      watched, so a run reaching `success` without an explicit handoff is
+      normal - check `gh api repos/.../actions/runs/<id>/approvals` before
+      concluding the gate was bypassed.
 - [ ] Post-release: clean-venv `pip install wijjit` -> import + headless
-      hello-world; confirm the PyPI page renders the README and every project
+      hello-world + `wijjit new` -> `validate` -> `render` (the path a new user
+      hits first); confirm the PyPI page renders the README and every project
       URL (including the Read the Docs link) resolves.
 
 ### Definition of Done
@@ -91,8 +130,10 @@ currently in preparation (`0.1.1`).
 
 The detailed backlog lives in **`roadmap.md`**, which was made the single
 post-0.1.0 backlog on 2026-07-15. Its `0.1.1` bucket is a *pool of candidates*,
-not a release contract: `0.1.1` ships the 8 items checked off there, and the
-rest carry forward. The framework correctness/architecture,
+not a release contract: `0.1.1` shipped the 8 items checked off there, and the
+rest carried forward. `roadmap.md` also holds the selected `0.2.0` scope
+(decided 2026-08-01), which is the authoritative checklist for that release.
+The framework correctness/architecture,
 internal-dedup, MEDIUM/LOW-correctness, and demo-polish items that used to be
 enumerated here (Parts 2a-2d) were migrated there, deduplicated against the
 existing roadmap buckets and the still-open framework-review findings. See in
@@ -136,8 +177,12 @@ Recorded here because Part 1 depends on it and it is invisible from the repo.
       `workflow_dispatch` with `target=pypi` from a branch is refused by the
       environment. `testpypi` additionally allows the `main` **branch**, which
       is what makes the 1d dry-run dispatchable.
-- [x] **Branch protection on `main`** - direct pushes are rejected, so the
-      version-bump commit goes through a PR like any other change.
+- [x] **Branch protection on `main`** - the `protect-main` ruleset rejects
+      direct pushes, so the version-bump commit goes through a PR like any other
+      change. It requires 0 approving reviews but sets
+      `allowed_merge_methods = ["merge", "rebase"]`, which is why 1e rebases and
+      why the tag cannot be created before the merge. The repo-level API's
+      `allow_squash_merge: true` is misleading - the ruleset wins.
 - [x] **Read the Docs project** connected to the repo and building from
       `.readthedocs.yaml`.
 
