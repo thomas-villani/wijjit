@@ -128,6 +128,12 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
 
 ## 0.1.1 — deferred from the 0.1.0 example pass
 
+> **This bucket is a pool of candidates, not the contents of any one release.**
+> `0.1.1` (2026-08-03) shipped the items checked off below; the ~34 still
+> unchecked carry forward and will be pulled into later point releases as use
+> cases demand. Read a `[x]` here as "done and released", not as "scheduled
+> for 0.1.1".
+
 Items surfaced by the manual ``examples/`` walkthrough (06-29) and the earlier
 demo-bug triage (groups A-H). The cross-cutting / crash items were fixed in
 0.1.0; everything below is cosmetic, demo-level, platform-specific, or an
@@ -609,9 +615,209 @@ release-blocking — pull forward opportunistically.
   ``close()`` restoring the previous mode since it is process-global. Harness
   snapshots had been depending on terminal detection all along.)
 
+## 0.2.0 — selected scope (decided 2026-08-01)
+
+Triaged from the ~60 open items above. Scope chosen: **maximal** — workstreams
+A–E all in. Everything not listed here is deferred; see "Explicitly deferred"
+at the end of this section for the reasoning, so a later reader does not have to
+re-derive it.
+
+**This section is the authoritative 0.2.0 checklist.** It *selects from* the
+buckets above rather than replacing them: an item chosen here is deliberately
+restated in short form, while its full root-cause analysis stays where it was
+originally filed. Tick it here when it lands, and tick it there too if you want
+the analysis to stop reading as open — but if the two ever disagree, this
+section wins. The same applies to the 0.2+ design records below.
+
+**Sequencing matters more than usual at this size.** The order below is
+deliberate: the spike that can invalidate the flagship runs *first*, the
+flagship lands *early*, and demo polish is *last* because it is the tail that
+gets cut if the release runs long. Do not start E before B is demonstrably
+working.
+
+### A. Breaking / behavioural — the minor bump is the only cheap window
+
+These are individually small and permanently more expensive after 0.2.0 ships.
+This workstream alone justifies the minor bump.
+
+- [ ] **Keyword-only params** on ``Wijjit.__init__`` and
+  ``WijjitHarness.__init__``. Today ``Wijjit`` takes five positional-or-keyword
+  params (``initial_state``, ``template_dir``, ``enable_mouse``, ``debug``,
+  ``backend``) before ``**config_overrides``. Note ``wijjit-ssh`` already passes
+  ``Wijjit(backend=session.backend)`` by keyword, so it is unaffected — but
+  **check it before landing**, since it is a real downstream consumer.
+- [ ] **Unify the state-init kwarg name** — ``initial_state`` vs
+  ``app_from_template(state=)`` vs ``State(data=)``. Pick one, alias the others
+  for a deprecation cycle.
+- [ ] **Disambiguate the two ``MouseEvent`` classes** (core wrapper vs
+  terminal). The core one is unexported despite being what MOUSE handlers
+  actually receive.
+- [ ] **Align ``vstack``/``hstack`` ``spacing``** — ``vstack`` supports only
+  ``spacing`` while ``hstack`` calls ``spacing`` "legacy".
+- [ ] **Reactive collection wrappers, default on.** ``ReactiveList`` /
+  ``ReactiveDict`` / ``ReactiveSet`` per the design notes in the 0.2+ subsystems
+  section below (subclass the builtins, explicit overrides, wrap recursively at
+  assignment, reuse the ``forced=True`` notify path, gate on
+  ``REACTIVE_COLLECTIONS`` in ``DefaultConfig``). **Decision 2026-08-01: ship it
+  default-on, accepting the identity cost** — CPython refuses ``__class__``
+  reassignment on builtin instances, so ``state["k"] = my_list`` stores a *copy*
+  and ``state["k"] is my_list`` becomes False, detaching outside references.
+  Vue 2 shipped exactly this trade. ``State.mutate()`` stays the documented
+  fallback precisely because it has no such cost. **Document the identity break
+  prominently in the CHANGELOG and the state-management guide** — this is the
+  one change in 0.2.0 that can silently break working 0.1.x code.
+  Retires the ``state["_refresh"] = True`` sentinel in the dialog demos.
+- [ ] **Multiple top-level roots: implicitly wrap in a ``{% vstack %}``.**
+  ``wijjit validate`` flags this statically as of 0.1.1, but the renderer still
+  silently drops all but the first root. Warning is not enough for a
+  hand-written or model-written template. Changes render output for any template
+  relying on the drop, so it needs a golden/snapshot sweep.
+- [ ] **``RUN_SYNC_IN_EXECUTOR`` applies to action handlers.** Route
+  ``Wijjit._dispatch_action`` through the same executor path as the registry.
+  Buttons are the obvious place a user reaches for this setting and it currently
+  has *no effect* on them, so the config reads as broken.
+  ``tests/core/test_executor_dispatch.py`` pins the current behaviour; those
+  expectations flip when this lands.
+- [ ] **Opt-in fire-and-forget dispatch** so a long handler does not delay the
+  next frame. The executor frees the loop *thread*, but
+  ``_process_frame_async`` still awaits the dispatch, so nothing repaints until
+  the handler returns. Changes handler ordering guarantees — hence A, not C.
+- [ ] **Restore an executor demo** once the two above land, showing background
+  work progressing during a blocking handler rather than asserting it in prose.
+
+### B. Flagship — ``wijjit form`` / ``wijjit approve``
+
+The one item on the backlog that is positioning-aligned rather than merely
+useful: the form is a file the *model* writes, lintable before it is run. Full
+design (stdin merging, cancellation semantics, exit codes, the ``gum``/``fzf``
+wedge, why validation is out of scope) is in the 0.2+ subsystems section below —
+it is not restated here.
+
+- [ ] **B0 — TtyBackend spike. This gates the rest of B.** Run it *first*.
+  ``TerminalBackend`` (``terminal/backend.py``) is a real seam with a proven
+  second implementation (``wijjit_ssh.RemoteTerminalBackend``) and ``Wijjit``
+  already accepts ``backend=``, so the plumbing is far less speculative than
+  originally filed. The genuine unknown is narrow: ``create_input_handler`` over
+  ``/dev/tty`` (prompt_toolkit's ``Vt100Input`` takes a file object) and the
+  **Windows console path, which is the real risk** given Windows is the primary
+  dev platform and a CI target. ``get_size`` must use the tty fd, not stdout.
+  **If the Windows path does not work, stop and re-scope 0.2.0 to A + C + D + E
+  rather than shipping a POSIX-only flagship.**
+- [ ] **B1 — ``wijjit form TEMPLATE``** → JSON on stdout, ``--output`` Jinja
+  string over the bound-state dict, piped stdin as template context,
+  ``--stdin-json`` merging (not replacing).
+- [ ] **B2 — ``wijjit approve``** as a built-in template, so ``--print-template``
+  graduates it like any other form. The shorthand verbs must not become a second
+  form model.
+- [ ] **B3 — ``secret=true`` routing.** Fields route to ``--secret-fd N`` /
+  ``--secret-file``, stdout JSON carries ``null``, exit 2 when no sink is given.
+  **Do not make the "secret bypasses the model's context window" claim in any
+  doc, README, or talk until this ships** — ``password=true`` only masks the
+  display, and the failure mode is a silently leaked credential.
+- [ ] **B4 — flag sugar** (``--input NAME``, ``--textarea NAME``, …) defined as
+  desugaring into a template, plus ``--print-template`` to graduate flags → file.
+  Deliberately shallow.
+- [ ] **B5 — acceptance test:** rewrite ``examples/apps/gcommit.py`` (already
+  this exact app, hand-written on ``InlineApp``) as a template plus a two-line
+  shell function.
+
+### C. Correctness the flagship leans on
+
+- [ ] **Keyless elements lose ephemeral state on update** (+ positional frame IDs
+  breaking under ``{% if %}`` layouts). The sharp one for B: a quickly-written or
+  model-written form will not key every field, and cursor/scroll loss mid-form is
+  highly visible. Needs a positional/path cache in ``reconciler.py``.
+- [ ] **Group E — Tree expand-all**, including the ``set_prop("id")`` sweep
+  across Table/Progress/Spinner/Modal/Link/ImageView and the ``expanded=``
+  binding. Two bundled examples currently sit in the validator's
+  ``KNOWN_FINDINGS`` because of this gap; landing it should remove those
+  exemptions and the companion tests that pin them.
+- [ ] **Auto-scroll to new content** — ``listview_demo`` new row lands below the
+  fold; ``logview_demo`` streaming log should tail; ``textarea_demo`` should
+  reveal the end of long lines.
+- [ ] **``DataGrid`` Tab cell navigation** — fix the unconditional ``True``
+  returns at the last/first cell so focus moves on, *then* set ``captures_tab``.
+- [ ] **CodeEditor soft-wrap scroll desync** — renders actual lines while scroll
+  content size counts wrapped lines (``code_editor.py:478,839``). B routes
+  around this today via ``Pager``/``ContentView``; fixing it removes the detour.
+- [ ] **Core MEDIUM/LOW correctness:** ``on_key`` registry overwrites handlers
+  sharing a key; ``State`` has no locking around callback lists despite
+  documented multi-thread access; ``batch_update`` drops all notifications on
+  exception after applying writes; ``dispatch_async`` lacks per-handler
+  exception isolation; non-interactive overlays (TOOLTIP z-index) swallow clicks
+  to base UI.
+
+### D. Input & terminal correctness
+
+- [ ] **Alt+digit / Alt+punctuation / Alt+arrow are unreachable on every
+  platform** — only ``isalpha()`` follow-ups become ``alt+<x>``
+  (``input.py:562``). Drop the gate. While in here, revisit the 50ms ESC
+  follow-up block that puts a latency floor on every standalone Esc
+  (``input.py:552-578`` sync, ``815-841`` async). Overlaps Group G below.
+- [ ] **SIGWINCH-driven resize** — no handler today; resize is polled once per
+  frame, so an idle app can take up to the 0.5s input timeout to reflect one.
+- [ ] **Mixed ``%`` + ``fill`` siblings** (SUSPECTED, never reproduced).
+  **Write the test first**; fix only if it reproduces, otherwise close it as
+  not-a-bug so it stops occupying the backlog.
+
+### E. Cosmetic / demo polish — the cuttable tail
+
+Batch these; none individually justify a release slip. **Cut this workstream
+before cutting anything in A–C.**
+
+- [ ] Modal severity colouring (``alert_dialog_demo`` / ``dialog_showcase``).
+- [ ] ``centered_dialog`` is not vertically centred as claimed.
+- [ ] ``datagrid`` selection indicator overdraws the right border; ``grid``
+  rowspan/colspan cells render without borders.
+- [ ] ``tabbed_panel`` welcome pane overlaps its left/right border;
+  ``radio_demo`` "Shipping method" group intersects the right frame border.
+- [ ] ``status_indicator`` blinking / blink-after-change option.
+- [ ] ``listview`` / ``logview`` demo layout overflow to the right.
+- [ ] ``code_editor_demo`` layout (buttons don't fit, editor escapes the frame).
+- [ ] ``event_patterns_demo`` button row laid out below the viewport.
+- [ ] ``autocomplete`` language toggle leaves the old caret un-erased.
+- [ ] ``spinner_demo`` ellipsis ghosting + emoji clock frame sized with ``len()``
+  (ties into the wide-character work).
+- [ ] ``autocomplete_demo`` — decide whether it should default to
+  ``trigger="auto"`` so it demonstrates what its name promises.
+
+### Explicitly deferred past 0.2.0
+
+Recorded with reasons so this is not re-litigated:
+
+- **Unify the dual frame-render path** — medium-high risk, touches every frame
+  render plus scroll/clip, and nothing in 0.2.0 forces it. The 0.1.0 focus-border
+  fix made pass 1 focus-aware, so the stopgap holds.
+- **Incremental multi-line text repaint** — a measured ~55-60% of render in
+  text-heavy framed views, but realistic forms and dashboards already skip the
+  static text block (the changing widget is a separate, skippable element). It
+  touches the hottest paint path and needs its own flag + verify-mode +
+  byte-identity rigor.
+- **Group C (horizontal child-frame scroll) and Group D (frame overflow / clip
+  clamping)** — user-visible, but architecture-level: intrinsic-width layout
+  under ``overflow_x``, a horizontal scroll manager, and x-clip plumbing through
+  the renderer. Not cosmetic, so not part of E; wants its own design pass.
+- **Internal dedup, dead legacy code, manager-naming nits** — no user-visible
+  value; pull forward opportunistically when already editing the file.
+- **Legacy "normal" mouse mode** — architectural, low value, SGR works.
+- **Selectable text, inline ``{% span %}``, full-screen a panel, InlineApp/
+  full-app convergence** — all large, and none has a demand signal yet. Note B
+  deliberately defaults to the full app + alternate screen, so it does *not*
+  depend on the convergence item.
+- **Group G (Win32 alt/ctrl hint keys)** — needs a real-console repro and may be
+  a prompt_toolkit/Win32 limitation to document rather than patch. D's
+  ``isalpha()`` fix may resolve part of it; re-check afterwards.
+- **The eight new components** (nav bar, command palette, BigText, shiny text,
+  TagEditor, tooltip, prompt element, shell-pipe passthrough) — pick by demand,
+  not by working down a list.
+- **Vim mode, spreadsheet formulas, CSV/Excel/JSON data sources, blueprints,
+  LLM-friendly mode, virtual scrolling, public mocks/test-runner API.**
+
 ## 0.2+ (new scope, post-0.1)
 
 Clearly new functionality or substantial subsystems. Worth doing, not now.
+Items pulled into the 0.2.0 scope above are marked there; the entries below are
+kept as the detailed design record.
 
 ### New components
 - [ ] Navigation bar (tabs-for-views)

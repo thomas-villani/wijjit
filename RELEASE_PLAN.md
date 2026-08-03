@@ -1,109 +1,98 @@
-# Wijjit Release Plan -> PyPI 0.1.0
+# Wijjit Release Runbook
 
-This is the single consolidated release document for `0.1.0`. It merges the
-former `RELEASE_PLAN.md`, `CODE_REVIEW_0.1.0.md`, `API_AUDIT_0.1.0.md`, and the
-root `issues.md`. Everything already completed has been collapsed into the
-**Completed** summary at the bottom; the body tracks only what remains.
+This is the publish runbook. It is **per-release and reusable**: Part 1 is the
+checklist to run for every version, and the one-time external setup it depends
+on (Trusted Publishing, GitHub environments) is recorded as done in Part 3.
+`roadmap.md` owns the backlog; this document owns the act of shipping.
 
-**Goal:** Ship a polished, correct `0.1.0` to PyPI.
+**Shipped so far:**
+- `0.1.0` - **published to PyPI 2026-07-31**, tagged `v0.1.0`, GitHub Release
+  created from the CHANGELOG section.
 
-**Current state:**
-- Version: **`0.1.0`** (single source: `wijjit.__version__`, hatchling dynamic).
-- Tests green (~3700 pass, excl. benchmarks); `ruff check src/` clean;
-  `mypy --strict src/` clean; `uv build` produces sdist + wheel; `twine check`
-  passes. CI (3 OS x Py 3.11-3.13 + lint + coverage) is green.
-- Sphinx docs build clean (0 warnings). Hosting: **GitHub Pages**.
-- All bundled examples load and render without crashes; remaining demo issues are
-  cosmetic/platform/architectural and deferred to 0.1.1 (see Part 2).
-
-The remaining work is almost entirely the **external, user-gated publish steps**
-(Trusted Publishing setup, enabling Pages, a TestPyPI dry-run, tagging) plus a
-final CHANGELOG date. See Part 1.
+**In preparation: `0.1.1`.** A correctness and tooling release - no breaking
+changes. One additive public API (`State.mutate()` / `async_mutate()`), a
+stricter `wijjit validate`, and a batch of styling, config, ANSI, focus and
+harness fixes. Kept a *patch* bump rather than a minor: the project is 0.x, and
+the docstrings for the new API already carry `.. versionadded:: 0.1.1`.
 
 ---
 
-## Part 1 - Remaining steps to ship 0.1.0
+## Part 1 - Per-release checklist
 
-### 1a - Finalize metadata & version (at tag time)
-- [x] `CHANGELOG.md`: set the `[0.1.0]` date to the actual release date
-      (`2026-07-31`); keep an empty `[Unreleased]` stub.
+Run this list top to bottom for each version. Status shown is for the release
+currently in preparation (`0.1.1`).
 
-### 1b - Docs hosting (GitHub Pages)
-- [x] Enable Pages in repo settings (Source: GitHub Actions). **[user action]**
-- [x] Verify the published site builds and loads before the URL ships in PyPI
-      metadata.
-      (The `.github/workflows/docs.yml` build->upload->deploy workflow is in
-      place and the `Documentation` project URL already points at the Pages site.)
+### 1a - Gates (all must be green locally and in CI)
+- [x] `.venv/Scripts/python.exe -m pytest tests/ --ignore=tests/benchmarks`
+      (3861 passed, 40 skipped as of 2026-08-03).
+- [x] `ruff check src/ tests/`, `mypy src/`, `black --check src/ tests/`.
+- [x] Sphinx builds clean with `-W` (`docs/`; same flag CI and Read the Docs use).
+- [x] `uv build` + `uvx twine check dist/*`.
+- [x] Every bundled example validates clean and renders headlessly (ratchet test
+      in `tests/examples/`).
 
-### 1c - Release pipeline hardening
-- [x] Add required-reviewer protection to the `pypi` GitHub environment so a tag
-      push can't auto-publish without a human gate. (Reviewer:
-      `thomas-villani`. The `release.yml` build job already install-smoke-tests
-      the wheel in a clean venv before any publish.)
-- [x] Deployment branch policies: `pypi` accepts the `v*` **tag** pattern only,
-      so the real publish can only ever run from a release tag - a
-      `workflow_dispatch` with `target=pypi` from a branch is refused by the
-      environment. `testpypi` additionally allows the `main` **branch**, which
-      is what makes the 1f dry-run dispatchable.
+### 1b - Finalize metadata & version (at tag time)
+- [x] `CHANGELOG.md`: rename `[Unreleased]` to `[X.Y.Z]` with the actual release
+      date, leave an empty `[Unreleased]` stub above it, and add the two link
+      refs at the bottom (`[Unreleased]` compare-from the new tag, `[X.Y.Z]`
+      compare between tags). The `github-release` job extracts its notes by
+      matching the literal `## [X.Y.Z]` heading, so the format is load-bearing.
+- [x] Refresh the version/status claims that are written out in prose:
+      `README.md` "Project Status" and `CLAUDE.md` "Status".
+- [ ] Bump the version. `bump-my-version` (configured in `pyproject.toml`) owns
+      this: `uv run bump-my-version bump patch` rewrites `wijjit.__version__`
+      *and* the tool's own `current_version`, commits, and creates the `vX.Y.Z`
+      tag in one step. Do not hand-edit either. `allow_dirty = false`, so commit
+      the CHANGELOG and prose edits first.
 
-### 1d - Community health & polish
-- [x] Document the `pyperclip` Linux behavior (system clipboard needs xclip/xsel;
-      otherwise falls back to an internal clipboard) in README/docs.
+### 1c - Docs hosting (Read the Docs)
+- [x] Hosting moved from GitHub Pages to <https://wijjit.readthedocs.io> during
+      0.1.1. `.readthedocs.yaml` builds with `fail_on_warning: true`;
+      `.github/workflows/docs.yml` still builds the site as a PR check but no
+      longer deploys.
+- [ ] After tagging, activate the new version in the Read the Docs dashboard.
+      **[user action]** Note: `v0.1.0` predates `.readthedocs.yaml` and cannot
+      be built - `0.1.1` is the oldest buildable version.
 
-### 1e - Trusted Publishing external setup (one-time) **[user actions]**
-- [x] PyPI: register a pending Trusted Publisher - repo `thomas-villani/wijjit`,
-      workflow `release.yml`, environment `pypi`.
-- [x] TestPyPI: same, environment `testpypi`. (Neither `pypi.org/project/wijjit`
-      nor `test.pypi.org/project/wijjit` exists yet, so both sides must be
-      registered as *pending* publishers - they convert to project-scoped
-      publishers on first successful upload.)
-- [x] Create GitHub Actions environments named `pypi` and `testpypi`.
+### 1d - Build & TestPyPI dry-run (optional for a patch)
+- [ ] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`), then
+      install from TestPyPI into a clean venv and smoke-test (import,
+      `wijjit --version`, `wijjit new` -> `validate --render` -> `render`,
+      `llm-help`). A TestPyPI version cannot be re-uploaded, so a retry needs a
+      local `.devN`.
+      (Done for 0.1.0 on 2026-07-31, run `30652654671` - build 19s, publish 15s,
+      both artifacts up, all smoke steps OK. The `release.yml` build job also
+      install-smoke-tests the wheel in a clean venv before *any* publish, so
+      this dry-run is belt-and-braces for a patch release.)
 
-### 1f - Build & TestPyPI dry-run
-- [x] Local: `uv build` + `uvx twine check dist/*`.
-- [x] Trigger `release.yml` via `workflow_dispatch` (`target=testpypi`); then in a
-      clean venv install from TestPyPI and smoke-test (import + a headless
-      example). Note: a TestPyPI version cannot be re-uploaded - bump a local
-      `.devN` if a retry is needed.
-      (Done 2026-07-31, run `30652654671`: build 19s, publish 15s, both
-      artifacts up. Reinstalled from TestPyPI into a clean 3.13 venv - import,
-      `WijjitHarness`, `wijjit --version`, `wijjit new` -> `validate --render`
-      -> `render`, and `llm-help` all OK. Because 0.1.0 is now taken on
-      TestPyPI, any further dry-run needs a `.devN`; the real PyPI upload is
-      unaffected.)
-
-### 1g - Repo hygiene (before tagging)
-- [x] Delete the scratch file `todo-release.md` (0.1.1 example ideas) before
-      tagging.
-
-### 1h - Cut the release
-- [ ] Commit the version bump on `main`, `git tag v0.1.0`, `git push origin
-      v0.1.0`. The tag triggers `release.yml` -> build (+ install-smoke) ->
-      publish to PyPI via OIDC -> GitHub Release from the CHANGELOG section.
-      Note: `wijjit.__version__` is *already* `0.1.0`, so this first release is
-      tagged by hand. `bump-my-version` (configured in `pyproject.toml`) owns
-      subsequent bumps - `uv run bump-my-version bump patch` rewrites
-      `__init__.py`, commits, and creates the `vX.Y.Z` tag in one step.
+### 1e - Cut the release
+- [ ] Push the bump commit to `main` **via a PR** - `main` rejects direct pushes.
+- [ ] Push the tag: `git push origin vX.Y.Z`. That triggers `release.yml` ->
+      build (+ install-smoke) -> publish to PyPI via OIDC -> GitHub Release from
+      the CHANGELOG section.
+- [ ] **Approve the deployment.** The `pypi` environment has required-reviewer
+      protection, so the publish job waits for a human click. **[user action]**
 - [ ] Post-release: clean-venv `pip install wijjit` -> import + headless
-      hello-world; confirm the PyPI page renders the README and all project URLs
-      (incl. the Pages docs URL) resolve.
+      hello-world; confirm the PyPI page renders the README and every project
+      URL (including the Read the Docs link) resolves.
 
-### Definition of Done for 0.1.0
-1. All examples run without crashes; open bugs closed or explicitly deferred to
-   0.1.1 (Part 2).
-2. CI fully green (tests + ruff + mypy) on all matrix combos.
-3. Docs build cleanly, deploy to GitHub Pages, and cover the getting-started path
-   + API reference; the `Documentation` URL resolves.
-4. `pip install wijjit==0.1.0` works on Linux/macOS/Windows, Py 3.11-3.13.
-5. Tagged `v0.1.0`, CHANGELOG finalized, GitHub Release published; community
-   health files + README badges in place.
+### Definition of Done
+1. All gates in 1a green, on every CI matrix combo (3 OS x Py 3.11-3.13).
+2. CHANGELOG section dated and complete; no work landed since the last tag is
+   missing from it.
+3. Docs build cleanly and the `Documentation` URL resolves to the new version.
+4. `pip install wijjit==X.Y.Z` works on Linux/macOS/Windows, Py 3.11-3.13.
+5. Tagged `vX.Y.Z`, GitHub Release published, roadmap reconciled against what
+   actually shipped.
 
 ---
 
-## Part 2 - Deferred to 0.1.1
+## Part 2 - Where the backlog lives
 
-The detailed 0.1.1 backlog now lives in **`roadmap.md`**, which was made the
-single post-0.1.0 backlog on 2026-07-15. The framework correctness/architecture,
+The detailed backlog lives in **`roadmap.md`**, which was made the single
+post-0.1.0 backlog on 2026-07-15. Its `0.1.1` bucket is a *pool of candidates*,
+not a release contract: `0.1.1` ships the 8 items checked off there, and the
+rest carry forward. The framework correctness/architecture,
 internal-dedup, MEDIUM/LOW-correctness, and demo-polish items that used to be
 enumerated here (Parts 2a-2d) were migrated there, deduplicated against the
 existing roadmap buckets and the still-open framework-review findings. See in
@@ -127,6 +116,30 @@ existing roadmap buckets and the still-open framework-review findings. See in
 
 This document is now the release *runbook* (Part 1); `roadmap.md` owns the
 backlog.
+
+---
+
+## Part 3 - One-time external setup (done; do not repeat)
+
+Recorded here because Part 1 depends on it and it is invisible from the repo.
+
+- [x] **PyPI + TestPyPI Trusted Publishers** - repo `thomas-villani/wijjit`,
+      workflow `release.yml`, environments `pypi` / `testpypi`. Both were
+      registered as *pending* publishers (neither project existed yet) and
+      converted to project-scoped publishers on first successful upload. No API
+      tokens are stored in the repository; publishing is OIDC.
+- [x] **GitHub Actions environments `pypi` and `testpypi`.**
+- [x] **Required-reviewer protection on `pypi`** (reviewer: `thomas-villani`),
+      so a tag push cannot auto-publish without a human gate.
+- [x] **Deployment branch policies** - `pypi` accepts the `v*` **tag** pattern
+      only, so a real publish can only ever run from a release tag; a
+      `workflow_dispatch` with `target=pypi` from a branch is refused by the
+      environment. `testpypi` additionally allows the `main` **branch**, which
+      is what makes the 1d dry-run dispatchable.
+- [x] **Branch protection on `main`** - direct pushes are rejected, so the
+      version-bump commit goes through a PR like any other change.
+- [x] **Read the Docs project** connected to the repo and building from
+      `.readthedocs.yaml`.
 
 ---
 

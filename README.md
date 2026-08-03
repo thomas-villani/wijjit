@@ -622,10 +622,11 @@ deterministic across CI runners. See the
 
 ## Project Status
 
-Wijjit `0.1.0` is the first public release. The core framework is stable and
-feature-complete for this milestone: the element, layout, event, and rendering
-pipelines are all implemented and covered by roughly 3,800 tests running on
-Linux, macOS, and Windows across Python 3.11–3.13.
+Wijjit `0.1.1` is a correctness and tooling release on top of the first public
+release, `0.1.0`. The core framework is stable and feature-complete for this
+milestone: the element, layout, event, and rendering pipelines are all
+implemented and covered by roughly 3,900 tests running on Linux, macOS, and
+Windows across Python 3.11–3.13.
 
 See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG.md) for what shipped and
 [`roadmap.md`](https://github.com/thomas-villani/wijjit/blob/main/roadmap.md) for what's next.
@@ -635,11 +636,13 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 - **No virtual scrolling.** Every row of a `Table`, `ListView`, or `Tree` is
   laid out on each render. A few thousand rows is comfortable; a hundred
   thousand is not — page or filter large datasets before rendering them.
-- **Wide characters are column-correct on the standard text path only.** Text
-  rendered through templates and frames handles CJK/emoji/decomposed accents
-  at their true width, but elements that paint cells directly (`TextArea`,
-  `Tree`, `ListView`, and pre-rendered ANSI content) can still misalign wide
-  glyphs. Tracked for 0.1.1.
+- **Wide characters are column-correct everywhere except two narrow paths.**
+  Element painting all goes through the wide-aware `PaintContext` write APIs, so
+  CJK/emoji/decomposed accents render at their true width. The exceptions are
+  *pre-rendered* ANSI content (`content_type="ansi"`, e.g. a Rich-rendered
+  table), which still maps one code point per cell, and `TextArea`'s
+  `wrap_mode="none"` horizontal scroll, which still slices by character rather
+  than by display column.
 - **Third-party elements are leaf-only.** The plugin seam registers self-closing
   and simple-body widgets; custom *containers* (which need layout-tree and
   validator integration) are deferred.
@@ -649,7 +652,7 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
   `@app.on_action` handlers (what buttons fire) are invoked inline, so the
   setting has no effect on them. Either way the event loop awaits the handler
   before the next repaint, so a long action still holds the screen. Tracked for
-  0.1.1.
+  0.2.0.
 - **Some Windows alt-key combinations** are not delivered by the underlying
   terminal input layer.
 
@@ -662,6 +665,17 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 - **`tests/`** — a large test suite that doubles as usage documentation
 
 Build the docs locally with `cd docs && make html`.
+
+## Related projects
+
+- **[wijjit-ssh](https://github.com/thomas-villani/wijjit-ssh)**
+  ([PyPI](https://pypi.org/project/wijjit-ssh/)) — serve Wijjit apps over SSH.
+  Wijjit draws the UI, `asyncssh` handles the transport and PTY, and every
+  connection gets its own live app instance. It plugs into the
+  `wijjit.terminal.backend.TerminalBackend` seam in this package, so an app
+  written against Wijjit runs remotely unchanged:
+  `Wijjit(backend=session.backend)`. Early, but past the prototype stage —
+  see its README for what is not yet hardened.
 
 ## Contributing
 

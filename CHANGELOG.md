@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-03
+
 ### Added
 - **`State.mutate()` for declared in-place mutation.** `State` detects
   reassignment, not mutation: `state["todos"].append(x)` never reaches
@@ -152,6 +154,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   strict mode all along. Strict is kept deliberately: under auto mode an async
   test missing `@pytest.mark.asyncio` is collected but never awaited, so it
   neither runs nor fails. Every async test must carry the marker.
+- **The documented wide-character limitation was wider than the real one.**
+  README and the docs front page named `TextArea`, `Tree` and `ListView` as
+  elements that "paint cells directly" and can misalign CJK/emoji - which
+  stopped being true before 0.1.0 shipped, when element painting was routed
+  through the wide-aware `PaintContext` write APIs (a ratchet test now keeps it
+  that way, and its per-file allowance is empty). Both surfaces now name the two
+  paths that are genuinely still narrow: pre-rendered ANSI content
+  (`ansi_string_to_cells` maps one code point per cell) and `TextArea`'s
+  `wrap_mode="none"` horizontal scroll, which slices by character rather than
+  by display column.
+- **The docs front page carried 0.1.0's status prose and test count.** It was
+  missed by the pass that updated `README.md` and `CLAUDE.md`, so the published
+  landing page claimed "first public release (0.1.0)" and ~3,800 tests.
+- **README links the `wijjit-ssh` companion package**
+  (<https://github.com/thomas-villani/wijjit-ssh>), which serves Wijjit apps
+  over SSH through the `wijjit.terminal.backend.TerminalBackend` seam.
 
 ## [0.1.0] - 2026-07-31
 
@@ -862,5 +880,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list, so a stray local virtualenv (e.g. `.venv-wsl/`) no longer breaks
   `uv build` / packaging.
 
-[Unreleased]: https://github.com/thomas-villani/wijjit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/wijjit/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/thomas-villani/wijjit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/thomas-villani/wijjit/releases/tag/v0.1.0
