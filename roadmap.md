@@ -284,7 +284,12 @@ prop changes, then ``restore_ephemeral_state()`` — so transient state in
 synced from props, which is exactly what fights programmatic/bound writes to
 those same fields.
 
-- [ ] **Group E — Tree "expand all / collapse all".** The genuine
+- [x] **Group E — Tree "expand all / collapse all".** **Landed** in two
+  parts: the six tags now pass ``set_prop("id")`` (ImageView already did), and
+  ``expanded=`` reaches the tree again - a list seeds it, a state key binds it
+  through the controlled ``expanded_nodes`` prop (state wins when it changes,
+  else the user's expansion is preserved) and expanding writes the key back.
+  The two tree demos left ``KNOWN_FINDINGS``. Original note: the genuine
   ephemeral-contract item. ``expanded_nodes`` lives in the protected bucket, so
   a programmatic expand-all is overwritten by the restored prior expansion.
   Three compounding causes: the tree tag never calls ``set_prop("id")`` (so no
@@ -727,7 +732,7 @@ it is not restated here.
   breaking under ``{% if %}`` layouts). The sharp one for B: a quickly-written or
   model-written form will not key every field, and cursor/scroll loss mid-form is
   highly visible. Needs a positional/path cache in ``reconciler.py``.
-- [ ] **Group E — Tree expand-all**, including the ``set_prop("id")`` sweep
+- [x] **Group E — Tree expand-all** (landed; see the item above), including the ``set_prop("id")`` sweep
   across Table/Progress/Spinner/Modal/Link/ImageView and the ``expanded=``
   binding. Two bundled examples currently sit in the validator's
   ``KNOWN_FINDINGS`` because of this gap; landing it should remove those

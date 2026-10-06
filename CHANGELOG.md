@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   find it, and the element's `{id}:{property}` state keys (a tree's scroll,
   highlight and expansion) were never written. Each tag now passes its `id`, as
   the other tags already did.
+- **`{% tree expanded=... %}` did nothing.** The tag documents two forms, a list
+  of node ids to open at start and a state key the open nodes are bound to, but
+  since the move to the virtual DOM the prop matched no `Tree` parameter, so the
+  registry dropped it and every tree started collapsed. A list now seeds the
+  tree once. A string binds both ways: the state value is a controlled
+  ephemeral prop (`expanded_nodes`), so setting it re-opens the tree on the next
+  render (the filesystem browser's Expand All / Collapse All work again), and
+  expanding or collapsing a node writes the key back.
 
 ## [0.1.1] - 2026-08-03
 

@@ -5,17 +5,17 @@
 ║ Instructions: TAB to focus | Arrow keys navigate | Left/Right expand/collapse | Enter/Space      ║
 ║ toggle | Mouse wheel scrolls | Click to select | 'q' to quit                                     ║
 ║ ╭──────────────── File Tree ─────────────────╮  ┌─ File Details ───────────────────────────────┐ ║
-║ │  ▶ project                                 │  │ No file selected. Click on a file or folder  │ ║
-║ │                                            │  │ to see details.                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
-║ │                                            │  │                                              │ ║
+║ │  ▼ project                                 │  │ No file selected. Click on a file or folder  │ ║
+║ │  ├─ ▼ src                                  │  │ to see details.                              │ ║
+║ │  │  ├─ ▶ components                        │  │                                              │ ║
+║ │  │  ├─ ▶ utils                             │  │                                              │ ║
+║ │  │  ├─   main.py                           │  │                                              │ ║
+║ │  │  └─   config.py                         │  │                                              │ ║
+║ │  ├─ ▶ tests                                │  │                                              │ ║
+║ │  ├─ ▶ docs                                 │  │                                              │ ║
+║ │  ├─   README.md                            │  │                                              │ ║
+║ │  ├─   setup.py                             │  │                                              │ ║
+║ │  └─   .gitignore                           │  │                                              │ ║
 ║ │                                            │  │                                              │ ║
 ║ │                                            │  │                                              │ ║
 ║ │                                            │  │                                              │ ║

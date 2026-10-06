@@ -399,6 +399,11 @@ class TreeExtension(Extension):
             vnode.set_prop("action", on_select)
         if expanded is not None:
             vnode.set_prop("expanded", expanded)
+            # A bound key's value is a controlled ephemeral prop: it applies
+            # whenever the state value changes, and otherwise the tree keeps
+            # what the user opened.
+            if isinstance(expanded, str) and expanded in state:
+                vnode.set_prop("expanded_nodes", list(state[expanded] or []))
         vnode.set_prop("bind", bind)
         apply_common_attributes(vnode, kwargs)
         vnode.set_layout(width=width_spec, height=height_spec)

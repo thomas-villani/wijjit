@@ -5,7 +5,7 @@ with expandable/collapsible nodes. Supports multiple indicator styles, keyboard
 navigation, mouse interaction, and customizable rendering.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
@@ -156,6 +156,8 @@ class Tree(ScrollableElement):
         action: str | None = None,
         tab_index: int | None = None,
         bind: bool | str = True,
+        expanded: str | list[Any] | None = None,
+        expanded_nodes: Iterable[Any] | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -178,8 +180,22 @@ class Tree(ScrollableElement):
         # Multi-select mode
         self.multiple = multiple
 
-        # Tree state
-        self.expanded_nodes: set[str] = set()
+        # Tree state. A list of ids opens those nodes at start. A string names
+        # the state key the open nodes are bound to: the tag passes that key's
+        # value as the controlled ``expanded_nodes`` prop, and
+        # on_expanded_change (wired by the app) writes changes back.
+        self.expanded_state_key: str | None = (
+            expanded if isinstance(expanded, str) else None
+        )
+        if (
+            expanded_nodes is None
+            and expanded is not None
+            and not isinstance(expanded, str)
+        ):
+            expanded_nodes = expanded
+        self.expanded_nodes: set[str] = {
+            str(node_id) for node_id in expanded_nodes or []
+        }
         self.selected_node_id: str | None = None
         self.selected_node_ids: set[str] = set(selected_ids or [])
         self.highlighted_index: int = 0
@@ -197,6 +213,7 @@ class Tree(ScrollableElement):
         self.on_select: Callable[[dict], None] | None = None
         self.on_expand: Callable[[str], None] | None = None
         self.on_collapse: Callable[[str], None] | None = None
+        self.on_expanded_change: Callable[[list[str]], None] | None = None
         # on_scroll provided by ScrollableElement
 
         # Template metadata
@@ -578,6 +595,8 @@ class Tree(ScrollableElement):
         """Save expansion state to app state if available."""
         if self._state_dict is not None and self.expand_state_key:
             self._state_dict[self.expand_state_key] = list(self.expanded_nodes)
+        if self.on_expanded_change:
+            invoke_callback(self.on_expanded_change, sorted(self.expanded_nodes))
 
     def _save_selected_state(self) -> None:
         """Save selected node ID(s) to app state if available."""
@@ -1194,7 +1213,9 @@ class Tree(ScrollableElement):
         if "selected_node_ids" in state:
             self.selected_node_ids = set(state["selected_node_ids"])
         if "expanded_nodes" in state:
-            self.expanded_nodes = set(state["expanded_nodes"])
+            self.expanded_nodes = {
+                str(node_id) for node_id in state["expanded_nodes"] or []
+            }
             # Rebuild node list with restored expansion state
             self._rebuild_nodes()
         if "scroll_position" in state and self.scroll_manager:
