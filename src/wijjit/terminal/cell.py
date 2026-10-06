@@ -151,6 +151,93 @@ def make_hyperlink(url: str, id: str | None = None) -> Hyperlink | None:
         return Hyperlink(url)
 
 
+#: A cell color: an ``(r, g, b)`` triple (0-255 each), emitted as truecolor,
+#: or an ``int`` 0-255 naming an entry of the terminal's own palette (0-7 the
+#: standard colors, 8-15 their bright forms, 16-255 the 256-color cube and
+#: grays). A palette color is emitted as the palette code itself (``34``,
+#: ``94``, ``38;5;n``), so the terminal's theme decides what it looks like,
+#: exactly as when the same ANSI text is printed straight to the terminal.
+Color = tuple[int, int, int] | int
+
+# Rough RGB for each palette entry, for the few places that need to compute
+# with a palette color (overlay dimming): xterm's default 16 colors.
+_PALETTE_16: tuple[tuple[int, int, int], ...] = (
+    (0, 0, 0),
+    (205, 0, 0),
+    (0, 205, 0),
+    (205, 205, 0),
+    (0, 0, 238),
+    (205, 0, 205),
+    (0, 205, 205),
+    (229, 229, 229),
+    (127, 127, 127),
+    (255, 0, 0),
+    (0, 255, 0),
+    (255, 255, 0),
+    (92, 92, 255),
+    (255, 0, 255),
+    (0, 255, 255),
+    (255, 255, 255),
+)
+
+
+def color_sgr(color: Color, background: bool = False) -> str:
+    """Return the SGR parameters that select ``color``.
+
+    Parameters
+    ----------
+    color : Color
+        An ``(r, g, b)`` triple or a palette index 0-255.
+    background : bool, optional
+        Select the background rather than the foreground (default: False).
+
+    Returns
+    -------
+    str
+        ``38;2;r;g;b`` for RGB; for a palette index, ``30``-``37`` /
+        ``90``-``97`` for the 16 basic colors and ``38;5;n`` above them (the
+        background forms for ``background=True``).
+    """
+    base = 48 if background else 38
+    if isinstance(color, int):
+        if color < 8:
+            return str(base - 8 + color)  # 30-37 / 40-47
+        if color < 16:
+            return str(base + 52 + color - 8)  # 90-97 / 100-107
+        return f"{base};5;{color}"
+    r, g, b = color
+    return f"{base};2;{r};{g};{b}"
+
+
+def color_to_rgb(color: Color) -> tuple[int, int, int]:
+    """Return an RGB approximation of ``color``.
+
+    Parameters
+    ----------
+    color : Color
+        An ``(r, g, b)`` triple (returned unchanged) or a palette index.
+
+    Returns
+    -------
+    tuple of (int, int, int)
+        For a palette index, xterm's default for that entry. The terminal's
+        real palette is unknown, so use this only where a computation needs a
+        number (dimming); emit the palette color itself with
+        :func:`color_sgr`.
+    """
+    if not isinstance(color, int):
+        return color
+    if color < 16:
+        return _PALETTE_16[color]
+    if color < 232:
+        # 6x6x6 color cube.
+        index = color - 16
+        levels = (0, 95, 135, 175, 215, 255)
+        return (levels[index // 36], levels[index // 6 % 6], levels[index % 6])
+    gray = 8 + (color - 232) * 10
+    return (gray, gray, gray)
+
+
 # Sentinel character marking a "continuation cell": the trailing column of a
 # width-2 (wide) glyph. The head cell holds the full glyph and the following
 # cell is a continuation carrying the head's style attributes with this empty
@@ -206,10 +293,11 @@ class Cell:
     ----------
     char : str
         Single character or empty string
-    fg_color : tuple of (int, int, int) or None, optional
-        Foreground RGB color (0-255 each) or None for default terminal color
-    bg_color : tuple of (int, int, int) or None, optional
-        Background RGB color (0-255 each) or None for default terminal color
+    fg_color : Color or None, optional
+        Foreground color: an RGB triple, a terminal palette index (see
+        :data:`Color`), or None for the terminal's default
+    bg_color : Color or None, optional
+        Background color, in the same forms as ``fg_color``
     bold : bool, optional
         Bold text attribute (default: False)
     italic : bool, optional
@@ -229,9 +317,9 @@ class Cell:
     ----------
     char : str
         The character to display
-    fg_color : tuple of (int, int, int) or None
+    fg_color : Color or None
         Foreground color in RGB
-    bg_color : tuple of (int, int, int) or None
+    bg_color : Color or None
         Background color in RGB
     bold : bool
         Bold attribute
@@ -252,8 +340,8 @@ class Cell:
 
     Notes
     -----
-    RGB color values should be in the range 0-255. The terminal emulator
-    will handle conversion to its native color format.
+    RGB color values should be in the range 0-255. A palette index is
+    emitted as the palette code, so the terminal's theme picks its color.
 
     The _style_mask field is an optimization for equality comparison. Instead
     of comparing 5 boolean fields individually, we compare a single integer.
@@ -277,8 +365,8 @@ class Cell:
     """
 
     char: str
-    fg_color: tuple[int, int, int] | None = None
-    bg_color: tuple[int, int, int] | None = None
+    fg_color: Color | None = None
+    bg_color: Color | None = None
     bold: bool = False
     italic: bool = False
     underline: bool = False
@@ -414,15 +502,10 @@ class Cell:
         if is_no_color():
             return codes
 
-        # Foreground color (true color RGB)
         if self.fg_color is not None:
-            r, g, b = self.fg_color
-            codes.append(f"38;2;{r};{g};{b}")
-
-        # Background color (true color RGB)
+            codes.append(color_sgr(self.fg_color, background=False))
         if self.bg_color is not None:
-            r, g, b = self.bg_color
-            codes.append(f"48;2;{r};{g};{b}")
+            codes.append(color_sgr(self.bg_color, background=True))
 
         return codes
 
@@ -484,8 +567,8 @@ class Cell:
 @lru_cache(maxsize=1 << 15)
 def intern_cell(
     char: str,
-    fg_color: tuple[int, int, int] | None = None,
-    bg_color: tuple[int, int, int] | None = None,
+    fg_color: Color | None = None,
+    bg_color: Color | None = None,
     bold: bool = False,
     italic: bool = False,
     underline: bool = False,
@@ -521,7 +604,7 @@ def intern_cell(
     ----------
     char : str
         The glyph (or continuation/empty string) for the cell.
-    fg_color, bg_color : tuple of (int, int, int) or None, optional
+    fg_color, bg_color : Color or None, optional
         Foreground / background RGB, or None for the terminal default.
     bold, italic, underline, reverse, dim : bool, optional
         Text attributes.
@@ -586,8 +669,8 @@ class CellPool:
 
     def get_space(
         self,
-        fg_color: tuple[int, int, int] | None = None,
-        bg_color: tuple[int, int, int] | None = None,
+        fg_color: Color | None = None,
+        bg_color: Color | None = None,
         bold: bool = False,
         italic: bool = False,
         underline: bool = False,
@@ -598,9 +681,9 @@ class CellPool:
 
         Parameters
         ----------
-        fg_color : tuple of (int, int, int) or None, optional
+        fg_color : Color or None, optional
             Foreground color
-        bg_color : tuple of (int, int, int) or None, optional
+        bg_color : Color or None, optional
             Background color
         bold : bool, optional
             Bold attribute
@@ -644,8 +727,8 @@ class CellPool:
     def get_char(
         self,
         char: str,
-        fg_color: tuple[int, int, int] | None = None,
-        bg_color: tuple[int, int, int] | None = None,
+        fg_color: Color | None = None,
+        bg_color: Color | None = None,
         bold: bool = False,
         italic: bool = False,
         underline: bool = False,
@@ -660,9 +743,9 @@ class CellPool:
         ----------
         char : str
             Character to display
-        fg_color : tuple of (int, int, int) or None, optional
+        fg_color : Color or None, optional
             Foreground color
-        bg_color : tuple of (int, int, int) or None, optional
+        bg_color : Color or None, optional
             Background color
         bold : bool, optional
             Bold attribute
@@ -723,8 +806,8 @@ _global_pool = CellPool()
 
 def get_pooled_cell(
     char: str,
-    fg_color: tuple[int, int, int] | None = None,
-    bg_color: tuple[int, int, int] | None = None,
+    fg_color: Color | None = None,
+    bg_color: Color | None = None,
     bold: bool = False,
     italic: bool = False,
     underline: bool = False,
@@ -739,9 +822,9 @@ def get_pooled_cell(
     ----------
     char : str
         Character to display
-    fg_color : tuple of (int, int, int) or None, optional
+    fg_color : Color or None, optional
         Foreground color
-    bg_color : tuple of (int, int, int) or None, optional
+    bg_color : Color or None, optional
         Background color
     bold : bool, optional
         Bold attribute

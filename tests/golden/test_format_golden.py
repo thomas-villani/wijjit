@@ -16,12 +16,19 @@ ELEMENTS_DIR = GOLDEN_ROOT / "elements"
 LAYOUTS_DIR = GOLDEN_ROOT / "layouts"
 
 
+def _json_color(color):
+    """An RGB triple as a list, a palette index as itself, None as None."""
+    if color is None or isinstance(color, int):
+        return color
+    return list(color)
+
+
 def _normalize_cells(cells):
     return [
         {
             "char": cell.char,
-            "fg_color": list(cell.fg_color) if cell.fg_color else None,
-            "bg_color": list(cell.bg_color) if cell.bg_color else None,
+            "fg_color": _json_color(cell.fg_color),
+            "bg_color": _json_color(cell.bg_color),
             "bold": cell.bold,
             "italic": cell.italic,
             "underline": cell.underline,

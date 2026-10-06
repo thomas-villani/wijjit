@@ -59,11 +59,7 @@
     },
     {
       "char": "W",
-      "fg_color": [
-        128,
-        128,
-        0
-      ],
+      "fg_color": 3,
       "bg_color": null,
       "bold": false,
       "italic": false,
@@ -71,11 +67,7 @@
     },
     {
       "char": "A",
-      "fg_color": [
-        128,
-        128,
-        0
-      ],
+      "fg_color": 3,
       "bg_color": null,
       "bold": false,
       "italic": false,
@@ -83,11 +75,7 @@
     },
     {
       "char": "R",
-      "fg_color": [
-        128,
-        128,
-        0
-      ],
+      "fg_color": 3,
       "bg_color": null,
       "bold": false,
       "italic": false,
@@ -95,11 +83,7 @@
     },
     {
       "char": "N",
-      "fg_color": [
-        128,
-        128,
-        0
-      ],
+      "fg_color": 3,
       "bg_color": null,
       "bold": false,
       "italic": false,
@@ -131,80 +115,40 @@
     },
     {
       "char": "A",
-      "fg_color": [
-        255,
-        255,
-        255
-      ],
-      "bg_color": [
-        128,
-        0,
-        0
-      ],
+      "fg_color": 15,
+      "bg_color": 1,
       "bold": false,
       "italic": false,
       "underline": false
     },
     {
       "char": "L",
-      "fg_color": [
-        255,
-        255,
-        255
-      ],
-      "bg_color": [
-        128,
-        0,
-        0
-      ],
+      "fg_color": 15,
+      "bg_color": 1,
       "bold": false,
       "italic": false,
       "underline": false
     },
     {
       "char": "E",
-      "fg_color": [
-        255,
-        255,
-        255
-      ],
-      "bg_color": [
-        128,
-        0,
-        0
-      ],
+      "fg_color": 15,
+      "bg_color": 1,
       "bold": false,
       "italic": false,
       "underline": false
     },
     {
       "char": "R",
-      "fg_color": [
-        255,
-        255,
-        255
-      ],
-      "bg_color": [
-        128,
-        0,
-        0
-      ],
+      "fg_color": 15,
+      "bg_color": 1,
       "bold": false,
       "italic": false,
       "underline": false
     },
     {
       "char": "T",
-      "fg_color": [
-        255,
-        255,
-        255
-      ],
-      "bg_color": [
-        128,
-        0,
-        0
-      ],
+      "fg_color": 15,
+      "bg_color": 1,
       "bold": false,
       "italic": false,
       "underline": false
