@@ -158,6 +158,7 @@ class Tree(ScrollableElement):
         bind: bool | str = True,
         expanded: str | list[Any] | None = None,
         expanded_nodes: Iterable[Any] | None = None,
+        enter_selects: bool = False,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
@@ -172,6 +173,10 @@ class Tree(ScrollableElement):
         self.show_scrollbar = show_scrollbar
         self.show_root = show_root
         self.indent_size = indent_size
+        # Enter selects any node, as a click on its label does, instead of
+        # toggling one that has children; Space, Left and Right still expand
+        # and collapse.
+        self.enter_selects = enter_selects
         self.indicator_style = indicator_style
         self.border_style = border_style
         self.title = title
@@ -1014,8 +1019,10 @@ class Tree(ScrollableElement):
                     self.toggle_selection(node_id)
                     return True
                 else:
-                    # Single-select: toggle expand if has children, otherwise select
-                    if node_info["has_children"]:
+                    # Single-select: toggle expand if has children, otherwise
+                    # select. With enter_selects, Enter selects either way.
+                    enter_selects = self.enter_selects and key == Keys.ENTER
+                    if node_info["has_children"] and not enter_selects:
                         self.toggle_node(node_id)
                         return True
 

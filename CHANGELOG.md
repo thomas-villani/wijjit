@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`{% tree enter_selects=True %}`: Enter selects a node that has children.**
+  By default Enter (like Space) expands or collapses a branch and only selects
+  a leaf, so a keyboard user could not select a branch at all, though a click
+  on its label could. With `enter_selects`, Enter selects any node and fires
+  `on_select`; Space, Left and Right still expand and collapse. An outline that
+  jumps to document sections needs every heading selectable. The default is
+  unchanged.
+
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
   `{% progressbar %}`, `{% spinner %}`, `{% modal %}` and `{% link %}` keyed the

@@ -264,6 +264,7 @@ class TreeExtension(Extension):
         border_style: str = "single",
         title: str | None = None,
         indicator_style: str = "triangles_large",
+        enter_selects: bool = False,
         **kwargs: Any,
     ) -> str:
         """Render the tree tag.
@@ -310,6 +311,10 @@ class TreeExtension(Extension):
         indicator_style : str
             Indicator style: "triangles_large", "triangles", "circles", "squares",
             "brackets", or "minimal" (default: "triangles_large")
+        enter_selects : bool
+            Enter selects any node, firing ``on_select`` as a click on its label
+            does, rather than expanding or collapsing a node with children;
+            Space, Left and Right still expand and collapse (default: False)
         classes : str, optional
             CSS-like class names for styling
 
@@ -391,6 +396,7 @@ class TreeExtension(Extension):
         vnode.set_prop("show_root", show_root)
         vnode.set_prop("indent_size", indent_size)
         vnode.set_prop("indicator_style", indicator_style_enum)
+        vnode.set_prop("enter_selects", bool(enter_selects))
         vnode.set_prop("border_style", border_style)
         if title:
             vnode.set_prop("title", title)
