@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ephemeral prop (`expanded_nodes`), so setting it re-opens the tree on the next
   render (the filesystem browser's Expand All / Collapse All work again), and
   expanding or collapsing a node writes the key back.
+- **`{% tree %}` and `{% table %}` crashed on `"fill"` sizes.** Both tags
+  document `width`/`height` as an integer, `"fill"`, `"auto"` or a percentage,
+  but handed the string to a constructor that did arithmetic on it, so
+  `height="fill"` failed the render. Both elements now take a string size the
+  way `ContentView` does: they report dynamic sizing, so the layout engine sizes
+  them to their slot rather than to the rows they hold, and they follow the
+  bounds they are given, including on resize. `Table` gained the `set_bounds`
+  the tree already had, so a fixed-width table that auto-fit squeezes now draws
+  inside its slot rather than one column past it (the `table_demo` golden moves
+  by that column).
 
 ## [0.1.1] - 2026-08-03
 
