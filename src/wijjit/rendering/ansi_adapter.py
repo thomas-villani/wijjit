@@ -70,6 +70,7 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     -----
     This function parses ANSI escape sequences and converts them to Cell
     objects with appropriate styling attributes. Supports:
+
     - Basic colors (30-37, 90-97 for foreground; 40-47, 100-107 for background)
     - True color RGB (38;2;R;G;B and 48;2;R;G;B)
     - Text attributes (bold, dim, italic, underline, reverse)
