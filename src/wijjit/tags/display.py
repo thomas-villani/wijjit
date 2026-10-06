@@ -2184,7 +2184,9 @@ class ContentViewExtension(Extension):
         if bind_key:
             try:
                 if bind_key in state:
-                    content = str(state[bind_key])
+                    # A callable is content laid out per width; keep it whole.
+                    bound = state[bind_key]
+                    content = bound if callable(bound) else str(bound)
             except (KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to restore state: {e}")
 

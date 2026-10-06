@@ -8,6 +8,7 @@ and CodeBlock elements with a unified, flexible component.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
@@ -62,8 +63,13 @@ class ContentView(ScrollableElement):
         Element identifier
     classes : str or list of str, optional
         CSS class names for styling
-    content : str
-        Content to display (default: "")
+    content : str or callable
+        Content to display (default: ""). A callable is called with the inner
+        width in columns and returns the content as a string, so content laid
+        out ahead of time (pre-rendered ANSI, say) can be laid out at the width
+        it is shown at. It is called again when that width changes, and once
+        more, a column narrower, when its result needs the scrollbar. Pass the
+        same callable on every render: a new one is called again.
     content_type : str or ContentType
         Type of content: "plain", "text", "ansi", "html", "markdown",
         "rich", or "code" (default: "plain")
@@ -88,7 +94,7 @@ class ContentView(ScrollableElement):
 
     Attributes
     ----------
-    content : str
+    content : str or callable
         Content to display
     content_type : ContentType
         Content type enumeration value
@@ -122,7 +128,7 @@ class ContentView(ScrollableElement):
         self,
         id: str | None = None,
         classes: str | list[str] | set[str] | None = None,
-        content: str = "",
+        content: str | Callable[[int], str] = "",
         content_type: str | ContentType = "plain",
         language: str = "python",
         theme: str = "monokai",
@@ -140,8 +146,10 @@ class ContentView(ScrollableElement):
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
 
-        # Content and type
+        # Content and type. For callable content, the width it was last laid
+        # out at (see _render_callable).
         self._content = content
+        self._callable_width: int | None = None
         self._content_type = self._resolve_content_type(content_type)
 
         # Code-specific options
@@ -226,18 +234,18 @@ class ContentView(ScrollableElement):
             self.scroll_manager.update_content_size(content_count)
 
     @property
-    def content(self) -> str:
+    def content(self) -> str | Callable[[int], str]:
         """Get the current content.
 
         Returns
         -------
-        str
-            Current content string
+        str or callable
+            Current content string, or the function of the width that makes it
         """
         return self._content
 
     @content.setter
-    def content(self, value: str) -> None:
+    def content(self, value: str | Callable[[int], str]) -> None:
         """Set the content and update scroll manager.
 
         When content is changed dynamically, this setter ensures the scroll
@@ -362,6 +370,9 @@ class ContentView(ScrollableElement):
         int
             Content width in columns
         """
+        if callable(self._content) and self._callable_width is not None:
+            return self._callable_width
+
         content_width = self.width
 
         # Account for scrollbar (borders are NOT subtracted here since
@@ -379,14 +390,9 @@ class ContentView(ScrollableElement):
 
         Updates the rendered_lines or rendered_cells cache.
         """
-        from wijjit.rendering.content_renderers import (
-            render_ansi_to_lines,
-            render_code_to_lines,
-            render_html_to_cells,
-            render_markdown_to_lines,
-            render_plain_to_lines,
-            render_rich_to_lines,
-        )
+        if callable(self._content):
+            self._render_callable(self._content)
+            return
 
         content_width = self._get_content_width()
 
@@ -408,38 +414,112 @@ class ContentView(ScrollableElement):
         if self._render_cache_key == cache_key:
             return
 
-        # Render based on content type
+        self._render_text(self._content, content_width)
+        self._render_cache_key = cache_key
+
+    def _render_callable(self, make_content: Callable[[int], str]) -> None:
+        """Lay out callable content at the width it will be shown at.
+
+        Whether the scrollbar takes a column depends on how many lines the
+        content makes, which depends on the width. So the callable is first
+        called at the full inner width and, if its result needs the scrollbar,
+        once more a column narrower; the width chosen is kept so later frames
+        agree with it rather than flipping between the two.
+
+        Parameters
+        ----------
+        make_content : callable
+            Function of the width in columns returning the content.
+        """
+        cache_key = (
+            make_content,
+            self.width,
+            self.height,
+            self.show_scrollbar,
+            self._content_type,
+            self.language,
+            self.theme,
+            self.show_line_numbers,
+            self.line_number_start,
+        )
+        if self._render_cache_key == cache_key:
+            return
+        if self._dynamic_sizing and self.bounds is None:
+            # The real width arrives with the first layout; laying the content
+            # out at the placeholder size first would be wasted work.
+            self.rendered_lines = [""]
+            self._uses_cells = False
+            return
+
+        width = max(1, self.width)
+        self._render_text(make_content(width), width)
+        needs_scrollbar = self._rendered_count() > self._get_content_height()
+        if self.show_scrollbar and width > 1 and needs_scrollbar:
+            width -= 1
+            self._render_text(make_content(width), width)
+        self._callable_width = width
+        self._render_cache_key = cache_key
+
+    def _rendered_count(self) -> int:
+        """Return the number of rendered rows.
+
+        Returns
+        -------
+        int
+            Rows in the line or cell cache, whichever the content type uses.
+        """
+        if self._uses_cells:
+            return len(self.rendered_cells)
+        return len(self.rendered_lines)
+
+    def _render_text(self, text: str, content_width: int) -> None:
+        """Render content text into the line or cell cache by content type.
+
+        Parameters
+        ----------
+        text : str
+            Content to render.
+        content_width : int
+            Width to render at.
+        """
+        from wijjit.rendering.content_renderers import (
+            render_ansi_to_lines,
+            render_code_to_lines,
+            render_html_to_cells,
+            render_markdown_to_lines,
+            render_plain_to_lines,
+            render_rich_to_lines,
+        )
+
         self._uses_cells = False
 
         if self._content_type in (ContentType.PLAIN, ContentType.TEXT):
-            self.rendered_lines = render_plain_to_lines(self.content, content_width)
+            self.rendered_lines = render_plain_to_lines(text, content_width)
 
         elif self._content_type == ContentType.ANSI:
-            self.rendered_lines = render_ansi_to_lines(self.content, content_width)
+            self.rendered_lines = render_ansi_to_lines(text, content_width)
 
         elif self._content_type == ContentType.HTML:
             self._uses_cells = True
             self.rendered_cells = render_html_to_cells(
-                self.content, content_width, self._style_resolver
+                text, content_width, self._style_resolver
             )
 
         elif self._content_type == ContentType.MARKDOWN:
-            self.rendered_lines = render_markdown_to_lines(self.content, content_width)
+            self.rendered_lines = render_markdown_to_lines(text, content_width)
 
         elif self._content_type == ContentType.RICH:
-            self.rendered_lines = render_rich_to_lines(self.content, content_width)
+            self.rendered_lines = render_rich_to_lines(text, content_width)
 
         elif self._content_type == ContentType.CODE:
             self.rendered_lines = render_code_to_lines(
-                self.content,
+                text,
                 content_width,
                 language=self.language,
                 theme=self.theme,
                 show_line_numbers=self.show_line_numbers,
                 line_number_start=self.line_number_start,
             )
-
-        self._render_cache_key = cache_key
 
     def set_content(
         self, content: str, content_type: str | ContentType | None = None
