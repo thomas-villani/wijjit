@@ -29,19 +29,9 @@ EXAMPLES_DIR = REPO_ROOT / "examples"
 
 # Demos whose warnings describe a real, tracked framework gap rather than a
 # defect in the demo. Each entry names the finding code and the backlog item, so
-# the exemption cannot quietly outlive the bug it stands for.
-_TREE_EXPANDED = (
-    "unknown-attribute",
-    "TreeView has no 'expanded' constructor parameter, so the tag's documented "
-    "expanded=<state-key> binding is dropped at element creation. Tracked as "
-    "roadmap.md Group E (Tree expand/collapse), which needs a reconciler design "
-    "pass - the linter is right to flag it.",
-)
-
-KNOWN_FINDINGS: dict[str, tuple[str, str]] = {
-    "advanced/filesystem_browser.py": _TREE_EXPANDED,
-    "widgets/tree_demo.py": _TREE_EXPANDED,
-}
+# the exemption cannot quietly outlive the bug it stands for. (Empty since the
+# tree's ``expanded=`` binding landed; the two tree demos used to sit here.)
+KNOWN_FINDINGS: dict[str, tuple[str, str]] = {}
 
 
 def _all_example_ids() -> list[str]:

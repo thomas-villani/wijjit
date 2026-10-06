@@ -54,6 +54,7 @@ EPHEMERAL_PROPS = frozenset(
         "scroll_x_position",
         # UI interaction state
         "highlighted_index",
+        "expanded_nodes",
         "focused",
         "hovered",
     }

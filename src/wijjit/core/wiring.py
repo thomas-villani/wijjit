@@ -450,6 +450,17 @@ class ElementWiringManager:
 
             elem.on_select = on_select_handler
 
+        # expanded="key" binds the open nodes to state. The tag feeds the state
+        # value in as the controlled expanded_nodes prop; this writes the
+        # user's expanding and collapsing back.
+        if elem.expanded_state_key:
+            expanded_key = elem.expanded_state_key
+
+            def on_expanded_change(node_ids, key=expanded_key):
+                state[key] = node_ids
+
+            elem.on_expanded_change = on_expanded_change
+
     def _wire_checkbox(self, elem: Checkbox, state: State) -> None:
         """Wire Checkbox callbacks.
 
