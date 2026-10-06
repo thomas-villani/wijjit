@@ -1,0 +1,30 @@
+                                                                                                    
+ ╭───────── Outline ──────────╮╭───────────────────────────── Reader ─────────────────────────────╮ 
+ │  ▼ Wijjit Is Just Jinja... ││┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓█│ 
+ │  ├─   How links work       ││┃               Wijjit Is Just Jinja In Terminal                ┃█│ 
+ │  ├─ ▼ What the app sees    ││┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛█│ 
+ │     └─   Hovering          ││                                                                 █│ 
+ │  └─   Limits               ││Wijjit builds terminal apps from Jinja2 templates. This reader is█│ 
+ │                            ││one of them: the outline on the left is a tree, and this pane is █│ 
+ │                            ││a single content view showing Markdown laid out by Rich.         █│ 
+ │                            ││                                                                 █│ 
+ │                            ││Jump ahead to how links work, see what the app sees, or skip to  █│ 
+ │                            ││the limits.                                                      █│ 
+ │                            ││                                                                 █│ 
+ │                            ││                                                                 █│ 
+ │                            ││                         How links work                          ││ 
+ │                            ││                                                                 ││ 
+ │                            ││Rich writes each link as an OSC 8 hyperlink. Wijjit keeps the    ││ 
+ │                            ││link on the cells it covers and writes it back around them, so   ││ 
+ │                            ││your terminal treats the text as a link: try Ctrl+click on the   ││ 
+ │                            ││Wijjit repository.                                               ││ 
+ │                            ││                                                                 ││ 
+ │                            ││Opening a link is always the terminal's job. A link whose target ││ 
+ │                            ││could carry escape sequences is dropped, and HYPERLINK_SCHEMES   ││ 
+ │                            ││limits which kinds of link reach the terminal at all. Mail links ││ 
+ │                            ││work too: write to someone.                                      ││ 
+ │                            ││                                                                 ││ 
+ │                            ││                                                                 ││ 
+ ╰────────────────────────────╯╰──────────────────────────────────────────────────────────────────╯ 
+                                                                                                    
+Hover a link to see its target. Click an in-document link to jump.   Tab: switch pane   Ctrl+Q: quit

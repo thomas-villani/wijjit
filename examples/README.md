@@ -85,6 +85,7 @@ Complete mini-applications and advanced usage patterns.
 **Complete Applications** (under [apps/](apps/)):
 - **apps/todo_app.py** - Todo list with a RadioGroup filter, checkboxes, edit/delete dialogs, and GFM persistence
 - **apps/gcommit.py** - Interactive git commit builder in *inline* mode: stage files as checkboxes, type a message, preview or run the commit (stays in scrollback)
+- **apps/doc_reader.py** - Markdown reader: live OSC 8 links, click-to-jump in-document links, hover previews, outline tree
 - **apps/chatbot.py** - Conversational TUI: scrollable history + rule-based bot (has a tutorial)
 - **apps/spreadsheet.py** - Editable DataGrid with a live chart and .xlsx/CSV save (has a tutorial)
 - **apps/system_monitor.py** - Live CPU/memory gauges and history line charts (needs psutil)

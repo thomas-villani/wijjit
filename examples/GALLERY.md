@@ -65,6 +65,24 @@ wijjit run examples/apps/system_monitor.py
 wijjit render examples/apps/system_monitor.py --size 94x34 --tick 2 --ansi
 ```
 
+### Document Reader
+
+A Markdown reader on one content view: external links stay real OSC 8 links
+(Ctrl+click opens them in your terminal), in-document links jump when clicked,
+hovering a link shows its target in the status bar, and an outline tree jumps
+by section. The content is a function of the width, so the app knows where
+every link landed.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/thomas-villani/wijjit/main/docs/assets/screenshots/gallery/doc_reader.svg"
+       alt="Document reader demo: an outline tree beside a Markdown document with links, and a status bar" width="860">
+</p>
+
+```bash
+wijjit run examples/apps/doc_reader.py
+wijjit render examples/apps/doc_reader.py --size 110x30 --ansi
+```
+
 ### Todo App
 
 Text input, a radio-group filter, a scrollable checklist and a live counter —

@@ -1,13 +1,13 @@
 Examples
 ========
 
-Wijjit ships with 74 runnable examples under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
+Wijjit ships with 75 runnable examples under ``examples/``. Use them as living documentation—copy snippets, tweak state, or run them as smoke tests while building your own app. Each directory mirrors a difficulty tier:
 
 * ``examples/basic`` (15) – first steps, focus, events, async, alignment.
 * ``examples/widgets`` (30) – component spotlights (tables, trees, dialogs, etc.).
 * ``examples/advanced`` (22) – multi-view apps, complex layouts, and performance patterns (includes the ``templates_dir_demo`` package).
 * ``examples/styling`` (2) – CSS theming and style-class demos.
-* ``examples/apps`` (5) – complete sample applications.
+* ``examples/apps`` (6) – complete sample applications.
 
 Running an example
 ------------------
@@ -63,6 +63,7 @@ Advanced workflows
 * ``examples/advanced/dashboard_demo.py`` – monitoring layout built from stacks, frames, and tables.
 * ``examples/advanced/filesystem_browser.py`` – list + tree composition that mirrors a file explorer.
 * ``examples/apps/todo_app.py`` – CRUD todo list with filters, persistence hooks, and overlays.
+* ``examples/apps/doc_reader.py`` – Markdown reader on one ``ContentView``: external links stay OSC 8 links the terminal opens, in-document links jump on click (``on_click`` positions looked up in a per-width map built by callable content), hovering shows a link's target, and an outline ``Tree`` jumps by section.
 * ``examples/apps/chatbot.py`` – conversational TUI with a scrollable history and a rule-based responder (:doc:`tutorial <../getting_started/tutorial_chatbot>`).
 * ``examples/apps/spreadsheet.py`` – editable ``DataGrid`` with a live chart and ``.xlsx``/CSV persistence (:doc:`tutorial <../getting_started/tutorial_spreadsheet>`).
 * ``examples/apps/gcommit.py`` – interactive git commit builder in *inline* mode: stage files as checkboxes, type a message, and the summary stays in your scrollback.
