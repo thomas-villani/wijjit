@@ -211,6 +211,10 @@ class ContentView(ScrollableElement):
         # Cache key for avoiding re-renders
         self._render_cache_key: tuple[Any, ...] | None = None
 
+        # Parsed cells per rendered ANSI line, keyed by the line itself so it
+        # can never go stale (see _parse_line).
+        self._line_cell_cache: dict[str, list[Any]] = {}
+
         # Store style resolver for HTML rendering (set during render_to)
         self._style_resolver: StyleResolver | None = None
 
@@ -756,13 +760,45 @@ class ContentView(ScrollableElement):
         Returns
         -------
         list of Cell
-            The line's cells, as the view paints them.
+            The line's cells, as the view paints them. Do not mutate: an ANSI
+            line's cells are shared with the paint cache.
         """
-        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
-
         if self._uses_cells:
             return list(self.rendered_cells[line])
-        return ansi_string_to_cells(self.rendered_lines[line])
+        return self._parse_line(self.rendered_lines[line])
+
+    def _parse_line(self, ansi_line: str) -> list[Any]:
+        """Return the cells of a rendered ANSI line, parsing it once.
+
+        Parameters
+        ----------
+        ansi_line : str
+            One line of the rendered content.
+
+        Returns
+        -------
+        list of Cell
+            The parsed cells, shared between calls: callers must copy before
+            changing the list (slicing does).
+
+        Notes
+        -----
+        Painting used to re-parse every visible line on every frame, a few
+        milliseconds a frame for a full-screen document. Keying on the line
+        string rather than its index means a re-render (new content, a resize)
+        needs no invalidation, and identical lines share an entry. The cache is
+        cleared when it outgrows the document, so content that changes
+        constantly (a streaming log) cannot grow it without limit.
+        """
+        cells = self._line_cell_cache.get(ansi_line)
+        if cells is None:
+            from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+            if len(self._line_cell_cache) > max(256, 2 * len(self.rendered_lines)):
+                self._line_cell_cache.clear()
+            cells = ansi_string_to_cells(ansi_line)
+            self._line_cell_cache[ansi_line] = cells
+        return cells
 
     def _report_hover(self, position: tuple[int, int] | None) -> bool:
         """Tell ``on_hover`` about a new pointer position, if it changed.
@@ -1024,7 +1060,7 @@ class ContentView(ScrollableElement):
         content_width : int
             Content area width
         """
-        from wijjit.rendering.ansi_adapter import ansi_string_to_cells, clip_cells
+        from wijjit.rendering.ansi_adapter import clip_cells
         from wijjit.terminal.cell import Cell, get_pooled_cell
 
         # Get visible range
@@ -1074,7 +1110,7 @@ class ContentView(ScrollableElement):
                     ctx.write_cells(0, current_y, empty_line)
                 else:
                     ansi_line = self.rendered_lines[rendered_idx]
-                    cells = ansi_string_to_cells(ansi_line)
+                    cells = self._parse_line(ansi_line)
 
                     line_cells = clip_cells(cells, content_width)
 
