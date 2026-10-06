@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
+  `{% progressbar %}`, `{% spinner %}`, `{% modal %}` and `{% link %}` keyed the
+  VNode by `id` but never passed it as a prop, so the element was created with
+  `id=None`. `app.get_element_by_id()` and `app.focus_element_by_id()` could not
+  find it, and the element's `{id}:{property}` state keys (a tree's scroll,
+  highlight and expansion) were never written. Each tag now passes its `id`, as
+  the other tags already did.
+
 ## [0.1.1] - 2026-08-03
 
 ### Added

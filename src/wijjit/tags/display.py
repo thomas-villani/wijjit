@@ -179,6 +179,7 @@ class TableExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("Table", key=id)
+        vnode.set_prop("id", id)
         vnode.set_prop("data", data)
         vnode.set_prop("columns", columns)
         vnode.set_prop("sortable", sortable)
@@ -381,6 +382,7 @@ class TreeExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("TreeView", key=id)
+        vnode.set_prop("id", id)
         vnode.set_prop("data", data)
         vnode.set_prop("multiple", multiple)
         if selected_ids is not None:
@@ -639,6 +641,7 @@ class ProgressBarExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("ProgressBar", key=id)
+        vnode.set_prop("id", id)
         vnode.set_prop("value", value)
         vnode.set_prop("max_value", max_val)
         vnode.set_prop("style", style)
@@ -767,6 +770,7 @@ class SpinnerExtension(Extension):
 
         # Build VNode
         vnode = VNodeBuilder("Spinner", key=id)
+        vnode.set_prop("id", id)
         vnode.set_prop("active", active)
         vnode.set_prop("style", style)
         vnode.set_prop("label", label)
@@ -1357,6 +1361,7 @@ class ModalExtension(Extension):
 
         # Create VNode for reconciliation
         vnode = VNodeBuilder("Modal", key=id)
+        vnode.set_prop("id", id)
         if title:
             vnode.set_prop("title", title)
         vnode.set_prop("border_style", border_style)
@@ -2009,6 +2014,7 @@ class LinkExtension(Extension):
 
         # Create VNode for reconciliation (removed duplicate old-style element creation)
         vnode = VNodeBuilder("Link", key=id)
+        vnode.set_prop("id", id)
         vnode.set_prop("text", text_content)
         vnode.set_prop("action", action)
         apply_common_attributes(vnode, kwargs)
