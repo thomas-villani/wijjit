@@ -145,8 +145,8 @@ class Tree(ScrollableElement):
         data: dict[str, Any] | list | None = None,
         multiple: bool = False,
         selected_ids: list[str] | None = None,
-        width: int = 40,
-        height: int = 15,
+        width: int | str = 40,
+        height: int | str = 15,
         show_scrollbar: bool = True,
         show_root: bool = True,
         indent_size: int = 2,
@@ -163,9 +163,12 @@ class Tree(ScrollableElement):
         self.element_type = ElementType.DISPLAY
         self.focusable = True
 
-        # Display properties
-        self.width = width
-        self.height = height
+        # Display properties. A string size ("fill", "50%", "auto") is resolved
+        # by the layout engine and arrives through set_bounds(); until then the
+        # tree draws at the default size.
+        self._dynamic_sizing: bool = isinstance(width, str) or isinstance(height, str)
+        self.width: int = width if isinstance(width, int) else 40
+        self.height: int = height if isinstance(height, int) else 15
         self.show_scrollbar = show_scrollbar
         self.show_root = show_root
         self.indent_size = indent_size
@@ -204,7 +207,7 @@ class Tree(ScrollableElement):
         self.nodes: list[dict] = []
 
         # Scroll management (initialize before rebuilding nodes)
-        self.scroll_manager = ScrollManager(content_size=0, viewport_size=height)
+        self.scroll_manager = ScrollManager(content_size=0, viewport_size=self.height)
 
         # Now rebuild nodes (which will update scroll_manager)
         self._rebuild_nodes()
@@ -1220,6 +1223,18 @@ class Tree(ScrollableElement):
             self._rebuild_nodes()
         if "scroll_position" in state and self.scroll_manager:
             self.scroll_manager.scroll_to(state["scroll_position"])
+
+    @property
+    def supports_dynamic_sizing(self) -> bool:
+        """Whether the tree was given a string size such as ``"fill"``.
+
+        Returns
+        -------
+        bool
+            True when the layout engine should size the tree to its slot rather
+            than to the number of rows it holds.
+        """
+        return self._dynamic_sizing
 
     def set_bounds(self, bounds: "Bounds") -> None:
         """Set bounds and resize the tree to the space it was allocated.

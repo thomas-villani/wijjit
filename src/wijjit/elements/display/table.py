@@ -19,6 +19,7 @@ from wijjit.terminal.input import Key, Keys
 from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
+    from wijjit.layout.bounds import Bounds
     from wijjit.rendering.paint_context import PaintContext
 
 BOX_STYLES = {
@@ -106,8 +107,8 @@ class Table(ScrollableElement):
         classes: str | list[str] | set[str] | None = None,
         data: list[dict] | None = None,
         columns: list[str] | list[dict] | None = None,
-        width: int = 60,
-        height: int = 10,
+        width: int | str = 60,
+        height: int | str = 10,
         sortable: bool = False,
         show_header: bool = True,
         show_scrollbar: bool = True,
@@ -125,9 +126,12 @@ class Table(ScrollableElement):
         self._data = self._raw_data.copy()  # Working copy (can be sorted)
         self.columns = self._normalize_columns(self._raw_columns)
 
-        # Display properties
-        self.width = width
-        self.height = height
+        # Display properties. A string size ("fill", "50%", "auto") is resolved
+        # by the layout engine and arrives through set_bounds(); until then the
+        # table draws at the default size.
+        self._dynamic_sizing: bool = isinstance(width, str) or isinstance(height, str)
+        self.width: int = width if isinstance(width, int) else 60
+        self.height: int = height if isinstance(height, int) else 10
         self.show_header = show_header
         self.show_scrollbar = show_scrollbar
         self.border_style = border_style
@@ -146,19 +150,9 @@ class Table(ScrollableElement):
         # falls back to an equal-width estimate when this is unavailable.
         self._column_boundaries: list[int] = []
 
-        # Calculate viewport height for data rows
-        # Rich table uses: top border (1) + header (1 if shown) + separator (1 if header) + bottom border (1)
-        # So for data rows: height - 2 (borders) - 2 (header + separator if shown)
-        if self.show_header:
-            viewport_height = max(
-                1, self.height - 4
-            )  # top border, header, separator, bottom border
-        else:
-            viewport_height = max(1, self.height - 2)  # top and bottom borders only
-
         # Scroll management for rows
         self.scroll_manager = ScrollManager(
-            content_size=len(self.data), viewport_size=viewport_height
+            content_size=len(self.data), viewport_size=self._viewport_height()
         )
 
         # Scroll position persistence (will be set by template extension)
@@ -204,6 +198,54 @@ class Table(ScrollableElement):
             Current scroll offset (0-based)
         """
         return self.scroll_manager.state.scroll_position
+
+    def _viewport_height(self) -> int:
+        """Rows of data the table shows at its current height.
+
+        Returns
+        -------
+        int
+            The height less the top and bottom borders, and less the header
+            row and its separator when the header is shown.
+        """
+        if self.show_header:
+            return max(1, self.height - 4)
+        return max(1, self.height - 2)
+
+    @property
+    def supports_dynamic_sizing(self) -> bool:
+        """Whether the table was given a string size such as ``"fill"``.
+
+        Returns
+        -------
+        bool
+            True when the layout engine should size the table to its slot
+            rather than to the number of rows it holds.
+        """
+        return self._dynamic_sizing
+
+    def set_bounds(self, bounds: "Bounds") -> None:
+        """Set bounds and resize the table to the space it was allocated.
+
+        The table draws from ``self.width`` / ``self.height``, so they follow
+        the bounds the layout engine hands out; for a fixed size they already
+        match and nothing changes.
+
+        Parameters
+        ----------
+        bounds : Bounds
+            New bounds for the element.
+        """
+        super().set_bounds(bounds)
+        if not bounds:
+            return
+        new_width = max(3, bounds.width)
+        new_height = max(3, bounds.height)
+        if new_width == self.width and new_height == self.height:
+            return
+        self.width = new_width
+        self.height = new_height
+        self.scroll_manager.update_viewport_size(self._viewport_height())
 
     def get_ephemeral_state(self) -> dict:
         """Get ephemeral state for reconciliation.
