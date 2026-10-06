@@ -29,6 +29,7 @@ from wijjit.terminal.ansi import display_width
 from wijjit.terminal.cell import (
     CONTINUATION_CHAR,
     Cell,
+    Color,
     Hyperlink,
     is_continuation,
     make_hyperlink,
@@ -306,10 +307,10 @@ class _StyleState:
 
     Attributes
     ----------
-    fg_color : tuple of (int, int, int) or None
-        Current foreground RGB color
-    bg_color : tuple of (int, int, int) or None
-        Current background RGB color
+    fg_color : Color or None
+        Current foreground: an RGB triple, a palette index, or None
+    bg_color : Color or None
+        Current background, in the same forms
     bold : bool
         Bold attribute
     italic : bool
@@ -323,8 +324,8 @@ class _StyleState:
     """
 
     def __init__(self) -> None:
-        self.fg_color: tuple[int, int, int] | None = None
-        self.bg_color: tuple[int, int, int] | None = None
+        self.fg_color: Color | None = None
+        self.bg_color: Color | None = None
         self.bold: bool = False
         self.italic: bool = False
         self.underline: bool = False
@@ -342,32 +343,6 @@ class _StyleState:
         self.dim = False
 
 
-# ANSI color code mappings to RGB
-_ANSI_BASIC_COLORS = {
-    # Standard colors (30-37 for fg, 40-47 for bg)
-    0: (0, 0, 0),  # Black
-    1: (128, 0, 0),  # Red
-    2: (0, 128, 0),  # Green
-    3: (128, 128, 0),  # Yellow
-    4: (0, 0, 128),  # Blue
-    5: (128, 0, 128),  # Magenta
-    6: (0, 128, 128),  # Cyan
-    7: (192, 192, 192),  # White
-}
-
-_ANSI_BRIGHT_COLORS = {
-    # Bright colors (90-97 for fg, 100-107 for bg)
-    0: (128, 128, 128),  # Bright Black (Gray)
-    1: (255, 0, 0),  # Bright Red
-    2: (0, 255, 0),  # Bright Green
-    3: (255, 255, 0),  # Bright Yellow
-    4: (0, 0, 255),  # Bright Blue
-    5: (255, 0, 255),  # Bright Magenta
-    6: (0, 255, 255),  # Bright Cyan
-    7: (255, 255, 255),  # Bright White
-}
-
-
 def _apply_ansi_codes(style: _StyleState, codes: list[str]) -> None:
     """Apply ANSI codes to style state.
 
@@ -380,21 +355,21 @@ def _apply_ansi_codes(style: _StyleState, codes: list[str]) -> None:
 
     Notes
     -----
-    Handles various ANSI SGR (Select Graphic Rendition) codes including:
+    Handles the SGR (Select Graphic Rendition) codes that map onto a cell:
+
     - 0: Reset
-    - 1: Bold
-    - 2: Dim
-    - 3: Italic
-    - 4: Underline
-    - 7: Reverse
-    - 30-37: Foreground basic colors
-    - 38;2;R;G;B: Foreground true color
-    - 38;5;N: Foreground 256-color (approximate to RGB)
-    - 40-47: Background basic colors
-    - 48;2;R;G;B: Background true color
-    - 48;5;N: Background 256-color (approximate to RGB)
-    - 90-97: Foreground bright colors
-    - 100-107: Background bright colors
+    - 1 / 2 / 3 / 4 / 7: Bold / dim / italic / underline / reverse on
+    - 22: Bold and dim off; 23 / 24 / 27: italic / underline / reverse off
+    - 30-37, 90-97: Foreground palette colors 0-7 and 8-15
+    - 40-47, 100-107: Background palette colors 0-7 and 8-15
+    - 38;5;N / 48;5;N: Foreground / background palette color N
+    - 38;2;R;G;B / 48;2;R;G;B: Foreground / background true color
+    - 39 / 49: Default foreground / background
+
+    Palette colors are kept as palette indices rather than converted to RGB,
+    so they are emitted as palette codes and the terminal's theme decides how
+    they look. Converting them pinned, say, blue (34) to a fixed navy that is
+    hard to read on a dark background.
     """
     i = 0
     while i < len(codes):
@@ -410,7 +385,7 @@ def _apply_ansi_codes(style: _StyleState, codes: list[str]) -> None:
         if code_num == 0:
             style.reset()
 
-        # Text attributes
+        # Text attributes on
         elif code_num == 1:
             style.bold = True
         elif code_num == 2:
@@ -422,44 +397,47 @@ def _apply_ansi_codes(style: _StyleState, codes: list[str]) -> None:
         elif code_num == 7:
             style.reverse = True
 
-        # Foreground basic colors (30-37)
+        # Text attributes off
+        elif code_num == 22:
+            style.bold = False
+            style.dim = False
+        elif code_num == 23:
+            style.italic = False
+        elif code_num == 24:
+            style.underline = False
+        elif code_num == 27:
+            style.reverse = False
+
+        # Palette colors 0-7 (30-37 fg, 40-47 bg) and 8-15 (90-97, 100-107)
         elif 30 <= code_num <= 37:
-            color_idx = code_num - 30
-            style.fg_color = _ANSI_BASIC_COLORS[color_idx]
-
-        # Background basic colors (40-47)
+            style.fg_color = code_num - 30
         elif 40 <= code_num <= 47:
-            color_idx = code_num - 40
-            style.bg_color = _ANSI_BASIC_COLORS[color_idx]
+            style.bg_color = code_num - 40
+        elif 90 <= code_num <= 97:
+            style.fg_color = code_num - 90 + 8
+        elif 100 <= code_num <= 107:
+            style.bg_color = code_num - 100 + 8
 
-        # Foreground extended colors (38;...)
+        # Default colors
+        elif code_num == 39:
+            style.fg_color = None
+        elif code_num == 49:
+            style.bg_color = None
+
+        # Extended colors (38;... fg, 48;... bg)
         elif code_num == 38:
             i, color = _parse_extended_color(codes, i)
-            if color:
+            if color is not None:
                 style.fg_color = color
-
-        # Background extended colors (48;...)
         elif code_num == 48:
             i, color = _parse_extended_color(codes, i)
-            if color:
+            if color is not None:
                 style.bg_color = color
-
-        # Foreground bright colors (90-97)
-        elif 90 <= code_num <= 97:
-            color_idx = code_num - 90
-            style.fg_color = _ANSI_BRIGHT_COLORS[color_idx]
-
-        # Background bright colors (100-107)
-        elif 100 <= code_num <= 107:
-            color_idx = code_num - 100
-            style.bg_color = _ANSI_BRIGHT_COLORS[color_idx]
 
         i += 1
 
 
-def _parse_extended_color(
-    codes: list[str], i: int
-) -> tuple[int, tuple[int, int, int] | None]:
+def _parse_extended_color(codes: list[str], i: int) -> tuple[int, Color | None]:
     """Parse extended color codes (38;... or 48;...).
 
     Parameters
@@ -471,14 +449,14 @@ def _parse_extended_color(
 
     Returns
     -------
-    tuple of (int, tuple or None)
-        New index and parsed RGB color tuple, or None if parsing failed
+    tuple of (int, Color or None)
+        New index and the parsed color, or None if parsing failed
 
     Notes
     -----
     Handles:
-    - 38;2;R;G;B or 48;2;R;G;B: True color RGB
-    - 38;5;N or 48;5;N: 256-color palette (approximate conversion)
+    - 38;2;R;G;B or 48;2;R;G;B: True color, as an RGB triple
+    - 38;5;N or 48;5;N: 256-color palette, as the palette index N
     """
     if i + 2 >= len(codes):
         return i, None
@@ -497,54 +475,12 @@ def _parse_extended_color(
 
         # 256-color mode (38;5;N or 48;5;N)
         elif mode == 5:
-            if i + 2 >= len(codes):
-                return i, None
             color_idx = int(codes[i + 2])
-            # Approximate conversion from 256-color to RGB
-            rgb = _256color_to_rgb(color_idx)
-            return i + 2, rgb
+            if not 0 <= color_idx <= 255:
+                return i + 2, None
+            return i + 2, color_idx
 
     except (ValueError, IndexError):
         pass
 
     return i, None
-
-
-def _256color_to_rgb(color_idx: int) -> tuple[int, int, int]:
-    """Convert 256-color palette index to approximate RGB.
-
-    Parameters
-    ----------
-    color_idx : int
-        Color index (0-255)
-
-    Returns
-    -------
-    tuple of (int, int, int)
-        Approximate RGB color
-
-    Notes
-    -----
-    The 256-color palette consists of:
-    - 0-15: Basic and bright colors
-    - 16-231: 6x6x6 RGB cube
-    - 232-255: Grayscale ramp
-    """
-    # Basic colors (0-15)
-    if color_idx < 8:
-        return _ANSI_BASIC_COLORS[color_idx]
-    elif color_idx < 16:
-        return _ANSI_BRIGHT_COLORS[color_idx - 8]
-
-    # 216-color RGB cube (16-231)
-    elif 16 <= color_idx <= 231:
-        idx = color_idx - 16
-        r = (idx // 36) * 51
-        g = ((idx % 36) // 6) * 51
-        b = (idx % 6) * 51
-        return (r, g, b)
-
-    # Grayscale ramp (232-255)
-    else:
-        gray = 8 + (color_idx - 232) * 10
-        return (gray, gray, gray)

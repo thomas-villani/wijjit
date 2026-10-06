@@ -98,6 +98,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glyph now takes a head cell and a continuation cell, as template text
   already did, a combining mark folds onto the character before it, and a row
   cut at the view's edge blanks a glyph it would halve.
+- **Palette colors in ANSI content follow the terminal's theme.** The ANSI
+  adapter turned the 16 basic colors and the 256-color palette into fixed RGB
+  from the old VGA table and emitted that as truecolor, so blue (`34`) always
+  came out navy and red as maroon, whatever the terminal's theme defines;
+  Rich's Markdown links were hard to read on a dark background. A cell color
+  can now be a palette index (`wijjit.terminal.cell.Color`), emitted as the
+  palette code itself (`34`, `94`, `38;5;n`), so the content looks as it does
+  printed straight to the terminal. The adapter also honors `39`/`49`
+  (default colors) and `22`/`23`/`24`/`27` (attributes off), which it
+  ignored, and overlay dimming no longer skips palette black.
 
 ## [0.1.1] - 2026-08-03
 

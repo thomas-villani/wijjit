@@ -109,6 +109,7 @@ from wijjit.tags.menu import (
     MenuItemExtension,
 )
 from wijjit.terminal.ansi import visible_length
+from wijjit.terminal.cell import color_to_rgb
 from wijjit.terminal.screen_buffer import DiffRenderer, ScreenBuffer
 
 # Get logger for this module
@@ -2306,16 +2307,18 @@ class Renderer:
             for y in range(height):
                 for x in range(width):
                     cell = composite_buffer.cells[y][x]
-                    # Dim by reducing RGB values
-                    if cell.fg_color:
-                        r, g, b = cell.fg_color
+                    # Dim by reducing RGB values. A palette color has no RGB
+                    # of its own, so it is dimmed from an approximation; test
+                    # against None, since palette index 0 (black) is falsy.
+                    if cell.fg_color is not None:
+                        r, g, b = color_to_rgb(cell.fg_color)
                         cell.fg_color = (
                             int(r * dim_factor),
                             int(g * dim_factor),
                             int(b * dim_factor),
                         )
-                    if cell.bg_color:
-                        r, g, b = cell.bg_color
+                    if cell.bg_color is not None:
+                        r, g, b = color_to_rgb(cell.bg_color)
                         cell.bg_color = (
                             int(r * dim_factor),
                             int(g * dim_factor),
