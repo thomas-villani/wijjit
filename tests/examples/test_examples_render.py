@@ -57,6 +57,7 @@ OPTIONAL_DEPS: dict[str, str] = {
 # Deterministic, content-stable demos that get a full initial-screen golden.
 # (Excludes anything that reads the live filesystem, writes logs, or animates.)
 GOLDEN_EXAMPLES: tuple[str, ...] = (
+    "apps/doc_reader.py",
     "basic/hello_world.py",
     "basic/grid_demo.py",
     "advanced/login_form.py",

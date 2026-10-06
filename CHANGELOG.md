@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   escape sequences, or longer than 2048 characters is dropped and its text
   kept, and the new `HYPERLINK_SCHEMES` config restricts which schemes survive
   (default: any).
+- **`examples/apps/doc_reader.py`: a Markdown document reader.** It shows the
+  new content-view features together: external links the terminal opens,
+  in-document links that jump on click (looked up in a per-width map that
+  callable content builds), a status bar previewing the link under the
+  pointer, and an outline tree (`enter_selects`) that jumps by section.
 - **`ContentView` reports click and hover positions.** The view handled only
   the scroll wheel, so an app that knows what is where in its content (a
   document viewer that placed its own links) could not make any of it

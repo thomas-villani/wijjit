@@ -124,6 +124,14 @@ GALLERY: list[tuple[str, str, tuple[int, int], str, int, str]] = [
         0,
         "wijjit - chatbot.py",
     ),
+    (
+        "doc_reader",
+        "examples/apps/doc_reader.py",
+        (110, 30),
+        "",
+        0,
+        "wijjit - doc_reader.py",
+    ),
     # -- Layout --------------------------------------------------------------
     (
         "dashboard",
