@@ -537,9 +537,10 @@ release-blocking — pull forward opportunistically.
   split-panel ``_clamp_ratio`` vs ``_calculate_sizes`` disagreement (resize
   jitter) + unvalidated persisted state; ``Size`` fill/percentage classification
   ambiguous for ``"100%"``.
-- [ ] **Display:** Table sort not stable + string-coerces mixed types; ContentView
-  re-renders content every frame; Pager ``remove_page`` leaves scroll-state keys
-  pointing at the wrong page. (LogView ``set_lines`` re-tail and the
+- [ ] **Display:** Table sort not stable + string-coerces mixed types;
+  ~~ContentView re-renders content every frame~~ (content was cached, but it
+  re-parsed the visible lines each frame; parsed lines cached 2026-10-06);
+  Pager ``remove_page`` leaves scroll-state keys pointing at the wrong page. (LogView ``set_lines`` re-tail and the
   reconcile/prop-sync path already fixed — see CHANGELOG.)
 - [ ] **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
   ticks/min-max not reserved in auto-height; HeatMap legend ``bar_width`` can go

@@ -51,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does the mapping for any screen cell, and the test harness gained
   `h.hover(x, y)` to send pointer motion.
 
+### Changed
+- **`ContentView` parses each rendered line once.** The rendered content was
+  cached, but painting turned every visible ANSI line back into cells on every
+  frame, and again for every click or hover lookup. Parsed lines are now
+  cached, keyed by the line itself so a re-render needs no invalidation, and
+  bounded so constantly changing content cannot grow the cache. Scrolling a
+  full-screen (120x50) Markdown document costs about 40% less per frame
+  (6.4 ms to 3.9 ms, measured through the harness).
+
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
   `{% progressbar %}`, `{% spinner %}`, `{% modal %}` and `{% link %}` keyed the
