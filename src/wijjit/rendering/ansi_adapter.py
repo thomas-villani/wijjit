@@ -16,15 +16,23 @@ could inject escape sequences, or whose scheme is not allowed, is dropped and
 its text kept (:func:`~wijjit.terminal.cell.make_hyperlink`). Every other OSC
 sequence (window titles and so on) is stripped.
 
-Known gap: :func:`ansi_string_to_cells` maps one code point per cell, so
-pre-rendered ANSI containing double-width characters (CJK, emoji) is not
-column-correct the way the wcwidth-aware :class:`~wijjit.rendering.paint_context.PaintContext`
-write APIs are.
+Wide characters are column-correct: :func:`ansi_string_to_cells` emits a
+continuation cell after each width-2 glyph, as the wcwidth-aware
+:class:`~wijjit.rendering.paint_context.PaintContext` write APIs do, so cell
+index and display column agree.
 """
 
 import re
+from dataclasses import replace
 
-from wijjit.terminal.cell import Cell, Hyperlink, is_continuation, make_hyperlink
+from wijjit.terminal.ansi import display_width
+from wijjit.terminal.cell import (
+    CONTINUATION_CHAR,
+    Cell,
+    Hyperlink,
+    is_continuation,
+    make_hyperlink,
+)
 
 # Precompiled regex patterns for ANSI parsing
 # SGR (Select Graphic Rendition) - styling codes we want to parse
@@ -83,12 +91,12 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     This is a temporary utility for the migration period and will be removed
     once all elements use cell-based rendering.
 
-    Wide characters in the pre-parsed ANSI content are mapped one code point per
-    cell here; unlike the standard
-    :meth:`wijjit.rendering.paint_context.PaintContext.write_text` path, this
-    bridge does not yet emit continuation cells for width-2 glyphs, so
-    pre-rendered ANSI (e.g. Rich-rendered tables) can still miscolumn wide
-    glyphs. Making this cluster-aware is tracked on the roadmap.
+    The result has one cell per terminal column, laid out as
+    :meth:`wijjit.rendering.paint_context.PaintContext.write_text` lays out
+    text: a width-2 glyph (CJK, most emoji) is a head cell plus a continuation
+    cell, and a zero-width combining mark is folded onto the glyph before it.
+    Index ``n`` of a row is therefore display column ``n``. Cut a row with
+    :func:`clip_cells` so a wide glyph is never split at the edge.
 
     Examples
     --------
@@ -109,7 +117,7 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     if not ansi_str:
         return []
 
-    cells = []
+    cells: list[Cell] = []
     current_style = _StyleState()
     current_link: Hyperlink | None = None
     i = 0
@@ -175,10 +183,54 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
             dim=current_style.dim,
             link=current_link,
         )
-        cells.append(cell)
         i += 1
 
+        width = display_width(char)
+        if width == 0 and cells:
+            # Zero-width (a combining mark): fold it onto the glyph it
+            # modifies, stepping back over that glyph's continuation cell.
+            head = len(cells) - 1
+            if is_continuation(cells[head]) and head > 0:
+                head -= 1
+            cells[head] = replace(cells[head], char=cells[head].char + char)
+            continue
+
+        cells.append(cell)
+        if width == 2:
+            # Width-2 glyph: head cell plus a continuation cell in the next
+            # column, as PaintContext.write_text lays them out.
+            cells.append(replace(cell, char=CONTINUATION_CHAR))
+
     return cells
+
+
+def clip_cells(cells: list[Cell], width: int) -> list[Cell]:
+    """Cut a row of cells to ``width`` columns without halving a wide glyph.
+
+    Parameters
+    ----------
+    cells : list of Cell
+        A row as :func:`ansi_string_to_cells` returns it (one cell per column).
+    width : int
+        Columns to keep.
+
+    Returns
+    -------
+    list of Cell
+        At most ``width`` cells. When the cut falls between a wide glyph's head
+        and its continuation, the head is replaced by a space in the same
+        style: printed, it would spill one column past ``width`` (onto a
+        border or scrollbar).
+    """
+    clipped = cells[:width]
+    if (
+        clipped
+        and len(cells) > width
+        and is_continuation(cells[width])
+        and not is_continuation(clipped[-1])
+    ):
+        clipped[-1] = replace(clipped[-1], char=" ")
+    return clipped
 
 
 def cells_to_ansi(cells: list[Cell]) -> str:

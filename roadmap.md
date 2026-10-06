@@ -109,7 +109,10 @@ Real features, but not blockers — ship as additive minor versions after 0.1.0.
   diff-cursor desync, and the click offset are gone for template/frame text.
 - [ ] Wide-character correctness — remaining non-template paths
     - finalize char-vs-column cursor/scroll/edit behavior in TextArea / DataGrid / related input paths
-    - make ansi_string_to_cells() emit continuation cells for width-2 glyphs
+    - ~~make ansi_string_to_cells() emit continuation cells for width-2 glyphs~~
+      (landed 2026-10-06 with ContentView click positions, #75: combining
+      marks fold onto their base too, and `clip_cells` cuts a row without
+      halving a glyph)
     - audit remaining width math based on raw char slicing rather than display column
 - [x] **Reposition the tagline** (review 3.6). Landed 2026-07-16. The tagline is
   now the recursive acronym "Wijjit Is Just Jinja In Terminal", and the pitch

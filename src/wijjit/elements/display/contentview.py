@@ -17,8 +17,9 @@ from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
 from wijjit.rendering import PaintContext
 from wijjit.styling.style import Style
 from wijjit.terminal.ansi import visible_length
+from wijjit.terminal.cell import is_continuation
 from wijjit.terminal.input import Key, Keys
-from wijjit.terminal.mouse import MouseButton, MouseEvent
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 if TYPE_CHECKING:
     from wijjit.layout.bounds import Bounds
@@ -91,6 +92,23 @@ class ContentView(ScrollableElement):
         Border style: "single", "double", "rounded", or "none" (default: "single")
     title : str, optional
         Title to display in top border (default: None)
+    action : str, optional
+        Action dispatched on a left click in the content area (default: None).
+        The :class:`~wijjit.core.events.ActionEvent`'s ``data`` is
+        ``{"line": line, "column": column}``, as for ``on_click``.
+    on_click : callable, optional
+        ``on_click(line, column, event)``, called on a left click in the
+        content area (default: None). ``line`` is the content line, scroll
+        offset applied (0-based); ``column`` is the display column within it
+        (0-based, a wide character counting two, a click on either of its
+        columns reporting the first). With callable ``content`` these are
+        positions in the layout the callable produced. A click on the border,
+        the scrollbar, or below the last line reports nothing.
+    on_hover : callable, optional
+        ``on_hover(line, column)``, called when the pointer moves to a new
+        position in the content area, and ``on_hover(None, None)`` when it
+        leaves it (default: None). Pointer motion is only reported to the app
+        with ``MOUSE_TRACKING_MODE = "all_events"``.
 
     Attributes
     ----------
@@ -141,10 +159,20 @@ class ContentView(ScrollableElement):
         title: str | None = None,
         tab_index: int | None = None,
         bind: bool | str = True,
+        action: str | None = None,
+        on_click: Callable[[int, int, MouseEvent], Any] | None = None,
+        on_hover: Callable[[int | None, int | None], Any] | None = None,
     ) -> None:
         super().__init__(id=id, classes=classes, tab_index=tab_index)
         self.element_type = ElementType.DISPLAY
         self.focusable = True  # Focusable for keyboard scrolling
+
+        # Pointer reporting. on_action is set by wiring from ``action``; the
+        # last hover position is kept so on_hover fires only on a change.
+        self.on_click = on_click
+        self.on_hover = on_hover
+        self.on_action: Callable[[int, int], Any] | None = None
+        self._hover_position: tuple[int, int] | None = None
 
         # Content and type. For callable content, the width it was last laid
         # out at (see _render_callable).
@@ -199,7 +227,7 @@ class ContentView(ScrollableElement):
         )
 
         # Template metadata
-        self.action: str | None = None
+        self.action = action
         self.bind: bool | str = bind
 
     @property
@@ -675,8 +703,98 @@ class ContentView(ScrollableElement):
 
         return False
 
+    def content_position_at(self, x: int, y: int) -> tuple[int, int] | None:
+        """Map a screen cell to a position in the content.
+
+        Parameters
+        ----------
+        x, y : int
+            Screen column and row (0-based), as a mouse event reports them.
+
+        Returns
+        -------
+        tuple of (int, int) or None
+            ``(line, column)``: the content line, scroll offset applied, and
+            the display column within it (a wide character counts two; either
+            of its columns maps to the first). None when the cell is not over
+            content: outside the view, on the border or the scrollbar, or
+            below the last line. A column past the end of a shorter line is
+            still reported.
+        """
+        if self.bounds is None:
+            return None
+
+        inset = 0 if self.border_style == "none" else 1
+        column = x - self.bounds.x - inset
+        row = y - self.bounds.y - inset
+        # The scrollbar sits in the column just past the content width.
+        if not (
+            0 <= column < self._get_content_width()
+            and 0 <= row < self._get_content_height()
+        ):
+            return None
+
+        line = self.scroll_manager.state.scroll_position + row
+        if line >= self._rendered_count():
+            return None
+
+        # Cells are one per display column, a wide glyph's second column being
+        # a continuation cell; step back from it to the glyph's own column.
+        cells = self._line_cells(line)
+        if 0 < column < len(cells) and is_continuation(cells[column]):
+            column -= 1
+        return line, column
+
+    def _line_cells(self, line: int) -> list[Any]:
+        """Return the cells of one rendered line (one cell per column).
+
+        Parameters
+        ----------
+        line : int
+            Index into the rendered lines.
+
+        Returns
+        -------
+        list of Cell
+            The line's cells, as the view paints them.
+        """
+        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+
+        if self._uses_cells:
+            return list(self.rendered_cells[line])
+        return ansi_string_to_cells(self.rendered_lines[line])
+
+    def _report_hover(self, position: tuple[int, int] | None) -> bool:
+        """Tell ``on_hover`` about a new pointer position, if it changed.
+
+        Parameters
+        ----------
+        position : tuple of (int, int) or None
+            The new position, or None when the pointer is off the content.
+
+        Returns
+        -------
+        bool
+            True if ``on_hover`` was called.
+        """
+        if position == self._hover_position:
+            return False
+        self._hover_position = position
+        if self.on_hover is None:
+            return False
+        if position is None:
+            invoke_callback(self.on_hover, None, None)
+        else:
+            invoke_callback(self.on_hover, *position)
+        return True
+
+    def on_hover_exit(self) -> None:
+        """Report the pointer leaving the view to ``on_hover``."""
+        super().on_hover_exit()
+        self._report_hover(None)
+
     async def handle_mouse(self, event: MouseEvent) -> bool:
-        """Handle mouse input for scrolling.
+        """Handle mouse input: scrolling, and clicks and hovers on content.
 
         Parameters
         ----------
@@ -687,6 +805,13 @@ class ContentView(ScrollableElement):
         -------
         bool
             True if event was handled
+
+        Notes
+        -----
+        A left click over content calls ``on_click`` and dispatches ``action``
+        with the ``(line, column)`` from :meth:`content_position_at`. Pointer
+        motion calls ``on_hover`` when the position changes, as does a wheel
+        scroll that moves the content under the pointer.
         """
         # Handle scroll wheel
         # Delegate to the base handler first so double-click / context-menu
@@ -702,6 +827,8 @@ class ContentView(ScrollableElement):
                     invoke_callback(
                         self.on_scroll, self.scroll_manager.state.scroll_position
                     )
+                # The content moved under a still pointer.
+                self._report_hover(self.content_position_at(event.x, event.y))
                 return True
             return False
 
@@ -713,8 +840,26 @@ class ContentView(ScrollableElement):
                     invoke_callback(
                         self.on_scroll, self.scroll_manager.state.scroll_position
                     )
+                # The content moved under a still pointer.
+                self._report_hover(self.content_position_at(event.x, event.y))
                 return True
             return False
+
+        if event.type == MouseEventType.CLICK and event.button == MouseButton.LEFT:
+            if self.on_click is None and self.on_action is None:
+                return False
+            position = self.content_position_at(event.x, event.y)
+            if position is None:
+                return False
+            line, column = position
+            if self.on_click is not None:
+                invoke_callback(self.on_click, line, column, event)
+            if self.on_action is not None:
+                invoke_callback(self.on_action, line, column)
+            return True
+
+        if event.type == MouseEventType.MOVE:
+            return self._report_hover(self.content_position_at(event.x, event.y))
 
         return False
 
@@ -879,7 +1024,7 @@ class ContentView(ScrollableElement):
         content_width : int
             Content area width
         """
-        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+        from wijjit.rendering.ansi_adapter import ansi_string_to_cells, clip_cells
         from wijjit.terminal.cell import Cell, get_pooled_cell
 
         # Get visible range
@@ -910,7 +1055,7 @@ class ContentView(ScrollableElement):
                     ctx.write_cells(0, current_y, empty_line)
                 else:
                     cells = self.rendered_cells[rendered_idx]
-                    line_cells = cells[:content_width]
+                    line_cells = clip_cells(cells, content_width)
 
                     # Pad remaining width
                     if len(line_cells) < content_width:
@@ -931,7 +1076,7 @@ class ContentView(ScrollableElement):
                     ansi_line = self.rendered_lines[rendered_idx]
                     cells = ansi_string_to_cells(ansi_line)
 
-                    line_cells = cells[:content_width]
+                    line_cells = clip_cells(cells, content_width)
 
                     # Pad remaining width
                     if len(line_cells) < content_width:

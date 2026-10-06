@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from wijjit.autocomplete.resolver import resolve_autocomplete
 from wijjit.core.events import HandlerScope
+from wijjit.elements.display.contentview import ContentView
 from wijjit.elements.display.link import Link
 from wijjit.elements.display.tree import Tree
 from wijjit.elements.input.button import Button
@@ -209,6 +210,13 @@ class ElementWiringManager:
         # Wire up Tree callbacks
         if isinstance(elem, Tree):
             self._wire_tree(elem, state)
+
+        # A content view's action carries the clicked position
+        if isinstance(elem, ContentView) and elem.action:
+            action_id = elem.action
+            elem.on_action = lambda line, column, aid=action_id: (
+                self.app._dispatch_action(aid, data={"line": line, "column": column})
+            )
 
         # Wire up Checkbox callbacks
         if isinstance(elem, Checkbox):
