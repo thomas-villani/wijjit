@@ -155,7 +155,7 @@ Display & data tags
     Renders :class:`wijjit.elements.display.table.Table`. Supports column definitions (``columns=[{"key": "name", "label": "Name", "width": 20}]``), row selection, zebra striping, and custom cell renderers. Use ``data=state.rows`` or pass a literal list.
 
 ``{% tree %}``
-    Hierarchical data viewer with expand/collapse support. Provide ``nodes`` with ``children`` arrays.
+    Hierarchical data viewer with expand/collapse support. Pass ``data=`` a node dict (``id``, ``label``, ``children``) or a list of them, and ``on_select=`` an action. By default Enter and Space expand or collapse a node that has children and select a leaf; ``enter_selects=True`` makes Enter select any node, as a click on its label does, leaving Space, Left and Right to expand and collapse (an outline that jumps to sections wants this).
 
 ``{% listview %}``
     Scrollable list with optional selection markers.
