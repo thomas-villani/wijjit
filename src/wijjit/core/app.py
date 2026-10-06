@@ -566,6 +566,10 @@ class Wijjit:
         if no_color:
             logger.debug("Colors disabled via NO_COLOR config")
 
+        # Hyperlinks share the module-level settings path: they are parsed out
+        # of ANSI content during paint, with no app reference in reach.
+        ansi.set_hyperlink_schemes(self.config["HYPERLINK_SCHEMES"])
+
     def _get_mouse_tracking_mode(self) -> MouseTrackingMode:
         """Convert config string to MouseTrackingMode enum.
 

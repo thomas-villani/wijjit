@@ -245,6 +245,17 @@ APP_TITLE
 
    app.config['APP_TITLE'] = 'My Wijjit App'  # Set the terminal title
 
+HYPERLINK_SCHEMES
+^^^^^^^^^^^^^^^^^
+
+:Type: ``tuple`` of ``str``, or ``None``
+:Default: ``None``
+:Description: URI schemes kept on OSC 8 hyperlinks in ANSI content (a ``content_type="ansi"`` view, or Rich and Markdown output, which carry links). Wijjit keeps those links and re-emits them, so the terminal can offer the click (usually Ctrl/Cmd+click); it never opens a link itself. A link with a scheme outside this list is dropped and its text shown unlinked. ``None`` keeps every scheme. A target holding control characters, which could inject escape sequences, is refused regardless. From the environment, give a comma-separated list: ``WIJJIT_HYPERLINK_SCHEMES=http,https,mailto``.
+
+.. code-block:: python
+
+   app.config['HYPERLINK_SCHEMES'] = ('http', 'https', 'mailto')
+
 HARDWARE_CURSOR
 ^^^^^^^^^^^^^^^
 

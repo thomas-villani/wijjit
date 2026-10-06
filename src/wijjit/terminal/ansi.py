@@ -9,7 +9,7 @@ import os
 import re
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from wcwidth import wcswidth, wcwidth
@@ -867,6 +867,53 @@ def is_no_color() -> bool:
     """
     override = _no_color
     return _no_color_env if override is None else override
+
+
+# Module-level hyperlink scheme allowlist (None = any scheme). Set from the
+# HYPERLINK_SCHEMES config by the application; read when ANSI content is parsed.
+_hyperlink_schemes: frozenset[str] | None = None
+
+
+def set_hyperlink_schemes(schemes: Iterable[str] | str | None) -> None:
+    """Restrict the URI schemes kept on OSC 8 hyperlinks.
+
+    Parameters
+    ----------
+    schemes : iterable of str, str, or None
+        Schemes to keep (``"https"``, ``"mailto"``, ...), compared without
+        regard to case. A single string is split on commas, which is how a
+        ``WIJJIT_HYPERLINK_SCHEMES=http,https`` environment variable arrives. A
+        link whose target has any other scheme, or none, is dropped and its
+        text shown unlinked. ``None`` keeps every scheme.
+
+    Notes
+    -----
+    :class:`~wijjit.core.app.Wijjit` calls this with the ``HYPERLINK_SCHEMES``
+    config value during construction. The allowlist is applied where ANSI
+    content is parsed into cells
+    (:func:`~wijjit.rendering.ansi_adapter.ansi_string_to_cells`), the path
+    untrusted content takes; a :class:`~wijjit.terminal.cell.Hyperlink` an app
+    builds itself is not filtered.
+
+    Thread-safe: Uses a lock to protect global state.
+    """
+    global _hyperlink_schemes
+    if isinstance(schemes, str):
+        schemes = [s.strip() for s in schemes.split(",") if s.strip()]
+    value = None if schemes is None else frozenset(s.lower() for s in schemes)
+    with _settings_lock:
+        _hyperlink_schemes = value
+
+
+def get_hyperlink_schemes() -> frozenset[str] | None:
+    """Return the hyperlink scheme allowlist, or None when any scheme is kept.
+
+    Returns
+    -------
+    frozenset of str or None
+        Lowercase schemes set by :func:`set_hyperlink_schemes`, or None.
+    """
+    return _hyperlink_schemes
 
 
 def colorize(

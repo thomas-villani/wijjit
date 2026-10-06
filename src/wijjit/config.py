@@ -380,6 +380,14 @@ class DefaultConfig:
     #: terminal title untouched.
     APP_TITLE: str | None = None
 
+    #: URI schemes kept on OSC 8 hyperlinks found in ANSI content (a
+    #: ``content_type="ansi"`` view, Rich or Markdown output), e.g.
+    #: ``("http", "https", "mailto")``. A link with any other scheme is
+    #: dropped and its text shown unlinked. ``None`` keeps every scheme.
+    #: Opening a link is always left to the terminal; Wijjit never launches
+    #: one. Targets that could inject escape sequences are refused either way.
+    HYPERLINK_SCHEMES: tuple[str, ...] | None = None
+
     # ============================================================
     # COLORS & THEMING
     # ============================================================

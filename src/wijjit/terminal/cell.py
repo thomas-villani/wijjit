@@ -7,8 +7,149 @@ which enables efficient diff rendering, styling, and dirty region tracking.
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
+from urllib.parse import quote
 
-from wijjit.terminal.ansi import is_no_color
+from wijjit.terminal.ansi import get_hyperlink_schemes, is_no_color
+
+# OSC 8 sequence that ends the active hyperlink (empty params, empty URI).
+HYPERLINK_CLOSE = "\x1b]8;;\x1b\\"
+
+# Longest hyperlink target emitted. Terminals cap OSC 8 URIs (VTE at 2083
+# bytes); a longer target is dropped rather than emitted truncated.
+MAX_HYPERLINK_LENGTH = 2048
+
+# Longest OSC 8 ``id`` parameter kept. Terminals cap it too (VTE at 250).
+MAX_HYPERLINK_ID_LENGTH = 250
+
+# Characters left as-is when percent-encoding a hyperlink target: printable
+# ASCII other than space. ``%`` is included so existing escapes survive.
+_URI_SAFE = "".join(chr(c) for c in range(0x21, 0x7F))
+
+
+def _is_control(char: str) -> bool:
+    """Return whether ``char`` is a C0 or C1 control character, or DEL."""
+    code = ord(char)
+    return code < 0x20 or 0x7F <= code <= 0x9F
+
+
+@dataclass(frozen=True, slots=True)
+class Hyperlink:
+    """An OSC 8 hyperlink target carried by the cells it covers.
+
+    Opening a link is the terminal's job: Wijjit only emits the OSC 8 sequence
+    around the cells that carry it, and never launches anything itself.
+
+    Parameters
+    ----------
+    url : str
+        The link target. Printable ASCII only (bytes 32-126, as the OSC 8
+        convention requires), at most :data:`MAX_HYPERLINK_LENGTH` characters.
+    id : str or None, optional
+        The OSC 8 ``id`` parameter. Runs of cells that share a URL and an id are
+        one link to the terminal, so a link wrapped across lines, or cut by a
+        partial repaint, still highlights as one. Printable ASCII without
+        ``:`` or ``;``, at most :data:`MAX_HYPERLINK_ID_LENGTH` characters.
+
+    Raises
+    ------
+    ValueError
+        If ``url`` or ``id`` could carry anything but a link: control
+        characters (which would let a target inject escape sequences), other
+        characters outside printable ASCII, or an over-long value. Use
+        :func:`make_hyperlink` to build one from untrusted input.
+    """
+
+    url: str
+    id: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the target and id."""
+        if not self.url or len(self.url) > MAX_HYPERLINK_LENGTH:
+            raise ValueError("hyperlink url must be 1 to 2048 characters")
+        if any(not 0x20 <= ord(c) <= 0x7E for c in self.url):
+            raise ValueError("hyperlink url must be printable ASCII")
+        if self.id is not None and (
+            not self.id
+            or len(self.id) > MAX_HYPERLINK_ID_LENGTH
+            or any(not 0x21 <= ord(c) <= 0x7E or c in ":;" for c in self.id)
+        ):
+            raise ValueError("hyperlink id must be printable ASCII without ':' or ';'")
+
+    def open_sequence(self) -> str:
+        """Return the OSC 8 sequence that starts this link.
+
+        Returns
+        -------
+        str
+            ``ESC ] 8 ; params ; url ESC \\``. End the link with
+            :data:`HYPERLINK_CLOSE`.
+        """
+        params = f"id={self.id}" if self.id else ""
+        return f"\x1b]8;{params};{self.url}\x1b\\"
+
+
+def hyperlink_sequence(link: Hyperlink | None) -> str:
+    """Return the OSC 8 sequence that makes ``link`` the active link.
+
+    Parameters
+    ----------
+    link : Hyperlink or None
+        The link the next printed cells belong to, or None for no link.
+
+    Returns
+    -------
+    str
+        The link's open sequence, or :data:`HYPERLINK_CLOSE` for None. Opening
+        a link also ends the previous one, so switching links directly needs
+        no close in between.
+    """
+    return HYPERLINK_CLOSE if link is None else link.open_sequence()
+
+
+def make_hyperlink(url: str, id: str | None = None) -> Hyperlink | None:
+    """Build a :class:`Hyperlink` from untrusted input, or None if it is unsafe.
+
+    Parameters
+    ----------
+    url : str
+        The target as found in content (an OSC 8 URI).
+    id : str or None, optional
+        The OSC 8 ``id`` parameter, if any.
+
+    Returns
+    -------
+    Hyperlink or None
+        The link, or None when the target must not be emitted: it is empty,
+        holds a control character (C0, DEL or C1, which could smuggle escape
+        sequences into the output), is longer than
+        :data:`MAX_HYPERLINK_LENGTH` once encoded, or its scheme is not in the
+        allowlist set by :func:`wijjit.terminal.ansi.set_hyperlink_schemes`.
+
+    Notes
+    -----
+    Other non-ASCII characters and spaces are percent-encoded rather than
+    refused, so an internationalized URL still works. An invalid ``id`` is
+    dropped and the link kept without one.
+    """
+    if not url or any(_is_control(c) for c in url):
+        return None
+    if any(not 0x21 <= ord(c) <= 0x7E for c in url):
+        url = quote(url, safe=_URI_SAFE)
+    if len(url) > MAX_HYPERLINK_LENGTH:
+        return None
+
+    schemes = get_hyperlink_schemes()
+    if schemes is not None:
+        scheme, sep, _ = url.partition(":")
+        if not sep or scheme.lower() not in schemes:
+            return None
+
+    try:
+        return Hyperlink(url, id)
+    except ValueError:
+        # Only the id can be at fault here: the url was checked above.
+        return Hyperlink(url)
+
 
 # Sentinel character marking a "continuation cell": the trailing column of a
 # width-2 (wide) glyph. The head cell holds the full glyph and the following
@@ -79,6 +220,10 @@ class Cell:
         Reverse video (swap fg/bg colors) attribute (default: False)
     dim : bool, optional
         Dim/faint text attribute (default: False)
+    link : Hyperlink or None, optional
+        OSC 8 hyperlink the cell belongs to (default: None). Emitters open the
+        link before the first cell of a run that carries it and close it after
+        the last.
 
     Attributes
     ----------
@@ -98,6 +243,8 @@ class Cell:
         Reverse video attribute
     dim : bool
         Dim attribute
+    link : Hyperlink or None
+        OSC 8 hyperlink, or None
     _style_mask : int
         Pre-computed bitmask of style attributes for fast equality comparison.
         Computed in __post_init__. Bit layout: bold=1, italic=2, underline=4,
@@ -137,6 +284,7 @@ class Cell:
     underline: bool = False
     reverse: bool = False
     dim: bool = False
+    link: Hyperlink | None = None
     # Pre-computed style mask for fast equality comparison (computed in __post_init__)
     _style_mask: int = 0
 
@@ -179,6 +327,7 @@ class Cell:
         2. _style_mask - single int comparison for 5 boolean fields
         3. fg_color - often differs for styled content
         4. bg_color - least likely to differ
+        5. link - None on almost every cell
         """
         # Identity short-circuit. Empty buffer positions all reference one
         # shared blank cell (see screen_buffer._BLANK_CELL), so in the diff
@@ -197,6 +346,7 @@ class Cell:
             and self._style_mask == other._style_mask
             and self.fg_color == other.fg_color
             and self.bg_color == other.bg_color
+            and self.link == other.link
         )
 
     def to_ansi(self) -> str:
@@ -228,9 +378,13 @@ class Cell:
         # Build ANSI sequence
         if codes:
             ansi_codes = ";".join(codes)
-            return f"\x1b[{ansi_codes}m{self.char}\x1b[0m"
+            text = f"\x1b[{ansi_codes}m{self.char}\x1b[0m"
+        else:
+            text = self.char
 
-        return self.char
+        if self.link is not None:
+            return f"{self.link.open_sequence()}{text}{HYPERLINK_CLOSE}"
+        return text
 
     def _style_codes(self) -> list[str]:
         """Build the SGR parameter list for this cell, honoring ``NO_COLOR``.
@@ -323,6 +477,7 @@ class Cell:
             underline=self.underline,
             reverse=self.reverse,
             dim=self.dim,
+            link=self.link,
         )
 
 
@@ -336,6 +491,7 @@ def intern_cell(
     underline: bool = False,
     reverse: bool = False,
     dim: bool = False,
+    link: Hyperlink | None = None,
 ) -> Cell:
     """Return a shared, immutable ``Cell`` for a ``(char, style)`` combination.
 
@@ -369,6 +525,8 @@ def intern_cell(
         Foreground / background RGB, or None for the terminal default.
     bold, italic, underline, reverse, dim : bool, optional
         Text attributes.
+    link : Hyperlink or None, optional
+        OSC 8 hyperlink the cell belongs to.
 
     Returns
     -------
@@ -384,6 +542,7 @@ def intern_cell(
         underline=underline,
         reverse=reverse,
         dim=dim,
+        link=link,
     )
 
 

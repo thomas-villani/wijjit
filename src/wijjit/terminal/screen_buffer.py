@@ -5,7 +5,13 @@ the DiffRenderer class for generating minimal ANSI output by comparing buffers.
 """
 
 from wijjit.terminal.ansi import display_width
-from wijjit.terminal.cell import Cell, is_continuation
+from wijjit.terminal.cell import (
+    HYPERLINK_CLOSE,
+    Cell,
+    Hyperlink,
+    hyperlink_sequence,
+    is_continuation,
+)
 
 # A single shared blank cell used to fill empty buffer positions. Cells are
 # treated as immutable throughout the pipeline - painting *replaces* a slot
@@ -840,9 +846,14 @@ class DiffRenderer:
         # already does (review item 2.12).
         current_pos: int | None = None
         current_style: tuple[object, ...] = _DEFAULT_STYLE
+        # The OSC 8 hyperlink open on the terminal, tracked like current_style:
+        # a run of changed cells sharing a link opens it once, and the row ends
+        # with it closed. A cursor jump leaves it open, which is harmless - only
+        # printed cells take the link.
+        current_link: Hyperlink | None = None
 
         def emit_cell(cell: Cell, x: int) -> None:
-            nonlocal current_pos, current_style
+            nonlocal current_pos, current_style, current_link
             if current_pos != x:
                 # Move cursor to position (1-indexed for ANSI). SGR is unaffected.
                 commands.append(f"\x1b[{row_num + 1};{x + 1}H")
@@ -859,6 +870,9 @@ class DiffRenderer:
                         commands.append("\x1b[0m")
                     commands.append(cell.get_style_codes())
                 current_style = sig
+            if cell.link != current_link:
+                commands.append(hyperlink_sequence(cell.link))
+                current_link = cell.link
             commands.append(cell.char)
             # Advance by the glyph's column width so a wide glyph accounts for
             # the continuation column the terminal also advanced past.
@@ -890,6 +904,8 @@ class DiffRenderer:
         # A run that ended in the default state left the terminal clean already.
         if current_style != _DEFAULT_STYLE:
             commands.append("\x1b[0m")
+        if current_link is not None:
+            commands.append(HYPERLINK_CLOSE)
 
         return commands
 
@@ -917,6 +933,7 @@ class DiffRenderer:
 
         commands = []
         current_style = None
+        current_link: Hyperlink | None = None
 
         for cell in row:
             # Skip the trailing column of a wide glyph: the head glyph already
@@ -939,17 +956,20 @@ class DiffRenderer:
 
             if style_sig != current_style:
                 # Style changed, emit reset first to clear previous attributes,
-                # then emit new style codes and character
+                # then emit new style codes
                 if current_style is not None:
                     commands.append("\x1b[0m")
                 commands.append(cell.get_style_codes())
-                commands.append(cell.char)
                 current_style = style_sig
-            else:
-                # Same style, just write char
-                commands.append(cell.char)
+            if cell.link != current_link:
+                commands.append(hyperlink_sequence(cell.link))
+                current_link = cell.link
+            commands.append(cell.char)
 
-        # Reset at end of line to prevent style bleed
+        # Reset at end of line to prevent style bleed, and close an open link
+        # (the next row re-opens it; a shared id keeps it one link).
         commands.append("\x1b[0m")
+        if current_link is not None:
+            commands.append(HYPERLINK_CLOSE)
 
         return "".join(commands)
