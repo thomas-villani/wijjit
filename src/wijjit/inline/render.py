@@ -14,7 +14,13 @@ import jinja2
 
 from wijjit.core.renderer import Renderer
 from wijjit.exceptions import TemplateError
-from wijjit.terminal.cell import Cell, is_continuation
+from wijjit.terminal.cell import (
+    HYPERLINK_CLOSE,
+    Cell,
+    Hyperlink,
+    hyperlink_sequence,
+    is_continuation,
+)
 
 if TYPE_CHECKING:
     from wijjit.terminal.screen_buffer import ScreenBuffer
@@ -265,6 +271,7 @@ def _render_row_optimized(row: list[Cell], width: int) -> str:
 
     commands = []
     current_style = None
+    current_link: Hyperlink | None = None
 
     for i, cell in enumerate(row):
         if i >= width:
@@ -289,17 +296,20 @@ def _render_row_optimized(row: list[Cell], width: int) -> str:
 
         if style_sig != current_style:
             # Style changed, emit reset first to clear previous attributes,
-            # then emit new style codes and character
+            # then emit new style codes
             if current_style is not None:
                 commands.append("\x1b[0m")
             commands.append(cell.get_style_codes())
-            commands.append(cell.char)
             current_style = style_sig
-        else:
-            # Same style, just write char
-            commands.append(cell.char)
+        if cell.link != current_link:
+            commands.append(hyperlink_sequence(cell.link))
+            current_link = cell.link
+        commands.append(cell.char)
 
-    # Reset at end of line to prevent style bleed
+    # Reset at end of line to prevent style bleed, and close an open link so
+    # it does not run on into the scrollback.
     commands.append("\x1b[0m")
+    if current_link is not None:
+        commands.append(HYPERLINK_CLOSE)
 
     return "".join(commands)

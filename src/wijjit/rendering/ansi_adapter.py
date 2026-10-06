@@ -9,6 +9,13 @@ the ``content_type="ansi"`` attribute (Rich-rendered tables, syntax-highlighted
 output, captured process output) and is used by ContentView, Table, and the
 content renderers.
 
+OSC 8 hyperlinks in the content are kept: each cell a link covers carries it
+(:class:`~wijjit.terminal.cell.Hyperlink`), and the emitters re-open the link
+around those cells, so the terminal can still offer the click. A target that
+could inject escape sequences, or whose scheme is not allowed, is dropped and
+its text kept (:func:`~wijjit.terminal.cell.make_hyperlink`). Every other OSC
+sequence (window titles and so on) is stripped.
+
 Known gap: :func:`ansi_string_to_cells` maps one code point per cell, so
 pre-rendered ANSI containing double-width characters (CJK, emoji) is not
 column-correct the way the wcwidth-aware :class:`~wijjit.rendering.paint_context.PaintContext`
@@ -17,7 +24,7 @@ write APIs are.
 
 import re
 
-from wijjit.terminal.cell import Cell, is_continuation
+from wijjit.terminal.cell import Cell, Hyperlink, is_continuation, make_hyperlink
 
 # Precompiled regex patterns for ANSI parsing
 # SGR (Select Graphic Rendition) - styling codes we want to parse
@@ -33,9 +40,16 @@ _SGR_PATTERN = re.compile(r"\x1b\[([0-9;]*)m")
 # literal branch below, and planted a visible ESC character in the buffer.
 _OTHER_ANSI_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
-# OSC (Operating System Command) sequences to strip
+# OSC 8 hyperlink: ESC ] 8 ; params ; URI, terminated by BEL or ST (ESC \).
+# params is a ':'-separated list of key=value pairs (only ``id`` is defined);
+# an empty URI closes the active link. The URI group stops at the first
+# terminator, so an ESC inside it that is not ST ends up in the target, where
+# make_hyperlink refuses it.
+_OSC8_PATTERN = re.compile(r"\x1b\]8;([^;\x07\x1b]*);(.*?)(?:\x07|\x1b\\)")
+
+# Other OSC (Operating System Command) sequences to strip
 # Format: ESC ] ... BEL or ESC ] ... ESC \
-# Used by Rich for hyperlinks, terminal titles, etc.
+# Used for terminal titles, etc.
 _OSC_PATTERN = re.compile(r"\x1b\].*?(?:\x07|\x1b\\)")
 
 
@@ -60,6 +74,10 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
     - True color RGB (38;2;R;G;B and 48;2;R;G;B)
     - Text attributes (bold, dim, italic, underline, reverse)
     - Reset codes
+    - OSC 8 hyperlinks, attached to the cells they cover as ``Cell.link``.
+      An unsafe target is dropped and its text kept unlinked; see
+      :func:`~wijjit.terminal.cell.make_hyperlink`. A link left open at the end
+      of the string covers the rest of it.
 
     This is a temporary utility for the migration period and will be removed
     once all elements use cell-based rendering.
@@ -92,6 +110,7 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
 
     cells = []
     current_style = _StyleState()
+    current_link: Hyperlink | None = None
     i = 0
 
     while i < len(ansi_str):
@@ -118,8 +137,15 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
             i = match.end()
             continue
 
-        # Check for OSC (Operating System Command) sequences
-        # These are used by Rich for hyperlinks, window titles, etc.
+        # OSC 8 hyperlink: open (or close, with an empty URI) the active link.
+        match = _OSC8_PATTERN.match(ansi_str, i)
+        if match:
+            current_link = _parse_hyperlink(match.group(1), match.group(2))
+            i = match.end()
+            continue
+
+        # Check for other OSC (Operating System Command) sequences
+        # These are used for window titles, etc.
         match = _OSC_PATTERN.match(ansi_str, i)
         if match:
             # Skip entire OSC sequence
@@ -146,6 +172,7 @@ def ansi_string_to_cells(ansi_str: str) -> list[Cell]:
             underline=current_style.underline,
             reverse=current_style.reverse,
             dim=current_style.dim,
+            link=current_link,
         )
         cells.append(cell)
         i += 1
@@ -193,6 +220,32 @@ def cells_to_ansi(cells: list[Cell]) -> str:
         parts.append(cell.to_ansi())
 
     return "".join(parts)
+
+
+def _parse_hyperlink(params: str, uri: str) -> Hyperlink | None:
+    """Turn the parts of an OSC 8 sequence into the link it opens.
+
+    Parameters
+    ----------
+    params : str
+        The ``:``-separated ``key=value`` parameters (only ``id`` is used).
+    uri : str
+        The target. Empty closes the active link.
+
+    Returns
+    -------
+    Hyperlink or None
+        The link to attach to the following cells, or None when the sequence
+        closes the link or its target is unsafe.
+    """
+    if not uri:
+        return None
+    link_id = None
+    for param in params.split(":"):
+        key, sep, value = param.partition("=")
+        if sep and key == "id":
+            link_id = value
+    return make_hyperlink(uri, link_id or None)
 
 
 class _StyleState:

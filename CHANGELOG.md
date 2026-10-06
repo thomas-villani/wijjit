@@ -26,6 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its first layout before calling it, and the result is cached per size, so a
   large document is laid out once per width. A callable bound from state is no
   longer stringified.
+- **OSC 8 hyperlinks in ANSI content survive to the terminal.** The ANSI
+  adapter stripped every OSC sequence, so links in content (Rich output with
+  `Style(link=...)`, a Markdown link, a document renderer's output) were dead
+  inside an app though clickable when printed directly. A link now rides on
+  the cells it covers (`Cell.link`, a `Hyperlink` of target and OSC 8 `id`),
+  and the diff, full-repaint and inline emitters open and close it around each
+  run, a partial repaint included; a link wrapped across lines keeps its `id`,
+  so it stays one link. Opening it is left to the terminal: Wijjit never
+  launches anything. A target holding control characters, which could inject
+  escape sequences, or longer than 2048 characters is dropped and its text
+  kept, and the new `HYPERLINK_SCHEMES` config restricts which schemes survive
+  (default: any).
 
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
