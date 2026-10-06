@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `on_select`; Space, Left and Right still expand and collapse. An outline that
   jumps to document sections needs every heading selectable. The default is
   unchanged.
+- **`ContentView` content can be a function of the width.** An app that lays
+  out its own content, such as pre-rendered ANSI (which is passed through
+  unwrapped), needs the width it will be shown at, and that depends on the
+  border, the padding and whether the scrollbar is showing; guessing it clipped
+  text. `content=` now also takes `f(width) -> str`. It is called with the
+  real inner width, again when that width changes (a resize), and once more a
+  column narrower when its result needs the scrollbar, which settles the
+  scrollbar-versus-width question in one place. A `"fill"`-sized view waits for
+  its first layout before calling it, and the result is cached per size, so a
+  large document is laid out once per width. A callable bound from state is no
+  longer stringified.
 
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
