@@ -400,6 +400,31 @@ class WijjitHarness:
         self._pump()
         return self
 
+    def hover(self, x: int, y: int) -> WijjitHarness:
+        """Move the pointer to a screen cell, no button held, and pump frames.
+
+        Parameters
+        ----------
+        x : int
+            Column (0-based).
+        y : int
+            Row (0-based).
+
+        Returns
+        -------
+        WijjitHarness
+            ``self``, for chaining.
+
+        Notes
+        -----
+        A real terminal reports bare motion only under
+        ``MOUSE_TRACKING_MODE = "all_events"``; the harness delivers it
+        regardless.
+        """
+        self._input.enqueue(MouseEvent(MouseEventType.MOVE, MouseButton.NONE, x, y))
+        self._pump()
+        return self
+
     def scroll(
         self, x: int, y: int, direction: str = "down", amount: int = 1
     ) -> WijjitHarness:

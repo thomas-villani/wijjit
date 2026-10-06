@@ -38,6 +38,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   escape sequences, or longer than 2048 characters is dropped and its text
   kept, and the new `HYPERLINK_SCHEMES` config restricts which schemes survive
   (default: any).
+- **`ContentView` reports click and hover positions.** The view handled only
+  the scroll wheel, so an app that knows what is where in its content (a
+  document viewer that placed its own links) could not make any of it
+  clickable. `on_click(line, column, event)` and a template `action=` (whose
+  event `data` is `{"line": ..., "column": ...}`) now fire on a left click in
+  the content area, `line` being the content line with the scroll offset
+  applied and `column` the display column within it, a wide character
+  counting two. Border, scrollbar and below-the-end clicks report nothing.
+  `on_hover(line, column)` follows the pointer, `(None, None)` when it leaves,
+  under `MOUSE_TRACKING_MODE = "all_events"`. `content_position_at(x, y)`
+  does the mapping for any screen cell, and the test harness gained
+  `h.hover(x, y)` to send pointer motion.
 
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
@@ -65,6 +77,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the tree already had, so a fixed-width table that auto-fit squeezes now draws
   inside its slot rather than one column past it (the `table_demo` golden moves
   by that column).
+- **Wide characters in ANSI content are column-correct.** Pre-rendered ANSI
+  (`content_type="ansi"`, Rich and Markdown output, Rich tables) put each code
+  point in one cell, so a CJK or emoji glyph, which the terminal draws two
+  columns wide, pushed the rest of its line right and over the border. Such a
+  glyph now takes a head cell and a continuation cell, as template text
+  already did, a combining mark folds onto the character before it, and a row
+  cut at the view's edge blanks a glyph it would halve.
 
 ## [0.1.1] - 2026-08-03
 

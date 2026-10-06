@@ -768,7 +768,7 @@ class Table(ScrollableElement):
         - ``table.border``: For table borders
         - ``table.border:focus``: For borders when focused
         """
-        from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+        from wijjit.rendering.ansi_adapter import ansi_string_to_cells, clip_cells
         from wijjit.terminal.cell import Cell
 
         if not self.columns:
@@ -874,7 +874,7 @@ class Table(ScrollableElement):
             cells = ansi_string_to_cells(line)
 
             # Write cells to buffer, truncated to the table width
-            ctx.write_cells(0, y, cells[:table_width])
+            ctx.write_cells(0, y, clip_cells(cells, table_width))
 
             # Pad remaining width with empty cells if needed
             if len(cells) < table_width:

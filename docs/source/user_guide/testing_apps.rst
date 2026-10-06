@@ -100,6 +100,7 @@ internally on a private loop, so your test code stays flat.
         h.type("admin")
         h.click(10, 6)          # routed through the real mouse router
         h.scroll(40, 12, "down", amount=3)
+        h.hover(20, 8)          # pointer motion, no button held
         h.tick(frames=5)        # advance a spinner five frames
 
 Waiting for asynchronous updates

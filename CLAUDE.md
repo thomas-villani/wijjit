@@ -414,9 +414,10 @@ behavioral bugs deferred to 0.1.1, tracked with root causes in `roadmap.md`
   write APIs (`write_text`/`write_cell`/`write_cells*`); direct
   `buffer.set_cell` loops were migrated out and are kept out by a ratchet test
   (`tests/rendering/test_no_direct_buffer_access.py`) plus a clip-regression
-  gate (`tests/integration/test_clip_regression.py`). Remaining gaps:
-  pre-rendered ANSI content (`ansi_string_to_cells`, e.g. Rich-rendered tables
-  with `content_type="ansi"`) still maps one code point per cell; TextArea
+  gate (`tests/integration/test_clip_regression.py`). Pre-rendered ANSI
+  content (`ansi_string_to_cells`, behind `content_type="ansi"`, Rich tables
+  and ContentView) lays wide glyphs out the same way, one cell per column; cut
+  such rows with `clip_cells`, never a bare slice. Remaining gaps: TextArea
   `wrap_mode="none"` horizontal scroll still slices by character; some Unicode
   may render imperfectly on Windows.
 

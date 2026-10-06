@@ -65,7 +65,7 @@ def render_ansi_to_cells(content: str, width: int) -> list[list[Cell]]:
     list of list of Cell
         List of rows, each row is a list of cells
     """
-    from wijjit.rendering.ansi_adapter import ansi_string_to_cells
+    from wijjit.rendering.ansi_adapter import ansi_string_to_cells, clip_cells
 
     if not content:
         return [[]]
@@ -74,7 +74,7 @@ def render_ansi_to_cells(content: str, width: int) -> list[list[Cell]]:
     for line in content.split("\n"):
         cells = ansi_string_to_cells(line)
         # Clip to width
-        rows.append(cells[:width])
+        rows.append(clip_cells(cells, width))
 
     return rows if rows else [[]]
 
