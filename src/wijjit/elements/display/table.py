@@ -5,7 +5,10 @@ using Rich's Table renderer. Supports sorting, scrolling, row selection, and
 various box styles. Ideal for displaying structured data in terminal interfaces.
 """
 
+import math
+import numbers
 from collections.abc import Callable
+from decimal import Decimal
 from io import StringIO
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -33,6 +36,118 @@ BOX_STYLES = {
     "double": rich.box.DOUBLE,
     "single": rich.box.SQUARE,  # Map 'single' to SQUARE for consistency
 }
+
+# Sort ranks for mixed-type columns: numbers first, then strings, then any
+# other type. Values are only ever compared against values of the same rank.
+_RANK_NUMBER = 0
+_RANK_STRING = 1
+_RANK_OTHER = 2
+
+
+def _is_missing(value: Any) -> bool:
+    """Return True for a cell value that sorts as missing.
+
+    Parameters
+    ----------
+    value : Any
+        Cell value (``None`` when the row lacks the column key).
+
+    Returns
+    -------
+    bool
+        True for ``None`` and float/Decimal NaN, which always sort last.
+    """
+    if value is None:
+        return True
+    if isinstance(value, float):
+        return math.isnan(value)
+    if isinstance(value, Decimal):
+        return value.is_nan()
+    return False
+
+
+def _sort_rank(value: Any) -> int:
+    """Return the type rank used to group a non-missing cell value.
+
+    Parameters
+    ----------
+    value : Any
+        Non-missing cell value.
+
+    Returns
+    -------
+    int
+        ``_RANK_NUMBER`` for bool/int/float/Decimal and other real numbers,
+        ``_RANK_STRING`` for strings (even numeric-looking ones), and
+        ``_RANK_OTHER`` for everything else.
+    """
+    if isinstance(value, (numbers.Real, Decimal)):
+        return _RANK_NUMBER
+    if isinstance(value, str):
+        return _RANK_STRING
+    return _RANK_OTHER
+
+
+def _sort_rows(rows: list[dict], column: str, reverse: bool) -> list[dict]:
+    """Return ``rows`` sorted by ``column`` with a total, type-safe order.
+
+    Numbers sort numerically, strings lexically, and any other type natively
+    when its values are mutually comparable (else by ``str``). Mixed-type
+    columns are grouped by type rank (numbers, strings, other) instead of
+    falling back to string order for the whole column. Missing values
+    (``None``, NaN, or an absent key) always go last, in both directions,
+    like pandas' ``na_position="last"``. The sort is stable against ``rows``,
+    so ties keep their original order whatever the sort history.
+
+    Parameters
+    ----------
+    rows : list of dict
+        Rows in their original order.
+    column : str
+        Column key to sort by.
+    reverse : bool
+        True for descending order.
+
+    Returns
+    -------
+    list of dict
+        A new, sorted list (``rows`` is not modified).
+    """
+    groups: dict[int, list[tuple[Any, dict]]] = {
+        _RANK_NUMBER: [],
+        _RANK_STRING: [],
+        _RANK_OTHER: [],
+    }
+    missing: list[dict] = []
+    for row in rows:
+        value = row.get(column)
+        if _is_missing(value):
+            missing.append(row)
+        else:
+            groups[_sort_rank(value)].append((value, row))
+
+    def _first(pair: tuple[Any, dict]) -> Any:
+        return pair[0]
+
+    def _first_str(pair: tuple[Any, dict]) -> str:
+        return str(pair[0])
+
+    ordered: list[list[tuple[Any, dict]]] = []
+    for rank in (_RANK_NUMBER, _RANK_STRING, _RANK_OTHER):
+        group = groups[rank]
+        try:
+            group.sort(key=_first, reverse=reverse)
+        except TypeError:
+            # Only reachable for _RANK_OTHER (e.g. dicts, or dates mixed with
+            # other objects): fall back to string order within this group.
+            group.sort(key=_first_str, reverse=reverse)
+        ordered.append(group)
+    if reverse:
+        ordered.reverse()
+
+    result = [row for group in ordered for _, row in group]
+    result.extend(missing)
+    return result
 
 
 class Table(ScrollableElement):
@@ -431,18 +546,9 @@ class Table(ScrollableElement):
         if not self.sort_column:
             return
 
-        # Sort data by column
-        reverse = self.sort_direction == "desc"
-
-        try:
-            self._data.sort(
-                key=lambda row: row.get(self.sort_column, ""), reverse=reverse
-            )
-        except TypeError:
-            # Handle mixed types by converting to string
-            self._data.sort(
-                key=lambda row: str(row.get(self.sort_column, "")), reverse=reverse
-            )
+        self._data = _sort_rows(
+            self._raw_data, self.sort_column, self.sort_direction == "desc"
+        )
 
     def handle_key(self, key: Key) -> bool:
         """Handle keyboard input for scrolling.
