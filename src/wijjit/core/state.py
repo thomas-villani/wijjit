@@ -99,6 +99,12 @@ class State(UserDict[str, Any]):
         "reset",
     }
 
+    # Batch bookkeeping, assigned in __init__ via object.__setattr__ and then
+    # by the batch helpers; declared here so the type checker knows them.
+    _batch_mode: bool
+    _batch_changes: list[tuple[str, Any, Any, bool]]
+    _batch_depth: int
+
     def __init__(self, data: dict[str, Any] | None = None) -> None:
         # Initialize internal attributes first, before UserDict.__init__
         object.__setattr__(self, "_change_callbacks", [])
@@ -475,26 +481,14 @@ class State(UserDict[str, Any]):
             """Exit batch mode and trigger callbacks for all changes.
 
             Only triggers callbacks once, passing all changes that occurred.
+            The queued changes are delivered even when the block raised: the
+            writes made before the exception are already in state (there is
+            no rollback), so suppressing their notifications would leave
+            watchers - and the screen - contradicting it. The exception still
+            propagates.
             """
             self.state._batch_mode = False
-
-            # If there were any changes, trigger a single batch callback
-            if self.state._batch_changes and not exc_val:
-                changes_by_key = self.state._coalesce_batch_changes()
-
-                # Trigger callbacks once for each unique key that actually
-                # changed - or that was force-flagged by an in-place mutation,
-                # where old and new are the same already-mutated object and the
-                # equality gate would otherwise drop it.
-                for key, (old_value, new_value, forced) in changes_by_key.items():
-                    if forced or old_value != new_value:
-                        # Temporarily disable batch mode to allow _trigger_change to work
-                        self.state._batch_mode = False
-                        self.state._trigger_change(
-                            key, old_value, new_value, forced=forced
-                        )
-
-            self.state._batch_changes = []
+            self.state._flush_batch_changes()
             return False  # Don't suppress exceptions
 
     def batch_update(self) -> _BatchContext:
@@ -523,6 +517,11 @@ class State(UserDict[str, Any]):
         For async callbacks, this method schedules them as background tasks
         but cannot await their completion. Use :meth:`async_batch_update` in
         async contexts for proper async callback handling.
+
+        If the block raises, the writes made before the exception stay in
+        state (there is no rollback) and their notifications are still
+        delivered on exit; the exception then propagates. (Up to 0.1.1 they
+        were discarded, leaving watchers unaware of writes already applied.)
         """
         return self._BatchContext(self)
 
@@ -554,25 +553,19 @@ class State(UserDict[str, Any]):
         ) -> bool:
             """Exit batch mode and await callbacks for all changes.
 
-            Properly awaits all async callbacks before returning.
+            Properly awaits all async callbacks before returning. As with the
+            sync ``_BatchContext.__exit__``, the queued changes are delivered
+            even when the block raised, and the exception still propagates.
             """
             self.state._batch_mode = False
-
-            # If there were any changes, trigger callbacks
-            if self.state._batch_changes and not exc_val:
-                changes_by_key = self.state._coalesce_batch_changes()
-
-                # Trigger callbacks once for each unique key that actually
-                # changed - or that was force-flagged by an in-place mutation
-                # (see the sync _BatchContext.__exit__).
-                for key, (old_value, new_value, forced) in changes_by_key.items():
-                    if forced or old_value != new_value:
-                        # Use async version to properly await callbacks
-                        await self.state._trigger_change_async(
-                            key, old_value, new_value
-                        )
-
-            self.state._batch_changes = []
+            if exc_val is not None and not isinstance(exc_val, Exception):
+                # Cancellation or interpreter shutdown (CancelledError,
+                # KeyboardInterrupt, ...): still notify, but do not hold up
+                # the unwinding by awaiting callbacks - the sync path runs
+                # sync callbacks inline and schedules async ones as tasks.
+                self.state._flush_batch_changes()
+            else:
+                await self.state._flush_batch_changes_async()
             return False  # Don't suppress exceptions
 
     def async_batch_update(self) -> _AsyncBatchContext:
@@ -632,6 +625,33 @@ class State(UserDict[str, Any]):
                 original_old, _, was_forced = changes_by_key[key]
                 changes_by_key[key] = (original_old, new_value, was_forced or forced)
         return changes_by_key
+
+    def _flush_batch_changes(self) -> None:
+        """Deliver the queued batch changes synchronously, then clear the queue.
+
+        Fires change callbacks once for each key whose original old value
+        differs from its final new value, or that was force-flagged by an
+        in-place mutation (old and new are then the same already-mutated
+        object, so the equality gate would otherwise drop it). Batch mode
+        must already be off, or the notifications would be re-queued.
+        """
+        changes_by_key = self._coalesce_batch_changes()
+        self._batch_changes = []
+        for key, (old_value, new_value, forced) in changes_by_key.items():
+            if forced or old_value != new_value:
+                self._trigger_change(key, old_value, new_value, forced=forced)
+
+    async def _flush_batch_changes_async(self) -> None:
+        """Deliver the queued batch changes, awaiting async callbacks.
+
+        The awaiting counterpart to :meth:`_flush_batch_changes`, with the
+        same coalescing and gating. Batch mode must already be off.
+        """
+        changes_by_key = self._coalesce_batch_changes()
+        self._batch_changes = []
+        for key, (old_value, new_value, forced) in changes_by_key.items():
+            if forced or old_value != new_value:
+                await self._trigger_change_async(key, old_value, new_value)
 
     class _MutationContext:
         """Context manager for an in-place mutation of a stored value.
@@ -739,8 +759,8 @@ class State(UserDict[str, Any]):
         For the same reason the notification also fires when the block raises.
         The object is reachable from state and may have been half-mutated
         already, so suppressing the notification would guarantee a stale
-        screen. This differs deliberately from :meth:`batch_update`, which
-        discards its queued changes on an exception.
+        screen. :meth:`batch_update` follows the same rule: changes it queued
+        before an exception are still delivered on exit.
 
         ``old_value`` and ``new_value`` handed to callbacks are the **same
         already-mutated object**. A watcher that diffs them will see no
