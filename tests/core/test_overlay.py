@@ -235,6 +235,64 @@ class TestOverlayManager:
         overlay = manager.get_at_position(12, 12)
         assert overlay is tooltip
 
+    def test_overlays_at_position_topmost_first(self, manager):
+        modal = manager.push(
+            MockElement(id="modal", x=10, y=10, width=10, height=5), LayerType.MODAL
+        )
+        tooltip = manager.push(
+            MockElement(id="tooltip", x=10, y=10, width=10, height=5),
+            LayerType.TOOLTIP,
+        )
+        manager.push(MockElement(id="far", x=40, y=0, width=5, height=2))
+
+        assert manager.overlays_at_position(12, 12) == [tooltip, modal]
+        assert manager.overlays_at_position(0, 0) == []
+
+    def test_mouse_passthrough_defaults_by_layer(self, manager):
+        assert manager.push(MockElement(), LayerType.TOOLTIP).mouse_passthrough
+        assert not manager.push(MockElement(), LayerType.MODAL).mouse_passthrough
+        assert not manager.push(MockElement(), LayerType.DROPDOWN).mouse_passthrough
+        # An interactive overlay on the tooltip layer can opt out.
+        assert not manager.push(
+            MockElement(), LayerType.TOOLTIP, mouse_passthrough=False
+        ).mouse_passthrough
+
+    def test_click_outside_looks_through_passthrough_overlay(self, manager):
+        dropdown = manager.push(
+            MockElement(x=40, y=0, width=5, height=2),
+            LayerType.DROPDOWN,
+            close_on_click_outside=True,
+        )
+        tooltip = manager.push(
+            MockElement(x=10, y=10, width=10, height=5),
+            LayerType.TOOLTIP,
+            close_on_click_outside=True,
+        )
+
+        closed = manager.handle_click_outside(12, 12)
+
+        # The click landed on the tooltip (kept open) but is outside the
+        # dropdown (closed).
+        assert closed is True
+        assert tooltip in manager.overlays
+        assert dropdown not in manager.overlays
+
+    def test_click_outside_stops_at_opaque_tooltip_layer_overlay(self, manager):
+        dropdown = manager.push(
+            MockElement(x=40, y=0, width=5, height=2),
+            LayerType.DROPDOWN,
+            close_on_click_outside=True,
+        )
+        manager.push(
+            MockElement(x=10, y=10, width=10, height=5),
+            LayerType.TOOLTIP,
+            close_on_click_outside=False,
+            mouse_passthrough=False,
+        )
+
+        assert manager.handle_click_outside(12, 12) is False
+        assert dropdown in manager.overlays
+
     def test_get_top_overlay(self, manager):
         """Test getting the topmost overlay."""
         assert manager.get_top_overlay() is None

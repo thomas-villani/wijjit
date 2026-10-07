@@ -239,6 +239,9 @@ class NotificationManager:
             trap_focus=has_button,  # Trap focus if there's a button to interact with
             dimmed_background=False,  # Don't dim background
             on_close=dismiss_callback,
+            # Interactive (click to dismiss, action button): unlike a plain
+            # tooltip on the same layer, it consumes mouse events over it.
+            mouse_passthrough=False,
         )
 
         # Create notification record
