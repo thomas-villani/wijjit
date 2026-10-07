@@ -18,6 +18,9 @@ Checks performed (template mode):
 * **unknown-attribute** (warning) - an element attribute that the element's
   constructor does not accept (likely a typo); framework/layout props are
   excluded to avoid noise.
+* **ignored-attribute** (warning) - an ``action`` set on an element type that
+  never dispatches one (e.g. Table, Select, Slider), so it would silently do
+  nothing. Driven by each element class's ``dispatches_action``.
 * **optional-dependency** (warning) - an element needs an optional extra (e.g.
   Pillow for ImageView) that is not installed.
 * **render-error** (error) - any other failure raised while rendering.
@@ -69,10 +72,12 @@ CONTAINER_TYPES = KNOWN_CONTAINER_TYPES
 
 # Framework props that tags set on many elements but constructors don't take as
 # parameters (handled by focus/reconciliation machinery, not __init__).
-# ``action`` is routed through the event system: input tags always emit it
-# (``None`` when unset) and the reconciler applies it by setattr, so it is a
-# valid attribute even on elements whose ``__init__`` does not list it.
-FRAMEWORK_PROPS = EPHEMERAL_PROPS | FRAMEWORK_ONLY_PROPS | {"tab_index", "action"}
+# ``action`` (one of ``FRAMEWORK_ONLY_PROPS``) is routed through the event
+# system: input tags always emit it (``None`` when unset) and the reconciler
+# applies it by setattr, so it is never an *unknown* attribute. Whether it does
+# anything is a separate question, answered by the ``ignored-attribute`` check
+# against the element class's ``dispatches_action``.
+FRAMEWORK_PROPS = EPHEMERAL_PROPS | FRAMEWORK_ONLY_PROPS | {"tab_index"}
 
 # Props never flagged as unknown attributes.
 _IGNORED_PROPS = LAYOUT_META | FRAMEWORK_PROPS
@@ -533,12 +538,27 @@ def _check_tree(
                 )
             )
             continue
-        if is_container:
-            continue
-        factory = registry.get_factory(node.type)
+        props = node.props_dict()
+        factory = None if is_container else registry.get_factory(node.type)
+        # ``action`` is accepted everywhere (it is a framework prop), but only
+        # some element types ever dispatch it - never a layout container. Input
+        # tags always emit ``action=None``, so only a value the author actually
+        # set counts.
+        if props.get("action") is not None and not getattr(
+            factory, "dispatches_action", False
+        ):
+            findings.append(
+                Finding(
+                    "warning",
+                    "ignored-attribute",
+                    f"{node.type} ignores attribute 'action' "
+                    f"(it never dispatches an action).",
+                    (linenos or {}).get((node.type, "action")),
+                )
+            )
         if factory is None:
             continue
-        candidate = set(node.props_dict().keys()) - _IGNORED_PROPS
+        candidate = set(props.keys()) - _IGNORED_PROPS
         dropped = _dropped_props(factory, candidate)
         for name in sorted(dropped):
             findings.append(

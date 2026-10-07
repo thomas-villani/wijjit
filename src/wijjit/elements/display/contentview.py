@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -141,6 +141,8 @@ class ContentView(ScrollableElement):
     rendered_cells : list of list of Cell
         Cached rendered cells (for cell-based content types like HTML)
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,

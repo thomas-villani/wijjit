@@ -33,7 +33,7 @@ import weakref
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from wijjit.logging_config import get_logger
 from wijjit.terminal.input import Key, Keys
@@ -240,7 +240,17 @@ class Element(ABC):
     on_drop : callable or None
         Callback when something is dropped on this element.
         Signature: on_drop(event: MouseEvent, drag_data: Any, source_element: Element) -> bool
+    dispatches_action : bool
+        Class attribute. Whether this element type ever dispatches its
+        template ``action=`` through the app's action handlers. Most element
+        tags accept ``action`` but only the classes that set this to True
+        (and that ``core/wiring.py`` wires) act on it. ``wijjit validate``
+        reads it to warn about an ``action`` that would be silently ignored.
     """
+
+    # The single source of truth for "does action= do anything here". Set True
+    # on each class whose action core/wiring.py wires to a real dispatch.
+    dispatches_action: ClassVar[bool] = False
 
     def __init__(
         self,

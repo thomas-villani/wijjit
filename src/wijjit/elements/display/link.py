@@ -7,7 +7,7 @@ that triggers actions when activated via keyboard or mouse.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import visible_length
@@ -64,6 +64,8 @@ class Link(Element):
 
     >>> link = Link("Danger!", action="delete", classes="text-danger")
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,

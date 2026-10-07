@@ -88,7 +88,15 @@ CONTROLLABLE_EPHEMERAL_PROPS = EPHEMERAL_PROPS - frozenset({"focused", "hovered"
 # ``tab_index`` is NOT here: it predates this and is an explicit parameter on
 # each focusable element's ``__init__``. Prefer this list for new framework
 # props - it is one edit rather than one per element, and cannot be half-done.
-FRAMEWORK_ONLY_PROPS = frozenset({"autofocus"})
+#
+# ``action`` is here because Checkbox, Radio, CheckboxGroup, RadioGroup and
+# Toggle keep it as a plain attribute rather than a constructor parameter. The
+# registry dropped it on create, and the reconciler only re-applies props whose
+# value *changed*, so a constant ``action="go"`` never reached the element and
+# ``core/wiring.py`` never wired its ``on_action``. Elements that do take
+# ``action`` in ``__init__`` (Button, TextInput, Tree, ...) just get the same
+# value set twice.
+FRAMEWORK_ONLY_PROPS = frozenset({"autofocus", "action"})
 
 # Key/id of the implicit ``Text`` element that the renderer wraps around a
 # template's bare top-level text when it uses no layout/element tags. Shared so

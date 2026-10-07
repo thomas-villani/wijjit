@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from wijjit.devtools import validate_file, validate_template
 
 GOOD = """
@@ -322,3 +324,100 @@ def test_top_level_loop_over_elements_is_flagged():
     src = "{% for i in [1, 2] %}{% textinput key=i %}{% endtextinput %}{% endfor %}"
     report = validate_template(src)
     assert "multiple-root-elements" in _codes(report)
+
+
+# ---------------------------------------------------------------------------
+# ignored-attribute: an ``action`` on an element type that never dispatches it
+# ---------------------------------------------------------------------------
+
+_NON_DISPATCHING = {
+    "Table": '{% table id="t" data=[] columns=["a"] action="go" %}{% endtable %}',
+    "Select": '{% select id="s" options=["a", "b"] action="go" %}{% endselect %}',
+    "Slider": '{% slider id="sl" action="go" %}{% endslider %}',
+    "ListView": '{% listview id="l" items=["a"] action="go" %}{% endlistview %}',
+    "ProgressBar": '{% progressbar id="p" value=5 action="go" %}{% endprogressbar %}',
+    "Spinner": '{% spinner id="sp" action="go" %}{% endspinner %}',
+    "Sparkline": '{% sparkline id="sk" data=[1, 2] action="go" %}{% endsparkline %}',
+    "Frame": '{% frame action="go" %}hi{% endframe %}',
+    "TabbedPanel": (
+        '{% tabbedpanel id="tp" action="go" %}{% tab title="A" %}hi{% endtab %}'
+        "{% endtabbedpanel %}"
+    ),
+}
+
+_DISPATCHING = {
+    "Button": '{% button action="go" %}Go{% endbutton %}',
+    "TextInput": '{% textinput id="ti" action="go" %}{% endtextinput %}',
+    "TextArea": '{% textarea id="ta" action="go" %}{% endtextarea %}',
+    "Checkbox": '{% checkbox id="c" action="go" %}A{% endcheckbox %}',
+    "Radio": '{% radio id="r" name="n" value="a" action="go" %}A{% endradio %}',
+    "CheckboxGroup": (
+        '{% checkboxgroup id="cg" options=["a"] action="go" %}{% endcheckboxgroup %}'
+    ),
+    "RadioGroup": (
+        '{% radiogroup id="rg" name="n" options=["a"] action="go" %}'
+        "{% endradiogroup %}"
+    ),
+    "Toggle": '{% toggle id="tg" action="go" %}{% endtoggle %}',
+    "Tree": '{% tree id="tr" data={} action="go" %}{% endtree %}',
+    "ContentView": (
+        '{% contentview id="cv" content="hi" action="go" %}{% endcontentview %}'
+    ),
+}
+
+
+def _in_vstack(body):
+    return "{% vstack %}" + body + "{% endvstack %}"
+
+
+@pytest.mark.parametrize("element_type", sorted(_NON_DISPATCHING))
+def test_action_on_non_dispatching_element_is_ignored_attribute(element_type):
+    report = validate_template(_in_vstack(_NON_DISPATCHING[element_type]))
+    assert report.ok  # warning only
+    ignored = [f for f in report.findings if f.code == "ignored-attribute"]
+    assert len(ignored) == 1
+    assert ignored[0].severity == "warning"
+    assert ignored[0].message == (
+        f"{element_type} ignores attribute 'action' " "(it never dispatches an action)."
+    )
+    # An ignored attribute is not also a typo.
+    assert "unknown-attribute" not in _codes(report)
+
+
+def test_ignored_attribute_carries_the_attribute_line():
+    src = (
+        "{% vstack %}\n"
+        "\n"
+        '{% table id="t" data=[] columns=["a"] action="go" %}{% endtable %}\n'
+        "{% endvstack %}"
+    )
+    report = validate_template(src)
+    ignored = [f for f in report.findings if f.code == "ignored-attribute"]
+    assert [f.line for f in ignored] == [3]
+
+
+@pytest.mark.parametrize("element_type", sorted(_DISPATCHING))
+def test_action_on_dispatching_element_is_not_flagged(element_type):
+    report = validate_template(_in_vstack(_DISPATCHING[element_type]))
+    assert "ignored-attribute" not in _codes(report)
+
+
+def test_absent_or_none_action_is_not_flagged():
+    # Input tags always emit ``action=None``; only an author-set value counts.
+    src = _in_vstack(
+        '{% select id="s" options=["a"] %}{% endselect %}'
+        '{% slider id="sl" %}{% endslider %}'
+        '{% table id="t" data=[] columns=["a"] action=None %}{% endtable %}'
+    )
+    report = validate_template(src)
+    assert "ignored-attribute" not in _codes(report)
+
+
+def test_ignored_attribute_in_a_loop_is_reported_once():
+    src = (
+        "{% vstack %}{% for i in [1, 2, 3] %}"
+        '{% progressbar key=i value=i action="go" %}{% endprogressbar %}'
+        "{% endfor %}{% endvstack %}"
+    )
+    report = validate_template(src)
+    assert _codes(report).count("ignored-attribute") == 1

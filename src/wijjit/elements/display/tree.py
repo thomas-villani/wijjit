@@ -7,7 +7,7 @@ navigation, mouse interaction, and customizable rendering.
 
 from collections.abc import Callable, Iterable
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from wijjit.elements.base import ElementType, ScrollableElement, invoke_callback
 from wijjit.layout.scroll import ScrollManager, render_vertical_scrollbar
@@ -137,6 +137,8 @@ class Tree(ScrollableElement):
     - Home/End: Jump to first/last node
     - PageUp/PageDown: Scroll by page
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,
