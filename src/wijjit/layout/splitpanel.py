@@ -6,11 +6,14 @@ two child elements with a draggable divider.
 
 from __future__ import annotations
 
+import math
 import weakref
+from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 
 from wijjit.elements.base import Container, Element
+from wijjit.logging_config import get_logger
 from wijjit.terminal.ansi import supports_unicode
 from wijjit.terminal.cell import get_pooled_cell
 from wijjit.terminal.input import Key
@@ -19,6 +22,87 @@ from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 if TYPE_CHECKING:
     from wijjit.core.app import Wijjit
     from wijjit.rendering.paint_context import PaintContext
+
+
+logger = get_logger(__name__)
+
+#: Slack added before flooring ``usable * ratio`` to a cell count. A ratio
+#: stored as ``k / usable`` can multiply back to just under ``k`` in floating
+#: point (22 * (15 / 22) == 14.999...), which would lose a cell on every
+#: round trip; the epsilon is far below one cell yet far above float error.
+_RATIO_EPSILON = 1e-9
+
+#: Fraction of the usable size one keyboard resize step moves the divider.
+_KEY_STEP_FRACTION = 0.05
+
+
+def _ratio_to_cells(usable: int, fraction: float) -> int:
+    """Convert a ratio share to a whole number of cells in ``[0, usable]``.
+
+    Parameters
+    ----------
+    usable : int
+        Space to split, excluding the divider.
+    fraction : float
+        The first pane's share, normally in ``[0, 1]``.
+
+    Returns
+    -------
+    int
+        ``floor(usable * fraction)``, exact for any ratio built as
+        ``cells / usable``.
+    """
+    return max(0, min(usable, math.floor(usable * fraction + _RATIO_EPSILON)))
+
+
+def _valid_ratio(value: Any) -> tuple[float, float] | None:
+    """Validate a persisted split ratio.
+
+    Parameters
+    ----------
+    value : Any
+        The value found in app state.
+
+    Returns
+    -------
+    tuple of float or None
+        ``(first, second)`` when ``value`` is a two-item sequence of real
+        numbers, each in ``[0, 1]``, summing to 1 (within float error);
+        otherwise None.
+    """
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        return None
+    if len(value) != 2:
+        return None
+    first, second = value
+    for part in (first, second):
+        if isinstance(part, bool) or not isinstance(part, (int, float)):
+            return None
+        if not math.isfinite(part) or not 0.0 <= part <= 1.0:
+            return None
+    if abs(first + second - 1.0) > 1e-6:
+        return None
+    return (float(first), float(second))
+
+
+def _valid_collapsed(value: Any) -> tuple[bool, bool] | None:
+    """Validate a persisted ``(first_collapsed, second_collapsed)`` pair.
+
+    Parameters
+    ----------
+    value : Any
+        The value found in app state.
+
+    Returns
+    -------
+    tuple of bool or None
+        The pair when ``value`` is a two-item sequence of bools, else None.
+    """
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        return None
+    if len(value) != 2 or not all(isinstance(v, bool) for v in value):
+        return None
+    return (value[0], value[1])
 
 
 class DividerStyle(Enum):
@@ -316,7 +400,7 @@ class SplitPanel(Container):
             return (usable, 0, usable)
 
         # Calculate sizes based on ratio
-        first_size = int(usable * self.current_ratio[0])
+        first_size = _ratio_to_cells(usable, self.current_ratio[0])
         second_size = usable - first_size
 
         # Enforce minimums
@@ -385,9 +469,8 @@ class SplitPanel(Container):
         if available <= 0:
             return
 
-        # Calculate new ratio
+        # The divider goes where the mouse is: pos cells of first pane
         new_first = max(0, min(available, pos))
-        new_ratio = (new_first / available, (available - new_first) / available)
 
         # Check collapse thresholds
         if self.collapsible in ("first", "both"):
@@ -400,65 +483,83 @@ class SplitPanel(Container):
                 self.collapse_panel("second")
                 return
 
-        # Apply ratio with minimum constraints
-        self.current_ratio = self._clamp_ratio(new_ratio, available)
+        # Apply with minimum constraints
+        self._set_first_cells(new_first, available)
 
-    def _clamp_ratio(
-        self, ratio: tuple[float, float], available: int
-    ) -> tuple[float, float]:
-        """Clamp ratio to respect minimum size constraints.
+    def _clamp_first_cells(self, first_size: int, available: int) -> int:
+        """Clamp a first-pane size to the minimum size constraints.
 
         Parameters
         ----------
-        ratio : tuple[float, float]
-            Proposed ratio
+        first_size : int
+            Proposed first-pane size in cells.
         available : int
-            Available space
+            Usable space (excluding the divider).
 
         Returns
         -------
-        tuple[float, float]
-            Clamped ratio
+        int
+            The clamped size, in ``[0, available]``. When both minimums
+            cannot fit, the second pane's minimum wins.
         """
-        if available <= 0:
-            return ratio
-
-        first_size = int(available * ratio[0])
-        second_size = available - first_size
-
-        # Clamp to minimums
         if first_size < self.min_first:
             first_size = self.min_first
-        if second_size < self.min_second:
+        if available - first_size < self.min_second:
             first_size = available - self.min_second
+        return max(0, min(available, first_size))
 
-        # Ensure we don't go negative
-        first_size = max(0, min(available, first_size))
-        second_size = available - first_size
-
-        return (first_size / available, second_size / available)
-
-    def _adjust_ratio(self, delta: float) -> None:
-        """Adjust ratio by delta (for keyboard resize).
+    def _set_first_cells(self, first_size: int, available: int) -> None:
+        """Place the divider after ``first_size`` cells of usable space.
 
         Parameters
         ----------
-        delta : float
-            Amount to adjust first panel ratio by (-0.05 to +0.05 typical)
-        """
-        new_first = max(0.0, min(1.0, self.current_ratio[0] + delta))
-        new_second = 1.0 - new_first
+        first_size : int
+            Desired first-pane size in cells (clamped to the minimums).
+        available : int
+            Usable space (excluding the divider).
 
-        # Calculate available space
+        Notes
+        -----
+        The ratio is stored as ``cells / available``, which
+        ``_calculate_sizes`` converts back to exactly the same cell count.
+        """
+        if available <= 0:
+            return
+        first_size = self._clamp_first_cells(first_size, available)
+        self.current_ratio = (
+            first_size / available,
+            (available - first_size) / available,
+        )
+
+    def _step_divider(self, direction: int) -> None:
+        """Move the divider one keyboard step (for keyboard resize).
+
+        Parameters
+        ----------
+        direction : int
+            ``+1`` grows the first pane, ``-1`` shrinks it.
+
+        Notes
+        -----
+        A step is a whole number of cells - about 5% of the usable size,
+        and never less than one - added to the divider's current on-screen
+        position. Stepping one way and then back returns exactly to the
+        starting position unless a minimum size clamped the move.
+        """
         if not self.bounds:
             return
 
         if self.orientation == "horizontal":
-            available = self.bounds.width - 1
+            total = self.bounds.width
         else:
-            available = self.bounds.height - 1
+            total = self.bounds.height
+        available = total - 1
+        if available <= 0:
+            return
 
-        self.current_ratio = self._clamp_ratio((new_first, new_second), available)
+        current, _, _ = self._calculate_sizes(total)
+        step = max(1, math.floor(available * _KEY_STEP_FRACTION + 0.5))
+        self._set_first_cells(current + direction * step, available)
         self._sync_state()
 
     def collapse_panel(self, which: Literal["first", "second"]) -> None:
@@ -503,15 +604,38 @@ class SplitPanel(Container):
             )
 
     def _load_state(self) -> None:
-        """Load ratio from app.state on init."""
+        """Load ratio and collapse state from app.state on init.
+
+        Values are validated against the shapes ``_sync_state`` writes - a
+        ``(first, second)`` pair of numbers in [0, 1] summing to 1, and a
+        pair of bools. Anything else (a ``"30:70"`` string, out-of-range
+        numbers, None) is ignored with a warning and the current value is
+        kept.
+        """
         app = self._app
         if self.id and app:
-            if f"{self.id}_ratio" in app.state:
-                self.current_ratio = app.state[f"{self.id}_ratio"]
-            if f"{self.id}_collapsed" in app.state:
-                self.first_collapsed, self.second_collapsed = app.state[
-                    f"{self.id}_collapsed"
-                ]
+            ratio_key = f"{self.id}_ratio"
+            if ratio_key in app.state:
+                ratio = _valid_ratio(app.state[ratio_key])
+                if ratio is None:
+                    logger.warning(
+                        "Ignoring invalid split ratio %r in app.state[%r]",
+                        app.state[ratio_key],
+                        ratio_key,
+                    )
+                else:
+                    self.current_ratio = ratio
+            collapsed_key = f"{self.id}_collapsed"
+            if collapsed_key in app.state:
+                collapsed = _valid_collapsed(app.state[collapsed_key])
+                if collapsed is None:
+                    logger.warning(
+                        "Ignoring invalid collapse state %r in app.state[%r]",
+                        app.state[collapsed_key],
+                        collapsed_key,
+                    )
+                else:
+                    self.first_collapsed, self.second_collapsed = collapsed
 
     def get_intrinsic_size(self) -> tuple[int, int]:
         """Get intrinsic size based on children.
@@ -572,34 +696,34 @@ class SplitPanel(Container):
         if has_ctrl:
             if self.orientation == "horizontal":
                 if "left" in key_name:
-                    self._adjust_ratio(-0.05)
+                    self._step_divider(-1)
                     return True
                 elif "right" in key_name:
-                    self._adjust_ratio(0.05)
+                    self._step_divider(1)
                     return True
             else:  # vertical
                 if "up" in key_name:
-                    self._adjust_ratio(-0.05)
+                    self._step_divider(-1)
                     return True
                 elif "down" in key_name:
-                    self._adjust_ratio(0.05)
+                    self._step_divider(1)
                     return True
 
         # When divider is focused, plain arrows resize
         if self.divider_focused:
             if self.orientation == "horizontal":
                 if key_name == "left":
-                    self._adjust_ratio(-0.05)
+                    self._step_divider(-1)
                     return True
                 elif key_name == "right":
-                    self._adjust_ratio(0.05)
+                    self._step_divider(1)
                     return True
             else:
                 if key_name == "up":
-                    self._adjust_ratio(-0.05)
+                    self._step_divider(-1)
                     return True
                 elif key_name == "down":
-                    self._adjust_ratio(0.05)
+                    self._step_divider(1)
                     return True
 
         return False

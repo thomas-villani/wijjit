@@ -8,6 +8,8 @@ from wijjit.elements.base import TextElement
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.engine import ElementNode, SplitPanelNode
 from wijjit.layout.splitpanel import SplitPanel
+from wijjit.terminal.input import Key, KeyType
+from wijjit.terminal.mouse import MouseButton, MouseEvent, MouseEventType
 
 
 class TestSplitPanelRatio:
@@ -183,31 +185,211 @@ class TestSplitPanelDividerHitTest:
         assert panel._is_on_divider(0, 26) is False
 
 
-class TestSplitPanelAdjustRatio:
-    """Tests for keyboard-based ratio adjustment."""
+def _panel_at(width: int, **kwargs) -> SplitPanel:
+    """A horizontal panel laid out at ``width`` columns (divider included)."""
+    panel = SplitPanel(**kwargs)
+    panel.bounds = Bounds(0, 0, width, 10)
+    _refresh(panel)
+    return panel
 
-    def test_adjust_ratio_positive(self):
-        """Test adjusting ratio by positive delta."""
-        panel = SplitPanel(ratio="50:50")
-        panel.bounds = Bounds(0, 0, 101, 50)
-        panel._adjust_ratio(0.1)
-        assert abs(panel.current_ratio[0] - 0.6) < 0.01
 
-    def test_adjust_ratio_negative(self):
-        """Test adjusting ratio by negative delta."""
-        panel = SplitPanel(ratio="50:50")
-        panel.bounds = Bounds(0, 0, 101, 50)
-        panel._adjust_ratio(-0.1)
-        assert abs(panel.current_ratio[0] - 0.4) < 0.01
+def _refresh(panel: SplitPanel) -> int:
+    """Recompute the layout the way SplitPanelNode does; return divider pos."""
+    first, second, divider = panel._calculate_sizes(panel.bounds.width)
+    panel._first_size, panel._second_size, panel._divider_pos = (
+        first,
+        second,
+        divider,
+    )
+    return divider
 
-    def test_adjust_ratio_clamp_min(self):
-        """Test that ratio adjustment respects minimum constraints."""
-        panel = SplitPanel(ratio="50:50", min_first=20)
-        panel.bounds = Bounds(0, 0, 101, 50)
-        # Try to adjust below minimum
-        panel._adjust_ratio(-0.9)
-        # Should be clamped to respect min_first
-        assert panel.current_ratio[0] >= 0.2
+
+def _key(name: str) -> Key:
+    return Key(name, KeyType.SPECIAL)
+
+
+class TestSplitPanelCellRoundTrip:
+    """A divider placed at cell k is drawn at cell k (no float jitter)."""
+
+    def test_set_then_calculate_is_exact_for_every_position(self):
+        panel = SplitPanel(min_first=0, min_second=0)
+        for usable in range(1, 301):
+            for k in range(usable + 1):
+                panel._set_first_cells(k, usable)
+                first, second, _ = panel._calculate_sizes(usable + 1)
+                assert (first, second) == (k, usable - k), (usable, k)
+
+    def test_known_lossy_case(self):
+        """22 * (15 / 22) is 14.999... in floats; it must still be 15."""
+        panel = SplitPanel(min_first=0, min_second=0)
+        panel._set_first_cells(15, 22)
+        assert panel._calculate_sizes(23)[0] == 15
+
+    @pytest.mark.asyncio
+    async def test_drag_puts_divider_under_the_mouse(self):
+        panel = _panel_at(41, min_first=3, min_second=3)
+        assert panel._divider_pos == 20
+
+        press = MouseEvent(MouseEventType.PRESS, MouseButton.LEFT, 20, 5)
+        assert await panel.handle_mouse(press)
+        for x in [21, 25, 14, 33, 7, 30, 15]:
+            drag = MouseEvent(MouseEventType.DRAG, MouseButton.LEFT, x, 5)
+            assert await panel.handle_mouse(drag)
+            assert _refresh(panel) == x
+        release = MouseEvent(MouseEventType.RELEASE, MouseButton.LEFT, 15, 5)
+        assert await panel.handle_mouse(release)
+        assert _refresh(panel) == 15
+
+    @pytest.mark.asyncio
+    async def test_drag_with_offset_bounds_and_every_column(self):
+        panel = SplitPanel(min_first=0, min_second=0)
+        panel.bounds = Bounds(7, 0, 23, 4)  # usable = 22
+        _refresh(panel)
+        press_x = panel.bounds.x + panel._divider_pos
+        press = MouseEvent(MouseEventType.PRESS, MouseButton.LEFT, press_x, 1)
+        assert await panel.handle_mouse(press)
+        for k in range(23):
+            drag = MouseEvent(MouseEventType.DRAG, MouseButton.LEFT, 7 + k, 1)
+            await panel.handle_mouse(drag)
+            assert _refresh(panel) == min(k, 22)
+
+
+class TestSplitPanelKeyboardStep:
+    """Each key press moves the divider a whole number of cells."""
+
+    def test_moves_at_least_one_cell_on_a_narrow_panel(self):
+        panel = _panel_at(11, min_first=0, min_second=0)  # usable 10
+        start = panel._divider_pos
+        panel._step_divider(1)
+        assert _refresh(panel) == start + 1
+        panel._step_divider(-1)
+        panel._step_divider(-1)
+        assert _refresh(panel) == start - 1
+
+    def test_step_is_about_five_percent(self):
+        panel = _panel_at(101, min_first=0, min_second=0)  # usable 100
+        assert panel._divider_pos == 50
+        panel._step_divider(1)
+        assert _refresh(panel) == 55
+        panel._step_divider(-1)
+        panel._step_divider(-1)
+        assert _refresh(panel) == 45
+
+    @pytest.mark.parametrize("width", [8, 11, 23, 41, 57, 80, 101, 133])
+    def test_right_then_left_round_trip_is_exact(self, width):
+        panel = _panel_at(width, min_first=0, min_second=0)
+        start = panel._divider_pos
+        for _ in range(3):
+            assert panel.handle_key(_key("ctrl+right"))
+            _refresh(panel)
+        assert panel._divider_pos > start
+        for _ in range(3):
+            assert panel.handle_key(_key("ctrl+left"))
+            _refresh(panel)
+        assert panel._divider_pos == start
+
+    def test_six_right_six_left_does_not_drift(self):
+        panel = _panel_at(41, min_first=0, min_second=0)
+        assert panel._divider_pos == 20
+        panel.divider_focused = True
+        for _ in range(6):
+            panel.handle_key(_key("right"))
+            _refresh(panel)
+        for _ in range(6):
+            panel.handle_key(_key("left"))
+            _refresh(panel)
+        assert panel._divider_pos == 20
+
+    def test_vertical_orientation_uses_height(self):
+        panel = SplitPanel(orientation="vertical", min_first=0, min_second=0)
+        panel.bounds = Bounds(0, 0, 80, 21)  # usable 20
+        assert panel._calculate_sizes(21)[0] == 10
+        assert panel.handle_key(_key("ctrl+down"))
+        assert panel._calculate_sizes(21)[0] == 11
+
+    def test_step_respects_minimums(self):
+        panel = _panel_at(101, min_first=20)
+        for _ in range(30):
+            panel._step_divider(-1)
+        assert _refresh(panel) == 20
+        assert panel.current_ratio[0] == pytest.approx(0.2)
+
+
+class TestSplitPanelLoadState:
+    """Persisted state is validated before use."""
+
+    def _load(self, ratio=None, collapsed=None):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        if ratio is not None:
+            app.state["sp_ratio"] = ratio
+        if collapsed is not None:
+            app.state["sp_collapsed"] = collapsed
+        panel = SplitPanel(id="sp", ratio="40:60")
+        panel.set_app(app)
+        return panel
+
+    def test_valid_tuple_is_loaded(self):
+        panel = self._load(ratio=(0.25, 0.75), collapsed=(False, True))
+        assert panel.current_ratio == (0.25, 0.75)
+        assert (panel.first_collapsed, panel.second_collapsed) == (False, True)
+
+    def test_list_from_json_is_accepted(self):
+        panel = self._load(ratio=[0.25, 0.75], collapsed=[True, False])
+        assert panel.current_ratio == (0.25, 0.75)
+        assert panel.first_collapsed is True
+
+    def test_round_trips_what_sync_state_writes(self):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        writer = SplitPanel(id="sp")
+        writer.set_app(app)
+        writer.bounds = Bounds(0, 0, 23, 5)
+        writer._set_first_cells(15, 22)
+        writer._sync_state()
+
+        reader = SplitPanel(id="sp")
+        reader.set_app(app)
+        assert reader.current_ratio == writer.current_ratio
+        assert reader._calculate_sizes(23)[0] == 15
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "30:70",
+            (2.0, -1.0),
+            (0.5,),
+            (0.5, 0.5, 0.0),
+            (0.3, 0.3),
+            ("a", "b"),
+            (True, False),
+            (float("nan"), 0.5),
+            True,
+            7,
+        ],
+    )
+    def test_invalid_ratio_keeps_default(self, bad):
+        panel = self._load(ratio=bad)
+        assert panel.current_ratio == pytest.approx((0.4, 0.6))
+        assert panel._calculate_sizes(51)[0] == 20
+
+    def test_none_ratio_does_not_raise(self):
+        from wijjit import Wijjit
+
+        app = Wijjit()
+        app.state["sp_ratio"] = None
+        app.state["sp_collapsed"] = None
+        panel = SplitPanel(id="sp", ratio="40:60")
+        panel.set_app(app)
+        assert panel.current_ratio == pytest.approx((0.4, 0.6))
+        assert (panel.first_collapsed, panel.second_collapsed) == (False, False)
+
+    @pytest.mark.parametrize("bad", [True, "yes", (1, 0), (True,), [None, None]])
+    def test_invalid_collapsed_is_ignored(self, bad):
+        panel = self._load(collapsed=bad)
+        assert (panel.first_collapsed, panel.second_collapsed) == (False, False)
 
 
 class TestSplitPanelIntrinsicSize:
