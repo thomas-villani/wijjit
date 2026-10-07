@@ -108,6 +108,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printed straight to the terminal. The adapter also honors `39`/`49`
   (default colors) and `22`/`23`/`24`/`27` (attributes off), which it
   ignored, and overlay dimming no longer skips palette black.
+- **Two demos laid out past the edge of the screen.** `event_patterns_demo`
+  pinned its frame to 100x36 with a 26-row log, so at 100x30 its button row was
+  never visible; its frames are now fill-sized and the help text scrolls, so
+  the whole view fits from 80x24 up. `code_editor_demo`'s status line broke
+  onto a second row because of a newline in the template source, and its fixed
+  frame height scrolled on a 30-row terminal.
 
 ## [0.1.1] - 2026-08-03
 
