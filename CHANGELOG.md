@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-06
+
 ### Added
 - **`{% tree enter_selects=True %}`: Enter selects a node that has children.**
   By default Enter (like Space) expands or collapses a branch and only selects
@@ -1112,6 +1114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list, so a stray local virtualenv (e.g. `.venv-wsl/`) no longer breaks
   `uv build` / packaging.
 
-[Unreleased]: https://github.com/thomas-villani/wijjit/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/thomas-villani/wijjit/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/thomas-villani/wijjit/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/thomas-villani/wijjit/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/thomas-villani/wijjit/releases/tag/v0.1.0

@@ -42,7 +42,7 @@ Why Wijjit
 * **Cheap updates** – a virtual-DOM reconciler diffs re-renders into a cell buffer, so a changed widget writes a few dozen bytes instead of repainting the screen. An idle frame writes nothing at all. See :doc:`user_guide/performance`.
 * **Built to be tested** – a headless harness drives real apps without a TTY, plus a ``wijjit`` CLI to validate templates and dump the render tree.
 * **Batteries included** – 36 elements: six chart types, an image viewer, a code editor with autocomplete, and an editable data grid, with no plugins required.
-* **Production features** – 75 runnable examples and roughly 3,900 tests across Linux, macOS, and Windows on Python 3.11–3.13.
+* **Production features** – 75 runnable examples and roughly 4,200 tests across Linux, macOS, and Windows on Python 3.11–3.13.
 
 Quick Example
 -------------
@@ -165,12 +165,12 @@ Documentation Contents
 Project Status
 --------------
 
-Wijjit ``0.1.1`` is a correctness and tooling release on top of the first public release, ``0.1.0``. The framework is stable and feature-complete for this milestone: the core already powers advanced layouts, async workflows, and complex widgets, with a set of documented known limitations tracked for follow-up releases. See :doc:`examples/index` for inspiration and :doc:`developer_guide/architecture` for a deeper dive into the runtime pipeline.
+Wijjit ``0.1.2`` builds out ``ContentView`` for document-style apps (live OSC 8 links, click and hover positions, content laid out per width, palette colors that follow the terminal's theme) and fixes a broad batch of correctness bugs. The framework is stable and feature-complete for this milestone: the core already powers advanced layouts, async workflows, and complex widgets, with a set of documented known limitations tracked for follow-up releases. See :doc:`examples/index` for inspiration and :doc:`developer_guide/architecture` for a deeper dive into the runtime pipeline.
 
 Known limitations:
 
 * **No virtual scrolling** — every row of a ``Table``, ``ListView``, or ``Tree`` is laid out on each render. Page or filter very large datasets before rendering them.
-* **Wide characters are column-correct everywhere except two narrow paths** — element painting all goes through the wide-aware ``PaintContext`` write APIs, so CJK/emoji/decomposed accents render at their true width. The exceptions are *pre-rendered* ANSI content (``content_type="ansi"``, e.g. a Rich-rendered table), which still maps one code point per cell, and ``TextArea``'s ``wrap_mode="none"`` horizontal scroll, which still slices by character rather than by display column.
+* **Wide characters are column-correct everywhere except one narrow path** — element painting all goes through the wide-aware ``PaintContext`` write APIs, and pre-rendered ANSI content (``content_type="ansi"``, Rich tables and Markdown) is laid out the same way, so CJK/emoji/decomposed accents render at their true width. The exception is ``TextArea``'s ``wrap_mode="none"`` horizontal scroll, which still slices by character rather than by display column.
 * **Third-party elements are leaf-only** — the plugin seam registers self-closing and simple-body widgets; custom *containers* (which need layout-tree and validator integration) are deferred.
 * **Template auto-reload is development-only** — file-backed templates can reload automatically with ``TEMPLATE_AUTO_RELOAD``, but packaged or embedded templates still require a restart to pick up changes.
 * **``RUN_SYNC_IN_EXECUTOR`` does not cover action handlers** — it moves blocking ``@app.on_key`` / mouse / change handlers onto a worker thread, but ``@app.on_action`` handlers (what buttons fire) are invoked inline, so the setting has no effect on them.

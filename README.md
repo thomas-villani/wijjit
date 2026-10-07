@@ -622,10 +622,12 @@ deterministic across CI runners. See the
 
 ## Project Status
 
-Wijjit `0.1.1` is a correctness and tooling release on top of the first public
-release, `0.1.0`. The core framework is stable and feature-complete for this
-milestone: the element, layout, event, and rendering pipelines are all
-implemented and covered by roughly 3,900 tests running on Linux, macOS, and
+Wijjit `0.1.2` builds out `ContentView` for document-style apps (live OSC 8
+links, click and hover positions, content laid out per width, palette colors
+that follow the terminal's theme) and fixes a broad batch of correctness bugs
+found in a roadmap sweep. The core framework is stable and feature-complete for
+this milestone: the element, layout, event, and rendering pipelines are all
+implemented and covered by roughly 4,200 tests running on Linux, macOS, and
 Windows across Python 3.11–3.13.
 
 See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG.md) for what shipped and
@@ -636,13 +638,12 @@ See the [CHANGELOG](https://github.com/thomas-villani/wijjit/blob/main/CHANGELOG
 - **No virtual scrolling.** Every row of a `Table`, `ListView`, or `Tree` is
   laid out on each render. A few thousand rows is comfortable; a hundred
   thousand is not — page or filter large datasets before rendering them.
-- **Wide characters are column-correct everywhere except two narrow paths.**
-  Element painting all goes through the wide-aware `PaintContext` write APIs, so
-  CJK/emoji/decomposed accents render at their true width. The exceptions are
-  *pre-rendered* ANSI content (`content_type="ansi"`, e.g. a Rich-rendered
-  table), which still maps one code point per cell, and `TextArea`'s
-  `wrap_mode="none"` horizontal scroll, which still slices by character rather
-  than by display column.
+- **Wide characters are column-correct everywhere except one narrow path.**
+  Element painting all goes through the wide-aware `PaintContext` write APIs,
+  and pre-rendered ANSI content (`content_type="ansi"`, Rich tables and
+  Markdown) is laid out the same way, so CJK/emoji/decomposed accents render at
+  their true width. The exception is `TextArea`'s `wrap_mode="none"` horizontal
+  scroll, which still slices by character rather than by display column.
 - **Third-party elements are leaf-only.** The plugin seam registers self-closing
   and simple-body widgets; custom *containers* (which need layout-tree and
   validator integration) are deferred.
