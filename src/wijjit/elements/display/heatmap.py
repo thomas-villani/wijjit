@@ -349,12 +349,19 @@ class HeatMap(Element):
             min_label = f"{min_val:.0f}"
             max_label = f"{max_val:.0f}"
 
-            ctx.write_text(0, legend_y, min_label, legend_style)
+            # At narrow widths, drop pieces rather than overlap them: the max
+            # label needs room after the min label plus a gap (else the two
+            # read as one number), and the gradient needs at least one cell
+            # between them. A min label that does not fit is not drawn at all,
+            # since a truncated number would be misleading.
+            if len(min_label) <= avail_width:
+                ctx.write_text(0, legend_y, min_label, legend_style)
+            show_max = len(min_label) + 1 + len(max_label) <= avail_width
 
-            # Gradient bar
+            # Gradient bar (only between the two labels, never under them)
             bar_start = len(min_label) + 1
             bar_end = avail_width - len(max_label) - 1
-            bar_width = bar_end - bar_start
+            bar_width = max(0, bar_end - bar_start) if show_max else 0
 
             for i in range(bar_width):
                 normalized = i / max(1, bar_width - 1)
@@ -370,4 +377,5 @@ class HeatMap(Element):
                     bar_start + i, legend_y, Cell(char="\u2588", **bar_attrs)
                 )
 
-            ctx.write_text(bar_end + 1, legend_y, max_label, legend_style)
+            if show_max:
+                ctx.write_text(bar_end + 1, legend_y, max_label, legend_style)

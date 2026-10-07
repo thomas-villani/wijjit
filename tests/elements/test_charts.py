@@ -694,6 +694,39 @@ class TestChartMinimumVisibility:
         assert jan_cells.strip(), f"minimum column painted nothing:\n{text}"
 
 
+class TestHeatMapNarrowLegend:
+    """The legend drops pieces at narrow widths instead of overlapping them.
+
+    ``bar_end = width - len(max) - 1`` could fall below ``bar_start``; the
+    max label was then written over or right after the min label, so
+    "10" and "990" read as one number ("10990") or a fragment of one.
+    """
+
+    @staticmethod
+    def _legend_row(width):
+        heatmap = HeatMap(data=[[10, 990]], width=width, height=3, border_style="none")
+        buffer = render_element_buffer(heatmap, width=width, height=3)
+        return _buffer_text(buffer, width, 3).splitlines()[2]
+
+    def test_legend_across_widths(self):
+        min_label, max_label = "10", "990"
+        both = len(min_label) + 1 + len(max_label)  # 6
+        for width in range(1, 25):
+            row = self._legend_row(width)
+            digits = row.replace("█", " ").split()
+            if width >= both:
+                assert digits == [min_label, max_label], (width, row)
+                assert row.startswith(min_label), (width, row)
+                assert row.rstrip().endswith(max_label), (width, row)
+                gradient = width - both - 1  # one gap cell on each side
+                assert row.count("█") == max(0, gradient), (width, row)
+            elif width >= len(min_label):
+                assert digits == [min_label], (width, row)
+                assert "█" not in row, (width, row)
+            else:
+                assert not row.strip(), (width, row)
+
+
 class TestHeatMapVisibility:
     """HeatMap cells must survive color-stripped output.
 
