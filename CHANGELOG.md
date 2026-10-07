@@ -136,6 +136,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   handler (if any), every `EventType.ACTION` handler now runs in priority
   order, honoring its scope; one that cancels the event stops the rest, and
   one that raises is reported without stopping the others.
+- **Sorting a `Table` column with None, missing or mixed values keeps a
+  sensible order.** One None, missing key or "n/a" used to switch the whole
+  column to string order (`[10, 100, 2, 9, None]`). Numbers now sort
+  numerically (bool, int and float together), then strings, then other types;
+  None, NaN and a missing key always sort last, in both directions. Behavior
+  change: the sort now always starts from the original rows, so rows with
+  equal values keep their original order; before, their order depended on
+  which columns had been sorted earlier and reset when the data was
+  reassigned.
+- **`Pager.remove_page` keeps each page's scroll position and the current
+  page.** Saved scroll positions are keyed by page index and were not moved
+  when a page was removed, so later pages opened at a neighbor's position.
+  They now move with their pages. Removing a page before the current one no
+  longer jumps to the next page, and the new index is saved to state.
+  `clear_pages` also forgets the saved positions.
+- **Tall `BarChart` bars are drawn at the right rows and filled.** When the
+  scroll offset was not a multiple of `bar_height`, bars were drawn too low
+  and the last one was dropped. Behavior change: with `bar_height > 1` every
+  row of the bar is now filled, not just the top one, as the docs describe;
+  the label and value stay on the bar's first row.
+- **A linear `Gauge` makes room for its ticks and min/max labels.** Its auto
+  height ignored `show_ticks` and `show_minmax`, so the min/max row was
+  painted over the element below. The height now counts those rows, and a
+  gauge given a short explicit height clips its lower rows instead of
+  painting outside itself.
+- **The `HeatMap` legend no longer runs its labels together at narrow
+  widths.** When there was not room for both, the max label was written on
+  top of or right after the min label and read as one number. The max label
+  and the gradient are now left out when they do not fit.
+- **A truncated image shows the `ImageView` placeholder instead of breaking
+  the view.** Pillow opens images lazily, so a truncated file loaded "fine"
+  and then failed to decode during rendering, on every frame. The image is
+  now decoded when it is loaded, and on failure the "No image" placeholder is
+  shown.
 
 ## [0.1.1] - 2026-08-03
 
