@@ -10,7 +10,7 @@ or dump its VNode tree without running it, and :mod:`wijjit.testing` to drive a
 real app headlessly.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 # Core components
 from wijjit.config import Config, DefaultConfig
