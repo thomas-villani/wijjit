@@ -58,7 +58,7 @@ Use ``async with app.state.async_mutate(key)`` when watchers are ``async def`` a
 Three behaviors worth knowing:
 
 * The notification is **unconditional** - ``State`` cannot cheaply diff an arbitrary object, so it does not try. An empty block still notifies. That is deliberate: a redundant notification costs one diffed re-render (an unchanged frame writes no bytes), while a missed one leaves the screen contradicting the state.
-* It **also fires if the block raises**, then re-raises. The object is reachable from state and may be half-mutated, so staying silent would guarantee a stale screen. (This differs from ``batch_update()``, which discards its queued changes on an exception.)
+* It **also fires if the block raises**, then re-raises. The object is reachable from state and may be half-mutated, so staying silent would guarantee a stale screen. (``batch_update()`` follows the same rule; see below.)
 * Callbacks receive the *same already-mutated object* as both ``old_value`` and ``new_value``. A watcher that diffs the two sees nothing; read the call as "this key changed, re-read it".
 
 Mutating a key that is not set raises ``KeyError`` - assign it first.
@@ -128,6 +128,8 @@ Each assignment normally fires its own change callbacks immediately. To coalesce
             state["profile"] = {**state["profile"], "name": name, "email": email}
 
 In async code, prefer ``async with state.async_batch_update():`` so async callbacks are awaited before the context exits.
+
+A batch is not a transaction. If the block raises, the writes it made before the exception stay in state - nothing is rolled back - so their notifications are still delivered on exit, and then the exception propagates. Staying silent would leave the screen contradicting the state. If you need all-or-nothing, compute the new values first and only assign them once nothing else can fail.
 
 Multi-key and whole-state updates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

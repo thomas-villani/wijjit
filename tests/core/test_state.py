@@ -1036,6 +1036,141 @@ class TestMutateInsideBatch:
         assert keys == ["rows"]
 
 
+class TestBatchUpdateOnException:
+    """A batch that raises still delivers the changes it queued.
+
+    There is no rollback: writes made before the exception are in state. Up
+    to 0.1.1 the exit path discarded their notifications, so watchers (and
+    the screen) silently disagreed with the state.
+    """
+
+    def test_writes_before_raise_are_notified(self):
+        state = State({"a": 1, "b": 2})
+        changes: list[tuple[str, object, object]] = []
+        state.on_change(lambda k, o, n: changes.append((k, o, n)))
+
+        with pytest.raises(ValueError, match="boom"):
+            with state.batch_update():
+                state["a"] = 10
+                state["a"] = 11
+                state["b"] = 20
+                raise ValueError("boom")
+
+        assert state["a"] == 11
+        assert sorted(changes) == [("a", 1, 11), ("b", 2, 20)]
+
+    def test_watchers_are_notified(self):
+        state = State({"a": 1})
+        watcher = Mock()
+        state.watch("a", watcher)
+
+        with pytest.raises(RuntimeError):
+            with state.batch_update():
+                state["a"] = 10
+                raise RuntimeError
+
+        watcher.assert_called_once_with("a", 1, 10)
+
+    def test_equality_gate_still_applies(self):
+        state = State({"a": 1})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(ValueError):
+            with state.batch_update():
+                state["a"] = 10
+                state["a"] = 1  # back to the original: net no-op
+                raise ValueError
+
+        callback.assert_not_called()
+
+    def test_batch_mode_is_off_after_raise(self):
+        state = State({"a": 1})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(ValueError):
+            with state.batch_update():
+                raise ValueError
+
+        state["a"] = 2
+        callback.assert_called_once_with("a", 1, 2)
+
+    def test_mutate_inside_raising_batch_still_notifies(self):
+        """mutate() promises a notification on raise; an enclosing batch
+        used to swallow it."""
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(ValueError):
+            with state.batch_update():
+                with state.mutate("rows") as rows:
+                    rows.append("b")
+                    raise ValueError
+
+        callback.assert_called_once()
+        assert state["rows"] == ["a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_async_writes_before_raise_are_notified(self):
+        state = State({"a": 1, "b": 2})
+        completed: list[tuple[str, object, object]] = []
+
+        async def watcher(key, old, new):
+            await asyncio.sleep(0)
+            completed.append((key, old, new))
+
+        state.watch("a", watcher)
+        state.watch("b", watcher)
+
+        with pytest.raises(ValueError, match="boom"):
+            async with state.async_batch_update():
+                state["a"] = 10
+                state["b"] = 20
+                raise ValueError("boom")
+
+        # Awaited by __aexit__ before the exception propagated.
+        assert sorted(completed) == [("a", 1, 10), ("b", 2, 20)]
+
+    @pytest.mark.asyncio
+    async def test_async_mutate_inside_raising_async_batch_notifies(self):
+        state = State({"rows": ["a"]})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(ValueError):
+            async with state.async_batch_update():
+                async with state.async_mutate("rows") as rows:
+                    rows.append("b")
+                    raise ValueError
+
+        callback.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_batch_cancelled_still_notifies_without_awaiting(self):
+        """On cancellation the queue is flushed synchronously: sync callbacks
+        run inline, async ones are scheduled rather than awaited."""
+        state = State({"a": 1})
+        sync_cb = Mock()
+        state.on_change(sync_cb)
+        started = asyncio.Event()
+
+        async def body():
+            async with state.async_batch_update():
+                state["a"] = 10
+                started.set()
+                await asyncio.sleep(10)
+
+        task = asyncio.create_task(body())
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        sync_cb.assert_called_once_with("a", 1, 10)
+
+
 class TestAsyncMutateContext:
     """``async_mutate`` awaits async watchers, mirroring async_batch_update."""
 
