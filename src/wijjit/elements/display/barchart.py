@@ -52,7 +52,8 @@ class BarChart(ScrollableElement):
     height : int, optional
         Display height in rows (default: 10)
     bar_height : int, optional
-        Height of each bar in rows (default: 1)
+        Height of each bar in rows (default: 1). Every row of the bar is
+        filled; the label and value are drawn on its first row.
     show_labels : bool, optional
         Show labels on left side (default: True)
     show_values : bool, optional
@@ -461,10 +462,14 @@ class BarChart(ScrollableElement):
         # Normalize data
         normalized, min_val, max_val = normalize_data(self.values)
 
-        # Get visible range
+        # Get visible range. The scroll offset is in rows, so it need not be
+        # a multiple of bar_height: the first visible bar may be partly
+        # scrolled off the top.
+        bar_height = max(1, self.bar_height)
         scroll_offset = self.scroll_manager.state.scroll_position
-        first_visible_bar = scroll_offset // self.bar_height
-        last_visible_bar = (scroll_offset + viewport_height) // self.bar_height + 1
+        first_visible_bar = scroll_offset // bar_height
+        top_y = border_offset
+        bottom_y = border_offset + viewport_height
 
         # Render border if enabled
         if has_border(self.border_style):
@@ -486,12 +491,19 @@ class BarChart(ScrollableElement):
                 get_border_chars(border_enum),
             )
 
-        # Render bars
-        current_y = border_offset
-        for bar_idx in range(
-            first_visible_bar, min(last_visible_bar, len(self.values))
-        ):
-            if current_y >= viewport_height + border_offset:
+        fill_char = "█" if use_unicode else "#"
+        empty_char = "░" if use_unicode else "-"
+        bar_attrs_base = bar_style.to_cell_attrs()
+        empty_attrs = empty_style.to_cell_attrs()
+
+        # Render bars. Each bar spans bar_height rows, all filled; the label
+        # and value stay on its first row (where they have always been).
+        # Rows outside the viewport (the scrolled-off top of the first bar,
+        # the bottom of the last) are skipped.
+        current_y = top_y - (scroll_offset % bar_height)
+        text_row = 0
+        for bar_idx in range(first_visible_bar, len(self.values)):
+            if current_y >= bottom_y:
                 break
 
             value = self.values[bar_idx]
@@ -507,46 +519,51 @@ class BarChart(ScrollableElement):
             # Get bar color
             bar_color = self._get_bar_color(value, norm_val)
 
-            # Render label
+            label_text = ""
             if self.show_labels:
                 label_text = clip_to_width(label, self.label_width - 1, ellipsis=".")
                 label_text = label_text.ljust(self.label_width - 1) + " "
-                ctx.write_text(border_offset, current_y, label_text, label_style)
-
-            # Render bar
-            fill_char = "\u2588" if use_unicode else "#"
-            empty_char = "\u2591" if use_unicode else "-"
-
-            bar_attrs = bar_style.to_cell_attrs()
-            empty_attrs = empty_style.to_cell_attrs()
-
-            # Apply custom color if available
-            if bar_color:
-                bar_attrs = {**bar_attrs, "fg_color": bar_color}
-
-            # Draw filled portion
-            fill_cells = [Cell(char=fill_char, **bar_attrs)] * fill_width
-            ctx.write_cells(bar_start_x, current_y, fill_cells)
-
-            # Draw empty portion
-            empty_cells = [Cell(char=empty_char, **empty_attrs)] * empty_width
-            ctx.write_cells(bar_start_x + fill_width, current_y, empty_cells)
-
-            # Render value
+            value_text = ""
             if self.show_values:
                 value_text = f"{value:.0f}".rjust(self.value_width - 1) + " "
-                value_x = bar_end_x
-                ctx.write_text(value_x, current_y, value_text, value_style)
 
-            current_y += self.bar_height
+            # Apply custom color if available
+            bar_attrs = bar_attrs_base
+            if bar_color:
+                bar_attrs = {**bar_attrs, "fg_color": bar_color}
+            fill_cells = [Cell(char=fill_char, **bar_attrs)] * fill_width
+            empty_cells = [Cell(char=empty_char, **empty_attrs)] * empty_width
+
+            for row in range(bar_height):
+                y = current_y + row
+                if y < top_y or y >= bottom_y:
+                    continue
+                on_text_row = row == text_row
+
+                # Label (blank on the bar's other rows)
+                if self.show_labels:
+                    text = label_text if on_text_row else " " * self.label_width
+                    ctx.write_text(border_offset, y, text, label_style)
+
+                # Bar: filled then empty portion
+                ctx.write_cells(bar_start_x, y, fill_cells)
+                ctx.write_cells(bar_start_x + fill_width, y, empty_cells)
+
+                # Value (blank on the bar's other rows)
+                if self.show_values:
+                    text = value_text if on_text_row else " " * len(value_text)
+                    ctx.write_text(bar_end_x, y, text, value_style)
+
+            current_y += bar_height
 
         # Fill remaining rows with empty space
-        if current_y < viewport_height + border_offset:
+        current_y = max(current_y, top_y)
+        if current_y < bottom_y:
             ctx.fill_rect(
                 border_offset,
                 current_y,
                 viewport_width,
-                viewport_height + border_offset - current_y,
+                bottom_y - current_y,
                 " ",
                 base_style,
             )
