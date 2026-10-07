@@ -86,7 +86,7 @@ Any widget can emit an action:
 * Dialogs – ``{% confirmdialog action_ok="confirm_delete" %}``
 * Menus – menu items specify ``action`` on each entry.
 
-Handle them using ``@app.on_action("save")`` or ``app.on(EventType.ACTION, handler)`` if you need a catch-all logger. ``ActionEvent.data`` carries widget-specific payloads (e.g., selected option).
+Handle them using ``@app.on_action("save")`` or ``app.on(EventType.ACTION, handler)`` if you need a catch-all: one function for a family of actions (``toggle_<id>``, read from ``event.action_id``), or a logger. The ``on_action`` handler for the action runs first, then every catch-all in priority order, honoring its scope (a view-scoped one only in its view); one that calls ``event.cancel()`` stops the rest, and one that raises is reported without stopping the others. ``ActionEvent.data`` carries widget-specific payloads (e.g., selected option).
 
 ``ChangeEvent`` is emitted by bound inputs (text, textarea, checkbox, select). It is useful for real-time validation:
 
