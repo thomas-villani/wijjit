@@ -33,6 +33,7 @@ from wijjit.elements.input.text import TextArea
 
 if TYPE_CHECKING:
     from pygments.lexer import Lexer
+    from pygments.token import _TokenType
 
     from wijjit.rendering import PaintContext
     from wijjit.styling.style import Style
@@ -77,7 +78,7 @@ class SyntaxHighlighter:
         self.theme: str = theme
         self.filename_hint: str | None = filename_hint
         self._lexer: Lexer | None = None  # Use underscore - lazily initialized
-        self.line_tokens: list[list[tuple[type, str]]] = []
+        self.line_tokens: list[list[tuple[_TokenType, str]]] = []
         self._dirty_from_line: int | None = None
         self._last_content_hash: int | None = None
 
@@ -296,7 +297,7 @@ class SyntaxHighlighter:
 
         # Build per-line token lists
         self.line_tokens = []
-        current_line_tokens: list[tuple[type, str]] = []
+        current_line_tokens: list[tuple[_TokenType, str]] = []
 
         for token_type, value in all_tokens:
             if "\n" in value:
@@ -367,7 +368,7 @@ class SyntaxHighlighter:
         self._last_content_hash = None  # Force re-tokenization
         self.tokenize_document(lines)
 
-    def get_line_tokens(self, line_idx: int) -> list[tuple[type, str]]:
+    def get_line_tokens(self, line_idx: int) -> list[tuple[_TokenType, str]]:
         """Get cached tokens for a specific line.
 
         Parameters
@@ -770,7 +771,7 @@ class CodeEditor(TextArea):
         # Tokenize just this line
         # Note: This won't handle multi-line constructs perfectly,
         # but the debounced full retokenization will fix those
-        line_tokens: list[tuple[type, str]] = []
+        line_tokens: list[tuple[_TokenType, str]] = []
         for token_type, value in self.highlighter.lexer.get_tokens(line):
             # Split on newlines (shouldn't happen for single line, but be safe)
             if "\n" in value:
@@ -1024,7 +1025,7 @@ class CodeEditor(TextArea):
         y: int,
         line: str,
         line_idx: int,
-        tokens: list[tuple[type, str]],
+        tokens: list[tuple[_TokenType, str]],
         width: int,
         show_cursor: bool,
         cursor_attrs: dict,
