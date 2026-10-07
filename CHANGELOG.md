@@ -78,6 +78,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mutate()` already followed; a `mutate()` inside a raising batch no longer
   loses its notification either. Code that wants all-or-nothing should
   compute the new values first and assign them once nothing else can fail.
+- **HStack `justify` spreads leftover cells through the row.** The
+  distributed modes handed the integer remainder of the free space to the
+  first gaps, so `space-around` with two 4-wide children in 11 columns put 1
+  cell before, 2 between and none after, and `space-evenly` and
+  `space-between` front-loaded the same way. Each child's share is now
+  computed exactly and rounded to the nearest cell, so the row is symmetric
+  wherever whole cells allow (the example is now 1 / 1 / 1). Rows whose free
+  space divides evenly are unchanged.
+- **Split panel keyboard resize moves by whole cells.** Each arrow press
+  added 5% to the ratio and truncated, so a narrow panel's divider never moved
+  and wider ones drifted (six presses right and six left at 41 columns ended
+  two cells off). A press now moves the divider about 5% of the panel, at
+  least one cell, and stepping back returns it exactly.
 
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
@@ -202,6 +215,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`unregister_key()` removes every handler bound to the key.** With two
   `@app.on_key("y")` handlers, it removed only the last one registered; the
   first kept firing and no API could remove it.
+- **`{% frame padding=... %}` was ignored.** The tag stored the padding where
+  the renderer never looked, so every frame drew with the default
+  `(0, 1, 0, 1)`. Padding is now honored, including on a keyed frame whose
+  padding changes between renders, and a Jinja tuple or list
+  (`padding=(1, 2, 1, 2)`, or `padding=[1, 2]` as CSS shorthand) is accepted
+  alongside an int or a tuple string.
+- **Grid colspan/rowspan cells drew no border.** A spanning cell's frame was
+  never reached by the border pass, so its text showed without a box.
+  Borders are drawn now, and frames inside span cells also clip to an
+  enclosing scrolled frame and are found by the tabbed panel and pager focus
+  walks.
+- **Dragging a split panel divider could land a cell off the mouse.**
+  Converting the mouse column to a ratio and back lost a cell to
+  floating-point error (22 * (15 / 22) is 14.999...). The divider now lands
+  exactly where it is dropped.
+- **Split panels trusted whatever was in `app.state`.** A saved ratio of
+  `"30:70"` or `(2.0, -1.0)` produced wrong pane sizes, and `None` raised a
+  `TypeError`. Saved ratio and collapse state are now validated, and invalid
+  values are ignored with a warning.
+- **Tiny frames and stacks computed negative interior sizes.** A frame
+  smaller than its borders and padding, or a stack smaller than its padding
+  and spacing, passed negative sizes to its children and to the scroll
+  viewport. They are now clamped at zero; rendering is unchanged.
 
 ## [0.1.1] - 2026-08-03
 
