@@ -55,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under `MOUSE_TRACKING_MODE = "all_events"`. `content_position_at(x, y)`
   does the mapping for any screen cell, and the test harness gained
   `h.hover(x, y)` to send pointer motion.
+- **`wijjit validate` flags an `action` that would do nothing.** A new
+  `ignored-attribute` warning reports `action=` on an element that never
+  dispatches one (Table, Select, Slider, ListView, the charts, layout
+  containers, ...), where it was accepted silently. Which elements dispatch is
+  declared once, by a `dispatches_action` class attribute on each element.
 
 ### Changed
 - **`ContentView` parses each rendered line once.** The rendered content was
@@ -114,6 +119,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole view fits from 80x24 up. `code_editor_demo`'s status line broke
   onto a second row because of a newline in the template source, and its fixed
   frame height scrolled on a 30-row terminal.
+- **Checkboxes, radios and toggles dispatch their `action`.**
+  `{% checkbox action="go" %}` (and the same on `radio`, `checkboxgroup`,
+  `radiogroup` and `toggle`) never called its handler: none of these elements
+  takes `action` as a constructor argument, so the prop was dropped on the
+  render that created the element, and the reconciler only re-applies props
+  whose value changes. `action` is now a framework-only prop, set right after
+  construction like `autofocus`. The tutorial's per-item
+  `action="toggle_{{ todo.id }}"` is fixed as well: Jinja does not interpolate
+  `{{ }}` inside a tag argument, so it now builds the name with
+  `"toggle_" ~ todo.id`.
 
 ## [0.1.1] - 2026-08-03
 
