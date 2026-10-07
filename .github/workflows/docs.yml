@@ -8,6 +8,11 @@ name: Docs
 # builds main and tags *after* the merge, so without this a broken
 # cross-reference would land and only fail once it was too late to catch in
 # review. Running it on pull requests is the whole point.
+#
+# It builds from uv.lock with Python 3.13, the environment Read the Docs
+# uses, so a build that passes here passes there. It also runs when only
+# dependencies change (pyproject.toml, uv.lock): a newer Sphinx is exactly
+# what broke the 0.1.2 docs on Read the Docs while this check stayed green.
 
 on:
   push:
@@ -17,12 +22,16 @@ on:
       - "src/wijjit/**"
       - ".readthedocs.yaml"
       - ".github/workflows/docs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
   pull_request:
     paths:
       - "docs/**"
       - "src/wijjit/**"
       - ".readthedocs.yaml"
       - ".github/workflows/docs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
   workflow_dispatch:
 
 permissions:
@@ -41,6 +50,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          # Read the Docs builds with 3.13 (.readthedocs.yaml), and the locked
+          # Sphinx differs by interpreter (9.0.x on 3.11, 9.1 on 3.12+), so
+          # build with the same one to see exactly what it will see.
+          python-version: "3.13"
 
       - name: Build Sphinx site
         # -W turns warnings into errors, matching `fail_on_warning: true` in

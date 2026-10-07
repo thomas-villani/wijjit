@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies refreshed and tested at their current releases.** The
+  lockfile now carries Rich 15, wcwidth 0.9, Pygments 2.21 and Sphinx 9
+  (9.0 on Python 3.11, 9.1 on 3.12+), with the dev tooling updated to match
+  (pytest 9, mypy 2, black 26, ruff 0.16, syrupy 6); the full suite passes
+  unchanged. The documentation build on Read the Docs now installs from
+  `uv.lock` like CI, so it can no longer pick up a release the pre-merge
+  checks have not seen.
+
+### Fixed
+- **The documentation failed to build under Sphinx 9.** The code editor's
+  token lists were annotated `tuple[type, str]`, but Pygments token types are
+  `_TokenType` instances, not classes; Sphinx 9 resolved the bare `type` to
+  two attributes of that name and stopped the warning-as-error build, which
+  is why 0.1.2's Read the Docs build failed.
+
 ## [0.1.2] - 2026-10-06
 
 ### Added
