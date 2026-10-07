@@ -18,18 +18,26 @@ on (Trusted Publishing, GitHub environments) is recorded as done in Part 3.
   12 CI checks green, Sphinx `-W` clean, `twine check` PASSED. Post-release
   smoke from the published wheel (import, harness render, `wijjit new` ->
   `validate` -> `render`, all four project URLs) all OK.
+- `0.1.2` - **published to PyPI 2026-10-06** (02:48 UTC on the 7th), tagged
+  `v0.1.2` (on `c28f972`), GitHub Release created from the CHANGELOG section
+  by `release.yml` run `37563657035`. `ContentView` built out for document
+  apps (OSC 8 links, click/hover positions, width-callable content, palette
+  colors kept, a per-line parse cache, wide-char-correct ANSI) plus a roadmap
+  correctness sweep (action dispatch, frame padding, grid borders, justify,
+  split panel, event handling, `batch_update`, Table/Pager/charts/ImageView).
+  A patch bump again (0.x; additive APIs plus a few behavior changes, each
+  called out in the CHANGELOG). Gates at tag time: 4173 passed / 43 skipped
+  locally, all 12 CI checks green on locked dependencies (CI moved to
+  `uv sync --locked` in #88, after an unlocked Rich 15 broke a golden), Sphinx
+  `-W` clean, `twine check` PASSED. Post-release smoke from the published
+  wheel in a clean venv: import + `--version`, harness hello-world,
+  `wijjit new` -> `validate` -> `render`, `llm-help`, and the headline features
+  (OSC 8 emitted, palette `34` kept, checkbox `action` reaching named and
+  catch-all handlers) all OK; the PyPI, GitHub and `/en/latest/` URLs resolve.
+  `/en/v0.1.2/` awaits activation in the Read the Docs dashboard.
 
-**In preparation:**
-- `0.1.2` - CHANGELOG section dated 2026-10-06. `ContentView` built out for
-  document apps (OSC 8 links, click/hover positions, width-callable content,
-  palette colors kept, per-line parse cache, wide-char-correct ANSI) plus a
-  roadmap correctness sweep (action dispatch on checkboxes/radios and
-  catch-all handlers, frame padding, grid borders, justify remainders, split
-  panel, isolated key handlers, tooltip click-through, `batch_update`, Table
-  sort, Pager, charts, ImageView). A patch bump again (0.x; additive APIs plus
-  a few approved behavior changes, each called out in the CHANGELOG). CI moved
-  to `uv sync --locked` in the same window (#88). Move this to "Shipped so far"
-  with the gate evidence once tagged.
+**In preparation:** nothing yet. Add the next version here when its CHANGELOG
+section is dated.
 
 ---
 
