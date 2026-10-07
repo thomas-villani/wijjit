@@ -772,6 +772,48 @@ class TestKeyHandlers:
         assert "enter" in app._key_handler_registrations
         assert len(app._key_handler_registrations) == 3
 
+    def test_unregister_key_removes_every_handler_for_the_key(self):
+        """Two handlers on one key: unregister_key removes both.
+
+        Registrations used to be stored one per key, so the second
+        ``@app.on_key("y")`` overwrote the first's record and
+        ``unregister_key("y")`` removed only the last one; the first kept
+        firing with no API left to remove it.
+        """
+        from wijjit.testing import WijjitHarness, app_from_template
+
+        app = app_from_template("{% frame %}Hi{% endframe %}")
+        calls: list[str] = []
+
+        @app.on_key("y")
+        def first(event):
+            calls.append("first")
+
+        @app.on_key("Y")
+        def second(event):
+            calls.append("second")
+
+        @app.on_key("z")
+        def other(event):
+            calls.append("other")
+
+        with WijjitHarness(app, size=(30, 5)) as h:
+            h.press("y")
+            assert sorted(calls) == ["first", "second"]
+
+            assert app.unregister_key("y") is True
+            calls.clear()
+            h.press("y")
+            h.press("z")
+            assert calls == ["other"]
+
+        assert "y" not in app._key_handler_registrations
+        assert app.unregister_key("y") is False
+
+    def test_unregister_unknown_key_returns_false(self):
+        app = Wijjit()
+        assert app.unregister_key("f12") is False
+
 
 class TestOverlays:
     """Tests for the public overlay open/close surface."""
