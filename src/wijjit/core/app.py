@@ -14,6 +14,7 @@ declarative UI patterns.
 """
 
 import asyncio
+import functools
 import inspect
 import os
 import sys
@@ -369,7 +370,11 @@ class Wijjit:
         )
 
         # Initialize event system
-        self.handler_registry = HandlerRegistry()
+        # A raising key/mouse handler is reported like a raising action
+        # handler, and the rest of the dispatch carries on.
+        self.handler_registry = HandlerRegistry(
+            error_handler=self._on_event_handler_error
+        )
 
         # Initialize terminal components. All terminal I/O (frame output, screen
         # control, keyboard/mouse input, size) is funneled through a
@@ -963,14 +968,18 @@ class Wijjit:
 
         def decorator(func: Callable[..., Any]) -> Callable:
             # Create a wrapper that filters by key name
+            # functools.wraps gives the wrapper the handler's name, so an
+            # error report names the user's function rather than the wrapper.
             if asyncio.iscoroutinefunction(func):
                 # Async wrapper
+                @functools.wraps(func)
                 async def key_filter_wrapper(event: KeyEvent) -> None:
                     if event.key and event.key.lower() == key_lower:
                         await func(event)
 
             else:
                 # Sync wrapper
+                @functools.wraps(func)
                 def key_filter_wrapper(event: KeyEvent) -> None:
                     if event.key and event.key.lower() == key_lower:
                         func(event)
@@ -1928,6 +1937,25 @@ class Wijjit:
             Description of which callback failed (from State).
         exc : BaseException
             The exception raised by the async state callback.
+        """
+        self._handle_error(message, exc)
+
+    def _on_event_handler_error(self, message: str, exc: Exception) -> None:
+        """Route a failing event handler into the app error path.
+
+        Registered as the :class:`~wijjit.core.events.HandlerRegistry`
+        ``error_handler``, so an ``@app.on_key`` / ``app.on(...)`` handler
+        that raises is reported through :meth:`_handle_error` - the same path
+        ``@app.on_action`` handlers use - while the registry goes on to run
+        the remaining handlers. Looked up on each call, so a replacement
+        ``_handle_error`` (the test harness installs one) sees these too.
+
+        Parameters
+        ----------
+        message : str
+            Description of which handler failed (from the registry).
+        exc : Exception
+            The exception the handler raised.
         """
         self._handle_error(message, exc)
 
