@@ -6,7 +6,7 @@ and dual label mode (labels on both sides showing On/Off states).
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.terminal.ansi import supports_unicode
@@ -82,6 +82,8 @@ class Toggle(Element):
     - Off: [  O] or OFF [  O] ON
     - On:  [O  ] or OFF [O  ] ON
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     # Unicode block characters
     TRACK_CHAR = "\u2591"  # Light shade block for track

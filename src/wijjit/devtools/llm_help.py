@@ -269,6 +269,13 @@ those from `state` instead.
 
 **Actions, not callbacks.** Give an element `action="save"` and handle it with
 `@app.on_action("save")`. Handlers may be sync or async; both are supported.
+Only interactive elements dispatch one: `button`, `link`, `textinput` (Enter),
+`textarea` / `codeeditor` (Ctrl+Enter), `checkbox`, `radio`, `checkboxgroup`
+and `radiogroup` (Enter), `toggle` (every flip), `tree` (select) and
+`contentview` (click). Elsewhere `action=` does nothing, and `wijjit validate`
+says so with an `ignored-attribute` warning. Tag arguments are expressions, so
+build a per-item name with `~` (`action="toggle_" ~ item.id`); `{{ }}` inside
+the quotes is not interpolated.
 
 **Sizes** are `50` (fixed columns), `"fill"` (take remaining space), `"auto"`
 (fit content), or `"50%"`. Quote everything except bare integers.

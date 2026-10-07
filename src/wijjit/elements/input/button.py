@@ -7,7 +7,7 @@ mouse activation, and customizable callbacks.
 
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import Any
+from typing import Any, ClassVar
 
 from wijjit.core.events import ActionEvent
 from wijjit.elements.base import Element, ElementType, invoke_callback
@@ -77,6 +77,8 @@ class Button(Element):
     >>> btn = Button("Save", style=ButtonStyle.BOX)
     >>> btn = Button("Cancel", style=ButtonStyle.MINIMAL)
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,

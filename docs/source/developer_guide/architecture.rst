@@ -166,7 +166,7 @@ These props are excluded from template-to-element syncing during reconciliation.
 
 A separate, smaller category: props that live on the base
 :class:`wijjit.elements.base.Element` but are deliberately *not* threaded through
-every element constructor. Currently just ``autofocus``.
+every element constructor. Currently ``autofocus`` and ``action``.
 
 These need special handling because the registry filters creation props to the
 element's ``__init__`` signature (``ElementRegistry._filter_props_for_factory``),
@@ -174,7 +174,15 @@ so a prop no constructor accepts would be silently dropped on the render that
 *creates* the element - which, for ``autofocus``, is exactly the render that
 matters. ``Reconciler._apply_framework_props`` therefore applies them by
 ``setattr`` immediately after construction. Updates on an existing element flow
-through ``_apply_prop_changes`` as normal, since the attribute exists by then.
+through ``_apply_prop_changes`` as normal, since the attribute exists by then -
+but only when the value *changes*, which is why a constant ``action="go"`` on a
+Checkbox, Radio, CheckboxGroup, RadioGroup or Toggle (none of which take
+``action`` in ``__init__``) used to never reach the element at all.
+
+Which element types actually *dispatch* their ``action`` is recorded on the
+class as ``dispatches_action`` (``False`` on the base ``Element``).
+``wijjit validate`` reports an ``ignored-attribute`` warning for an ``action``
+set on any other element type (a Table, Select, Slider, chart, ...).
 
 Contrast ``tab_index``, which predates this and *is* an explicit parameter on
 each focusable element's ``__init__``. Prefer ``FRAMEWORK_ONLY_PROPS`` for new

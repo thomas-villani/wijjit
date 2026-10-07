@@ -6,7 +6,7 @@ group can be selected at a time. Supports keyboard and mouse interaction.
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from wijjit.elements.base import Element, ElementType, invoke_callback
 from wijjit.layout.frames import BORDER_CHARS_UNICODE, BorderStyle
@@ -72,6 +72,8 @@ class Radio(Element):
     Mouse controls:
     - Click: Select this radio
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -361,6 +363,8 @@ class RadioGroup(Element):
     - Space: Select highlighted option
     - Enter: Trigger action
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,

@@ -12,7 +12,7 @@ import re
 import threading
 from collections.abc import Callable
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from wijjit.autocomplete.mixin import AutocompleteMixin
 from wijjit.elements.base import Element, ElementType, invoke_callback
@@ -111,6 +111,8 @@ class TextInput(AutocompleteMixin, Element):
     >>> inp = TextInput(placeholder="Email", style=InputStyle.BOX, width=30)
     >>> inp = TextInput(value="Default", style=InputStyle.UNDERLINE)
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -800,6 +802,8 @@ class TextArea(Element):
     tab_width : int
         Number of spaces inserted by Tab when ``capture_tab`` is enabled
     """
+
+    dispatches_action: ClassVar[bool] = True
 
     def __init__(
         self,

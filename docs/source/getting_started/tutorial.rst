@@ -117,14 +117,14 @@ Add the main view below the app definition:
           {% vstack spacing=0 %}
             {% for todo in filtered %}
               {% hstack spacing=1 padding=0 justify="space_between" %}
-                {% checkbox id="todo_{{ todo.id }}" bind=False
-                             action="toggle_{{ todo.id }}"
+                {% checkbox id="todo_" ~ todo.id bind=False
+                             action="toggle_" ~ todo.id
                              checked=todo.done %}
                 {% endcheckbox %}
                 {% text %}
                   {{ todo.text }}
                 {% endtext %}
-                {% button action="delete_{{ todo.id }}" %}×{% endbutton %}
+                {% button action="delete_" ~ todo.id %}×{% endbutton %}
               {% endhstack %}
             {% else %}
               No tasks matching this filter.
@@ -236,7 +236,8 @@ Save the file, run ``python todo_app.py``, and exercise the workflow:
 * Type a task, press Enter → task appears and persists. (The input is
   ``autofocus=True``, so it has the cursor from the first frame; without that an
   app starts with nothing focused.)
-* Press the checkbox or hit the toggle button → status updates.
+* Tab to a task's checkbox and press Enter → status updates. (Enter is what
+  dispatches a checkbox's ``action``; Space only toggles the box.)
 * Switch filters using the filter buttons.
 * Quit with ``Ctrl+C`` and restart → todos rehydrate from disk.
 
@@ -322,12 +323,12 @@ If you prefer a single block to copy, here is the finished script:
           {% vstack spacing=0 %}
             {% for todo in filtered %}
               {% hstack spacing=1 padding=0 justify="space_between" %}
-                {% checkbox id="todo_{{ todo.id }}" bind=False action="toggle_{{ todo.id }}" checked=todo.done %}
+                {% checkbox id="todo_" ~ todo.id bind=False action="toggle_" ~ todo.id checked=todo.done %}
                 {% endcheckbox %}
                 {% text %}
                   {{ todo.text }}
                 {% endtext %}
-                {% button action="delete_{{ todo.id }}" %}×{% endbutton %}
+                {% button action="delete_" ~ todo.id %}×{% endbutton %}
               {% endhstack %}
             {% else %}
               No tasks matching this filter.
