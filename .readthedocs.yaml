@@ -12,31 +12,40 @@ build:
   os: ubuntu-24.04
   tools:
     # The newest interpreter the project supports (requires-python = ">=3.11").
+    # .github/workflows/docs.yml builds with the same one.
     python: "3.13"
+  jobs:
+    # Install from uv.lock, exactly as CI does, instead of letting pip resolve
+    # the newest releases. 0.1.2's docs failed here with a Sphinx (9.1) that
+    # the lockfile, and so every pre-merge check, had never seen. `--locked`
+    # fails the build if uv.lock is out of date with pyproject.toml.
+    #
+    # Installing the package itself (uv sync does) is required, not just
+    # convenient: docs/source/conf.py reads the version via importlib.metadata,
+    # and the autosummary API pages import wijjit to introspect it. The docs
+    # dependencies live in the `dev` extra alongside the test and lint tooling.
+    #
+    # This is the recipe Read the Docs documents for uv:
+    # https://docs.readthedocs.io/en/stable/build-customization.html#install-dependencies-with-uv
+    pre_create_environment:
+      - asdf plugin add uv
+      - asdf install uv latest
+      - asdf global uv latest
+    create_environment:
+      - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
+    install:
+      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --locked --extra dev
 
 sphinx:
   configuration: docs/source/conf.py
-  # Match the `-W` used by .github/workflows/ci.yml and docs.yml. The build is
+  # Match the `-W` used by .github/workflows/docs.yml. The build is
   # warning-clean, and a warning here usually means a broken cross-reference
   # that would otherwise ship silently.
   fail_on_warning: true
 
-python:
-  install:
-    # Installing the package itself is required, not just convenient:
-    # docs/source/conf.py reads the version via importlib.metadata, and the
-    # autosummary API pages import wijjit to introspect it.
-    #
-    # The docs dependencies live in the `dev` extra alongside the test and lint
-    # tooling. That installs more than a docs build needs; splitting a `docs`
-    # extra out of `dev` would trim it, at the cost of keeping two lists in
-    # sync with .github/workflows/docs.yml.
-    - method: pip
-      path: .
-      extra_requirements:
-        - dev
-
 # Note on historical versions: the v0.1.0 tag predates this file, so activating
-# it in the Read the Docs dashboard will fail to build. To publish 0.1.0 docs,
-# branch from the tag, add this file to that branch, and activate the branch as
-# a version. Otherwise the oldest buildable version is 0.1.1.
+# it in the Read the Docs dashboard will fail to build. v0.1.1 and v0.1.2
+# predate the uv install above and resolve their docs dependencies with pip, so
+# they get whatever Sphinx is newest when built (v0.1.2 needs this branch's
+# type-hint fix to build under Sphinx 9.1). Otherwise the oldest buildable
+# version is 0.1.1.
