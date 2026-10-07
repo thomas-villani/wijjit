@@ -531,3 +531,63 @@ class TestImageViewModeGeometry:
         }
         assert len(set(heights.values())) == 1, heights
         assert heights["quadrant"] == 20
+
+
+@pytest.mark.skipif(not PIL_AVAILABLE, reason="PIL not available")
+class TestImageViewTruncatedImage:
+    """A truncated image must fall back to the placeholder, not fail the render.
+
+    ``Image.open`` only reads the header, so a truncated PNG used to load
+    "successfully"; the decode error surfaced later in ``convert()`` on the
+    render path, outside any guard, failing the whole view on every frame
+    with the bad image cached.
+    """
+
+    @staticmethod
+    def _truncated_png():
+        from PIL import Image
+
+        img = Image.new("RGB", (64, 64))
+        img.putdata(
+            [(x * 4 % 256, y * 4 % 256, 128) for y in range(64) for x in range(64)]
+        )
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        data = buffer.getvalue()
+        return data[: len(data) // 2]
+
+    def test_load_returns_none_and_caches_nothing(self):
+        iv = ImageView(src=self._truncated_png())
+        assert iv._load_image() is None
+        assert iv._cached_image is None
+
+    @pytest.mark.parametrize("mode", ImageView.MODES)
+    def test_render_shows_placeholder(self, mode):
+        iv = ImageView(src=self._truncated_png(), mode=mode, width=20, height=5)
+        iv.set_bounds(Bounds(0, 0, 20, 5))
+        assert "No image" in render_element(iv, width=20, height=5)
+        # And again on the next frame (nothing bad was cached).
+        assert "No image" in render_element(iv, width=20, height=5)
+
+    def test_truncated_file_path(self, tmp_path):
+        path = tmp_path / "broken.png"
+        path.write_bytes(self._truncated_png())
+        iv = ImageView(src=str(path), width=20, height=5)
+        iv.set_bounds(Bounds(0, 0, 20, 5))
+        assert "No image" in render_element(iv, width=20, height=5)
+
+    def test_view_renders_without_errors_in_harness(self, tmp_path):
+        from wijjit.testing import WijjitHarness, app_from_template
+
+        path = tmp_path / "broken.png"
+        path.write_bytes(self._truncated_png())
+        app = app_from_template(
+            "{% vstack %}{% imageview src=state.path width=20 height=5 %}{% endimageview %}"
+            "{% text %}AFTER{% endtext %}{% endvstack %}",
+            state={"path": str(path)},
+        )
+        with WijjitHarness(app, size=(40, 10)) as h:
+            h.tick(frames=2)
+            h.assert_no_errors()
+            h.assert_text("AFTER")
+            h.assert_text("No image")
