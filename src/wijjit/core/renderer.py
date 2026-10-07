@@ -37,6 +37,7 @@ from wijjit.elements.base import Element
 from wijjit.layout.engine import (
     Container,
     FrameNode,
+    GridSpanWrapper,
     LayoutEngine,
     LayoutNode,
 )
@@ -912,8 +913,6 @@ class Renderer:
             return container
 
         elif vnode.type == "GridSpanWrapper":
-            from wijjit.layout.engine import GridSpanWrapper
-
             props = vnode.props_dict()
 
             # GridSpanWrapper should have exactly one child
@@ -2166,6 +2165,13 @@ class Renderer:
                 self._render_frames_to_buffer(
                     child, buffer, style_resolver, scroll_offset, clip_region
                 )
+
+        elif isinstance(node, GridSpanWrapper):
+            # A {% colspan %}/{% rowspan %} cell wraps a single child (often a
+            # bordered frame); it is not a Container, so recurse explicitly.
+            self._render_frames_to_buffer(
+                node.child, buffer, style_resolver, scroll_offset, clip_region
+            )
 
     def _buffer_to_ansi(self, buffer: ScreenBuffer) -> str:
         """Convert cell buffer to ANSI string for terminal output.
