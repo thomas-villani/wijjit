@@ -129,6 +129,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `action="toggle_{{ todo.id }}"` is fixed as well: Jinja does not interpolate
   `{{ }}` inside a tag argument, so it now builds the name with
   `"toggle_" ~ todo.id`.
+- **Catch-all action handlers run.** `app.on(EventType.ACTION, handler)`, the
+  catch-all the event-handling guide, the cookbook and the tutorial use to
+  route a family of actions (`toggle_<id>`) through one function, never ran:
+  actions were only looked up in the `@app.on_action` map. After the named
+  handler (if any), every `EventType.ACTION` handler now runs in priority
+  order, honoring its scope; one that cancels the event stops the rest, and
+  one that raises is reported without stopping the others.
 
 ## [0.1.1] - 2026-08-03
 

@@ -1797,34 +1797,64 @@ class Wijjit:
             Additional data to include with the action event (used only if event is None)
         event : ActionEvent, optional
             Pre-created ActionEvent to pass through (takes precedence over creating new one)
+
+        Notes
+        -----
+        The handler registered for ``action_id`` with :meth:`on_action` runs
+        first. Then every handler registered for ``EventType.ACTION`` with
+        :meth:`on` runs, in priority order and subject to its scope (a
+        view-scoped one only in its view): the catch-all form, for an app that
+        routes a family of actions (``toggle_<id>``) through one function, or
+        logs them all. A handler that cancels the event stops the ones after
+        it. Each handler is isolated: one that raises is reported through
+        :meth:`_handle_error` and the rest still run.
         """
-        if action_id in self._action_handlers:
-            logger.info(f"Dispatching action: '{action_id}' (data={data})")
+        action_event = (
+            event if event is not None else ActionEvent(action_id=action_id, data=data)
+        )
+        catch_alls = self.handler_registry._find_matching_handlers(action_event)
 
-            # Use provided event or create a new one
-            if event is not None:
-                action_event = event
-            else:
-                # Create action event with optional data
-                action_event = ActionEvent(action_id=action_id, data=data)
-
-            # Call the handler (supports both sync and async)
-            handler = self._action_handlers[action_id]
-            try:
-                result = handler(action_event)
-                # If handler is async, schedule it on the event loop
-                if asyncio.iscoroutine(result):
-                    self._schedule_coroutine(
-                        self._run_async_action_handler(action_id, result),
-                        label=f"async action handler '{action_id}'",
-                    )
-            except Exception as e:
-                self._handle_error(f"Error in action handler '{action_id}'", e)
-
-            # Trigger re-render if needed
-            self.needs_render = True
-        else:
+        if action_id not in self._action_handlers and not catch_alls:
             logger.warning(f"Action handler not found: '{action_id}'")
+            return
+
+        logger.info(f"Dispatching action: '{action_id}' (data={data})")
+        if action_id in self._action_handlers:
+            self._run_action_handler(
+                self._action_handlers[action_id], action_event, action_id
+            )
+        for handler in catch_alls:
+            if action_event.cancelled:
+                break
+            self._run_action_handler(handler.callback, action_event, action_id)
+
+        # Trigger re-render if needed
+        self.needs_render = True
+
+    def _run_action_handler(
+        self, handler: Callable[..., Any], event: ActionEvent, action_id: str
+    ) -> None:
+        """Call one action handler, scheduling it if async, isolating errors.
+
+        Parameters
+        ----------
+        handler : callable
+            The handler, sync or async, taking the event.
+        event : ActionEvent
+            The event to pass.
+        action_id : str
+            The action, for error messages and the task label.
+        """
+        try:
+            result = handler(event)
+            # If handler is async, schedule it on the event loop
+            if asyncio.iscoroutine(result):
+                self._schedule_coroutine(
+                    self._run_async_action_handler(action_id, result),
+                    label=f"async action handler '{action_id}'",
+                )
+        except Exception as e:
+            self._handle_error(f"Error in action handler '{action_id}'", e)
 
     def _schedule_coroutine(
         self, coro: Coroutine[Any, Any, Any], *, label: str
