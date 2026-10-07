@@ -387,6 +387,8 @@ those same fields.
 - [ ] **tabbed_panel pane padding is inconsistent** — panes that mix text and a
   button (the welcome pane) get 0 padding while the others get 1, and inner
   frames sit flush against the panel border.
+- [ ] **tabbedpanel_demo loses its bottom border at 80x24** — the panel is cut
+  off just above the Navigation frame when auto-fit shrinks the layout.
 - [ ] **status_indicator** — add a blinking state / blink-after-change option.
 
 ### Viewport / scrolling UX
