@@ -482,6 +482,59 @@ class TestGauge:
         # An explicit integer height is preserved.
         assert Gauge(value=50, height=7).height == 7
 
+    def test_linear_auto_height_reserves_ticks_and_minmax_rows(self):
+        """Auto height counts the tick and min/max rows, never shrinking."""
+        cases = [
+            ({}, 2),
+            ({"label": "CPU"}, 3),
+            ({"show_ticks": True}, 2),
+            ({"show_minmax": True}, 2),
+            ({"show_ticks": True, "show_minmax": True}, 3),
+            ({"label": "CPU", "show_ticks": True}, 3),
+            ({"label": "CPU", "show_minmax": True}, 3),
+            ({"label": "CPU", "show_ticks": True, "show_minmax": True}, 4),
+        ]
+        for kwargs, expected in cases:
+            assert Gauge(value=50, **kwargs).height == expected, kwargs
+        # Arc keeps its fixed height.
+        assert Gauge(value=50, style="arc", show_ticks=True).height == 5
+
+    def test_minmax_row_does_not_overlap_next_sibling(self):
+        from wijjit.testing import WijjitHarness, app_from_template
+
+        app = app_from_template(
+            "{% vstack %}"
+            '{% gauge value=60 width=24 label="CPU" show_ticks=True '
+            "show_minmax=True %}{% endgauge %}"
+            "{% text %}BELOW{% endtext %}"
+            "{% endvstack %}"
+        )
+        with WijjitHarness(app, size=(40, 8)) as h:
+            h.assert_no_errors()
+            lines = h.screen().splitlines()
+        top = next(i for i, line in enumerate(lines) if line.strip() == "CPU")
+        assert "60" in lines[top + 1], lines
+        assert "|" in lines[top + 2], lines
+        assert lines[top + 3].split() == ["0", "100"], lines
+        assert lines[top + 4].strip() == "BELOW", lines
+
+    def test_short_explicit_height_clips_rows(self):
+        """Rows past the gauge's own height are not painted.
+
+        The paint context may be taller than the element (its clip is the
+        parent's region), so the gauge must stop at ``self.height`` itself.
+        """
+        gauge = Gauge(
+            value=50, width=20, height=2, label="CPU", show_ticks=True, show_minmax=True
+        )
+        buffer = ScreenBuffer(20, 6)
+        ctx = PaintContext(buffer, StyleResolver(DefaultTheme()), Bounds(0, 0, 20, 6))
+        gauge.render_to(ctx)
+        text = _buffer_text(buffer, 20, 6).splitlines()
+        assert text[0].startswith("CPU")
+        assert "50" in text[1]
+        assert all(not row.strip() for row in text[2:]), text
+
     def test_gauge_render(self):
         """Test gauge rendering."""
         gauge = Gauge(value=75, width=20, height=3)
