@@ -76,13 +76,11 @@ class TestQuitKeyAlwaysQuits:
 
         @app.view("main", default=True)
         def main_view() -> dict:
-            return {
-                "template": """
+            return {"template": """
 {% frame width=40 height=6 title="Form" %}
 {% textinput id="name" bind="name" %}{% endtextinput %}
 {% endframe %}
-"""
-            }
+"""}
 
         with WijjitHarness(app, size=(50, 10)) as h:
             # Focus the TextInput
@@ -296,13 +294,11 @@ class TestFocusedInputKeyScope:
 
         @app.view("main", default=True)
         def main_view() -> dict:
-            return {
-                "template": """
+            return {"template": """
 {% frame width=40 height=6 title="Form" %}
 {% textinput id="name" bind="name" %}{% endtextinput %}
 {% endframe %}
-"""
-            }
+"""}
 
         @app.on_key("g")
         def global_handler(_event) -> None:

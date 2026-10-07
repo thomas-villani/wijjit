@@ -65,8 +65,7 @@ class TestLoginFormJourney:
         # Define views
         @app.view("login", default=True)
         def login_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=45 height=15 title="Login" %}
     {% if login_error %}
         Error: {{ login_error }}
@@ -80,20 +79,17 @@ class TestLoginFormJourney:
 
     {% button id="login_btn" action="login" %}Login{% endbutton %}
 {% endframe %}
-                """
-            }
+                """}
 
         @app.view("dashboard")
         def dashboard_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=60 height=20 title="Dashboard" %}
     Welcome, {{ current_user }}!
 
     You are now logged in.
 {% endframe %}
-                """
-            }
+                """}
 
         # Step 1: App initializes with login view
         assert app.current_view == "login"
@@ -176,8 +172,7 @@ class TestLoginFormJourney:
         # Define login view
         @app.view("login", default=True)
         def login_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=45 height=15 title="Login" %}
     {% if login_error %}
         Error: {{ login_error }}
@@ -191,8 +186,7 @@ class TestLoginFormJourney:
 
     {% button id="login_btn" action="login" %}Login{% endbutton %}
 {% endframe %}
-                """
-            }
+                """}
 
         # Step 1: Verify initial state
         assert app.current_view == "login"
@@ -270,8 +264,7 @@ class TestRegistrationFormJourney:
         # Define views
         @app.view("register", default=True)
         def register_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=50 height=20 title="Register" %}
     {% if validation_errors %}
         {% for error in validation_errors %}
@@ -290,18 +283,15 @@ class TestRegistrationFormJourney:
 
     {% button id="register_btn" action="register" %}Register{% endbutton %}
 {% endframe %}
-                """
-            }
+                """}
 
         @app.view("success")
         def success_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=50 height=10 title="Success" %}
     Registration successful for {{ new_user }}!
 {% endframe %}
-                """
-            }
+                """}
 
         # Step 1: Verify initial state
         assert app.current_view == "register"
@@ -390,13 +380,11 @@ class TestMultiStepFormJourney:
 
         @app.view("confirmation")
         def confirmation_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=50 height=10 title="Confirmation" %}
     Thank you! Your submission is complete.
 {% endframe %}
-                """
-            }
+                """}
 
         # Step 1: Verify initial state
         assert app.state["wizard_step"] == 1
@@ -476,8 +464,7 @@ class TestFormValidationJourney:
 
         @app.view("form", default=True)
         def form_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=40 height=10 title="Email Form" %}
     Email:
     {% textinput id="email" bind=True %}{% endtextinput %}
@@ -488,8 +475,7 @@ class TestFormValidationJourney:
 
     {% button id="submit_btn" action="submit" %}Submit{% endbutton %}
 {% endframe %}
-                """
-            }
+                """}
 
         # Render form
         output, elements = render_view(app, "form")
@@ -553,8 +539,7 @@ class TestFormNavigationJourney:
         # Define views
         @app.view("contact", default=True)
         def contact_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=50 height=12 title="Contact Form" %}
     Name:
     {% textinput id="name" bind=True %}{% endtextinput %}
@@ -564,13 +549,11 @@ class TestFormNavigationJourney:
 
     {% button id="next_btn" action="go_to_preferences" %}Next{% endbutton %}
 {% endframe %}
-                """
-            }
+                """}
 
         @app.view("preferences")
         def preferences_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=50 height=12 title="Preferences" %}
     Theme:
     {% textinput id="theme" bind=True %}{% endtextinput %}
@@ -580,13 +563,11 @@ class TestFormNavigationJourney:
 
     {% button id="review_btn" action="go_to_review" %}Review{% endbutton %}
 {% endframe %}
-                """
-            }
+                """}
 
         @app.view("review")
         def review_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width=50 height=15 title="Review" %}
     Contact Info:
     Name: {{ name }}
@@ -596,8 +577,7 @@ class TestFormNavigationJourney:
     Theme: {{ theme }}
     Notify: {{ notify }}
 {% endframe %}
-                """
-            }
+                """}
 
         # Step 1: Fill contact form
         output, elements = render_view(app, "contact")

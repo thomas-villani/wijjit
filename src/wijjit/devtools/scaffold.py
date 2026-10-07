@@ -189,8 +189,7 @@ if __name__ == "__main__":
     app.run()
 '''
 
-SINGLE_FILE = (
-    '''"""__TITLE__ - a Wijjit terminal app.
+SINGLE_FILE = '''"""__TITLE__ - a Wijjit terminal app.
 
 Run it::
 
@@ -207,15 +206,11 @@ The input takes focus on start (autofocus). Tab and Shift+Tab move
 between the input and the button. Ctrl+Q quits.
 """
 
-'''
-    + _APP_BODY
-    + _APP_HANDLERS
-)
+''' + _APP_BODY + _APP_HANDLERS
 
 # -- project layout ------------------------------------------------------
 
-PROJECT_APP = (
-    '''"""__TITLE__ - a Wijjit terminal app.
+PROJECT_APP = '''"""__TITLE__ - a Wijjit terminal app.
 
 Run it::
 
@@ -251,9 +246,7 @@ def main_view():
     """Render the task list from templates/main.wij.j2."""
     return render_template("main.wij.j2")
 
-'''
-    + _APP_HANDLERS
-)
+''' + _APP_HANDLERS
 
 PROJECT_TEMPLATE = """\
 {# The UI for __TITLE__. Every tag comes in a pair -- there are no

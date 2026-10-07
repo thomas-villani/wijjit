@@ -279,8 +279,7 @@ def _write_app_module(tmp_path, *, with_templates: bool) -> str:
         )
     module = tmp_path / "demo_app.py"
     module.write_text(
-        textwrap.dedent(
-            """
+        textwrap.dedent("""
             from wijjit import Wijjit, render_template
 
             app = Wijjit()
@@ -288,8 +287,7 @@ def _write_app_module(tmp_path, *, with_templates: bool) -> str:
             @app.view("home", default=True)
             def home():
                 return render_template("home.tui", who="World")
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     return str(module)
