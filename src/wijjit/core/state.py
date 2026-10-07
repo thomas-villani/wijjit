@@ -125,6 +125,9 @@ class State(UserDict[str, Any]):
             self, "_batch_changes", []
         )  # Queue of (key, old_value, new_value, forced) during batch mode
         object.__setattr__(
+            self, "_batch_depth", 0
+        )  # Nesting depth of batch contexts; only the outermost one flushes
+        object.__setattr__(
             self, "_notify_depth", 0
         )  # Re-entrant notification depth guard (see _MAX_NOTIFY_DEPTH)
         object.__setattr__(
@@ -468,8 +471,7 @@ class State(UserDict[str, Any]):
 
         def __enter__(self) -> "State":
             """Enter batch mode."""
-            self.state._batch_mode = True
-            self.state._batch_changes = []
+            self.state._enter_batch()
             return self.state
 
         def __exit__(
@@ -485,10 +487,11 @@ class State(UserDict[str, Any]):
             writes made before the exception are already in state (there is
             no rollback), so suppressing their notifications would leave
             watchers - and the screen - contradicting it. The exception still
-            propagates.
+            propagates. A nested batch leaves its changes queued for the
+            outermost one to deliver.
             """
-            self.state._batch_mode = False
-            self.state._flush_batch_changes()
+            if self.state._leave_batch():
+                self.state._flush_batch_changes()
             return False  # Don't suppress exceptions
 
     def batch_update(self) -> _BatchContext:
@@ -522,6 +525,10 @@ class State(UserDict[str, Any]):
         state (there is no rollback) and their notifications are still
         delivered on exit; the exception then propagates. (Up to 0.1.1 they
         were discarded, leaving watchers unaware of writes already applied.)
+
+        Batches nest, and may mix with :meth:`async_batch_update`: an inner
+        batch joins the outer one, and everything is delivered once when the
+        outermost batch exits.
         """
         return self._BatchContext(self)
 
@@ -541,8 +548,7 @@ class State(UserDict[str, Any]):
 
         async def __aenter__(self) -> "State":
             """Enter batch mode."""
-            self.state._batch_mode = True
-            self.state._batch_changes = []
+            self.state._enter_batch()
             return self.state
 
         async def __aexit__(
@@ -555,9 +561,11 @@ class State(UserDict[str, Any]):
 
             Properly awaits all async callbacks before returning. As with the
             sync ``_BatchContext.__exit__``, the queued changes are delivered
-            even when the block raised, and the exception still propagates.
+            even when the block raised, the exception still propagates, and a
+            nested batch leaves its changes for the outermost one.
             """
-            self.state._batch_mode = False
+            if not self.state._leave_batch():
+                return False
             if exc_val is not None and not isinstance(exc_val, Exception):
                 # Cancellation or interpreter shutdown (CancelledError,
                 # KeyboardInterrupt, ...): still notify, but do not hold up
@@ -625,6 +633,34 @@ class State(UserDict[str, Any]):
                 original_old, _, was_forced = changes_by_key[key]
                 changes_by_key[key] = (original_old, new_value, was_forced or forced)
         return changes_by_key
+
+    def _enter_batch(self) -> None:
+        """Open a batch context, starting a fresh queue only at the outermost.
+
+        Batches nest: an inner ``batch_update()`` (sync or async) joins the
+        enclosing one instead of clearing the queue it has built so far.
+        """
+        if self._batch_depth == 0:
+            self._batch_mode = True
+            self._batch_changes = []
+        self._batch_depth += 1
+
+    def _leave_batch(self) -> bool:
+        """Close a batch context.
+
+        Returns
+        -------
+        bool
+            True when this closed the outermost batch: batch mode is now off
+            and the caller must flush the queue. False for a nested batch,
+            whose changes stay queued for the enclosing one.
+        """
+        self._batch_depth -= 1
+        if self._batch_depth > 0:
+            return False
+        self._batch_depth = 0
+        self._batch_mode = False
+        return True
 
     def _flush_batch_changes(self) -> None:
         """Deliver the queued batch changes synchronously, then clear the queue.
