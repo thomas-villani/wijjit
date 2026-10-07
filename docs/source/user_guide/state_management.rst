@@ -129,6 +129,8 @@ Each assignment normally fires its own change callbacks immediately. To coalesce
 
 In async code, prefer ``async with state.async_batch_update():`` so async callbacks are awaited before the context exits.
 
+Batches nest - a helper that opens its own ``batch_update()`` can be called from inside another batch. The inner batch joins the outer one, and every change is delivered once, when the outermost batch exits.
+
 A batch is not a transaction. If the block raises, the writes it made before the exception stay in state - nothing is rolled back - so their notifications are still delivered on exit, and then the exception propagates. Staying silent would leave the screen contradicting the state. If you need all-or-nothing, compute the new values first and only assign them once nothing else can fail.
 
 Multi-key and whole-state updates

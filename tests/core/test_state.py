@@ -1171,6 +1171,94 @@ class TestBatchUpdateOnException:
         sync_cb.assert_called_once_with("a", 1, 10)
 
 
+class TestNestedBatchUpdate:
+    """An inner batch joins the outer one instead of resetting it.
+
+    The inner ``__enter__`` used to clear the queue (dropping the outer
+    batch's earlier writes) and its ``__exit__`` switched batch mode off, so
+    the outer batch's later writes fired immediately.
+    """
+
+    def test_outer_writes_before_inner_batch_are_kept(self):
+        state = State({"a": 1, "b": 2})
+        changes: list[tuple[str, object, object]] = []
+        state.on_change(lambda k, o, n: changes.append((k, o, n)))
+
+        with state.batch_update():
+            state["a"] = 10
+            with state.batch_update():
+                state["b"] = 20
+            assert changes == []  # inner exit must not flush
+            state["a"] = 11
+
+        assert sorted(changes) == [("a", 1, 11), ("b", 2, 20)]
+
+    def test_writes_after_inner_batch_stay_batched(self):
+        state = State({"a": 1})
+        callback = Mock()
+        state.on_change(callback)
+
+        with state.batch_update():
+            with state.batch_update():
+                pass
+            state["a"] = 2
+            state["a"] = 3
+            callback.assert_not_called()
+
+        callback.assert_called_once_with("a", 1, 3)
+
+    def test_inner_raise_caught_by_outer_body(self):
+        state = State({"a": 1, "b": 2})
+        changes: list[str] = []
+        state.on_change(lambda k, o, n: changes.append(k))
+
+        with state.batch_update():
+            try:
+                with state.batch_update():
+                    state["a"] = 10
+                    raise ValueError
+            except ValueError:
+                pass
+            assert changes == []
+            state["b"] = 20
+
+        assert sorted(changes) == ["a", "b"]
+
+    def test_batch_mode_off_after_nested_raise(self):
+        state = State({"a": 1})
+        callback = Mock()
+        state.on_change(callback)
+
+        with pytest.raises(ValueError):
+            with state.batch_update():
+                with state.batch_update():
+                    raise ValueError
+
+        state["a"] = 2
+        callback.assert_called_once_with("a", 1, 2)
+
+    @pytest.mark.asyncio
+    async def test_sync_batch_inside_async_batch(self):
+        state = State({"a": 1, "b": 2})
+        completed: list[str] = []
+
+        async def watcher(key, old, new):
+            await asyncio.sleep(0)
+            completed.append(key)
+
+        state.watch("a", watcher)
+        state.watch("b", watcher)
+
+        async with state.async_batch_update():
+            state["a"] = 10
+            with state.batch_update():
+                state["b"] = 20
+            assert completed == []
+
+        # The outer async batch awaited both.
+        assert sorted(completed) == ["a", "b"]
+
+
 class TestAsyncMutateContext:
     """``async_mutate`` awaits async watchers, mirroring async_batch_update."""
 
