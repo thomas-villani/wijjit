@@ -36,8 +36,12 @@ on (Trusted Publishing, GitHub environments) is recorded as done in Part 3.
   catch-all handlers) all OK; the PyPI, GitHub and `/en/latest/` URLs resolve.
   `/en/v0.1.2/` awaits activation in the Read the Docs dashboard.
 
-**In preparation:** nothing yet. Add the next version here when its CHANGELOG
-section is dated.
+**In preparation:** `0.1.3`, CHANGELOG section dated 2026-10-07. A
+maintenance patch, no API or behavior changes: the Sphinx 9 docs fix that
+0.1.2's Read the Docs build needed (#91), the dependency refresh (#91), docs
+and CI installing from `uv.lock` (#88, #91), and the suite made independent of
+`NO_COLOR`, with CI running the ImageView tests (#92). Its tag carries the uv
+`.readthedocs.yaml`, so it is the first tag `stable` can build from.
 
 ---
 
