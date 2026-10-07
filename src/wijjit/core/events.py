@@ -16,6 +16,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, cast
 
+from wijjit.logging_config import get_logger
 from wijjit.terminal.mouse import (
     MouseButton,
     MouseEventType,
@@ -25,6 +26,8 @@ from wijjit.terminal.mouse import (
 from wijjit.terminal.mouse import (
     MouseEvent as TerminalMouseEvent,
 )
+
+logger = get_logger(__name__)
 
 
 class EventType(Enum):
@@ -374,18 +377,31 @@ class HandlerRegistry:
     methods for registering, unregistering, and dispatching events to
     appropriate handlers based on scope and priority.
 
+    Parameters
+    ----------
+    error_handler : callable, optional
+        Called as ``error_handler(message, exception)`` when a handler raises
+        during :meth:`dispatch_async`. When None, the failure is logged.
+        Either way the remaining handlers still run.
+
     Attributes
     ----------
     handlers : List[Handler]
         List of registered handlers
     current_view : str or None
         Name of the current view for view-scoped handlers
+    error_handler : callable or None
+        Receiver for handler failures (see Parameters). The app sets this to
+        route them through its own error reporting.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self, error_handler: Callable[[str, Exception], None] | None = None
+    ) -> None:
         """Initialize handler registry."""
         self.handlers: list[Handler] = []
         self.current_view: str | None = None
+        self.error_handler = error_handler
 
     def register(
         self,
@@ -471,6 +487,12 @@ class HandlerRegistry:
         Handlers are executed in priority order (highest priority first).
         If a handler cancels the event, subsequent handlers are not executed.
 
+        Each handler is isolated: one that raises is reported to
+        :attr:`error_handler` (or logged when none is set) and the remaining
+        handlers still run, so one broken hotkey cannot disable the others
+        or abort the caller's own handling of the event. A handler that
+        cancels the event before raising still stops the ones after it.
+
         Parameters
         ----------
         event : Event
@@ -505,23 +527,66 @@ class HandlerRegistry:
             if event.cancelled:
                 break
 
-            # Invoke callback based on type
-            if handler.is_async:
-                # Cast to async callback type since is_async is True
-                async_callback = cast(
-                    Callable[[Event], Awaitable[None]], handler.callback
-                )
-                await async_callback(event)
-            else:
-                # Handle sync callback
-                if executor is not None:
-                    # Run sync callback in thread pool to avoid blocking event loop
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(executor, handler.callback, event)
-                else:
-                    # Run sync callback directly on main thread
-                    # WARNING: This may block the event loop if handler does I/O
-                    handler.callback(event)
+            try:
+                await self._invoke(handler, event, executor)
+            except Exception as e:
+                self._report_handler_error(handler, event, e)
+
+    async def _invoke(
+        self,
+        handler: Handler,
+        event: Event,
+        executor: ThreadPoolExecutor | None,
+    ) -> None:
+        """Run one handler's callback, awaiting it if it is async.
+
+        Parameters
+        ----------
+        handler : Handler
+            The handler to run.
+        event : Event
+            The event being dispatched.
+        executor : ThreadPoolExecutor or None
+            Thread pool for sync callbacks; None runs them inline.
+        """
+        if handler.is_async:
+            # Cast to async callback type since is_async is True
+            async_callback = cast(Callable[[Event], Awaitable[None]], handler.callback)
+            await async_callback(event)
+        elif executor is not None:
+            # Run sync callback in thread pool to avoid blocking event loop
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(executor, handler.callback, event)
+        else:
+            # Run sync callback directly on main thread
+            # WARNING: This may block the event loop if handler does I/O
+            handler.callback(event)
+
+    def _report_handler_error(
+        self, handler: Handler, event: Event, exc: Exception
+    ) -> None:
+        """Report a handler failure without interrupting the dispatch.
+
+        Parameters
+        ----------
+        handler : Handler
+            The handler that raised.
+        event : Event
+            The event it was handling.
+        exc : Exception
+            The exception it raised.
+        """
+        name = getattr(handler.callback, "__qualname__", repr(handler.callback))
+        kind = event.event_type.value if event.event_type is not None else "event"
+        detail = f" for '{event.key}'" if isinstance(event, KeyEvent) else ""
+        message = f"Error in {kind} handler '{name}'{detail}"
+        if self.error_handler is not None:
+            try:
+                self.error_handler(message, exc)
+                return
+            except Exception:
+                logger.exception("Event handler error callback failed")
+        logger.error(f"{message}: {exc}", exc_info=exc)
 
     def _find_matching_handlers(
         self,

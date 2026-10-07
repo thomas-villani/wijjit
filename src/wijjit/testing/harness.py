@@ -748,7 +748,8 @@ class WijjitHarness:
         -------
         list of (str, BaseException)
             ``(message, exception)`` pairs captured from ``app._handle_error``
-            (render, action and background-task failures). Empty if the app
+            (render, action, key/event-handler and background-task failures).
+            Empty if the app
             rendered and dispatched cleanly.
         """
         return list(self._errors)

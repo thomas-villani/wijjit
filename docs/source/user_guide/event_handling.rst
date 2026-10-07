@@ -202,7 +202,7 @@ Mark a handler ``async def`` to perform network calls or I/O. Wijjit awaits the 
 Error handling & debugging
 --------------------------
 
-* An exception inside a handler is caught and logged with a full stack trace, and the app keeps running unless the error is fatal - a bad handler will not take down your whole UI.
+* An exception inside a handler is caught and logged with a full stack trace, and the app keeps running unless the error is fatal - a bad handler will not take down your whole UI. Each handler is isolated: if one of several handlers for the same key raises, the others still run (unless it cancelled the event first), and the key still reaches the focused element. In tests, the harness records these errors in ``h.errors``.
 * Use ``logger = get_logger(__name__)`` and log inside handlers to confirm they fire in the expected order.
 
 Best practices
