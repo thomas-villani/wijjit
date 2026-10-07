@@ -392,18 +392,21 @@ defaults; `tests/core/test_config.py` covers it.
 `examples/` has 75 runnable demos, organized into `basic/` (15), `widgets/`
 (30), `advanced/` (22, incl. the `templates_dir_demo/` package), `styling/` (2),
 `apps/` (6). Run with
-`python examples/<dir>/<name>.py`. Note: a few demos still have known visual/
-behavioral bugs deferred to 0.1.1, tracked with root causes in `roadmap.md`
-(the single post-0.1.0 backlog).
+`python examples/<dir>/<name>.py`. A few demos still have small known
+cosmetic bugs, tracked with root causes in `roadmap.md` (the single backlog).
 
 ## Known Limitations / In-Progress
 
 - `mypy --strict src/` is clean via targeted per-module overrides (see Phase 3
   of `RELEASE_PLAN.md`); a full strict pass on the overridden modules is future
   work.
-- A handful of demo bugs are deferred to 0.1.1 (horizontal child-frame scroll,
-  tree expand-all, some layout/clip + Windows alt-keys); tracked with root
-  causes in `roadmap.md` (the single post-0.1.0 backlog).
+- Open demo bugs and backlog items (horizontal child-frame scroll, some
+  cosmetic layout leftovers, Windows alt-keys) are tracked with root causes in
+  `roadmap.md` (the single backlog).
+- Dependencies are locked in `uv.lock`, and CI, the docs check and Read the
+  Docs all install from it (`uv sync --locked`). Change a dependency in
+  `pyproject.toml` -> run `uv lock` and commit the lockfile, or CI fails.
+  `uv lock --upgrade` refreshes everything; run the full gate set after.
 - No virtual scrolling for very large datasets.
 - Wide characters (CJK/emoji/NFD): the text path is wcwidth-aware via
   continuation cells. `PaintContext.write_text`, the diff and full-render

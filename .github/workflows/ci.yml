@@ -11,6 +11,9 @@ on:
 # the newest releases instead, and once tested a Rich the lockfile had never
 # seen. `--locked` also fails the job if uv.lock is out of date with
 # pyproject.toml, instead of re-resolving quietly; run `uv lock` and commit.
+# `--all-extras` brings in the optional extras too (Pillow for ImageView,
+# openpyxl for the spreadsheet demo): with only `dev`, the 20 ImageView tests
+# were skipped on every CI run.
 # (release.yml deliberately smoke-tests the built wheel with plain pip, which
 # is what users get.)
 
@@ -33,7 +36,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --all-extras
 
       - name: Run tests
         run: uv run --no-sync python -m pytest tests/ -v --tb=short -q
@@ -50,7 +53,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --all-extras
 
       - name: Run ruff
         run: uv run --no-sync ruff check src/
@@ -70,7 +73,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --all-extras
 
       - name: Run tests with coverage
         run: |

@@ -83,9 +83,12 @@ far" log above.
 ### 1c - Docs hosting (Read the Docs)
 
 Hosting moved from GitHub Pages to <https://wijjit.readthedocs.io> during 0.1.1.
-`.readthedocs.yaml` builds with `fail_on_warning: true`;
-`.github/workflows/docs.yml` still builds the site as a PR check but no longer
-deploys. `/en/latest/` rebuilds from `main` on its own - only the *versioned*
+`.readthedocs.yaml` builds with `fail_on_warning: true` and, since 0.1.3,
+installs from `uv.lock` (`uv sync --locked`) like CI;
+`.github/workflows/docs.yml` builds the site the same way (Python 3.13, the
+lockfile, `-W`) as a PR check but no longer deploys. 0.1.2's tag predates
+that: Read the Docs pip-installed Sphinx 9.1, which no check had run, and
+`stable`/`v0.1.2` cannot build. `/en/latest/` rebuilds from `main` on its own - only the *versioned*
 URL needs the step below.
 
 - [ ] After tagging, activate the new version in the Read the Docs dashboard.
