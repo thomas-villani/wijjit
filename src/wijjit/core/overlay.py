@@ -77,6 +77,11 @@ class Overlay:
         Element that had focus before this overlay opened
     previous_focus_state : tuple or None
         Saved focus manager state (elements list, current index)
+    mouse_passthrough : bool
+        Whether a mouse event the overlay's element does not handle passes
+        through to whatever lies beneath (a lower overlay or the base UI)
+        instead of being consumed. True for plain tooltips, so a tooltip
+        does not swallow clicks meant for the button under it.
     """
 
     element: "Element"
@@ -89,6 +94,7 @@ class Overlay:
     dimmed_background: bool = False
     previous_focus: "Element | None" = None
     previous_focus_state: tuple[Any, ...] | None = None
+    mouse_passthrough: bool = False
 
 
 class OverlayManager:
@@ -161,6 +167,7 @@ class OverlayManager:
         trap_focus: bool = False,
         dimmed_background: bool = False,
         on_close: Callable[[], None] | None = None,
+        mouse_passthrough: bool | None = None,
     ) -> Overlay:
         """Add an overlay to the stack.
 
@@ -180,12 +187,21 @@ class OverlayManager:
             Dim the background behind this overlay (default: False)
         on_close : Callable or None
             Callback to invoke when overlay closes
+        mouse_passthrough : bool or None
+            Let mouse events the element does not handle fall through to
+            what lies beneath. None (the default) means True for the
+            ``TOOLTIP`` layer and False otherwise; modals and dropdowns
+            always consume. Pass False for an interactive overlay on the
+            tooltip layer (notifications do).
 
         Returns
         -------
         Overlay
             The created overlay object
         """
+        if mouse_passthrough is None:
+            mouse_passthrough = layer_type == LayerType.TOOLTIP
+
         # Assign z-index
         z_index = self._next_z_index[layer_type]
         self._next_z_index[layer_type] += 1
@@ -210,6 +226,7 @@ class OverlayManager:
             dimmed_background=dimmed_background,
             previous_focus=previous_focus,
             previous_focus_state=previous_focus_state,
+            mouse_passthrough=mouse_passthrough,
         )
 
         # Auto-calculate bounds for centered overlays that don't have bounds
@@ -399,12 +416,31 @@ class OverlayManager:
         Overlay or None
             Topmost overlay at position, or None
         """
-        # Iterate from highest to lowest z-index
-        for overlay in reversed(self.overlays):
-            if overlay.element.bounds:
-                if overlay.element.bounds.contains(x, y):
-                    return overlay
-        return None
+        overlays = self.overlays_at_position(x, y)
+        return overlays[0] if overlays else None
+
+    def overlays_at_position(self, x: int, y: int) -> list[Overlay]:
+        """Get every overlay containing the given position, topmost first.
+
+        Parameters
+        ----------
+        x : int
+            X coordinate
+        y : int
+            Y coordinate
+
+        Returns
+        -------
+        list of Overlay
+            Overlays whose bounds contain the point, from highest to lowest
+            z-index. Mouse routing walks this list so an event can pass
+            through a ``mouse_passthrough`` overlay to the one beneath.
+        """
+        return [
+            overlay
+            for overlay in reversed(self.overlays)
+            if overlay.element.bounds and overlay.element.bounds.contains(x, y)
+        ]
 
     def get_top_overlay(self) -> Overlay | None:
         """Get the overlay with highest z-index.
@@ -438,8 +474,13 @@ class OverlayManager:
 
         # Check from top to bottom
         for overlay in reversed(list(self.overlays)):
-            # If click is inside this overlay, stop checking
             if overlay.element.bounds and overlay.element.bounds.contains(x, y):
+                if overlay.mouse_passthrough:
+                    # The click went through this overlay (a tooltip), so it
+                    # is neither outside it nor a reason to stop: keep it
+                    # open and judge the overlays beneath.
+                    continue
+                # Click is inside this overlay, stop checking
                 break
 
             # If click is outside and overlay should close, close it

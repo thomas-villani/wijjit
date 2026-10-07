@@ -124,15 +124,19 @@ class MouseEventRouter:
         Returns
         -------
         bool
-            True if event was routed to overlay, False otherwise
+            True if an overlay consumed the event, False if it should fall
+            through to the base UI
 
         Notes
         -----
-        Routes the mouse event to the overlay's element handle_mouse() method.
+        Routes the mouse event to the topmost overlay's element
+        ``handle_mouse()``. A modal or dropdown consumes the event even when
+        its element does not handle it. A ``mouse_passthrough`` overlay (a
+        plain tooltip) that does not handle it lets it pass to the next
+        overlay beneath, and finally to the base UI, so a tooltip never
+        swallows a click meant for what it happens to cover.
         """
-        overlay = self.app.overlay_manager.get_at_position(event.x, event.y)
-
-        if overlay:
+        for overlay in self.app.overlay_manager.overlays_at_position(event.x, event.y):
             logger.debug(
                 f"Overlay found at ({event.x}, {event.y}): {type(overlay.element).__name__}"
             )
@@ -140,13 +144,15 @@ class MouseEventRouter:
             logger.debug(f"Event type: {event.type}, button: {event.button}")
 
             # Mouse event is on an overlay - route to overlay element
+            handled = False
             if hasattr(overlay.element, "handle_mouse"):
                 handled = await overlay.element.handle_mouse(event)
                 logger.debug(f"handle_mouse returned: {handled}")
                 if handled:
                     self.app.needs_render = True
-            # Overlay consumed the event even if not handled
-            return True
+            if handled or not overlay.mouse_passthrough:
+                # Overlay consumed the event even if not handled
+                return True
 
         return False
 

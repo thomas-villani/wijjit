@@ -2142,6 +2142,10 @@ class Wijjit:
         Tooltips don't close on ESC by default since they're meant to be
         unobtrusive and auto-close on mouse movement.
 
+        A tooltip does not block the UI it covers: a mouse event its element
+        does not handle passes through to whatever lies beneath, so a click
+        on a button under the tooltip still presses the button.
+
         Examples
         --------
         Show a tooltip on hover::
