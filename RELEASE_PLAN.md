@@ -19,8 +19,17 @@ on (Trusted Publishing, GitHub environments) is recorded as done in Part 3.
   smoke from the published wheel (import, harness render, `wijjit new` ->
   `validate` -> `render`, all four project URLs) all OK.
 
-**In preparation:** nothing yet. Add the next version here when its CHANGELOG
-section is dated.
+**In preparation:**
+- `0.1.2` - CHANGELOG section dated 2026-10-06. `ContentView` built out for
+  document apps (OSC 8 links, click/hover positions, width-callable content,
+  palette colors kept, per-line parse cache, wide-char-correct ANSI) plus a
+  roadmap correctness sweep (action dispatch on checkboxes/radios and
+  catch-all handlers, frame padding, grid borders, justify remainders, split
+  panel, isolated key handlers, tooltip click-through, `batch_update`, Table
+  sort, Pager, charts, ImageView). A patch bump again (0.x; additive APIs plus
+  a few approved behavior changes, each called out in the CHANGELOG). CI moved
+  to `uv sync --locked` in the same window (#88). Move this to "Shipped so far"
+  with the gate evidence once tagged.
 
 ---
 

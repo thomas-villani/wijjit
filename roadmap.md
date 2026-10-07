@@ -373,10 +373,11 @@ those same fields.
 - [ ] **centered_dialog body ignores ``content_align_h``/``content_align_v``** —
   the dialog box itself is centered, but its plain-text body still renders
   top-left inside it.
-- [~] **datagrid** selection indicator overdraws the right border (minor);
+- [x] **datagrid** selection indicator overdraws the right border (minor);
   **grid** rowspan/colspan cells render without borders. The datagrid half is
   verified fixed 2026-10-06 (the indicator is now clipped inside the border);
-  the grid half is still open.
+  the grid half was fixed 2026-10-06 (#86: the border pass now recurses into
+  ``GridSpanWrapper``).
 - [ ] **datagrid last column loses its closing ``]``** — selecting a cell in the
   rightmost column (``Category``) draws ``[Electronics`` with no closing bracket,
   because the clip that now protects the border swallows it.
@@ -553,21 +554,33 @@ release-blocking — pull forward opportunistically.
   Reconciler; hover/focus getter-setter verb parity; three manager DI styles.
 
 **MEDIUM/LOW correctness (condensed):**
-- [ ] **Core:** ``on_key`` registry overwrites handlers sharing a key; ``State``
+- [~] **Core:** ``on_key`` registry overwrites handlers sharing a key; ``State``
   has no locking around callback lists despite documented multi-thread access;
   ``batch_update`` drops all notifications on exception after applying writes;
   ``dispatch_async`` lacks per-handler exception isolation; non-interactive
   overlays (tooltips/notifications at TOOLTIP z-index) can swallow clicks to
   base UI. (``set_focus_filter(None)`` being a no-op that contradicted its
   docstring was fixed 2026-08-01 — it now rebuilds the cycle from
-  ``all_focusable``.)
+  ``all_focusable``.) **All but the locking fixed 2026-10-06 (#85):** dispatch
+  only ever ran every ``on_key`` handler; the real bug was ``unregister_key``
+  removing just the last, now all. ``batch_update`` delivers its notifications
+  when the block raises (and nests); each handler is isolated; tooltips pass
+  unhandled clicks through (notifications stay clickable). **Still open:** the
+  ``State`` locking, which a 10 s, 600k-write stress run could not make fail
+  (lists do not raise on concurrent mutation), so it is hardening, not a bug.
+- [x] **Catch-all ``app.on(EventType.ACTION, ...)`` handlers never ran.**
+  Fixed 2026-10-06 (#83): ``_dispatch_action`` consulted only the
+  ``@app.on_action`` map, so the pattern the guide, cookbook and tutorial use
+  did nothing. Named handler first, then catch-alls by priority and scope.
 - [ ] **``action=`` wiring overwrites a Python callback on the same slot.** When
   a template gives an element ``action=``, the wiring replaces whatever callback
   the app set on that element's slot rather than chaining it. Uniform across all
   elements, so it is a 0.2.0 design discussion: chain the user callback, or
   preserve it and skip the wiring.
 - [ ] **``Select`` and ``Slider`` never dispatch ``action``.** Both accept the
-  attribute but nothing ever fires it. Small feature.
+  attribute but nothing ever fires it. Small feature. Until then ``wijjit
+  validate`` warns about it (``ignored-attribute``, since #82); give each a
+  ``dispatches_action = True`` when it lands.
 - [~] **A template with two top-level sibling elements silently drops all but
   the first.** ``{% textinput id="a" %}{% textinput id="b" %}`` at the root of a
   template renders only ``a`` — ``RenderContext.add_vnode`` has nowhere to put
@@ -579,19 +592,29 @@ release-blocking — pull forward opportunistically.
   Still open: whether the renderer should *implicitly wrap* multiple roots in a
   ``{% vstack %}`` rather than only warn. Deferred because it changes render
   output for any template relying on the drop, so it needs a golden sweep.
-- [ ] **Layout:** frame inner dims can go negative (missing ``max(0,…)``);
+- [x] **Layout:** frame inner dims can go negative (missing ``max(0,…)``);
   ``space-around`` mis-distributes remainder + double-counts ``column_gap``;
   split-panel ``_clamp_ratio`` vs ``_calculate_sizes`` disagreement (resize
   jitter) + unvalidated persisted state; ``Size`` fill/percentage classification
-  ambiguous for ``"100%"``.
-- [ ] **Display:** Table sort not stable + string-coerces mixed types;
+  ambiguous for ``"100%"``. **Fixed 2026-10-06 (#86)**, except ``"100%"``, which
+  is now its own "document it" item. The ``column_gap`` double-count was not
+  real; the remainder bug was, in ``space-evenly``/``space-between`` too. The
+  same pass found and fixed frame ``padding=`` being ignored entirely.
+- [x] **Display:** Table sort not stable + string-coerces mixed types;
   ~~ContentView re-renders content every frame~~ (content was cached, but it
   re-parsed the visible lines each frame; parsed lines cached 2026-10-06);
   Pager ``remove_page`` leaves scroll-state keys pointing at the wrong page. (LogView ``set_lines`` re-tail and the
-  reconcile/prop-sync path already fixed — see CHANGELOG.)
-- [ ] **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
+  reconcile/prop-sync path already fixed — see CHANGELOG.) **Fixed 2026-10-06
+  (#84).** The sort was in fact stable; the real faults were the mixed-type
+  string fallback and tie order depending on sort history.
+- [~] **Charts/status/overlays:** BarChart drops last partial multi-row bar; Gauge
   ticks/min-max not reserved in auto-height; HeatMap legend ``bar_width`` can go
-  negative; ImageView broad ``except`` + brittle duck-typing.
+  negative; ImageView broad ``except`` + brittle duck-typing. **Fixed
+  2026-10-06 (#84)**, plus BarChart filling every row of a tall bar and
+  ImageView showing its placeholder for a truncated image. **Still open:** the
+  ImageView ``except`` (now the deliberate placeholder fallback) and its
+  ``copy``/``convert`` duck-typing, which produced no observable failure; and a
+  bordered Gauge's auto height still ignores its border.
 - [x] **Styling:** ``font-weight:normal`` / ``text-decoration:none`` never turn
   attributes OFF; ``theme.set_style`` doesn't invalidate the resolver cache (stale
   styles); no JSON theme loader despite CLAUDE.md mentioning JSON.
@@ -796,12 +819,13 @@ it is not restated here.
 - [ ] **CodeEditor soft-wrap scroll desync** — renders actual lines while scroll
   content size counts wrapped lines (``code_editor.py:478,839``). B routes
   around this today via ``Pager``/``ContentView``; fixing it removes the detour.
-- [ ] **Core MEDIUM/LOW correctness:** ``on_key`` registry overwrites handlers
+- [~] **Core MEDIUM/LOW correctness:** ``on_key`` registry overwrites handlers
   sharing a key; ``State`` has no locking around callback lists despite
   documented multi-thread access; ``batch_update`` drops all notifications on
   exception after applying writes; ``dispatch_async`` lacks per-handler
   exception isolation; non-interactive overlays (TOOLTIP z-index) swallow clicks
-  to base UI.
+  to base UI. All but the ``State`` locking landed in 0.1.2 (#85; see the
+  backlog entry).
 
 ### D. Input & terminal correctness
 
@@ -826,10 +850,10 @@ before cutting anything in A–C.**
   Verified fixed 2026-10-06 (resolved 2026-07-24).
 - [x] ``centered_dialog`` is not vertically centred as claimed. Verified fixed
   2026-10-06.
-- [~] ``datagrid`` selection indicator overdraws the right border; ``grid``
+- [x] ``datagrid`` selection indicator overdraws the right border; ``grid``
   rowspan/colspan cells render without borders. Datagrid half verified fixed
   2026-10-06 (leftover: the last column's closing ``]`` is clipped); grid half
-  open.
+  fixed 2026-10-06 (#86).
 - [x] ``tabbed_panel`` welcome pane overlaps its left/right border;
   ``radio_demo`` "Shipping method" group intersects the right frame border.
   Verified fixed 2026-10-06.
