@@ -1115,7 +1115,7 @@ class RadioGroupExtension(Extension):
             frame_vnode.set_layout(
                 width="auto",
                 height="auto",
-                padding=(1, 1, 1, 1),
+                padding=(0, 1, 0, 1),
                 margin=0,
             )
             context.push_vnode(frame_vnode)
