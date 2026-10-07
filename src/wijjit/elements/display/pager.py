@@ -243,25 +243,78 @@ class Pager(Container):
             Removed page, or None if index invalid
         """
         if 0 <= index < len(self.pages):
+            old_count = len(self.pages)
             page = self.pages.pop(index)
-            # Clear frame cache for removed page and rebuild indices
+
+            # Per-page scroll positions are keyed by page index, so every page
+            # after the removed one moves down a slot: shift the saved
+            # positions with them and drop the removed page's entry, or later
+            # pages would open at their predecessor's scroll position.
+            if self._state_dict is not None:
+                for old_idx in range(index, old_count):
+                    old_key = self._page_scroll_key(old_idx)
+                    if old_key is None:
+                        break
+                    saved = self._state_dict.pop(old_key, None)
+                    new_key = self._page_scroll_key(old_idx - 1)
+                    if old_idx > index and saved is not None and new_key:
+                        self._state_dict[new_key] = saved
+
+            # Drop the removed page's cached frame and re-index the rest,
+            # renaming their scroll keys and re-wiring their on_scroll
+            # closures (which captured the old key).
             new_cache: dict[int, Frame] = {}
             for cached_idx, cached_frame in self._frame_cache.items():
                 if cached_idx < index:
                     new_cache[cached_idx] = cached_frame
                 elif cached_idx > index:
-                    new_cache[cached_idx - 1] = cached_frame
+                    new_idx = cached_idx - 1
+                    old_key = self._page_scroll_key(cached_idx)
+                    current_key = getattr(cached_frame, "scroll_state_key", None)
+                    if old_key and current_key == old_key:
+                        cached_frame.scroll_state_key = self._page_scroll_key(new_idx)
+                        self._wire_frame_scroll_state(cached_frame)
+                    new_cache[new_idx] = cached_frame
             self._frame_cache = new_cache
-            # Adjust current page if needed
+
+            # Keep the current page on the same page when an earlier one is
+            # removed; removing the current page shows the one that slid into
+            # its slot (or the new last page).
+            if index < self.current_page:
+                self.current_page -= 1
             if self.current_page >= len(self.pages) and self.pages:
                 self.current_page = len(self.pages) - 1
             elif not self.pages:
                 self.current_page = 0
+            self._save_page_state()
             return page
         return None
 
+    def _page_scroll_key(self, index: int) -> str | None:
+        """Return the state key holding a text page's scroll position.
+
+        Parameters
+        ----------
+        index : int
+            Page index.
+
+        Returns
+        -------
+        str or None
+            ``"_scroll_{id}_page_{index}"``, or None when the pager has no id.
+        """
+        return f"_scroll_{self.id}_page_{index}" if self.id else None
+
     def clear_pages(self) -> None:
         """Remove all pages."""
+        # Drop the saved per-page scroll positions too, so pages added later
+        # do not inherit them.
+        if self._state_dict is not None:
+            for idx in range(len(self.pages)):
+                key = self._page_scroll_key(idx)
+                if key is None:
+                    break
+                self._state_dict.pop(key, None)
         self.pages.clear()
         self._frame_cache.clear()
         self.current_page = 0
@@ -946,9 +999,7 @@ class Pager(Container):
                     f"content_len={len(content)}, size=({width}x{height})"
                 )
                 # Set up scroll state key for this page
-                scroll_state_key = (
-                    f"_scroll_{self.id}_page_{self.current_page}" if self.id else None
-                )
+                scroll_state_key = self._page_scroll_key(self.current_page)
                 frame = Frame(
                     width=width,
                     height=height,
