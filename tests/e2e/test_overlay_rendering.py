@@ -32,16 +32,14 @@ class TestModalOverlayE2E:
 
         @app.view("main", default=True)
         def main_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width="80" height="24" %}
     Base content here
     {% modal id="test_modal" visible="show_modal" title="Test Modal" %}
         Modal content here
     {% endmodal %}
 {% endframe %}
-                """
-            }
+                """}
 
         # Render the view using E2E helper
         output, elements = render_view(app, "main", width=80, height=24)
@@ -74,8 +72,7 @@ class TestConfirmDialogE2E:
 
         @app.view("main", default=True)
         def main_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width="80" height="24" %}
     Main content
     {% confirmdialog
@@ -87,8 +84,7 @@ class TestConfirmDialogE2E:
         cancel_action="do_cancel"
     %}{% endconfirmdialog %}
 {% endframe %}
-                """
-            }
+                """}
 
         output, elements = render_view(app, "main", width=80, height=24)
 
@@ -116,16 +112,14 @@ class TestOverlayVisibilityE2E:
 
         @app.view("main", default=True)
         def main_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width="80" height="24" %}
     Content
     {% modal id="dynamic_modal" visible="show_it" %}
         Dynamic modal
     {% endmodal %}
 {% endframe %}
-                """
-            }
+                """}
 
         # First render - modal hidden
         app.state.show_it = False
@@ -159,8 +153,7 @@ class TestMultipleOverlaysE2E:
 
         @app.view("main", default=True)
         def main_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width="80" height="24" %}
     Base
     {% modal id="modal1" visible="show_modal1" %}
@@ -170,8 +163,7 @@ class TestMultipleOverlaysE2E:
         Second modal
     {% endmodal %}
 {% endframe %}
-                """
-            }
+                """}
 
         output, _ = render_view(app, "main", width=80, height=24)
 
@@ -192,13 +184,11 @@ class TestOverlayLayerTypesE2E:
 
         @app.view("main", default=True)
         def main_view():
-            return {
-                "template": """
+            return {"template": """
 {% frame width="80" height="24" %}
     {% modal id="m" visible="show_overlay" %}Content{% endmodal %}
 {% endframe %}
-                """
-            }
+                """}
 
         output, _ = render_view(app, "main", width=80, height=24)
         assert len(app.overlay_manager.overlays) == 1

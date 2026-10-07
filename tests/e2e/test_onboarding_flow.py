@@ -73,21 +73,18 @@ def build_onboarding_app() -> Wijjit:
 
     @app.view("welcome", default=True)
     def welcome_view():
-        return {
-            "template": """
+        return {"template": """
 {% frame title="Welcome" width=60 height=10 %}
     {% vstack spacing=1 %}
         Ready to set up your workspace?
         {% button id="start_button" action="start_onboarding" %}Start onboarding{% endbutton %}
     {% endvstack %}
 {% endframe %}
-            """
-        }
+            """}
 
     @app.view("profile")
     def profile_view():
-        return {
-            "template": """
+        return {"template": """
 {% frame title="Profile" width=70 height=18 %}
     {% vstack spacing=1 %}
         Tell us about yourself
@@ -99,13 +96,11 @@ def build_onboarding_app() -> Wijjit:
         {% button id="profile_next" action="profile_continue" %}Continue{% endbutton %}
     {% endvstack %}
 {% endframe %}
-            """
-        }
+            """}
 
     @app.view("preferences")
     def preferences_view():
-        return {
-            "template": """
+        return {"template": """
 {% frame title="Preferences" width=70 height=18 %}
     {% vstack spacing=1 %}
         Team size
@@ -117,13 +112,11 @@ def build_onboarding_app() -> Wijjit:
         {% button id="preferences_next" action="preferences_continue" %}Continue{% endbutton %}
     {% endvstack %}
 {% endframe %}
-            """
-        }
+            """}
 
     @app.view("review")
     def review_view():
-        return {
-            "template": """
+        return {"template": """
 {% frame title="Review" width=70 height=18 %}
     {% vstack spacing=1 %}
         Name: {{ full_name }}
@@ -133,18 +126,15 @@ def build_onboarding_app() -> Wijjit:
         {% button id="finish_button" action="complete_onboarding" %}Finish setup{% endbutton %}
     {% endvstack %}
 {% endframe %}
-            """
-        }
+            """}
 
     @app.view("dashboard")
     def dashboard_view():
-        return {
-            "template": """
+        return {"template": """
 {% frame title="Dashboard" width=60 height=10 %}
     Welcome {{ full_name }}! Setup complete.
 {% endframe %}
-            """
-        }
+            """}
 
     return app
 

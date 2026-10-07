@@ -387,13 +387,11 @@ Inner content
             # Create a template file with layout tags
             template_path = os.path.join(tmpdir, "test_layout.tui")
             with open(template_path, "w") as f:
-                f.write(
-                    """
+                f.write("""
 {% frame title="Hello" width=40 height=10 %}
   Welcome, {{ name }}!
 {% endframe %}
-"""
-                )
+""")
 
             renderer = Renderer(template_dir=tmpdir)
             output, elements, layout_ctx = renderer.render_with_layout(
@@ -416,15 +414,13 @@ Inner content
             # Create template with variables and loops
             template_path = os.path.join(tmpdir, "dynamic.tui")
             with open(template_path, "w") as f:
-                f.write(
-                    """
+                f.write("""
 {% frame width=50 height=15 %}
   {% for item in items %}
     - {{ item }}
   {% endfor %}
 {% endframe %}
-"""
-                )
+""")
 
             renderer = Renderer(template_dir=tmpdir)
             context = {"title": "My List", "items": ["Apple", "Banana", "Cherry"]}
