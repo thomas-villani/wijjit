@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_TokenType` instances, not classes; Sphinx 9 resolved the bare `type` to
   two attributes of that name and stopped the warning-as-error build, which
   is why 0.1.2's Read the Docs build failed.
+- **The test suite no longer fails for contributors who export `NO_COLOR`.**
+  Many tests assert color escapes, which `NO_COLOR` correctly suppresses, so
+  29 tests failed in such a shell. The suite now runs with color on (tests of
+  `NO_COLOR` set it themselves). CI also installs every optional extra now,
+  so the 20 ImageView tests, skipped on every CI run for want of Pillow,
+  run there too.
 
 ## [0.1.2] - 2026-10-06
 

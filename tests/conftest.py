@@ -4,6 +4,7 @@ This module provides common fixtures used across unit, integration, and e2e test
 """
 
 import logging
+import os
 import tempfile
 from io import StringIO
 from pathlib import Path
@@ -16,7 +17,23 @@ from wijjit.core.renderer import Renderer
 from wijjit.core.state import State
 from wijjit.elements.base import Element
 from wijjit.layout.frames import Frame, FrameStyle
+from wijjit.terminal import ansi
 from wijjit.terminal.input import Keys
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Run the suite with color on, whatever the developer's environment says.
+
+    Many tests assert the color escapes Wijjit emits, and a ``NO_COLOR`` set in
+    the developer's shell (https://no-color.org/) correctly suppresses them, so
+    29 tests failed for anyone who exports it. Clear it for the session, and
+    refresh :mod:`wijjit.terminal.ansi`'s import-time snapshot of it: the
+    shipped pytest plugin imports wijjit before this conftest loads.
+    ``Wijjit()`` re-reads the environment itself. Tests of ``NO_COLOR`` set it
+    explicitly with ``monkeypatch``.
+    """
+    os.environ.pop("NO_COLOR", None)
+    ansi.refresh_no_color_from_env()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
