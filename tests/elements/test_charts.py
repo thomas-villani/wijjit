@@ -34,6 +34,7 @@ from wijjit.rendering.paint_context import PaintContext
 from wijjit.styling.resolver import StyleResolver
 from wijjit.styling.style import parse_color
 from wijjit.styling.theme import DefaultTheme
+from wijjit.terminal.input import Keys
 from wijjit.terminal.screen_buffer import ScreenBuffer
 
 
@@ -709,3 +710,84 @@ class TestBarChartScrollGeometry:
         text = _buffer_text(buffer, 34, 7)
         books_row = next(line for line in text.splitlines() if "Books" in line)
         assert "█" in books_row, f"minimum bar painted no fill: {books_row!r}"
+
+
+class TestBarChartTallBars:
+    """bar_height > 1: every row is filled, and unaligned scroll is honored.
+
+    Rendering used to start the first visible bar at the viewport top
+    regardless of ``scroll_offset % bar_height`` (shifting bars down and
+    dropping the last one), and only painted each bar's top row.
+    """
+
+    _DATA = [
+        {"label": name, "value": v}
+        for name, v in zip("ABCDEF", range(10, 70, 10), strict=True)
+    ]
+
+    def _render(self, chart, scroll):
+        chart.scroll_manager.scroll_to(scroll)
+        assert chart.scroll_position == scroll
+        buffer = render_element_buffer(chart, width=chart.width, height=chart.height)
+        return _buffer_text(buffer, chart.width, chart.height).splitlines()
+
+    def test_unaligned_scroll_shows_the_right_bars(self):
+        """6 bars, bar_height=3, scroll 8: C's last row, then D, E, F."""
+        chart = BarChart(data=self._DATA, width=30, height=10, bar_height=3)
+        chart.handle_key(Keys.PAGE_DOWN)
+        assert chart.scroll_position == 8
+        lines = self._render(chart, 8)
+        viewport = lines[1:9]  # inside the border
+        # Content rows 8..15 are visible. Labels sit on each bar's first row:
+        # D (rows 9-11) at viewport row 1, E at 4, F (rows 15-17) at 7.
+        label_rows = {row[1]: i for i, row in enumerate(viewport) if row[1] != " "}
+        assert label_rows == {"D": 1, "E": 4, "F": 7}, "\n".join(lines)
+        # Every viewport row carries bar fill (C's last row included).
+        assert all("█" in row for row in viewport), "\n".join(lines)
+
+    def test_every_row_of_a_tall_bar_is_filled(self):
+        chart = BarChart(data=self._DATA[:2], width=30, height=8, bar_height=3)
+        lines = self._render(chart, 0)
+        viewport = lines[1:7]
+        assert all("█" in row for row in viewport), "\n".join(lines)
+        # Label and value only on the first row of each bar.
+        assert [row[1] for row in viewport] == ["A", " ", " ", "B", " ", " "]
+        assert [("10" in row, "20" in row) for row in viewport] == [
+            (True, False),
+            (False, False),
+            (False, False),
+            (False, True),
+            (False, False),
+            (False, False),
+        ]
+
+    def test_brute_force_every_visible_row_shows_the_right_bar(self):
+        """For each scroll offset, each viewport row belongs to its bar."""
+        values = [5, 17, 29, 41, 53, 65, 77]
+        for bar_height in (1, 2, 3, 4):
+            chart = BarChart(
+                data=values,
+                width=24,
+                height=5,
+                bar_height=bar_height,
+                show_labels=False,
+                show_values=False,
+                show_scrollbar=False,
+                border_style="none",
+            )
+            normalized, _, _ = normalize_data(chart.values)
+            expected_fill = [max(1, int(n * 24)) for n in normalized]
+            assert len(set(expected_fill)) == len(values)  # bars distinguishable
+            max_scroll = chart.scroll_manager.state.max_scroll
+            assert max_scroll > 0
+            for scroll in range(max_scroll + 1):
+                lines = self._render(chart, scroll)
+                for y, row in enumerate(lines):
+                    content_row = scroll + y
+                    bar = content_row // bar_height
+                    got = row.count("█")
+                    want = expected_fill[bar] if bar < len(values) else 0
+                    assert got == want, (
+                        f"bar_height={bar_height} scroll={scroll} y={y}: "
+                        f"expected bar {bar} ({want} cells), got {got}: {row!r}"
+                    )
