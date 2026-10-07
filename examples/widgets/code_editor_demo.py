@@ -149,7 +149,7 @@ def main_view():
 
     return render_template_string(
         """
-{% frame border="rounded" title="CodeEditor Demo - Syntax Highlighting" width=90 height=35 %}
+{% frame border="rounded" title="CodeEditor Demo - Syntax Highlighting" width=90 %}
   {% vstack spacing=1 %}
     {% hstack spacing=2 %}
       Language:
@@ -171,8 +171,7 @@ def main_view():
     {% endcodeeditor %}
 
     {% hstack spacing=2 %}
-      Language: {{ state.language }} | Theme: {{ state.theme }}
-      | Press Ctrl+Q to quit
+      Language: {{ state.language }} | Theme: {{ state.theme }} | Press Ctrl+Q to quit
     {% endhstack %}
   {% endvstack %}
 {% endframe %}
