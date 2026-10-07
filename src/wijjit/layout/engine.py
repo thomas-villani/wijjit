@@ -872,7 +872,9 @@ class VStack(Container):
 
         margin_top, margin_right, margin_bottom, margin_left = self.margin
         pad_top, pad_right, pad_bottom, pad_left = self.padding
-        content_width = width - pad_left - pad_right - margin_left - margin_right
+        content_width = max(
+            0, width - pad_left - pad_right - margin_left - margin_right
+        )
 
         total = 0
         for child in self.children:
@@ -912,13 +914,21 @@ class VStack(Container):
         margin_top, margin_right, margin_bottom, margin_left = self.margin
         pad_top, pad_right, pad_bottom, pad_left = self.padding
 
-        # Calculate available space for children (after margins and padding)
-        content_width = width - (pad_left + pad_right) - margin_left - margin_right
-        content_height = height - (pad_top + pad_bottom) - margin_top - margin_bottom
+        # Calculate available space for children (after margins and padding).
+        # A container smaller than its own padding/margins has no room, not a
+        # negative amount of it.
+        content_width = max(
+            0, width - (pad_left + pad_right) - margin_left - margin_right
+        )
+        content_height = max(
+            0, height - (pad_top + pad_bottom) - margin_top - margin_bottom
+        )
 
         # Save original content_height for alignment calculation
         original_content_height = content_height
-        content_height -= self.spacing * (len(self.children) - 1)
+        content_height = max(
+            0, content_height - self.spacing * (len(self.children) - 1)
+        )
 
         # Resolve every child's width up front. Heights are measured against
         # them (wrapped text needs its width before it knows its row count), and
@@ -1498,9 +1508,15 @@ class HStack(Container):
         margin_top, margin_right, margin_bottom, margin_left = self.margin
         pad_top, pad_right, pad_bottom, pad_left = self.padding
 
-        # Calculate available space for children (after margins and padding)
-        content_width = width - (pad_left + pad_right) - margin_left - margin_right
-        content_height = height - (pad_top + pad_bottom) - margin_top - margin_bottom
+        # Calculate available space for children (after margins and padding).
+        # A container smaller than its own padding/margins has no room, not a
+        # negative amount of it.
+        content_width = max(
+            0, width - (pad_left + pad_right) - margin_left - margin_right
+        )
+        content_height = max(
+            0, height - (pad_top + pad_bottom) - margin_top - margin_bottom
+        )
 
         # Content area start position
         content_x = x + margin_left + pad_left
@@ -2561,8 +2577,8 @@ class FrameNode(Container):
 
         # Calculate frame dimensions (inside margin, at border box)
         # The passed width/height includes margin space
-        available_width = width - margin_left - margin_right
-        available_height = height - margin_top - margin_bottom
+        available_width = max(0, width - margin_left - margin_right)
+        available_height = max(0, height - margin_top - margin_bottom)
 
         # If width_spec is fixed, use that instead of available width
         if self.width_spec.is_fixed:
@@ -2591,10 +2607,10 @@ class FrameNode(Container):
         )
         inner_x = content_x + 1 + padding_left  # +1 for left border
         inner_y = content_y + 1 + padding_top  # +1 for top border
-        inner_width = content_width - 2 - padding_left - padding_right  # -2 for borders
-        inner_height = (
-            content_height - 2 - padding_top - padding_bottom
-        )  # -2 for borders
+        # -2 for borders. A frame too small for its borders and padding has
+        # an empty interior; never hand children a negative size.
+        inner_width = max(0, content_width - 2 - padding_left - padding_right)
+        inner_height = max(0, content_height - 2 - padding_top - padding_bottom)
 
         # Lay out children in content area
         if self.content_container.children:
