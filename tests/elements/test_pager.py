@@ -515,6 +515,117 @@ class TestPager:
         assert result is None
 
 
+class TestPagerRemovePageState:
+    """remove_page must keep per-page scroll state and the current page in sync.
+
+    Scroll positions are keyed by page index (``_scroll_{id}_page_{n}``);
+    removing a page used to leave the keys, the cached frames' keys, and
+    their on_scroll closures pointing at the old indices, so later pages
+    opened at a neighbor's scroll position.
+    """
+
+    @staticmethod
+    def _make_pager():
+        pager = Pager(id="p", width=40, height=10)
+        pager._state_dict = {}
+        for name in "ABCD":
+            lines = "\n".join(f"{name} line {i}" for i in range(40))
+            pager.add_page(Page(title=name, content=lines))
+        pager.set_bounds(Bounds(0, 0, 40, 10))
+        return pager
+
+    @staticmethod
+    def _render(pager):
+        from tests.helpers import render_element
+
+        return render_element(pager, 40, 10)
+
+    def _scroll_page(self, pager, index, lines):
+        pager.go_to_page(index)
+        self._render(pager)
+        for _ in range(lines):
+            pager.handle_key(Keys.DOWN)
+        self._render(pager)
+
+    @staticmethod
+    def _offset(pager):
+        return pager._get_active_frame().scroll_manager.state.scroll_position
+
+    def test_later_pages_keep_their_own_scroll_after_remove(self):
+        pager = self._make_pager()
+        self._render(pager)
+        self._scroll_page(pager, 1, 5)  # B -> 5
+        self._scroll_page(pager, 2, 10)  # C -> 10
+        assert pager._state_dict["_scroll_p_page_1"] == 5
+        assert pager._state_dict["_scroll_p_page_2"] == 10
+
+        pager.go_to_page(0)
+        pager.remove_page(1)  # remove B: C is now index 1, D index 2
+
+        assert pager._state_dict["_scroll_p_page_1"] == 10
+        assert "_scroll_p_page_2" not in pager._state_dict
+        assert "_scroll_p_page_3" not in pager._state_dict
+
+        pager.go_to_page(2)  # D: never scrolled
+        output = self._render(pager)
+        assert self._offset(pager) == 0
+        assert "D line 0" in output
+
+        pager.go_to_page(1)  # C keeps its own position
+        output = self._render(pager)
+        assert self._offset(pager) == 10
+        assert "C line 10" in output
+
+    def test_shifted_frame_saves_scroll_under_new_key(self):
+        pager = self._make_pager()
+        self._render(pager)
+        self._scroll_page(pager, 2, 3)  # C -> 3, frame cached at index 2
+        pager.remove_page(0)  # C is now index 1 (and still current)
+        assert pager.current_page == 1
+
+        pager.handle_key(Keys.DOWN)
+        assert pager._state_dict["_scroll_p_page_1"] == 4
+        assert "_scroll_p_page_2" not in pager._state_dict
+        assert pager._frame_cache[1].scroll_state_key == "_scroll_p_page_1"
+
+    def test_removing_earlier_page_keeps_current_page(self):
+        pager = self._make_pager()
+        pager.go_to_page(2)  # on C
+        pager.remove_page(0)
+        assert pager.current_page == 1
+        assert pager.pages[pager.current_page].title == "C"
+        assert pager._state_dict["p:page"] == 1
+
+    def test_removing_current_page_shows_next_and_saves_state(self):
+        pager = self._make_pager()
+        pager.go_to_page(1)  # on B
+        pager.remove_page(1)
+        assert pager.pages[pager.current_page].title == "C"
+        assert pager._state_dict["p:page"] == 1
+
+    def test_removing_last_current_page_clamps_and_saves_state(self):
+        pager = self._make_pager()
+        pager.go_to_page(3)
+        pager.remove_page(3)
+        assert pager.current_page == 2
+        assert pager._state_dict["p:page"] == 2
+
+    def test_removing_later_page_keeps_current_page(self):
+        pager = self._make_pager()
+        pager.go_to_page(1)
+        pager.remove_page(3)
+        assert pager.current_page == 1
+
+    def test_clear_pages_drops_scroll_state(self):
+        pager = self._make_pager()
+        self._render(pager)
+        self._scroll_page(pager, 1, 5)
+        pager._state_dict["unrelated"] = 1
+        pager.clear_pages()
+        assert not any(k.startswith("_scroll_p_page_") for k in pager._state_dict)
+        assert pager._state_dict["unrelated"] == 1
+
+
 class TestPagerWheelScroll:
     """Mouse wheel must delegate to the active frame consistently with keys."""
 
