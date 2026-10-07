@@ -354,9 +354,11 @@ class Frame(ScrollableElement):
             else 0
         )
 
-        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width_v
-        inner_height = (
-            self.height - 2 - padding_top - padding_bottom - scrollbar_height_h
+        inner_width = max(
+            0, self.width - 2 - padding_left - padding_right - scrollbar_width_v
+        )
+        inner_height = max(
+            0, self.height - 2 - padding_top - padding_bottom - scrollbar_height_h
         )
 
         # If overflow_x is "wrap", pre-wrap all lines to inner width
@@ -411,8 +413,13 @@ class Frame(ScrollableElement):
             actual_scrollbar_width_v = (
                 1 if (self.style.show_scrollbar and self._needs_scroll) else 0
             )
-            viewport_width = (
-                self.width - 2 - padding_left - padding_right - actual_scrollbar_width_v
+            viewport_width = max(
+                0,
+                self.width
+                - 2
+                - padding_left
+                - padding_right
+                - actual_scrollbar_width_v,
             )
 
             if self.scroll_manager_x is None:
@@ -463,7 +470,7 @@ class Frame(ScrollableElement):
             padding_top, padding_right, padding_bottom, padding_left = (
                 self.style.padding
             )
-            viewport_height = self.height - 2 - padding_top - padding_bottom
+            viewport_height = max(0, self.height - 2 - padding_top - padding_bottom)
 
             if self.scroll_manager is None:
                 # Create new scroll manager
@@ -522,7 +529,7 @@ class Frame(ScrollableElement):
 
         # Calculate new viewport height based on current dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
-        viewport_height = self.height - 2 - padding_top - padding_bottom
+        viewport_height = max(0, self.height - 2 - padding_top - padding_bottom)
 
         # Update scroll manager viewport size
         self.scroll_manager.update_viewport_size(viewport_height)
@@ -708,12 +715,9 @@ class Frame(ScrollableElement):
 
         # Calculate inner dimensions
         padding_top, padding_right, padding_bottom, padding_left = self.style.padding
-        inner_width = (
-            self.width - 2 - padding_left - padding_right
-        )  # Subtract borders and padding
-        inner_height = (
-            self.height - 2 - padding_top - padding_bottom
-        )  # Subtract borders and padding
+        # Subtract borders and padding (never below zero on a tiny frame)
+        inner_width = max(0, self.width - 2 - padding_left - padding_right)
+        inner_height = max(0, self.height - 2 - padding_top - padding_bottom)
 
         # Top border
         lines.append(self._render_top_border(chars))
@@ -793,8 +797,10 @@ class Frame(ScrollableElement):
 
         # Reserve space for scrollbar if showing
         scrollbar_width = 1 if self.style.show_scrollbar else 0
-        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width
-        inner_height = self.height - 2 - padding_top - padding_bottom
+        inner_width = max(
+            0, self.width - 2 - padding_left - padding_right - scrollbar_width
+        )
+        inner_height = max(0, self.height - 2 - padding_top - padding_bottom)
 
         # Get visible content range from scroll manager
         start_line, end_line = self.scroll_manager.get_visible_range()
@@ -877,8 +883,10 @@ class Frame(ScrollableElement):
 
         # Reserve space for scrollbar if showing
         scrollbar_width = 1 if self.style.show_scrollbar else 0
-        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width
-        inner_height = self.height - 2 - padding_top - padding_bottom
+        inner_width = max(
+            0, self.width - 2 - padding_left - padding_right - scrollbar_width
+        )
+        inner_height = max(0, self.height - 2 - padding_top - padding_bottom)
 
         # Generate scrollbar
         scrollbar_chars = []
@@ -1513,9 +1521,11 @@ class Frame(ScrollableElement):
         )
 
         # Calculate inner dimensions (accounting for both scrollbars)
-        inner_width = self.width - 2 - padding_left - padding_right - scrollbar_width_v
-        inner_height = (
-            self.height - 2 - padding_top - padding_bottom - scrollbar_height_h
+        inner_width = max(
+            0, self.width - 2 - padding_left - padding_right - scrollbar_width_v
+        )
+        inner_height = max(
+            0, self.height - 2 - padding_top - padding_bottom - scrollbar_height_h
         )
 
         # Get horizontal scroll offset
