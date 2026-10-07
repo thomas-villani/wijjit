@@ -165,7 +165,7 @@ Documentation Contents
 Project Status
 --------------
 
-Wijjit ``0.1.2`` builds out ``ContentView`` for document-style apps (live OSC 8 links, click and hover positions, content laid out per width, palette colors that follow the terminal's theme) and fixes a broad batch of correctness bugs. The framework is stable and feature-complete for this milestone: the core already powers advanced layouts, async workflows, and complex widgets, with a set of documented known limitations tracked for follow-up releases. See :doc:`examples/index` for inspiration and :doc:`developer_guide/architecture` for a deeper dive into the runtime pipeline.
+Wijjit ``0.1.3`` is a maintenance release: the documentation builds again under Sphinx 9, and the dependencies are refreshed and tested at their current releases. It follows ``0.1.2``, which built out ``ContentView`` for document-style apps (live OSC 8 links, click and hover positions, content laid out per width, palette colors that follow the terminal's theme) and fixed a broad batch of correctness bugs. The framework is stable and feature-complete for this milestone: the core already powers advanced layouts, async workflows, and complex widgets, with a set of documented known limitations tracked for follow-up releases. See :doc:`examples/index` for inspiration and :doc:`developer_guide/architecture` for a deeper dive into the runtime pipeline.
 
 Known limitations:
 

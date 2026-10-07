@@ -622,10 +622,12 @@ deterministic across CI runners. See the
 
 ## Project Status
 
-Wijjit `0.1.2` builds out `ContentView` for document-style apps (live OSC 8
-links, click and hover positions, content laid out per width, palette colors
-that follow the terminal's theme) and fixes a broad batch of correctness bugs
-found in a roadmap sweep. The core framework is stable and feature-complete for
+Wijjit `0.1.3` is a maintenance release: the documentation builds again under
+Sphinx 9, and the dependencies are refreshed and tested at their current
+releases. It follows `0.1.2`, which built out `ContentView` for document-style
+apps (live OSC 8 links, click and hover positions, content laid out per width,
+palette colors that follow the terminal's theme) and fixed a broad batch of
+correctness bugs found in a roadmap sweep. The core framework is stable and feature-complete for
 this milestone: the element, layout, event, and rendering pipelines are all
 implemented and covered by roughly 4,200 tests running on Linux, macOS, and
 Windows across Python 3.11–3.13.

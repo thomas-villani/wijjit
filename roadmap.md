@@ -19,10 +19,16 @@ per-item backlogs that used to live in the other release trackers:
   labels — internal shorthand from the 0.1.0 code-review pass, kept only so the
   original analysis is easy to correlate.
 
-**0.1.0 itself is code-complete** — everything below is post-tag work. The
-release is gated only on the external publish steps in `RELEASE_PLAN.md` Part 1.
+**Releases since:** 0.1.0 (2026-07-31), 0.1.1 (2026-08-03), 0.1.2
+(2026-10-06) and 0.1.3 (2026-10-07). 0.1.3 is a maintenance patch (the Sphinx 9
+docs fix, a dependency refresh, docs and CI installing from `uv.lock`, a test
+suite independent of `NO_COLOR`) and closes no backlog item, so every open item
+below carries forward. `RELEASE_PLAN.md`'s "Shipped so far" is the per-release
+record; the 0.1.x leftovers most worth pulling into the next point release are
+the cosmetic layout ones under "Cosmetic / theming" and ``Select``/``Slider``
+``action`` dispatch.
 
-## 0.1.0 (current release target)
+## 0.1.0 (shipped 2026-07-31)
 
 The framework is feature-complete for a credible first release: ~3700 tests
 passing, ruff clean, `mypy --strict` clean, Sphinx docs build with zero
