@@ -604,6 +604,58 @@ def parse_size_attr(value: Any) -> Any:
     return value
 
 
+#: Default frame padding: one column of horizontal breathing room, none
+#: vertically. Shared with the renderer, which builds the ``FrameStyle``.
+DEFAULT_FRAME_PADDING: tuple[int, int, int, int] = (0, 1, 0, 1)
+
+
+def parse_frame_padding(value: Any) -> tuple[int, int, int, int]:
+    """Normalize a frame tag ``padding`` attribute to a 4-tuple.
+
+    Parameters
+    ----------
+    value : Any
+        The attribute as written in the template. Accepted forms are
+        ``None`` (the default), an int or numeric string for uniform
+        padding, a tuple or list, or a tuple string such as
+        ``"(1, 2, 1, 2)"``. Sequences follow the CSS shorthand: one value
+        is uniform, two are ``(vertical, horizontal)``, four are
+        ``(top, right, bottom, left)``.
+
+    Returns
+    -------
+    tuple of int
+        ``(top, right, bottom, left)``, each clamped at 0. Anything that
+        cannot be read falls back to ``DEFAULT_FRAME_PADDING``.
+    """
+    if value is None:
+        return DEFAULT_FRAME_PADDING
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            value = literal_eval(text) if text.startswith(("(", "[")) else int(text)
+        except (ValueError, SyntaxError, NameError):
+            logger.warning("Invalid frame padding %r; using the default", value)
+            return DEFAULT_FRAME_PADDING
+    if isinstance(value, bool):
+        return DEFAULT_FRAME_PADDING
+    if isinstance(value, int):
+        side = max(0, value)
+        return (side, side, side, side)
+    if isinstance(value, (tuple, list)) and all(
+        isinstance(v, int) and not isinstance(v, bool) for v in value
+    ):
+        sides = [max(0, int(v)) for v in value]
+        if len(sides) == 1:
+            return (sides[0], sides[0], sides[0], sides[0])
+        if len(sides) == 2:
+            return (sides[0], sides[1], sides[0], sides[1])
+        if len(sides) == 4:
+            return (sides[0], sides[1], sides[2], sides[3])
+    logger.warning("Invalid frame padding %r; using the default", value)
+    return DEFAULT_FRAME_PADDING
+
+
 def _parse_for_render(
     width: int | str = "fill",
     height: int | str = "fill",
@@ -1104,7 +1156,9 @@ class FrameExtension(Extension):
         margin : int or tuple, optional
             Margin around frame (default: 0)
         padding : int or tuple, optional
-            Padding inside frame (top, right, bottom, left). Can be int for uniform padding or tuple
+            Padding inside frame (top, right, bottom, left). Can be int for
+            uniform padding, or a tuple/list of 1, 2 or 4 ints (CSS
+            shorthand). Default (0, 1, 0, 1). See ``parse_frame_padding``.
         align_h : str, optional
             Horizontal alignment of frame within parent (default: "stretch")
         align_v : str, optional
@@ -1175,26 +1229,7 @@ class FrameExtension(Extension):
         }
         border_style_enum = border_map.get(border_style, BorderStyle.SINGLE)
 
-        # Parse padding - could be int or tuple string like "(1,2,3,4)"
-        padding_parsed: tuple[int, int, int, int]
-        if padding is None:
-            padding_parsed = (0, 1, 0, 1)  # Default padding: horizontal only
-        elif isinstance(padding, int):
-            padding_parsed = (padding, padding, padding, padding)
-        elif isinstance(padding, str) and padding.startswith("("):
-            # Parse tuple string
-            try:
-                padding_parsed = cast(tuple[int, int, int, int], literal_eval(padding))
-            except (ValueError, SyntaxError, NameError):
-                padding_parsed = (1, 1, 1, 1)
-        elif isinstance(padding, str):
-            try:
-                p = int(padding)
-                padding_parsed = (p, p, p, p)
-            except ValueError:
-                padding_parsed = (1, 1, 1, 1)
-        else:
-            padding_parsed = (1, 1, 1, 1)
+        padding_parsed = parse_frame_padding(padding)
 
         # Parse overflow_y from scrollable parameter
         overflow_y: Literal["clip", "scroll", "auto"]

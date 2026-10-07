@@ -102,6 +102,7 @@ from wijjit.tags.layout import (
     RowspanExtension,
     SplitPanelExtension,
     VStackExtension,
+    parse_frame_padding,
 )
 from wijjit.tags.menu import (
     ContextMenuExtension,
@@ -946,6 +947,10 @@ class Renderer:
             layout_dict = vnode.layout_spec_dict()
             frame_width = layout_dict.get("width", "fill")
             frame_height = layout_dict.get("height", "fill")
+            # The frame tag stores its (already normalized) padding in the
+            # layout spec, not in props; read it from there so the attribute
+            # is honored.
+            frame_padding = parse_frame_padding(layout_dict.get("padding"))
 
             # Detect if this is the root frame (first frame encountered)
             # Root frames get auto-scroll enabled for views taller than terminal
@@ -971,6 +976,13 @@ class Renderer:
                     from dataclasses import replace
 
                     frame_element.style = replace(frame_element.style, scrollable=True)
+                # Keep a reused frame's padding in step with the template
+                if frame_element.style.padding != frame_padding:
+                    from dataclasses import replace
+
+                    frame_element.style = replace(
+                        frame_element.style, padding=frame_padding
+                    )
                 logger.debug(f"Reused reconciled Frame {frame_key}")
             else:
                 # Create new Frame element with layout dimensions
@@ -982,7 +994,7 @@ class Renderer:
                 # Build FrameStyle from props
                 border_style = props.get("border_style", BorderStyle.SINGLE)
                 title = props.get("title")
-                padding = props.get("padding", (0, 1, 0, 1))
+                padding = frame_padding
                 scrollable = props.get("scrollable", False)
                 # Root frame gets auto-scroll enabled
                 if is_root_frame:
