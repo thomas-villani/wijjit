@@ -55,9 +55,11 @@ OPTIONAL_DEPS: dict[str, str] = {
 }
 
 # Deterministic, content-stable demos that get a full initial-screen golden.
-# (Excludes anything that reads the live filesystem, writes logs, or animates.)
+# (Excludes anything that reads the live filesystem, writes logs, or animates,
+# and anything whose screen is mostly Rich-rendered Markdown, which changes
+# between Rich releases: apps/doc_reader.py's H1 is boxed under Rich 14 and
+# not under 15. That demo is pinned by behavior instead, in test_doc_reader.py.)
 GOLDEN_EXAMPLES: tuple[str, ...] = (
-    "apps/doc_reader.py",
     "basic/hello_world.py",
     "basic/grid_demo.py",
     "advanced/login_form.py",

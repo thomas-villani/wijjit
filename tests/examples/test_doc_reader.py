@@ -46,7 +46,7 @@ def test_in_document_link_jumps_to_its_section(h):
     assert "How links work" in h.screen().splitlines()[top + 1]
 
 
-def test_back_to_top_reaches_the_boxed_title(h):
+def test_back_to_top_reaches_the_title(h):
     h.scroll(60, 10, "down", amount=12)
     x, y = _find(h, "top.")
     h.click(x, y)
