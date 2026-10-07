@@ -135,68 +135,40 @@ def view1():
     """
     return render_template_string(
         """
-{% frame title="Event Patterns Demo - View 1" border="double" width=100 height=36 %}
-  {% vstack spacing=1 padding=1 %}
-    {% vstack spacing=0 %}
-      Current View: {{ state.current_view }}
-      Last Key: {{ state.key_pressed }}
-      Active Handlers: {{ state.handler_count }}
-    {% endvstack %}
+{% frame title="Event Patterns Demo - View 1" border="double" width="fill" height="fill" %}
+  {% vstack spacing=1 padding=1 height="fill" %}
+    Current View: {{ state.current_view }}  |  Last Key: {{ state.key_pressed or "-" }}  |  Active Handlers: {{ state.handler_count }}
 
-    {% hstack spacing=2 align_v="top" %}
-      {% vstack spacing=1 width=48 %}
-        {% frame title="Event Scopes" border="single" width="fill" %}
-          {% vstack spacing=0 padding=1 %}
-            1. GLOBAL Handlers:
-               • Active in ALL views
-               • Registered with @app.on_key()
-               • Example: 'q' for quit
+    {% hstack spacing=2 align_v="top" height="fill" %}
+      {% frame title="Event Scopes & Features" border="single" width="fill" height="fill" scrollable=True %}
+        {% vstack spacing=0 padding=1 %}
+          1. GLOBAL - all views
+             @app.on_key(), e.g. 'q'
+          2. VIEW - one view only
+             set in on_enter, e.g. 'v'
+             cleared when leaving
+          3. ELEMENT - while focused
+             e.g. a text input
 
-            2. VIEW Handlers:
-               • Active only in specific view
-               • Registered via on_enter hook
-               • Cleared when leaving view
-               • Example: 'v' in View 1
+          Priority: higher runs first
+             (default 0, -100..100)
+          Cancel: event.cancel() stops
+             lower-priority handlers
+          Async: handlers may await
+             without blocking the UI
 
-            3. ELEMENT Handlers:
-               • Active when element focused
-               • Element-specific behavior
-               • Example: text input
+          Try pressing:
+          • 'h' - global (all views)
+          • 'v' - View 1 only
+          • '1/2/3' - switch views
+        {% endvstack %}
+      {% endframe %}
 
-            Try pressing:
-            • 'h' - Global handler (works in all views)
-            • 'v' - View-scoped (only in View 1)
-            • '1/2/3' - Navigate between views
-          {% endvstack %}
-        {% endframe %}
-
-        {% frame title="Event Features" border="single" width="fill" %}
-          {% vstack spacing=0 padding=1 %}
-            Priority:
-            • Higher priority = runs first
-            • Default priority = 0
-            • Range: -100 to 100
-
-            Cancellation:
-            • event.cancel() stops propagation
-            • Prevents lower priority handlers
-            • Useful for overrides
-
-            Async Support:
-            • Handlers can be async
-            • Await operations in handlers
-            • Non-blocking execution
-          {% endvstack %}
-        {% endframe %}
-      {% endvstack %}
-
-      {% vstack spacing=1 width=48 %}
-        {% frame title="Event Log" border="single" width="fill" height=26 %}
-          {% vstack padding=1 %}
+      {% frame title="Event Log" border="single" width="fill" height="fill" %}
+        {% vstack padding=1 %}
 {{ state.event_log_text }}
-          {% endvstack %}
-        {% endframe %}
-      {% endvstack %}
+        {% endvstack %}
+      {% endframe %}
     {% endhstack %}
 
     {% hstack spacing=2 %}
@@ -206,9 +178,7 @@ def view1():
       {% button action="quit" %}Quit{% endbutton %}
     {% endhstack %}
 
-    {% vstack spacing=0 %}
-      [1/2/3] Switch views | [h] Global handler | [v] View handler | [q] Quit
-    {% endvstack %}
+    [1/2/3] Switch views | [h] Global handler | [v] View handler | [q] Quit
   {% endvstack %}
 {% endframe %}
         """,
@@ -226,14 +196,14 @@ def view2():
     """
     return render_template_string(
         """
-{% frame title="Event Patterns Demo - View 2" border="double" width=100 height=36 %}
-  {% vstack spacing=1 padding=1 %}
+{% frame title="Event Patterns Demo - View 2" border="double" width="fill" height="fill" %}
+  {% vstack spacing=1 padding=1 height="fill" %}
     {% vstack spacing=0 %}
       Current View: {{ state.current_view }}
       This view has different view-scoped handlers than View 1
     {% endvstack %}
 
-    {% frame title="Event Log" border="single" height=25 %}
+    {% frame title="Event Log" border="single" height="fill" %}
       {% vstack padding=1 %}
 {{ state.event_log_text }}
       {% endvstack %}
@@ -266,14 +236,14 @@ def view3():
     """
     return render_template_string(
         """
-{% frame title="Event Patterns Demo - View 3 (Priority Demo)" border="double" width=100 height=36 %}
-  {% vstack spacing=1 padding=1 %}
+{% frame title="Event Patterns Demo - View 3 (Priority Demo)" border="double" width="fill" height="fill" %}
+  {% vstack spacing=1 padding=1 height="fill" %}
     {% vstack spacing=0 %}
       Current View: {{ state.current_view }}
       This view demonstrates handler priorities
     {% endvstack %}
 
-    {% frame title="Event Log" border="single" height=25 %}
+    {% frame title="Event Log" border="single" height="fill" %}
       {% vstack padding=1 %}
 {{ state.event_log_text }}
       {% endvstack %}

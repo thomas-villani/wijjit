@@ -364,15 +364,29 @@ those same fields.
 
 ### Cosmetic / theming
 
-- [ ] **Modal severity coloring** — ``alert_dialog_demo`` / ``dialog_showcase``
-  error/success/info modals should be colored by severity.
-- [ ] **centered_dialog** is not vertically centered as claimed (overlay
-  v-centering).
-- [ ] **datagrid** selection indicator overdraws the right border (minor);
-  **grid** rowspan/colspan cells render without borders.
-- [ ] **tabbed_panel** welcome pane overlaps its left/right border (only that
+- [x] **Modal severity coloring** — ``alert_dialog_demo`` / ``dialog_showcase``
+  error/success/info modals should be colored by severity. (Stale checkbox:
+  already resolved 2026-07-24, see the sweep note above; verified fixed
+  2026-10-06 — success/error/info borders paint green/red/blue.)
+- [x] **centered_dialog** is not vertically centered as claimed (overlay
+  v-centering). Verified fixed 2026-10-06 at 100x40 and 80x24.
+- [ ] **centered_dialog body ignores ``content_align_h``/``content_align_v``** —
+  the dialog box itself is centered, but its plain-text body still renders
+  top-left inside it.
+- [~] **datagrid** selection indicator overdraws the right border (minor);
+  **grid** rowspan/colspan cells render without borders. The datagrid half is
+  verified fixed 2026-10-06 (the indicator is now clipped inside the border);
+  the grid half is still open.
+- [ ] **datagrid last column loses its closing ``]``** — selecting a cell in the
+  rightmost column (``Category``) draws ``[Electronics`` with no closing bracket,
+  because the clip that now protects the border swallows it.
+- [x] **tabbed_panel** welcome pane overlaps its left/right border (only that
   pane); **radio_demo** "Shipping method" radiogroup intersects the right frame
-  border.
+  border. Both verified fixed 2026-10-06 at 100x40 and 80x24 (at 80 columns the
+  longest radio label clips inside its frame as auto-fit shrinks it).
+- [ ] **tabbed_panel pane padding is inconsistent** — panes that mix text and a
+  button (the welcome pane) get 0 padding while the others get 1, and inner
+  frames sit flush against the panel border.
 - [ ] **status_indicator** — add a blinking state / blink-after-change option.
 
 ### Viewport / scrolling UX
@@ -380,9 +394,17 @@ those same fields.
 - [ ] **Auto-scroll to new content.** ``listview_demo`` add works but the new row
   lands below the fold; ``logview_demo`` streaming log should scroll to bottom
   (or expose an option). ``textarea_demo`` should reveal the end of long lines.
-- [ ] **listview / logview demo layout** — rightmost list / buttons overflow the
-  panel to the right.
-- [~] **code_editor_demo** — buttons don't fit and the editor escapes the frame.
+- [x] **listview / logview demo layout** — rightmost list / buttons overflow the
+  panel to the right. Verified fixed 2026-10-06 at 100x40 and 80x24.
+- [ ] **logview soft-wrap width does not follow auto-fit shrink** — at 80
+  columns the long-lines pane still wraps at its 100-column width and then
+  clips, and the "ANSI Passthrough" frame title is dropped entirely.
+- [ ] **listview divider runs into the scrollbar column** at 80 columns (the
+  "Tasks (Dividers)" pane's rule extends right up to the scrollbar track).
+- [x] **code_editor_demo** — buttons don't fit and the editor escapes the frame.
+  Layout verified fixed 2026-10-06; the status line that broke onto a second
+  row after ``Theme: monokai`` (a newline in the template source) and the fixed
+  ``height=35`` frame were fixed in the demo.
   The Tab half of this item shipped in 0.1.0: ``captures_tab`` gives a focused
   element first refusal on Tab, ``CodeEditor`` defaults to capturing it and
   ``TextArea`` opts in with ``capture_tab=True``. The ``Ctrl+Tab`` escape hatch
@@ -396,11 +418,14 @@ those same fields.
   grid in as-is would make Tab *and* Shift+Tab dead keys inside it. Fix the
   edge returns (return ``False`` at the last/first cell so focus moves on),
   then set ``captures_tab``.
-- [ ] **event_patterns_demo button row off-screen** — the fixed ``height=36``
+- [x] **event_patterns_demo button row off-screen** — the fixed ``height=36``
   frame holds two tall side panels plus a 26-row log, pushing the action-button
   row (``Go to View 2`` … ``Quit``) to ~row 50, below the viewport. Keys all
   work; the buttons are simply laid out past the visible area. Needs the frame
   content to fit (or scroll) the viewport — a demo-layout + overflow concern.
+  Fixed 2026-10-06 in the demo: the frames are ``fill``-sized, the two help
+  panels merged into one scrollable frame, and the whole UI (buttons included)
+  fits at 80x24, 100x30 and 120x40.
 
 ### Platform-specific (Windows, real-terminal only)
 
@@ -408,9 +433,12 @@ those same fields.
   ``[R][S][H][Q]`` combos likely aren't synthesized by the Windows ESC-timeout
   lookahead in ``terminal/input.py``. Needs a real-console repro; may be a
   prompt_toolkit/Win32 limitation to document rather than patch.
-- [ ] **spinner_demo on scroll** — trailing ``.`` of the ellipsis ghosts in its
+- [~] **spinner_demo on scroll** — trailing ``.`` of the ellipsis ghosts in its
   column; the emoji clock frame ("Working with clock..k") is sized with
-  ``len()``. Ties into the wide-character correctness item above.
+  ``len()``. Ties into the wide-character correctness item above. The ``len()``
+  half is verified fixed 2026-10-06 (``Spinner`` sizes and offsets its label by
+  ``visible_length``); the ellipsis ghosting is a real-terminal scroll artifact
+  and is still open.
 - [~] **``autocomplete_demo`` — typing is reported as broken once the suggestion
   popup opens.** Reported 2026-07-24. Half of this is now answered. The
   "popup never opens under the harness" mystery was mundane: ``CompleterConfig``
@@ -456,11 +484,21 @@ diff SGR, once-per-frame size sampling, SplitPanel clamp+weakref).
   ``input.py``). SGR is the default and works; the legacy path needs bypassing
   prompt_toolkit's UTF-8 decode. Architectural, low value — migrated from
   ``RELEASE_PLAN`` Part 2a.
-- [ ] **Mixed ``%`` + ``fill`` siblings mis-account space** (SUSPECTED — could not
+- [x] **Mixed ``%`` + ``fill`` siblings mis-account space** (SUSPECTED — could not
   reproduce; **write a test first**). ``VStack.assign_bounds`` reserves a
   percentage child's *intrinsic* height alongside fixed children but the per-child
   loop assigns ``int(content_height * pct)`` and advances by that larger value
   (``engine.py:540-549, 586-587, 632``). Likely needs a taller element to surface.
+  **Closed as not-a-bug 2026-10-06.** A sweep of ~5,800 layout configurations
+  (fixed + ``%`` + ``fill`` mixes, H=1..60, spacing 0-2, padding 0-1) found no
+  overlap or underfill except where the container was genuinely too small (the
+  documented shrink-to-fit behavior). The mechanism described no longer exists:
+  since commit ``3f29e3c`` both passes size a child through
+  ``_requested_height``, so the reserved and assigned heights agree.
+- [ ] **Document that ``"100%"`` means ``"fill"``.** ``Size.is_fill`` is true for
+  ``"100%"`` as well as ``"fill"``, so the two behave identically (a ``100%``
+  child shares leftover space with ``fill`` siblings rather than taking the whole
+  parent). Document it in the sizing guide rather than change it.
 
 - [ ] **``RUN_SYNC_IN_EXECUTOR`` silently does not apply to action handlers.**
   ``HandlerRegistry.dispatch_async`` honours the executor, so a blocking
@@ -521,6 +559,13 @@ release-blocking — pull forward opportunistically.
   base UI. (``set_focus_filter(None)`` being a no-op that contradicted its
   docstring was fixed 2026-08-01 — it now rebuilds the cycle from
   ``all_focusable``.)
+- [ ] **``action=`` wiring overwrites a Python callback on the same slot.** When
+  a template gives an element ``action=``, the wiring replaces whatever callback
+  the app set on that element's slot rather than chaining it. Uniform across all
+  elements, so it is a 0.2.0 design discussion: chain the user callback, or
+  preserve it and skip the wiring.
+- [ ] **``Select`` and ``Slider`` never dispatch ``action``.** Both accept the
+  attribute but nothing ever fires it. Small feature.
 - [~] **A template with two top-level sibling elements silently drops all but
   the first.** ``{% textinput id="a" %}{% textinput id="b" %}`` at the root of a
   template renders only ``a`` — ``RenderContext.add_vnode`` has nowhere to put
@@ -765,28 +810,38 @@ it is not restated here.
   (``input.py:552-578`` sync, ``815-841`` async). Overlaps Group G below.
 - [ ] **SIGWINCH-driven resize** — no handler today; resize is polled once per
   frame, so an idle app can take up to the 0.5s input timeout to reflect one.
-- [ ] **Mixed ``%`` + ``fill`` siblings** (SUSPECTED, never reproduced).
+- [x] **Mixed ``%`` + ``fill`` siblings** (SUSPECTED, never reproduced).
   **Write the test first**; fix only if it reproduces, otherwise close it as
-  not-a-bug so it stops occupying the backlog.
+  not-a-bug so it stops occupying the backlog. Closed as not-a-bug 2026-10-06
+  (~5,800-configuration sweep, no repro; see the backlog entry above).
 
 ### E. Cosmetic / demo polish — the cuttable tail
 
 Batch these; none individually justify a release slip. **Cut this workstream
 before cutting anything in A–C.**
 
-- [ ] Modal severity colouring (``alert_dialog_demo`` / ``dialog_showcase``).
-- [ ] ``centered_dialog`` is not vertically centred as claimed.
-- [ ] ``datagrid`` selection indicator overdraws the right border; ``grid``
-  rowspan/colspan cells render without borders.
-- [ ] ``tabbed_panel`` welcome pane overlaps its left/right border;
+- [x] Modal severity colouring (``alert_dialog_demo`` / ``dialog_showcase``).
+  Verified fixed 2026-10-06 (resolved 2026-07-24).
+- [x] ``centered_dialog`` is not vertically centred as claimed. Verified fixed
+  2026-10-06.
+- [~] ``datagrid`` selection indicator overdraws the right border; ``grid``
+  rowspan/colspan cells render without borders. Datagrid half verified fixed
+  2026-10-06 (leftover: the last column's closing ``]`` is clipped); grid half
+  open.
+- [x] ``tabbed_panel`` welcome pane overlaps its left/right border;
   ``radio_demo`` "Shipping method" group intersects the right frame border.
+  Verified fixed 2026-10-06.
 - [ ] ``status_indicator`` blinking / blink-after-change option.
-- [ ] ``listview`` / ``logview`` demo layout overflow to the right.
-- [ ] ``code_editor_demo`` layout (buttons don't fit, editor escapes the frame).
-- [ ] ``event_patterns_demo`` button row laid out below the viewport.
+- [x] ``listview`` / ``logview`` demo layout overflow to the right. Verified
+  fixed 2026-10-06.
+- [x] ``code_editor_demo`` layout (buttons don't fit, editor escapes the frame).
+  Verified fixed 2026-10-06 (split status line fixed in the demo).
+- [x] ``event_patterns_demo`` button row laid out below the viewport. Fixed
+  2026-10-06 in the demo.
 - [ ] ``autocomplete`` language toggle leaves the old caret un-erased.
-- [ ] ``spinner_demo`` ellipsis ghosting + emoji clock frame sized with ``len()``
-  (ties into the wide-character work).
+- [~] ``spinner_demo`` ellipsis ghosting + emoji clock frame sized with ``len()``
+  (ties into the wide-character work). The ``len()`` half verified fixed
+  2026-10-06; ellipsis ghosting still open.
 - [ ] ``autocomplete_demo`` — decide whether it should default to
   ``trigger="auto"`` so it demonstrates what its name promises.
 
