@@ -263,25 +263,39 @@ class ImageView(Element):
         if self.src is None:
             return None
 
+        image: Any = None
         try:
             if hasattr(self.src, "copy") and hasattr(self.src, "convert"):
                 # It's a PIL Image
-                self._cached_image = self.src.copy()
+                image = self.src.copy()
             elif isinstance(self.src, bytes):
-                self._cached_image = Image.open(BytesIO(self.src))
+                image = Image.open(BytesIO(self.src))
             elif isinstance(self.src, (str, os.PathLike)):
-                self._cached_image = Image.open(self.src)
+                image = Image.open(self.src)
             else:
                 logger.warning(f"Unsupported image source type: {type(self.src)}")
                 return None
 
+            # Image.open is lazy: it reads only the header, so a truncated or
+            # corrupt file would pass here and fail later, in the render
+            # path's convert(), on every frame. Decode now, inside the guard.
+            image.load()
+            self._cached_image = image
             return self._cached_image
 
         except FileNotFoundError:
             logger.warning(f"Image file not found: {self.src}")
+            self._cached_image = None
             return None
         except Exception as e:
             logger.warning(f"Failed to load image: {e}")
+            self._cached_image = None
+            # Release the file handle a lazily opened image still holds.
+            if image is not None and image is not self.src:
+                try:
+                    image.close()
+                except Exception:
+                    pass
             return None
 
     def _parse_size_spec(self, spec: int | str | None, available: int) -> int | None:
