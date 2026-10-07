@@ -1850,6 +1850,45 @@ class GridSpanWrapper(LayoutNode):
         """
         return self.child.collect_elements()
 
+    @property
+    def children(self) -> list[LayoutNode]:
+        """The wrapped child as a one-item list.
+
+        Lets generic tree walks that look for a ``children`` attribute (the
+        tabbed panel and pager focus/element collectors) descend into a span
+        cell the same way they descend into a container.
+
+        Returns
+        -------
+        list of LayoutNode
+            ``[self.child]``
+        """
+        return [self.child]
+
+
+def layout_children(node: LayoutNode) -> list[LayoutNode]:
+    """Return the layout nodes directly beneath ``node``.
+
+    Parameters
+    ----------
+    node : LayoutNode
+        Any layout node.
+
+    Returns
+    -------
+    list of LayoutNode
+        A plain container's ``children``; the single wrapped child of a
+        :class:`GridSpanWrapper` (a colspan/rowspan cell, which is not a
+        ``Container``); an empty list for leaves. A :class:`FrameNode`'s
+        interior lives in its ``content_container`` and is not included -
+        walks that cross frames handle them explicitly.
+    """
+    if isinstance(node, GridSpanWrapper):
+        return [node.child]
+    if isinstance(node, Container):
+        return list(node.children)
+    return []
+
 
 class Grid(Container):
     """Grid container for 2D layouts.
@@ -2602,10 +2641,9 @@ class FrameNode(Container):
                     max_bottom = max(max_bottom, node_bottom)
 
                 # Recursively check children if this is a container
-                if isinstance(node, Container):
-                    for child in node.children:
-                        child_bottom = find_max_bottom(child, base_y)
-                        max_bottom = max(max_bottom, child_bottom)
+                for child in layout_children(node):
+                    child_bottom = find_max_bottom(child, base_y)
+                    max_bottom = max(max_bottom, child_bottom)
 
                 return max_bottom
 
@@ -2762,11 +2800,11 @@ class FrameNode(Container):
         node : LayoutNode
             Subtree to scan (typically this frame's content container).
         """
-        for child in getattr(node, "children", []):
+        for child in layout_children(node):
             if isinstance(child, FrameNode):
                 child.frame.parent_frame = self.frame
                 # Do not descend: child's interior links to child.frame.
-            elif isinstance(child, Container):
+            else:
                 self._link_child_frames(child)
 
 
