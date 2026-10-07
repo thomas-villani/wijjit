@@ -46,5 +46,5 @@ jobs:
         # -W turns warnings into errors, matching `fail_on_warning: true` in
         # .readthedocs.yaml so a build that passes here passes there too.
         run: |
-          uv sync --extra dev
+          uv sync --locked --extra dev
           uv run sphinx-build -b html -W docs/source docs/build/html
