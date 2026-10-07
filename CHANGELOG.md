@@ -69,6 +69,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bounded so constantly changing content cannot grow the cache. Scrolling a
   full-screen (120x50) Markdown document costs about 40% less per frame
   (6.4 ms to 3.9 ms, measured through the harness).
+- **`batch_update()` delivers its queued notifications even when the block
+  raises.** Writes inside a batch are applied as they happen and are not
+  rolled back, but a block that raised used to discard their notifications,
+  so watchers, `on_change` callbacks and the screen kept showing old values.
+  Both `batch_update()` and `async_batch_update()` now deliver the queued
+  changes on exit either way, and the exception still propagates, the rule
+  `mutate()` already followed; a `mutate()` inside a raising batch no longer
+  loses its notification either. Code that wants all-or-nothing should
+  compute the new values first and assign them once nothing else can fail.
 
 ### Fixed
 - **Six tags built their element without its `id`.** `{% table %}`, `{% tree %}`,
@@ -170,6 +179,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and then failed to decode during rendering, on every frame. The image is
   now decoded when it is loaded, and on failure the "No image" placeholder is
   shown.
+- **Nested `batch_update()` no longer breaks the outer batch.** An inner
+  batch emptied the outer one's queue, so the outer batch's earlier writes
+  were never notified, and its exit turned batching off, so the outer batch's
+  later writes fired one at a time. Inner batches, sync or async, now join the
+  enclosing one, and everything is delivered once when the outermost exits.
+- **One raising key handler no longer stops the others.** If an
+  `@app.on_key` (or `app.on(...)`) handler raised, the lower-priority handlers
+  for that key were skipped, the key never reached the focused element, and
+  three presses of the broken key shut the app down as "too many consecutive
+  errors". Each handler now runs on its own: a failure is reported through
+  the app's error handling, as `@app.on_action` failures are (and recorded in
+  the harness's `h.errors`), and dispatch carries on. A handler that cancels
+  the event still stops the ones after it.
+- **A tooltip no longer swallows clicks meant for the UI beneath it.** Any
+  overlay under the pointer consumed every mouse event, so a button covered
+  by `app.show_tooltip(...)` could not be clicked. Tooltips now let events
+  they do not handle pass through. Modals, dropdowns and notifications (which
+  share the tooltip layer but are clickable) still take every click over
+  them; `OverlayManager.push()` takes a new `mouse_passthrough` argument to
+  choose explicitly.
+- **`unregister_key()` removes every handler bound to the key.** With two
+  `@app.on_key("y")` handlers, it removed only the last one registered; the
+  first kept firing and no API could remove it.
 
 ## [0.1.1] - 2026-08-03
 
