@@ -7,6 +7,8 @@ This module tests the layout calculation system including:
 - Various sizing modes (fixed, fill, percentage, auto)
 """
 
+import pytest
+
 from wijjit.elements.base import Element
 from wijjit.layout.bounds import Bounds
 from wijjit.layout.engine import (
@@ -1289,11 +1291,10 @@ class TestHStackFlexbox:
         hstack.calculate_constraints()
         hstack.assign_bounds(0, 0, 50, 10)
 
-        # 50 - 20 = 30 free, 4 half-gaps (2 per child)
-        # Each half-gap = 30/4 = 7 (remainder 2 distributed to first gaps)
-        # Half-gaps: [8, 8, 7, 7]
-        # child1.x = 8 (first half-gap)
-        # child2.x = 8 + 10 + 8 + 7 = 33 (gap before + child + gap after + gap before next)
+        # 50 - 20 = 30 free. Ideal: 7.5 at each edge, 15 between, so the
+        # free space before child i is 30 * (2i + 1) / 4 = 7.5, 22.5, each
+        # rounded to the nearest cell (halves up): 8 and 23.
+        # child1.x = 8; child2.x = 10 (packed) + 23 = 33; trailing edge 7
         assert child1.bounds.x == 8
         assert child2.bounds.x == 33
 
@@ -1323,6 +1324,69 @@ class TestHStackFlexbox:
         # Free space: 55 - 25 = 30, offset = 15
         assert child1.bounds.x == 15
         assert child2.bounds.x == 30  # 15 + 10 + 5
+
+    @pytest.mark.parametrize(
+        ("justify", "child_widths", "width", "column_gap", "expected_x"),
+        [
+            # 2 x 4 in 11: 3 free. Was leading 1 / between 2 / trailing 0.
+            ("space-around", [4, 4], 11, 0, [1, 6]),
+            # 3 x 2 in 10: 4 free, ideal 0.67 / 1.33 / 1.33 / 0.67
+            ("space-around", [2, 2, 2], 10, 0, [1, 4, 7]),
+            # column_gap stays on top of the distributed space
+            ("space-around", [4, 4], 12, 1, [1, 7]),
+            # 2 x 4 in 10: 2 free over 3 gaps. Was 1 / 1 / 0, now 1 / 0 / 1.
+            ("space-evenly", [4, 4], 10, 0, [1, 5]),
+            ("space-evenly", [2, 2, 2], 11, 0, [1, 5, 8]),
+            # 4 x 2 in 10: 2 free over 3 gaps. Was 1 / 1 / 0, now 1 / 0 / 1.
+            ("space-between", [2, 2, 2, 2], 10, 0, [0, 3, 5, 8]),
+        ],
+    )
+    def test_justify_distributes_remainder_evenly(
+        self, justify, child_widths, width, column_gap, expected_x
+    ):
+        """Leftover cells are spread through the row, not piled at the front."""
+        children = [ElementNode(MockElement(width=w, height=1)) for w in child_widths]
+        hstack = HStack(children=children, justify=justify, column_gap=column_gap)
+
+        hstack.calculate_constraints()
+        hstack.assign_bounds(0, 0, width, 1)
+
+        assert [c.bounds.x for c in children] == expected_x
+
+    @pytest.mark.parametrize(
+        "justify", ["space-around", "space-evenly", "space-between"]
+    )
+    def test_justify_places_each_child_within_half_a_cell(self, justify):
+        """Every child lands within half a cell of its ideal position, and
+        the layout is mirror-symmetric unless a share is an exact half."""
+        from fractions import Fraction
+
+        for n in range(1, 6):
+            for free in range(0, 25):
+                children = [
+                    ElementNode(MockElement(width=3, height=1)) for _ in range(n)
+                ]
+                hstack = HStack(children=children, justify=justify)
+                hstack.calculate_constraints()
+                hstack.assign_bounds(0, 0, 3 * n + free, 1)
+                offsets = [c.bounds.x - 3 * i for i, c in enumerate(children)]
+
+                if justify == "space-around":
+                    ideal = [Fraction(free * (2 * i + 1), 2 * n) for i in range(n)]
+                elif justify == "space-evenly":
+                    ideal = [Fraction(free * (i + 1), n + 1) for i in range(n)]
+                elif n == 1:
+                    ideal = [Fraction(0)]
+                else:
+                    ideal = [Fraction(free * i, n - 1) for i in range(n)]
+
+                for got, want in zip(offsets, ideal, strict=True):
+                    assert abs(got - want) <= Fraction(1, 2), (n, free, offsets)
+                lone = justify == "space-between" and n == 1
+                if not lone and not any(w.denominator == 2 for w in ideal):
+                    # free space before child i == free space after child n-1-i
+                    after = [free - o for o in offsets]
+                    assert offsets == after[::-1], (n, free, offsets)
 
     # === Wrap Tests ===
 

@@ -196,8 +196,7 @@ def _distribute_fill(total: int, count: int) -> list[int]:
     ``fill`` distribution used to be ``total // count`` for every child, which
     discards the remainder, so ``count`` fill children under-filled their
     container by up to ``count - 1`` cells. Spread the leftover onto the leading
-    children so every available cell is consumed - the same thing
-    ``HStack._distribute_space`` already does for justify gaps.
+    children so every available cell is consumed.
 
     Parameters
     ----------
@@ -1101,24 +1100,45 @@ class HStack(Container):
         self.column_gap = column_gap if column_gap is not None else spacing
         self.row_gap = row_gap if row_gap is not None else 0
 
-    def _distribute_space(self, total_space: int, num_gaps: int) -> list[int]:
-        """Distribute space into gaps, handling integer remainders.
+    def _justify_offsets(self, free_space: int, num_children: int) -> list[int]:
+        """Free space before each child for the distributed justify modes.
 
-        Remainders are distributed to earlier gaps to avoid visible unevenness.
+        The ideal share before child ``i`` (0-based, ``n`` children, ``F``
+        free cells) is:
+
+        - ``space-between``: ``F * i / (n - 1)`` (a lone child sits at the
+          start);
+        - ``space-around``: ``F * (2i + 1) / (2n)``, so the edges get half
+          the space between children;
+        - ``space-evenly``: ``F * (i + 1) / (n + 1)``.
+
+        Each share is rounded to the nearest cell (halves round up) in exact
+        integer arithmetic. Because the ideal shares are mirror images
+        (``share(i) + share(n - 1 - i) == F``), the rounded layout is
+        symmetric except where a share lands exactly on a half cell.
 
         Parameters
         ----------
-        total_space : int
-            Total space to distribute
-        num_gaps : int
-            Number of gaps to distribute into
+        free_space : int
+            Cells left over after the children and column gaps.
+        num_children : int
+            Number of children in the row.
 
         Returns
         -------
         list of int
-            List of gap sizes
+            Non-decreasing offsets, one per child, each in ``[0, free_space]``.
         """
-        return _distribute_fill(total_space, num_gaps)
+        n = num_children
+        if self.justify == "space-between":
+            if n == 1:
+                return [0]
+            fractions = [(i, n - 1) for i in range(n)]
+        elif self.justify == "space-around":
+            fractions = [(2 * i + 1, 2 * n) for i in range(n)]
+        else:  # space-evenly
+            fractions = [(i + 1, n + 1) for i in range(n)]
+        return [(2 * free_space * num + den) // (2 * den) for num, den in fractions]
 
     def _get_child_width(
         self, child: LayoutNode, content_width: int, fill_width_each: int = 0
@@ -1296,56 +1316,19 @@ class HStack(Container):
         positions: list[tuple[int, LayoutNode]] = []
         current_x = x_start
 
-        if self.justify == "space-between":
-            # First at start, last at end, equal space between
-            if num_children == 1:
-                positions.append((x_start, children[0]))
-            else:
-                gaps = self._distribute_space(free_space, num_children - 1)
-                for i, (child, child_width) in enumerate(
-                    zip(children, widths, strict=True)
-                ):
-                    positions.append((current_x, child))
-                    extra_gap = gaps[i] if i < len(gaps) else 0
-                    current_x += child_width + self.column_gap + extra_gap
-
-        elif self.justify == "space-around":
-            # Equal space around each item (half space at edges)
-            # Each item gets equal space around it
-            # Total gaps = 2 * num_children (one before and one after each)
-            # Edge gaps are half of inter-item gaps
-            total_half_gaps = num_children * 2
-            half_gap_sizes = self._distribute_space(free_space, total_half_gaps)
-            # First edge gap
-            current_x = x_start + half_gap_sizes[0] if half_gap_sizes else x_start
-            for i, (child, child_width) in enumerate(
-                zip(children, widths, strict=True)
+        if self.justify in ("space-between", "space-around", "space-evenly"):
+            # Distributed layouts: child i sits at its packed position plus
+            # the free space that falls before it. That share is computed per
+            # child from the exact fraction and rounded independently
+            # (cumulative rounding), so every child is within half a cell of
+            # its ideal spot and the leftover cells are spread through the row
+            # instead of piling up at the leading edge.
+            offsets = self._justify_offsets(free_space, num_children)
+            for child, child_width, offset in zip(
+                children, widths, offsets, strict=True
             ):
-                positions.append((current_x, child))
-                # After each child: half_gap[2*i+1] + column_gap + half_gap[2*i+2]
-                after_idx = 2 * i + 1
-                before_next_idx = 2 * i + 2
-                after_gap = (
-                    half_gap_sizes[after_idx] if after_idx < len(half_gap_sizes) else 0
-                )
-                before_next = (
-                    half_gap_sizes[before_next_idx]
-                    if before_next_idx < len(half_gap_sizes)
-                    else 0
-                )
-                current_x += child_width + self.column_gap + after_gap + before_next
-
-        elif self.justify == "space-evenly":
-            # Equal space between all items including edges
-            num_gaps = num_children + 1
-            gaps = self._distribute_space(free_space, num_gaps)
-            current_x = x_start + (gaps[0] if gaps else 0)
-            for i, (child, child_width) in enumerate(
-                zip(children, widths, strict=True)
-            ):
-                positions.append((current_x, child))
-                extra_gap = gaps[i + 1] if i + 1 < len(gaps) else 0
-                current_x += child_width + self.column_gap + extra_gap
+                positions.append((current_x + offset, child))
+                current_x += child_width + self.column_gap
 
         else:
             # Packed layouts ("flex-start", "flex-end", "center", and any
