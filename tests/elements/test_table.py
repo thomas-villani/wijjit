@@ -573,3 +573,87 @@ class TestScrollbarFocusColor:
             "scrollbar thumb color did not change on focus: "
             f"{unfocused_thumb.fg_color} -> {focused_thumb.fg_color}"
         )
+
+
+class TestTableSortOrder:
+    """Sorting columns with None, missing keys, and mixed types.
+
+    The old sort fell back to ``str()`` for the whole column on the first
+    TypeError, so one None or one "n/a" turned numeric order into string
+    order ([10, 100, 2, 9, None]).
+    """
+
+    @staticmethod
+    def _sorted_values(rows, column="v", clicks=1):
+        table = Table(data=rows, columns=["id", column], sortable=True)
+        for _ in range(clicks):
+            table.sort_by_column(column)
+        return [row.get(column, "<missing>") for row in table.data]
+
+    def test_ints_with_none_sort_numerically_none_last(self):
+        rows = [{"v": v} for v in [10, None, 2, 100, 9]]
+        assert self._sorted_values(rows) == [2, 9, 10, 100, None]
+        assert self._sorted_values(rows, clicks=2) == [100, 10, 9, 2, None]
+
+    def test_missing_key_sorts_last_both_directions(self):
+        rows = [{"v": 10}, {"id": 1}, {"v": 2}, {"v": 9}]
+        assert self._sorted_values(rows) == [2, 9, 10, "<missing>"]
+        assert self._sorted_values(rows, clicks=2) == [10, 9, 2, "<missing>"]
+
+    def test_numbers_before_strings_each_group_ordered(self):
+        rows = [{"v": v} for v in [10, "n/a", 2, "abc", 9]]
+        assert self._sorted_values(rows) == [2, 9, 10, "abc", "n/a"]
+        # Descending is the mirror image: strings first.
+        assert self._sorted_values(rows, clicks=2) == ["n/a", "abc", 10, 9, 2]
+
+    def test_mixed_types_with_none_keep_none_last_descending(self):
+        rows = [{"v": v} for v in [None, 1, "a", 3]]
+        assert self._sorted_values(rows) == [1, 3, "a", None]
+        assert self._sorted_values(rows, clicks=2) == ["a", 3, 1, None]
+
+    def test_numeric_looking_strings_stay_strings(self):
+        rows = [{"v": v} for v in ["10", 3, "2"]]
+        assert self._sorted_values(rows) == [3, "10", "2"]
+
+    def test_bool_int_float_share_one_rank(self):
+        rows = [{"v": v} for v in [2.5, True, 0, 1.5, None]]
+        assert self._sorted_values(rows) == [0, True, 1.5, 2.5, None]
+
+    def test_nan_sorts_like_none(self):
+        rows = [{"v": v} for v in [3.0, float("nan"), 1.0]]
+        values = self._sorted_values(rows)
+        assert values[:2] == [1.0, 3.0]
+        assert values[2] != values[2]  # NaN
+
+    def test_other_types_sorted_after_strings(self):
+        import datetime as dt
+
+        d1, d2 = dt.date(2024, 1, 2), dt.date(2023, 5, 6)
+        rows = [{"v": v} for v in [d1, "x", 1, d2, None]]
+        assert self._sorted_values(rows) == [1, "x", d2, d1, None]
+
+    def test_ties_keep_original_order_regardless_of_history(self):
+        rows = [
+            {"id": "a", "v": 1, "w": 3},
+            {"id": "b", "v": 0, "w": 2},
+            {"id": "c", "v": 1, "w": 1},
+            {"id": "d", "v": 0, "w": 0},
+        ]
+        table = Table(data=rows, columns=["id", "v", "w"], sortable=True)
+        table.sort_by_column("w")  # shuffle the working copy first
+        table.sort_by_column("v")
+        assert [r["id"] for r in table.data] == ["b", "d", "a", "c"]
+        table.sort_by_column("v")  # descending: ties still in original order
+        assert [r["id"] for r in table.data] == ["a", "c", "b", "d"]
+
+    def test_reassigning_data_resorts_from_new_raw_rows(self):
+        table = Table(data=[{"v": 2}, {"v": 1}], columns=["v"], sortable=True)
+        table.sort_by_column("v")
+        table.data = [{"v": None}, {"v": 3}, {"v": 1}]
+        assert [r["v"] for r in table.data] == [1, 3, None]
+
+    def test_sort_does_not_mutate_raw_data(self):
+        rows = [{"v": 3}, {"v": 1}, {"v": 2}]
+        table = Table(data=rows, columns=["v"], sortable=True)
+        table.sort_by_column("v")
+        assert [r["v"] for r in rows] == [3, 1, 2]
