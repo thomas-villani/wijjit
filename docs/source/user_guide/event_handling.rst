@@ -212,6 +212,6 @@ Best practices
 * Prefer specific scopes. Global handlers are powerful but can cause conflicts as your app grows.
 * Use actions for semantic events (“save”, “submit”) and key handlers for physical keystrokes. That way you can trigger the same action from buttons, menus, or keyboard shortcuts without duplicating code.
 * Cancel events when you consume them to prevent downstream handlers from running unnecessarily.
-* Remove long-lived handlers you register manually when they’re no longer needed to avoid memory leaks — ``app.unregister_key(key)`` removes a handler bound via ``@app.on_key``, and ``handler_registry.unregister`` covers the general case.
+* Remove long-lived handlers you register manually when they’re no longer needed to avoid memory leaks — ``app.unregister_key(key)`` removes every handler bound to that key via ``@app.on_key``, and ``handler_registry.unregister`` removes a single ``Handler`` (the object ``handler_registry.register`` returns) in the general case.
 
 Next, read :doc:`layout_system` and :doc:`components` to see how these events translate into UI building blocks.

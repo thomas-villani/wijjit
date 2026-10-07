@@ -443,9 +443,10 @@ class Wijjit:
         # Action handlers
         self._action_handlers: dict[str, Callable] = {}
 
-        # Key handlers - track registered handler objects for potential unregistration
+        # Key handlers - track every registered handler object per (lowercased)
+        # key so unregister_key() can remove all of them, not just the last.
         # Note: on_key is now sugar over the event system (see on_key method)
-        self._key_handler_registrations: dict[str, Handler] = {}
+        self._key_handler_registrations: dict[str, list[Handler]] = {}
 
         # Auto-refresh for animations (from config)
         self.refresh_interval: float | None = self.config["REFRESH_INTERVAL"]
@@ -993,24 +994,34 @@ class Wijjit:
             )
 
             # Track registration for unregister_key() support
-            self._key_handler_registrations[key_lower] = handler
+            self._key_handler_registrations.setdefault(key_lower, []).append(handler)
 
             return func
 
         return decorator
 
     def unregister_key(self, key: str) -> bool:
-        """Unregister a key handler.
+        """Unregister every handler bound to a key with :meth:`on_key`.
 
         Parameters
         ----------
         key : str
-            Key combination to unregister (e.g., 'ctrl+s', 'f1')
+            Key combination to unregister (e.g., 'ctrl+s', 'f1'). Matched
+            case-insensitively, like :meth:`on_key`.
 
         Returns
         -------
         bool
-            True if handler was found and removed, False otherwise
+            True if at least one handler was found and removed, False
+            otherwise
+
+        Notes
+        -----
+        When several ``@app.on_key`` handlers share a key, all of them are
+        removed. To manage handlers one at a time, register them with
+        ``app.handler_registry.register(...)``, which returns the
+        :class:`~wijjit.core.events.Handler` to pass to
+        ``app.handler_registry.unregister``.
 
         Examples
         --------
@@ -1020,12 +1031,10 @@ class Wijjit:
         >>> app.unregister_key("ctrl+s")  # Returns True
         True
         """
-        key_lower = key.lower()
-        if key_lower in self._key_handler_registrations:
-            handler = self._key_handler_registrations.pop(key_lower)
+        handlers = self._key_handler_registrations.pop(key.lower(), [])
+        for handler in handlers:
             self.handler_registry.unregister(handler)
-            return True
-        return False
+        return bool(handlers)
 
     def get_element_by_id(self, element_id: str) -> "Element | None":
         """Find a rendered element by its ``id``.
