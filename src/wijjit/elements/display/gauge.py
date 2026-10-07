@@ -154,7 +154,11 @@ class Gauge(Element):
         elif style == "arc":
             self.height = 5
         else:
-            self.height = 3 if label else 2
+            # Linear: one row each for the label, the bar, the tick marks and
+            # the min/max labels that are shown. Never shorter than the
+            # historical 3 (labeled) / 2 (unlabeled) rows.
+            rows = (1 if label else 0) + 1 + int(show_ticks) + int(show_minmax)
+            self.height = max(rows, 3 if label else 2)
 
         # Template metadata
         self.action: str | None = None
@@ -247,10 +251,16 @@ class Gauge(Element):
 
         current_y = 0
 
-        # Render label if present
+        # Render label if present. Every row below is skipped once it falls
+        # outside the available height, so a short explicit height clips the
+        # gauge instead of painting over whatever sits below it.
         if self.label:
-            ctx.write_text(0, current_y, self.label, label_style)
+            if current_y < avail_height:
+                ctx.write_text(0, current_y, self.label, label_style)
             current_y += 1
+
+        if current_y >= avail_height:
+            return
 
         # Calculate bar dimensions
         bar_width = avail_width
@@ -291,7 +301,7 @@ class Gauge(Element):
         current_y += 1
 
         # Render ticks
-        if self.show_ticks:
+        if self.show_ticks and current_y < avail_height:
             tick_attrs = base_style.to_cell_attrs()
             for x in range(0, bar_width + 1, bar_width // 4 if bar_width >= 4 else 1):
                 if x < bar_width:
@@ -299,7 +309,7 @@ class Gauge(Element):
             current_y += 1
 
         # Render min/max labels
-        if self.show_minmax:
+        if self.show_minmax and current_y < avail_height:
             min_text = f"{self.min_value:.0f}"
             max_text = f"{self.max_value:.0f}"
 
