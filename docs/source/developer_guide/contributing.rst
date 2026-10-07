@@ -21,6 +21,11 @@ Environment setup
        source .venv/bin/activate
        pip install -e ".[dev]"
 
+   Prefer ``uv sync``: CI installs from ``uv.lock`` (``uv sync --locked``), so it
+   gives you the exact versions CI tests, while ``pip`` resolves the newest
+   releases. If you change dependencies in ``pyproject.toml``, run ``uv lock``
+   and commit the updated lockfile, or CI fails.
+
 3. Activate your environment before running commands (``source .venv/bin/activate`` or ``uv run <cmd>``).
 
 Day-to-day commands
